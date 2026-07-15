@@ -79,7 +79,7 @@ Project.export_deliverables(out_dir)
 → schedules/ (levels, zone_areas, csi, duct, conduit, column, beam, drawing_list, …)
 → materials/ (fitting/pipe/duct/conduit/cable_tray/steel/rebar/csi takeoffs + trade_schedule)
 → boq.json · clash_report.json · design_rules.json
-→ index.html (CSI/zone/connections/drawing list/rules samples)
+→ index.html (CSI/zone/connections/drawing list/**door schedule**/rules samples)
 → deliverables.zip · MANIFEST.json · VERIFY.json
 ```
 
@@ -101,9 +101,9 @@ Project.export_deliverables(out_dir)
 | Surface | Status |
 |---------|--------|
 | Python SDK `llmbim.Project` | ✅ |
-| CLI `llmbim` | ✅ pack, **schedule** (level/column/beam/duct…), takeoff, place MEP/structure/**wall/door/window**, csi_instances, modules, VCS |
-| Registry ops + `ops.schema.json` | ✅ ~48 tools (wall/door/window + duct/conduit/tray/column/beam) |
-| MCP stdio | ✅ query + takeoff + place MEP/structure/**door/window** + wall FR + schedule + **verify_pack** + pack phases + modules |
+| CLI `llmbim` | ✅ pack, **schedule** (level/column/beam/duct…), takeoff, place MEP/structure/**wall/door/window/room**, csi_instances, modules, VCS |
+| Registry ops + `ops.schema.json` | ✅ ~50 tools (wall/door/window/**create_room** + duct/conduit/tray/column/beam) |
+| MCP stdio | ✅ query + takeoff + place MEP/structure/**door/window** + **room_create** + wall FR + schedule + **verify_pack** + pack phases + modules |
 | Skill `skills/llm-bim/SKILL.md` | ✅ |
 | Templates | ✅ office_bay, warehouse, hot_cell_bay, lab_bench |
 | Cases | ✅ intec, proto10, plumbing_loop, multi_trade, module_machine_host |
