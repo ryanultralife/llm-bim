@@ -1,89 +1,88 @@
 # TEAM STATUS — live coordination board
 
 **Last updated:** 2026-07-15 by Grok  
-**Repo:** `ryanultralife/llm-bim`  
-**Branch policy:** claim → branch `feature/PR-XX-slug` → PR → update this file
+**Tempo:** Grok = fast critical path · Claude = sealed deep packages  
+**See:** `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md`
 
 ---
 
-## Current phase
+## Operating model (asymmetric speed)
 
-**Bootstrap landed → start MVP implementation waves** (see `docs/PR_PLAN.md`)
+| Agent | Does | Does not |
+|-------|------|----------|
+| **Grok** | Kernel, commands, elements, SDK, CI, package *briefs*, keep main green | Wait on Claude; thrash Claude freeze zones |
+| **Claude** | One sealed WP at a time (drawings → IFC) | Micro-tasks; critical-path blockers |
 
-Human directive: *entirely LLM-interfaced software; no frontend with humans drafting.*  
-Grok + Claude work as a team **through this repo** (not chat-only).
+**Main must ship modeling without Claude.** Drawings/IFC raise quality when Claude lands.
 
 ---
 
-## Active claims
+## Sealed work packages (Claude)
 
-| Task | Owner | Branch | Status | Notes |
-|------|-------|--------|--------|-------|
-| PR-00 Bootstrap monorepo + coordination | **Grok** | `main` | `done` | DESIGN, PR plan, packages, smoke tests |
-| PR-01 Core semantic model (harden) | **Grok** | `main` | `done` | ProjectModel + levels + elements + JSON |
-| PR-02 Transaction / command bus | **Grok** | `main` | `in_progress` | commands.py + SDK undo/redo landing now |
-| PR-03 Geometry extrusions + openings | Grok (planned) | — | `queued` | primitives started; openings next |
-| PR-04 Levels, grids polish | **Claude** (suggested) | — | `available` | Levels work; claim grids + richer tests |
-| PR-05 Walls + slabs | Claude (suggested) | — | `available` | Walls bootstrap exists; slabs + full validation needed |
-| PR-06 Doors + windows (hosted) | Claude (suggested) | — | `available` | Depends PR-05 |
-| PR-07 Rooms / spaces | either | — | `queued` | Depends PR-05 |
-| PR-08 Plan / section / elevation drawings | Claude (suggested) | — | `queued` | Depends PR-05+ |
-| PR-09 Schedules | either | — | `queued` | Depends PR-06, PR-07 |
-| PR-10 IFC export | Claude (suggested) | — | `queued` | Depends PR-05+ |
-| PR-11 Python SDK surface | either | — | `queued` | Facade started in packages/sdk |
-| PR-12 MCP server tools | either | — | `queued` | Depends PR-11 |
-| PR-13 CLI | either | — | `queued` | version stub only |
-| PR-14 Golden example building + CI | either | — | `queued` | examples/simple_house.py started |
+| Package | Owner | Branch | Status | Freeze zone |
+|---------|-------|--------|--------|-------------|
+| **WP-DRAWINGS** | — | `feature/wp-drawings` | **ready** — Claude claim this | `packages/drawings/**`, `tests/wp/test_wp_drawings_*` |
+| **WP-IFC** | — | `feature/wp-ifc` | **ready** (after or parallel) | `packages/ifc/**`, `tests/wp/test_wp_ifc_*` |
+| WP-SCHEDULES | — | — | draft | TBD |
 
-### How to claim
+Claude: claim by setting Owner=`Claude`, Status=`claimed`, push branch.  
+Run: `pytest -m wp_drawings` (not in default suite).
 
-Copy a row, set Owner to your agent name, Status to `in_progress`, Branch to your branch name.  
-When done: Status `done`, link PR number.
+---
+
+## Critical path (Grok — do not assign to Claude)
+
+| Task | Owner | Status | Notes |
+|------|-------|--------|-------|
+| PR-00 bootstrap | Grok | done | |
+| PR-01 semantic model | Grok | done | |
+| PR-02 command bus + undo | Grok | done | |
+| Elements: wall/slab/door/window/room/grid | Grok | **done this session** | SDK complete for box building |
+| Geometry helpers (area, offset) | Grok | done | |
+| Seed WP contracts + acceptance tests | Grok | done | stubs raise NotImplemented |
+| MCP server thin tools | Grok | queued next | fast glue |
+| CLI expand | Grok | queued | |
+| CI workflow | Grok | queued | |
+| WP-DRAWINGS review when PR opens | Grok | waiting | patient review OK |
 
 ---
 
 ## Blockers
 
-| ID | Blocker | Owner | Resolution |
-|----|---------|-------|------------|
-| — | None yet | — | — |
+| ID | Blocker | Notes |
+|----|---------|-------|
+| — | none | Project does not block on Claude |
 
 ---
 
 ## Recently landed
 
-| When | What | By | Commit / PR |
-|------|------|----|-------------|
-| 2026-07-15 | PR-00 bootstrap: design, monorepo, Project API, walls+levels, tests | Grok | see main |
+| When | What | By |
+|------|------|-----|
+| 2026-07-15 | Bootstrap, command bus, undo | Grok |
+| 2026-07-15 | Speed protocol + sealed WPs | Grok |
+| 2026-07-15 | Slab/door/window/room/grid + example | Grok |
 
 ---
 
-## Handoff notes (short)
+## Handoffs
 
-### Grok → Claude (2026-07-15, update 2)
+### Grok → Claude
 
-- **Pull `main`.** I aligned `docs/VISION.md` with human constraint: **no drafting UI**.
-  Your earlier VISION draft had web canvas M2 — parked; see note at bottom of VISION.md.
-- Command bus live: `packages/core/llmbim_core/commands.py` + `Project.undo()/redo()`.
-- Do **not** reimplement wall create outside the command bus.
-- **Claim freely:** PR-04 grids, PR-05 slabs, or start PR-08 drawing package stubs with tests.
-- Soft ownership: Claude → **drawings + IFC**; Grok → **core + geometry depth**.
-- Communicate via this file, `notes/handoffs/`, commits, PRs.
+1. Pull `main`.  
+2. Read `notes/handoffs/2026-07-15-claude-brief.md` (full cold start).  
+3. Claim **WP-DRAWINGS** only. Implement until `pytest -m wp_drawings` is green.  
+4. Ignore micro-PR suggestions; one deep PR is the point.  
+5. Grok will keep shipping kernel/MCP/CI without touching your freeze zone.
 
 ### Claude → Grok
 
-_(Claude: write your handoff here when you stop)_
+_(Claude: fill when you stop — include branch, test command output, open questions)_
 
 ---
 
-## Session checklist (both agents)
+## Session checklist
 
-```
-[ ] git pull origin main
-[ ] read TEAM_STATUS.md + docs/DESIGN.md + docs/PR_PLAN.md
-[ ] claim task in TEAM_STATUS.md and commit that claim early
-[ ] implement on feature/PR-XX-*
-[ ] pytest green
-[ ] open PR, update TEAM_STATUS.md
-[ ] write notes/handoffs/ if non-trivial
-```
+**Grok:** pull → implement critical path → leave WP briefs green/default-tests → push → update this file  
+
+**Claude:** pull → claim one WP → freeze zone only → `pytest -m wp_*` → PR → handoff note  

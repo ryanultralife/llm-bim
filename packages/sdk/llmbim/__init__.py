@@ -5,7 +5,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from llmbim_core.commands import AddLevel, CreateWall, DeleteElement, TransactionLog
+from llmbim_core.commands import (
+    AddGrid,
+    AddLevel,
+    CreateRoom,
+    CreateSlab,
+    CreateWall,
+    DeleteElement,
+    PlaceDoor,
+    PlaceWindow,
+    TransactionLog,
+)
 from llmbim_core.model import Element, Level, ProjectModel
 
 __version__ = "0.1.0a0"
@@ -51,6 +61,13 @@ class Project:
         result = self._log.execute(self._model, AddLevel(name=name, elevation_mm=elevation_mm))
         return str(result["result"]["level_id"])
 
+    def add_grid(self, axis: str, positions_mm: list[float], name: str | None = None) -> str:
+        result = self._log.execute(
+            self._model,
+            AddGrid(axis=axis, positions_mm=positions_mm, name=name or ""),
+        )
+        return str(result["result"]["element_id"])
+
     def create_wall(
         self,
         *,
@@ -71,6 +88,82 @@ class Project:
                 height_mm=height_mm,
                 name=name or "",
             ),
+        )
+        return str(result["result"]["element_id"])
+
+    def create_slab(
+        self,
+        *,
+        level: str,
+        polygon: list[tuple[float, float]],
+        thickness_mm: float,
+        name: str | None = None,
+    ) -> str:
+        result = self._log.execute(
+            self._model,
+            CreateSlab(
+                level=level,
+                polygon=polygon,
+                thickness_mm=thickness_mm,
+                name=name or "",
+            ),
+        )
+        return str(result["result"]["element_id"])
+
+    def place_door(
+        self,
+        *,
+        host: str,
+        offset_mm: float,
+        width_mm: float,
+        height_mm: float,
+        name: str | None = None,
+    ) -> str:
+        result = self._log.execute(
+            self._model,
+            PlaceDoor(
+                host=host,
+                offset_mm=offset_mm,
+                width_mm=width_mm,
+                height_mm=height_mm,
+                name=name or "",
+            ),
+        )
+        return str(result["result"]["element_id"])
+
+    def place_window(
+        self,
+        *,
+        host: str,
+        offset_mm: float,
+        width_mm: float,
+        height_mm: float,
+        sill_mm: float,
+        name: str | None = None,
+    ) -> str:
+        result = self._log.execute(
+            self._model,
+            PlaceWindow(
+                host=host,
+                offset_mm=offset_mm,
+                width_mm=width_mm,
+                height_mm=height_mm,
+                sill_mm=sill_mm,
+                name=name or "",
+            ),
+        )
+        return str(result["result"]["element_id"])
+
+    def create_room(
+        self,
+        *,
+        level: str,
+        name: str,
+        boundary: list[tuple[float, float]],
+    ) -> str:
+        result = self._log.execute(
+            self._model,
+            CreateRoom(level=level, name=name, boundary=boundary),
         )
         return str(result["result"]["element_id"])
 

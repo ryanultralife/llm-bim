@@ -142,6 +142,258 @@ class CreateWall(Command):
 
 
 @dataclass
+class CreateSlab(Command):
+    level: str
+    polygon: list[tuple[float, float]]
+    thickness_mm: float
+    name: str = ""
+    op: str = "create_slab"
+    _element_id: str | None = None
+
+    def apply(self, model: ProjectModel) -> dict[str, Any]:
+        from llmbim_geometry.primitives import polygon_area_mm2
+
+        lv = model.get_level(self.level)
+        if len(self.polygon) < 3:
+            raise ValidationError("Slab polygon needs at least 3 points")
+        if self.thickness_mm <= 0:
+            raise ValidationError("thickness_mm must be positive")
+        area = polygon_area_mm2(self.polygon)
+        eid = self._element_id or new_id("slb")
+        el = Element(
+            id=eid,
+            category="slab",
+            name=self.name,
+            level_id=lv.id,
+            params={
+                "polygon_mm": [[float(x), float(y)] for x, y in self.polygon],
+                "thickness_mm": float(self.thickness_mm),
+                "area_mm2": float(area),
+            },
+        )
+        model.add_element(el)
+        self._element_id = el.id
+        return {"element_id": el.id, "category": "slab", "area_mm2": area}
+
+    def invert(self) -> Command:
+        if not self._element_id:
+            raise ValidationError("Cannot invert CreateSlab before apply")
+        return DeleteElement(element_id=self._element_id)
+
+
+@dataclass
+class PlaceDoor(Command):
+    host: str
+    offset_mm: float
+    width_mm: float
+    height_mm: float
+    name: str = ""
+    op: str = "place_door"
+    _element_id: str | None = None
+
+    def apply(self, model: ProjectModel) -> dict[str, Any]:
+        host = model.get_element(self.host)
+        if host.category != "wall":
+            raise ValidationError("Door host must be a wall", host_category=host.category)
+        wall_len = float(host.params.get("length_mm", 0))
+        if self.width_mm <= 0 or self.height_mm <= 0:
+            raise ValidationError("Door width/height must be positive")
+        if self.offset_mm < 0 or self.offset_mm + self.width_mm > wall_len + 1e-6:
+            raise ValidationError(
+                "Door does not fit on host wall",
+                offset_mm=self.offset_mm,
+                width_mm=self.width_mm,
+                wall_length_mm=wall_len,
+            )
+        eid = self._element_id or new_id("dor")
+        el = Element(
+            id=eid,
+            category="door",
+            name=self.name,
+            level_id=host.level_id,
+            host_id=host.id,
+            params={
+                "offset_mm": float(self.offset_mm),
+                "width_mm": float(self.width_mm),
+                "height_mm": float(self.height_mm),
+            },
+        )
+        model.add_element(el)
+        self._element_id = el.id
+        return {"element_id": el.id, "category": "door", "host_id": host.id}
+
+    def invert(self) -> Command:
+        if not self._element_id:
+            raise ValidationError("Cannot invert PlaceDoor before apply")
+        return DeleteElement(element_id=self._element_id)
+
+
+@dataclass
+class PlaceWindow(Command):
+    host: str
+    offset_mm: float
+    width_mm: float
+    height_mm: float
+    sill_mm: float
+    name: str = ""
+    op: str = "place_window"
+    _element_id: str | None = None
+
+    def apply(self, model: ProjectModel) -> dict[str, Any]:
+        host = model.get_element(self.host)
+        if host.category != "wall":
+            raise ValidationError("Window host must be a wall", host_category=host.category)
+        wall_len = float(host.params.get("length_mm", 0))
+        wall_h = float(host.params.get("height_mm", 0))
+        if self.width_mm <= 0 or self.height_mm <= 0:
+            raise ValidationError("Window width/height must be positive")
+        if self.sill_mm < 0:
+            raise ValidationError("sill_mm must be non-negative")
+        if self.sill_mm + self.height_mm > wall_h + 1e-6:
+            raise ValidationError(
+                "Window exceeds wall height",
+                sill_mm=self.sill_mm,
+                height_mm=self.height_mm,
+                wall_height_mm=wall_h,
+            )
+        if self.offset_mm < 0 or self.offset_mm + self.width_mm > wall_len + 1e-6:
+            raise ValidationError(
+                "Window does not fit on host wall",
+                offset_mm=self.offset_mm,
+                width_mm=self.width_mm,
+                wall_length_mm=wall_len,
+            )
+        eid = self._element_id or new_id("wnd")
+        el = Element(
+            id=eid,
+            category="window",
+            name=self.name,
+            level_id=host.level_id,
+            host_id=host.id,
+            params={
+                "offset_mm": float(self.offset_mm),
+                "width_mm": float(self.width_mm),
+                "height_mm": float(self.height_mm),
+                "sill_mm": float(self.sill_mm),
+            },
+        )
+        model.add_element(el)
+        self._element_id = el.id
+        return {"element_id": el.id, "category": "window", "host_id": host.id}
+
+    def invert(self) -> Command:
+        if not self._element_id:
+            raise ValidationError("Cannot invert PlaceWindow before apply")
+        return DeleteElement(element_id=self._element_id)
+
+
+@dataclass
+class CreateRoom(Command):
+    level: str
+    name: str
+    boundary: list[tuple[float, float]]
+    op: str = "create_room"
+    _element_id: str | None = None
+
+    def apply(self, model: ProjectModel) -> dict[str, Any]:
+        from llmbim_geometry.primitives import polygon_area_mm2
+
+        lv = model.get_level(self.level)
+        if len(self.boundary) < 3:
+            raise ValidationError("Room boundary needs at least 3 points")
+        area = polygon_area_mm2(self.boundary)
+        eid = self._element_id or new_id("rom")
+        el = Element(
+            id=eid,
+            category="room",
+            name=self.name,
+            level_id=lv.id,
+            params={
+                "boundary_mm": [[float(x), float(y)] for x, y in self.boundary],
+                "area_mm2": float(area),
+            },
+        )
+        model.add_element(el)
+        self._element_id = el.id
+        return {"element_id": el.id, "category": "room", "area_mm2": area}
+
+    def invert(self) -> Command:
+        if not self._element_id:
+            raise ValidationError("Cannot invert CreateRoom before apply")
+        return DeleteElement(element_id=self._element_id)
+
+
+@dataclass
+class AddGrid(Command):
+    """Orthogonal grid: axis 'U' (lines of constant X) or 'V' (constant Y)."""
+
+    axis: str
+    positions_mm: list[float]
+    name: str = ""
+    op: str = "add_grid"
+    _element_id: str | None = None
+
+    def apply(self, model: ProjectModel) -> dict[str, Any]:
+        axis = self.axis.upper()
+        if axis not in {"U", "V"}:
+            raise ValidationError("Grid axis must be 'U' or 'V'", axis=self.axis)
+        if len(self.positions_mm) < 2:
+            raise ValidationError("Grid needs at least 2 positions")
+        eid = self._element_id or new_id("grd")
+        el = Element(
+            id=eid,
+            category="grid",
+            name=self.name or f"Grid-{axis}",
+            params={
+                "axis": axis,
+                "positions_mm": [float(p) for p in self.positions_mm],
+            },
+        )
+        model.grids.append(el)
+        self._element_id = el.id
+        return {"element_id": el.id, "axis": axis}
+
+    def invert(self) -> Command:
+        if not self._element_id:
+            raise ValidationError("Cannot invert AddGrid before apply")
+        return RemoveGrid(element_id=self._element_id)
+
+
+@dataclass
+class RemoveGrid(Command):
+    element_id: str
+    op: str = "remove_grid"
+    _snapshot: dict[str, Any] | None = None
+
+    def apply(self, model: ProjectModel) -> dict[str, Any]:
+        for i, g in enumerate(model.grids):
+            if g.id == self.element_id:
+                self._snapshot = g.model_dump()
+                model.grids.pop(i)
+                return {"deleted_id": self.element_id}
+        raise ValidationError("Grid not found", id=self.element_id)
+
+    def invert(self) -> Command:
+        if not self._snapshot:
+            raise ValidationError("Cannot invert RemoveGrid before apply")
+        return RestoreGrid(snapshot=self._snapshot)
+
+
+@dataclass
+class RestoreGrid(Command):
+    snapshot: dict[str, Any]
+    op: str = "restore_grid"
+
+    def apply(self, model: ProjectModel) -> dict[str, Any]:
+        el = Element.model_validate(self.snapshot)
+        model.grids.append(el)
+        return {"element_id": el.id}
+
+    def invert(self) -> Command:
+        return RemoveGrid(element_id=self.snapshot["id"])
+
+
+@dataclass
 class DeleteElement(Command):
     element_id: str
     op: str = "delete_element"

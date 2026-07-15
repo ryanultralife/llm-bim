@@ -3,14 +3,25 @@
 This repository is built **by LLMs, for LLMs**. There is no human drafting UI.
 Humans review exports (IFC, PDF, SVG, glTF) and drive agents via chat/CLI.
 
+## Tempo (read this first)
+
+**Claude is much slower than Grok.** That is intentional leverage — see
+[`docs/AGENT_SPEED.md`](docs/AGENT_SPEED.md).
+
+| | Grok | Claude |
+|--|------|--------|
+| Role | Fast path: kernel, unblock, integrate, keep `main` green | Deep path: sealed packages (drawings, IFC, hard correctness) |
+| Work unit | Small commits anytime | **One** sealed package from [`docs/WORK_PACKAGES.md`](docs/WORK_PACKAGES.md) |
+| Waiting | **Never** wait on Claude for critical path | Needs complete briefs; zero chat dependency |
+
 ## Team
 
 | Agent | Role | How you identify yourself |
 |-------|------|---------------------------|
-| **Grok** (xAI) | Architecture, core model, geometry, coordination | Commits: `Co-Authored-By: Grok <grok@x.ai>` or message prefix `[grok]` |
-| **Claude** (Anthropic) | Parallel implementation tracks per STATUS claims | Commits: message prefix `[claude]` |
+| **Grok** (xAI) | Critical path + package briefs + freeze zones | Commit prefix `[grok]` |
+| **Claude** (Anthropic) | Sealed work packages only while claimed | Commit prefix `[claude]` |
 
-Both agents have equal authority. Prefer merging small PRs over long-lived branches.
+Prefer merging Grok small PRs continuously; Claude lands larger isolated PRs.
 
 ## Communication protocol (through the repo only)
 

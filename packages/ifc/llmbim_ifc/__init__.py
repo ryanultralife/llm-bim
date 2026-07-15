@@ -1,3 +1,5 @@
-"""IFC import/export — stub until PR-10."""
+"""IFC import/export — WP-IFC for Claude."""
 
-__all__: list[str] = []
+from llmbim_ifc.export import export_ifc
+
+__all__ = ["export_ifc"]

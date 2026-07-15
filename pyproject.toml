@@ -62,6 +62,13 @@ include = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Default: skip sealed Claude work-package acceptance tests (keep main green).
+# Claude runs: pytest -m wp_drawings   or   pytest -m wp_ifc
+addopts = "-m \"not wp_drawings and not wp_ifc\""
+markers = [
+  "wp_drawings: sealed WP-DRAWINGS acceptance (Claude)",
+  "wp_ifc: sealed WP-IFC acceptance (Claude)",
+]
 pythonpath = [
   "packages/sdk",
   "packages/core",
