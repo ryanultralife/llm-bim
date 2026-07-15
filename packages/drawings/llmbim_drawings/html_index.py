@@ -159,6 +159,39 @@ def write_pack_index(out_dir: str | Path) -> Path:
         except Exception:  # noqa: BLE001
             zone_preview = ""
 
+    # drawing / sheet index sample
+    draw_preview = ""
+    draw_path = out / "schedules" / "drawing_list.csv"
+    if draw_path.is_file():
+        try:
+            import csv
+            from io import StringIO
+
+            rows = list(csv.DictReader(StringIO(draw_path.read_text(encoding="utf-8"))))
+            lines = []
+            for r in rows[:20]:
+                lines.append(
+                    "<tr>"
+                    f"<td>{r.get('sheet_no') or ''}</td>"
+                    f"<td>{r.get('name') or ''}</td>"
+                    f"<td>{r.get('kind') or ''}</td>"
+                    f"<td><a href=\"{r.get('path') or '#'}\">{r.get('path') or ''}</a></td>"
+                    f"<td>{r.get('format') or ''}</td>"
+                    "</tr>"
+                )
+            if lines:
+                draw_preview = (
+                    "<h2>Drawing list (sample)</h2>"
+                    "<p>Sheet inventory. Full: "
+                    "<a href=\"schedules/drawing_list.csv\">drawing_list.csv</a></p>"
+                    "<table><tr><th>#</th><th>Name</th><th>Kind</th>"
+                    "<th>Path</th><th>Fmt</th></tr>"
+                    + "".join(lines)
+                    + "</table>"
+                )
+        except Exception:  # noqa: BLE001
+            draw_preview = ""
+
     legend = """
 <h2>MEP / layers legend</h2>
 <ul>
@@ -190,6 +223,7 @@ th{{background:#161b22}}
 {csi_preview}
 {zone_preview}
 {conn_preview}
+{draw_preview}
 {legend}
 <h2>Drawings (SVG)</h2><ul>{"".join(links) or "<li>none</li>"}</ul>
 <h2>Manifest</h2><pre>{json.dumps(manifest.get("verification", {}), indent=2)}</pre>

@@ -189,6 +189,7 @@ class PlaceDoor(Command):
     height_mm: float
     name: str = ""
     type_id: str = ""
+    fire_rating: str = ""
     op: str = "place_door"
     _element_id: str | None = None
 
@@ -211,6 +212,14 @@ class PlaceDoor(Command):
         tid = (self.type_id or "").strip()
         if not tid:
             tid = "D-HM-72" if self.width_mm >= 1500 else "D-HM-36"
+        params: dict[str, Any] = {
+            "offset_mm": float(self.offset_mm),
+            "width_mm": float(self.width_mm),
+            "height_mm": float(self.height_mm),
+            "type_id": tid,
+        }
+        if self.fire_rating:
+            params["fire_rating"] = str(self.fire_rating)
         el = Element(
             id=eid,
             category="door",
@@ -218,16 +227,17 @@ class PlaceDoor(Command):
             level_id=host.level_id,
             host_id=host.id,
             type_id=tid,
-            params={
-                "offset_mm": float(self.offset_mm),
-                "width_mm": float(self.width_mm),
-                "height_mm": float(self.height_mm),
-                "type_id": tid,
-            },
+            params=params,
         )
         model.add_element(el)
         self._element_id = el.id
-        return {"element_id": el.id, "category": "door", "host_id": host.id, "type_id": tid}
+        return {
+            "element_id": el.id,
+            "category": "door",
+            "host_id": host.id,
+            "type_id": tid,
+            "fire_rating": self.fire_rating or None,
+        }
 
     def invert(self) -> Command:
         if not self._element_id:

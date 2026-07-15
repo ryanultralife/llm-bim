@@ -269,6 +269,7 @@ class Project:
         height_mm: float,
         name: str | None = None,
         type_id: str | None = None,
+        fire_rating: str | None = None,
     ) -> str:
         result = self._log.execute(
             self._model,
@@ -279,6 +280,7 @@ class Project:
                 height_mm=height_mm,
                 name=name or "",
                 type_id=type_id or "",
+                fire_rating=fire_rating or "",
             ),
         )
         return str(result["result"]["element_id"])
