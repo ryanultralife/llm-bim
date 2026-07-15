@@ -1,8 +1,9 @@
 """Minimal IFC4 SPF writer (no ifcopenshell required).
 
 Writes IfcProject / Site / Building / BuildingStorey / Wall / Slab /
-Door / Window / Space / BuildingElementProxy (equipment, pipe, fittings,
-fixtures, module envelopes) with extruded area solids where possible.
+Door / Window / Space / IfcFlowSegment (pipes+risers) / IfcFlowFitting /
+IfcFlowTerminal (fixtures) / BuildingElementProxy (equipment, modules)
+with extruded area solids where possible.
 Opens in many IFC viewers (BlenderBIM, FreeCAD).
 
 Engineering-estimate geometry — not a certified MVD delivery.
@@ -78,11 +79,50 @@ def _export_box_proxy(
     loc = f.add(f"IFCLOCALPLACEMENT($,#{a3})")
     body = extrude_rect(lx, ly, hz)
     prod = f.add(f"IFCPRODUCTDEFINITIONSHAPE($,$,(#{body}))")
-    tag = el.category.upper()[:20]
+    name, tag = _mep_name_tag(el)
+    # fittings / fixtures → FlowFitting / FlowTerminal when category matches
+    cat = (el.category or "").lower()
+    ftype = str(el.params.get("fitting_type") or "").lower()
+    if cat in {"fitting", "fittings"} or ftype in {
+        "elbow_90",
+        "elbow_45",
+        "tee",
+        "coupling",
+        "reducer",
+        "cap",
+        "union",
+        "ball_valve",
+        "check_valve",
+    }:
+        ent = "IFCFLOWFITTING"
+    elif cat in {"fixture", "accessory"} or ftype in {"toilet", "sink", "urinal", "lavatory"}:
+        ent = "IFCFLOWTERMINAL"
+    else:
+        ent = "IFCBUILDINGELEMENTPROXY"
+    if ent == "IFCBUILDINGELEMENTPROXY":
+        return f.add(
+            f"IFCBUILDINGELEMENTPROXY('{f.guid()}',#{owner},"
+            f"'{_esc(name)}','{_esc(tag)}',$,#{loc},#{prod},$,.ELEMENT.)"
+        )
     return f.add(
-        f"IFCBUILDINGELEMENTPROXY('{f.guid()}',#{owner},"
-        f"'{_esc(el.name or el.id)}','{_esc(tag)}',$,#{loc},#{prod},$,.ELEMENT.)"
+        f"{ent}('{f.guid()}',#{owner},"
+        f"'{_esc(name)}','{_esc(tag)}',$,#{loc},#{prod},$)"
     )
+
+
+def _mep_name_tag(el) -> tuple[str, str]:
+    """Human name + short tag (NPS / RISER / system) for IFC browsers."""
+    name = el.name or el.id
+    nps = el.params.get("nps") or ""
+    ftype = el.params.get("fitting_type") or el.category or "MEP"
+    tag_parts = [str(ftype).upper()[:12]]
+    if nps:
+        tag_parts.append(f"NPS{nps}")
+    if el.params.get("vertical") or el.params.get("orientation") == "vertical":
+        tag_parts.append("RISER")
+    if el.params.get("system"):
+        tag_parts.append(str(el.params["system"])[:8])
+    return str(name), "-".join(tag_parts)[:40]
 
 
 def _export_pipe_proxy(
@@ -92,41 +132,73 @@ def _export_pipe_proxy(
     axis_z: int,
     extrude_rect,
 ) -> int | None:
-    """Pipe run as elongated box along start→end (coordination envelope)."""
+    """Pipe as elongated box; vertical risers extruded in Z. Emits IfcFlowSegment."""
     try:
-        if "start_mm" in el.params and "end_mm" in el.params:
+        vertical = bool(el.params.get("vertical") or el.params.get("orientation") == "vertical")
+        od = 50.0
+        if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
+            od = max(float(el.params["size_mm"][0]), float(el.params["size_mm"][1]), 20.0)
+        z0 = float(el.params.get("z0_mm", 0))
+
+        if vertical:
+            o = el.params.get("origin_mm") or el.params.get("start_mm")
+            if not o:
+                return None
+            x0, y0 = float(o[0]), float(o[1])
+            z1 = float(el.params.get("z1_mm") or (z0 + float(el.params.get("length_mm") or 1000)))
+            height = abs(z1 - z0)
+            if height < 1:
+                height = float(el.params.get("length_mm") or 1000)
+            z_base = min(z0, z1)
+            pt = f.add(f"IFCCARTESIANPOINT(({x0 - od / 2},{y0 - od / 2},{z_base}))")
+            a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},$)")
+            loc = f.add(f"IFCLOCALPLACEMENT($,#{a3})")
+            body = extrude_rect(od, od, height)
+        elif "start_mm" in el.params and "end_mm" in el.params:
             s = el.params["start_mm"]
             e = el.params["end_mm"]
             x0, y0 = float(s[0]), float(s[1])
             x1, y1 = float(e[0]), float(e[1])
             length = math.hypot(x1 - x0, y1 - y0)
             if length < 1:
-                return None
-            ang = math.atan2(y1 - y0, x1 - x0)
+                o = el.params.get("origin_mm") or s
+                x0, y0 = float(o[0]), float(o[1])
+                height = float(
+                    el.params.get("length_mm")
+                    or (el.params.get("size_mm") or [0, 0, 500])[-1]
+                    or 500
+                )
+                pt = f.add(f"IFCCARTESIANPOINT(({x0 - od / 2},{y0 - od / 2},{z0}))")
+                a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},$)")
+                loc = f.add(f"IFCLOCALPLACEMENT($,#{a3})")
+                body = extrude_rect(od, od, max(height, 50.0))
+            else:
+                ang = math.atan2(y1 - y0, x1 - x0)
+                pt = f.add(f"IFCCARTESIANPOINT(({x0},{y0},{z0}))")
+                dx_dir = f.add(f"IFCDIRECTION(({math.cos(ang)},{math.sin(ang)},0.))")
+                a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{dx_dir})")
+                loc = f.add(f"IFCLOCALPLACEMENT($,#{a3})")
+                body = extrude_rect(length, od, od)
         elif "origin_mm" in el.params and "size_mm" in el.params:
             o = el.params["origin_mm"]
             sz = el.params["size_mm"]
             x0, y0 = float(o[0]), float(o[1])
-            length = float(sz[0])
+            length = max(float(sz[0]), 50.0)
             ang = 0.0
+            pt = f.add(f"IFCCARTESIANPOINT(({x0},{y0},{z0}))")
+            dx_dir = f.add(f"IFCDIRECTION(({math.cos(ang)},{math.sin(ang)},0.))")
+            a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{dx_dir})")
+            loc = f.add(f"IFCLOCALPLACEMENT($,#{a3})")
+            body = extrude_rect(length, od, od)
         else:
             return None
-        # OD from size or default 50 mm
-        od = 50.0
-        if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
-            od = max(float(el.params["size_mm"][1]), 20.0)
-        z0 = float(el.params.get("z0_mm", 0))
     except (KeyError, TypeError, ValueError, IndexError):
         return None
-    pt = f.add(f"IFCCARTESIANPOINT(({x0},{y0},{z0}))")
-    dx_dir = f.add(f"IFCDIRECTION(({math.cos(ang)},{math.sin(ang)},0.))")
-    a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{dx_dir})")
-    loc = f.add(f"IFCLOCALPLACEMENT($,#{a3})")
-    body = extrude_rect(length, od, od)
     prod = f.add(f"IFCPRODUCTDEFINITIONSHAPE($,$,(#{body}))")
+    name, tag = _mep_name_tag(el)
     return f.add(
-        f"IFCBUILDINGELEMENTPROXY('{f.guid()}',#{owner},"
-        f"'{_esc(el.name or el.id)}','PIPE',$,#{loc},#{prod},$,.ELEMENT.)"
+        f"IFCFLOWSEGMENT('{f.guid()}',#{owner},"
+        f"'{_esc(name)}','{_esc(tag)}',$,#{loc},#{prod},$)"
     )
 
 
