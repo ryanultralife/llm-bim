@@ -34,8 +34,20 @@ class AddLevel(Command):
     _level_id: str | None = None
 
     def apply(self, model: ProjectModel) -> dict[str, Any]:
-        level = model.add_level(self.name, self.elevation_mm)
-        self._level_id = level.id
+        # Preserve id across redo so agent references stay stable.
+        if self._level_id and any(lv.id == self._level_id for lv in model.levels):
+            raise ValidationError("Level id already exists", id=self._level_id)
+        if self._level_id:
+            from llmbim_core.model import Level
+
+            if any(lv.name == self.name for lv in model.levels):
+                raise ValidationError("Level name already exists", name=self.name)
+            level = Level(id=self._level_id, name=self.name, elevation_mm=float(self.elevation_mm))
+            model.levels.append(level)
+            model.levels.sort(key=lambda lv: lv.elevation_mm)
+        else:
+            level = model.add_level(self.name, self.elevation_mm)
+            self._level_id = level.id
         return {"level_id": level.id, "name": level.name, "elevation_mm": level.elevation_mm}
 
     def invert(self) -> Command:
@@ -105,8 +117,9 @@ class CreateWall(Command):
         length = wall_length_mm(self.start, self.end)
         if self.thickness_mm <= 0 or self.height_mm <= 0:
             raise ValidationError("thickness_mm and height_mm must be positive")
+        eid = self._element_id or new_id("wal")
         el = Element(
-            id=new_id("wal"),
+            id=eid,
             category="wall",
             name=self.name,
             level_id=lv.id,
