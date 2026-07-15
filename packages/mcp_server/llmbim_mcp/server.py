@@ -817,6 +817,28 @@ if HAS_MCP:
         return _tool_result({"element_id": wid})
 
     @mcp.tool()
+    def room_create(
+        project_id: str,
+        level: str,
+        name: str,
+        boundary_json: str,
+        height_mm: float = 0,
+    ) -> str:
+        """Create room space. boundary_json is [[x,y],...] mm plan polygon (≥3 pts)."""
+        import json as _json
+
+        p = store.get(project_id)
+        boundary = _json.loads(boundary_json)
+        rid = p.create_room(
+            level=level,
+            name=name,
+            boundary=[(float(pt[0]), float(pt[1])) for pt in boundary],
+            height_mm=height_mm if height_mm else None,
+        )
+        store.save(project_id)
+        return _tool_result({"element_id": rid, "name": name})
+
+    @mcp.tool()
     def level_add(project_id: str, name: str, elevation_mm: float) -> str:
         p = store.get(project_id)
         lid = p.add_level(name, elevation_mm)

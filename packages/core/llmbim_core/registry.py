@@ -312,6 +312,26 @@ def _place_window(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     return cmd.apply(model)
 
 
+@register("create_room", description="Create room space from boundary polygon (mm)", mutates=True)
+def _create_room(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.commands import CreateRoom
+
+    boundary = p.get("boundary") or p.get("boundary_mm") or p.get("polygon") or []
+    if len(boundary) < 3:
+        raise ValueError("create_room requires boundary with ≥3 points [[x,y],...]")
+    pts = [(float(pt[0]), float(pt[1])) for pt in boundary]
+    cmd = CreateRoom(
+        level=p.get("level") or model.levels[0].name,
+        name=str(p.get("name") or "Room"),
+        boundary=pts,
+        height_mm=float(p["height_mm"]) if p.get("height_mm") is not None else None,
+        ceiling_height_mm=float(p["ceiling_height_mm"])
+        if p.get("ceiling_height_mm") is not None
+        else None,
+    )
+    return cmd.apply(model)
+
+
 @register("create_assembly", description="Group elements into named assembly", mutates=True)
 def _create_assembly(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.ids import new_id

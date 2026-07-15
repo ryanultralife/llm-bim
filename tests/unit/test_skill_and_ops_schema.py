@@ -116,3 +116,16 @@ def test_registry_create_wall_place_door_window() -> None:
     assert win["category"] == "window"
     assert p.stats().get("door") == 1
     assert p.stats().get("window") == 1
+
+    room = dispatch(
+        p.model,
+        "create_room",
+        {
+            "level": "L1",
+            "name": "Office",
+            "boundary": [[0, 0], [4000, 0], [4000, 3000], [0, 3000]],
+            "height_mm": 2700,
+        },
+    )
+    assert room.get("element_id") or room.get("category") == "room" or "Office" in str(room)
+    assert p.stats().get("room") == 1
