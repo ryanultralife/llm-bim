@@ -55,3 +55,16 @@ def test_export_deliverables_phase_filter(tmp_path: Path):
     assert all(
         (e.get("params") or {}).get("phase", "new") != "existing" for e in filt["elements"]
     )
+
+
+def test_mcp_export_pack_and_set_phase_signatures():
+    """MCP tools expose phases + set_phase for agent pack filtering."""
+    import inspect
+
+    import llmbim_mcp.server as srv
+
+    src = inspect.getsource(srv)
+    assert "phases" in src
+    assert "def set_phase" in src
+    assert "export_deliverables" in src
+    assert "phase_filter" in src
