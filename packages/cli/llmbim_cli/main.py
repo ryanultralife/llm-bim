@@ -486,19 +486,25 @@ def cmd_place(args: argparse.Namespace) -> int:
         )
         result = {"element_id": eid, "kind": "pipe"}
     elif kind == "riser":
-        z0 = float(args.z0 if args.z0 is not None else 0)
-        z1 = float(args.z1 if args.z1 is not None else 3000)
-        eid = p.place_riser(
-            level=level,
-            nps=args.nps or "2",
-            origin=origin,
-            z0_mm=z0,
-            z1_mm=z1,
-            material=args.material or "copper",
-            name=args.name,
-            system=args.system or "CW",
-        )
-        result = {"element_id": eid, "kind": "riser", "z0_mm": z0, "z1_mm": z1}
+        kwargs: dict = {
+            "level": level,
+            "nps": args.nps or "2",
+            "origin": origin,
+            "material": args.material or "copper",
+            "name": args.name,
+            "system": args.system or "CW",
+        }
+        if getattr(args, "to_level", None):
+            kwargs["to_level"] = args.to_level
+        if args.z0 is not None:
+            kwargs["z0_mm"] = float(args.z0)
+        if args.z1 is not None:
+            kwargs["z1_mm"] = float(args.z1)
+        if "to_level" not in kwargs and "z1_mm" not in kwargs:
+            kwargs["z0_mm"] = float(args.z0 if args.z0 is not None else 0)
+            kwargs["z1_mm"] = float(args.z1 if args.z1 is not None else 3000)
+        eid = p.place_riser(**kwargs)
+        result = {"element_id": eid, "kind": "riser", **{k: kwargs[k] for k in ("z0_mm", "z1_mm", "to_level") if k in kwargs}}
     elif kind == "part":
         eid = p.place_part(
             level=level,
@@ -843,6 +849,7 @@ def main(argv: list[str] | None = None) -> int:
     p_pl.add_argument("--name", default=None)
     p_pl.add_argument("--z0", type=float, default=None, help="Riser base height mm")
     p_pl.add_argument("--z1", type=float, default=None, help="Riser top height mm")
+    p_pl.add_argument("--to-level", default=None, help="Multi-storey riser top level e.g. L2")
     p_pl.set_defaults(func=cmd_place)
 
     args = parser.parse_args(argv)

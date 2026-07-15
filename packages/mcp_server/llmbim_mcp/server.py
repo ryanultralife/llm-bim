@@ -70,12 +70,35 @@ if HAS_MCP:
 
     @mcp.tool()
     def project_query(project_id: str, q: str) -> str:
-        """Query language: category=wall level=L1 param.thickness_mm>200"""
+        """Query: category=wall level=L1 room~Restroom csi~22_11 vertical=true nps=2"""
         p = store.get(project_id)
         els = p.query(q)
-        return _tool_result(
-            [{"id": e.id, "category": e.category, "name": e.name} for e in els[:100]]
-        )
+        rows = []
+        try:
+            from llmbim_core.csi import csi_for_element
+        except Exception:  # noqa: BLE001
+            csi_for_element = None  # type: ignore[assignment]
+        for e in els[:100]:
+            row = {
+                "id": e.id,
+                "category": e.category,
+                "name": e.name,
+                "nps": e.params.get("nps"),
+                "fitting_type": e.params.get("fitting_type"),
+                "vertical": e.params.get("vertical"),
+                "part_id": e.params.get("part_id") or e.type_id,
+            }
+            if csi_for_element is not None:
+                try:
+                    info = csi_for_element(p.model, e)
+                    row["csi_code"] = info.get("csi_code")
+                    row["locator"] = info.get("locator")
+                    row["room"] = info.get("room")
+                    row["level"] = info.get("level")
+                except Exception:  # noqa: BLE001
+                    pass
+            rows.append(row)
+        return _tool_result({"count": len(els), "returned": len(rows), "elements": rows})
 
     @mcp.tool()
     def project_from_template(template_id: str) -> str:
@@ -336,24 +359,32 @@ if HAS_MCP:
         nps: str,
         origin_x: float,
         origin_y: float,
-        z0_mm: float,
-        z1_mm: float,
+        z0_mm: float = 0,
+        z1_mm: float = 3000,
         material: str = "copper",
         system: str = "CW",
         name: str = "",
+        to_level: str = "",
     ) -> str:
-        """Vertical pipe riser at plan XY from z0_mm to z1_mm (takeoff in meters)."""
+        """Vertical pipe riser at plan XY. to_level e.g. L2 spans storeys (z1 from elev delta)."""
         p = store.get(project_id)
-        eid = p.place_riser(
-            level=level,
-            nps=nps,
-            origin=(origin_x, origin_y),
-            z0_mm=z0_mm,
-            z1_mm=z1_mm,
-            material=material,
-            system=system,
-            name=name or None,
-        )
+        kwargs: dict = {
+            "level": level,
+            "nps": nps,
+            "origin": (origin_x, origin_y),
+            "material": material,
+            "system": system,
+            "name": name or None,
+        }
+        if to_level:
+            kwargs["to_level"] = to_level
+            if z0_mm:
+                kwargs["z0_mm"] = z0_mm
+            # only pass z1 if user changed from default while using to_level offset
+        else:
+            kwargs["z0_mm"] = z0_mm
+            kwargs["z1_mm"] = z1_mm
+        eid = p.place_riser(**kwargs)
         store.save(project_id)
         return _tool_result({"element_id": eid})
 

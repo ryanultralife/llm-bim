@@ -46,7 +46,11 @@
 | 21 | continue | CLI place + csi_instances | no CLI place_riser/fitting | `llmbim place` + takeoff --kind csi_instances | 91 unit | d528f75 |
 | 22 | continue | schedule room column | schedules lacked room | `_annotate_csi` room field | 94 unit | (this) |
 | 23 | continue | query room/csi/vertical | query only wall attrs | room~, csi~, nps, vertical=true | 94 unit | (this) |
-| 24 | continue | skill + HTML RM: docs | skill stale locators | SKILL place/csi_instances; HTML room col | 94 unit | (this) |
+| 24 | continue | skill + HTML RM: docs | skill stale locators | SKILL place/csi_instances; HTML room col | 94 unit | 96580b5 |
+| 25 | continue | IFC FlowSegment + riser | risers missing from IFC; only proxy | IfcFlowSegment/Fitting/Terminal; vertical Z | 95 unit | 0115b91 |
+| 26 | continue | restroom CSI recipe | no end-to-end RM: demo | examples/restroom_csi + skill recipe | 95 unit | 0115b91 |
+| 27 | continue | MCP query CSI enrich | query returned id only | room/csi/locator on project_query | 96 unit | (this) |
+| 28 | continue | multi-storey to_level riser | risers single-storey only | place_riser(to_level=L2/L3) | 96 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -85,11 +89,15 @@
 32. ~~HTML index room+CSI locator sample~~ (pass 24)
 33. ~~Query language filter by CSI / room / locator~~ (pass 23)
 34. ~~Skill SKILL.md place_riser + RM: locators~~ (pass 24)
-35. MCP query tool with room/csi filters
-36. Multi-level riser spanning storeys
+35. ~~MCP query tool with room/csi filters~~ (pass 27)
+36. ~~Multi-level riser spanning storeys~~ (pass 28)
 37. Connection schedule in HTML index
-38. IFC IfcFlowSegment for pipes (vs proxy)
-39. Agent recipe: restroom + CW loop + CSI takeoff
+38. ~~IFC IfcFlowSegment for pipes (vs proxy)~~ (pass 25)
+39. ~~Agent recipe: restroom + CW loop + CSI takeoff~~ (pass 26)
+40. HVAC duct place + takeoff (generic or catalog)
+41. Electrical raceway / conduit place
+42. Grid intersection labels on plans
+43. Dimension strings on plan SVG
 
 ## Rules for each scheduled pass
 

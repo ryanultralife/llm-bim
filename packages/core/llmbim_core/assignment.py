@@ -386,13 +386,18 @@ def place_riser(
     level: str,
     nps: str,
     origin: tuple[float, float] | list[float],
-    z0_mm: float,
-    z1_mm: float,
+    z0_mm: float | None = None,
+    z1_mm: float | None = None,
     name: str | None = None,
     material: str = "copper",
     system_tag: str = "CW",
+    to_level: str | None = None,
 ) -> dict[str, Any]:
-    """Vertical pipe riser at fixed plan XY from z0_mm → z1_mm (absolute on level)."""
+    """Vertical pipe riser at fixed plan XY from z0_mm → z1_mm (on base level).
+
+    Multi-storey: pass ``to_level`` (e.g. L2) to span from base level elevation to
+    the top level elevation. Optional z0_mm/z1_mm offsets relative to each storey.
+    """
     from llmbim_core.ids import new_id
     from llmbim_core.parts_catalog import resolve_fitting_part_id
 
@@ -402,14 +407,28 @@ def place_riser(
     part = get_part(pid)
     assert part is not None
     x, y = float(origin[0]), float(origin[1])
-    z0, z1 = float(z0_mm), float(z1_mm)
+    base = model.get_level(level)
+    if to_level:
+        top = model.get_level(to_level)
+        # heights relative to base storey elevation
+        z0 = float(z0_mm if z0_mm is not None else 0.0)
+        span = float(top.elevation_mm) - float(base.elevation_mm)
+        z1 = float(z1_mm if z1_mm is not None else span)
+        # if z1_mm given with to_level, treat as offset above top elevation
+        if z1_mm is not None and to_level:
+            z1 = span + float(z1_mm)
+        to_level_name = top.name
+    else:
+        z0 = float(z0_mm if z0_mm is not None else 0.0)
+        z1 = float(z1_mm if z1_mm is not None else 3000.0)
+        to_level_name = None
     if abs(z1 - z0) < 1:
         raise ValidationError("Riser height too small", z0_mm=z0, z1_mm=z1)
     lo, hi = min(z0, z1), max(z0, z1)
     length_mm = hi - lo
     length_m = length_mm / 1000.0
     od = float((part.specs or {}).get("od_mm") or 28.6)
-    level_id = model.get_level(level).id
+    level_id = base.id
     el = Element(
         id=new_id("ris"),
         category="pipe",
@@ -434,6 +453,8 @@ def place_riser(
             "z1_mm": hi,
             "fitting_type": "pipe",
             "orientation": "vertical",
+            "to_level": to_level_name,
+            "base_level": base.name,
         },
     )
     model.add_element(el)
@@ -446,4 +467,6 @@ def place_riser(
         "z0_mm": lo,
         "z1_mm": hi,
         "vertical": True,
+        "to_level": to_level_name,
+        "base_level": base.name,
     }
