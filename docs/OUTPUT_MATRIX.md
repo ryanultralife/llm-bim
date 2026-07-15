@@ -75,11 +75,12 @@ Project.export_deliverables(out_dir)
 → model.llmbim.json
 → model.ifc · model.gltf · model.step
 → construction/ or parts/  (+ PLOT_SET.pdf)
-→ views/ (SVG + DXF)
-→ schedules/ (+ plumbing_takeoff.json)
-→ materials/ (assignments, fitting/pipe/steel/rebar/csi takeoffs)
+→ views/ (plan/elev/section SVG + plan/elev/section DXF)
+→ schedules/ (levels, zone_areas, csi, duct, conduit, column, beam, drawing_list, …)
+→ materials/ (fitting/pipe/duct/conduit/cable_tray/steel/rebar/csi takeoffs + trade_schedule)
 → boq.json · clash_report.json · design_rules.json
-→ index.html · deliverables.zip · MANIFEST.json · VERIFY.json
+→ index.html (CSI/zone/connections/drawing list/rules samples)
+→ deliverables.zip · MANIFEST.json · VERIFY.json
 ```
 
 ## Modules / blocks / machines

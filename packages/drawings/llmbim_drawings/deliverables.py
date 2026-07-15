@@ -120,10 +120,33 @@ def verify_pack(
         "schedules/csi.csv",
         "schedules/zone_areas.csv",
         "schedules/connections.csv",
+        "schedules/levels.csv",
+        "schedules/drawing_list.csv",
+        "schedules/duct.csv",
+        "schedules/conduit.csv",
+        "schedules/column.csv",
+        "schedules/beam.csv",
+        "index.html",
     ):
         p = out / rel
         if p.is_file():
             checks["files"][rel] = {"size": p.stat().st_size, "ok": True}
+    checks["has_drawing_list"] = (out / "schedules" / "drawing_list.csv").is_file()
+    checks["has_levels_schedule"] = (out / "schedules" / "levels.csv").is_file()
+    checks["has_index_html"] = (out / "index.html").is_file()
+
+    # multi-trade materials takeoff signals
+    for rel in (
+        "materials/duct_takeoff.json",
+        "materials/conduit_takeoff.json",
+        "materials/cable_tray_takeoff.json",
+        "materials/steel_takeoff.json",
+        "materials/trade_schedule.json",
+    ):
+        p = out / rel
+        if p.is_file():
+            checks["files"][rel] = {"size": p.stat().st_size, "ok": p.stat().st_size > 2}
+
     views = out / "views"
     if views.is_dir():
         checks["view_svg_count"] = len(list(views.glob("*.svg")))
@@ -131,6 +154,25 @@ def verify_pack(
         checks["has_elev_dxf"] = (views / "elev_S.dxf").is_file() or any(
             p.name.startswith("elev_") and p.suffix.lower() == ".dxf" for p in views.iterdir()
         )
+        checks["has_section_dxf"] = (views / "section.dxf").is_file() or any(
+            "section" in p.name.lower() and p.suffix.lower() == ".dxf" for p in views.iterdir()
+        )
+        checks["has_plan_dxf"] = any(
+            p.name.startswith("plan_") and p.suffix.lower() == ".dxf" for p in views.iterdir()
+        )
+
+    # design rules presence (soft)
+    dr = out / "design_rules.json"
+    if dr.is_file():
+        try:
+            import json as _json
+
+            payload = _json.loads(dr.read_text(encoding="utf-8"))
+            findings = payload.get("findings") or []
+            checks["design_rules_findings"] = len(findings)
+            checks["design_rules_summary"] = payload.get("summary") or {}
+        except Exception:  # noqa: BLE001
+            checks["design_rules_parse_ok"] = False
 
     checks["ok"] = not missing and all(v.get("ok", True) for v in checks["files"].values())
     if (out / "model.ifc").is_file() and not checks.get("ifc_has_project"):
