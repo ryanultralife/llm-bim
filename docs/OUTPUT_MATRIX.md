@@ -72,17 +72,30 @@ Project.export_deliverables(out_dir)
 → index.html · deliverables.zip · MANIFEST.json · VERIFY.json
 ```
 
+## Modules / blocks / machines
+
+| Deliverable | Status | Module |
+|-------------|--------|--------|
+| Export project as module package | ✅ | `export_module` → dir or `.llmbim.json` + `MODULE.json` |
+| Import as **native** (editable) | ✅ | `import_module(..., mode="native")` |
+| Import as **block** instance | ✅ | `mode="block"` + `meta.module_library` |
+| Import as **linked** (re-sync) | ✅ | `mode="linked"` + `resync_module` |
+| Ports + connect machines to host | ✅ | `define_port` / `connect` |
+| Explode block → native | ✅ | `explode_block` |
+| Expand blocks on IFC/STEP/glTF | ✅ | `expand_block_for_export` in pack |
+| Full MEP routing / P&ID solver | ❌ | semantic ports only (honesty) |
+
 ## Agent surfaces
 
 | Surface | Status |
 |---------|--------|
 | Python SDK `llmbim.Project` | ✅ |
-| CLI `llmbim` | ✅ pack, takeoff, parts, materials, VCS, … |
-| Registry ops + `ops.schema.json` | ✅ ~33 tools |
-| MCP stdio | 🟡 core project ops; trade takeoff via `project_op` |
+| CLI `llmbim` | ✅ pack, takeoff, parts, materials, import-module, VCS, … |
+| Registry ops + `ops.schema.json` | ✅ ~40 tools |
+| MCP stdio | 🟡 takeoff/parts tools; modules via `project_op` |
 | Skill `skills/llm-bim/SKILL.md` | ✅ |
 | Templates | ✅ office_bay, warehouse, hot_cell_bay, lab_bench |
-| Cases | ✅ intec, proto10, plumbing_loop, multi_trade |
+| Cases | ✅ intec, proto10, plumbing_loop, multi_trade, module_machine_host |
 
 ## Honesty
 
