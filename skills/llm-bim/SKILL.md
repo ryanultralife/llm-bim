@@ -121,6 +121,8 @@ llmbim query model.llmbim.json "csi~22_11"          # MasterFormat (use _ for sp
 llmbim query model.llmbim.json "vertical=true nps=2"  # risers
 llmbim query model.llmbim.json "category=column section=W10x33"
 llmbim query model.llmbim.json "category=conduit trade_size=1"
+llmbim query model.llmbim.json "category=door fire_rating=90_min"
+llmbim query model.llmbim.json "fire_rating~2"   # walls/doors with 2-hr etc.
 ```
 
 ### F. Extensible ops

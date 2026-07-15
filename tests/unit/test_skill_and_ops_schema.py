@@ -29,6 +29,13 @@ def test_skill_files_exist() -> None:
     assert (root / "skills" / "llm-bim" / "SKILL.md").is_file()
     assert (root / "docs" / "LOCAL.md").is_file()
     assert (root / "skills" / "llm-bim" / "recipes" / "office.md").is_file()
+    batch = (root / "skills" / "llm-bim" / "recipes" / "batch_ops.md").read_text(
+        encoding="utf-8"
+    )
+    assert "place_door" in batch
+    assert "create_wall" in batch
+    skill = (root / "skills" / "llm-bim" / "SKILL.md").read_text(encoding="utf-8")
+    assert "fire_rating=90_min" in skill
 
 
 def test_assembly_op() -> None:

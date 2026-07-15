@@ -130,6 +130,7 @@
 | 104 | continue | query fire_rating | no FR query token | fire_rating= / ~ with 90_min normalize | 172 unit | (this) |
 | 105 | continue | HTML door sample + demo openings | index no door table; demo walls only | doors.csv sample + demo_house door/window | 173 unit | (this) |
 | 106 | continue | CLI demo FR openings | demo door without type/FR | Entry D-HM-36 90 min + W-S 1-hr | 174 unit | (this) |
+| 107 | continue | skill batch openings recipe | batch_ops used generic only | place_door bulk + fire_rating query docs | 174 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -265,7 +266,8 @@
 129. ~~Query fire_rating token~~ (pass 104)
 130. ~~HTML door sample + demo openings~~ (pass 105)
 131. ~~CLI demo FR openings~~ (pass 106)
-132. Keep closing residual gaps until pass 120 / 10h
+132. ~~Skill batch openings + FR query~~ (pass 107)
+133. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
