@@ -194,8 +194,20 @@ def _equipment_solid(
 
 
 def _pipe_solid(el: Element, model: ProjectModel, *, cyl_sides: int = 16) -> tuple[list, list] | None:
-    """Horizontal pipe run as short cylinder / box along start→end (meters)."""
+    """Pipe as coordination box: horizontal start→end or vertical riser z0→z1."""
     try:
+        od = 0.05
+        if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
+            od = max(float(el.params["size_mm"][1]) / 1000.0, 0.02)
+        # vertical riser
+        if el.params.get("vertical") or el.params.get("orientation") == "vertical":
+            o = el.params.get("origin_mm") or el.params.get("start_mm") or [0, 0]
+            x = float(o[0]) / 1000.0
+            y = float(o[1]) / 1000.0
+            z_lo = (_level_z(model, el.level_id) + float(el.params.get("z0_mm") or 0)) / 1000.0
+            z_hi = (_level_z(model, el.level_id) + float(el.params.get("z1_mm") or (float(el.params.get("z0_mm") or 0) + 1000))) / 1000.0
+            r = od / 2
+            return _box_corners(x - r, y - r, min(z_lo, z_hi), x + r, y + r, max(z_lo, z_hi)), _BOX_FACES
         if "start_mm" in el.params and "end_mm" in el.params:
             s, e = el.params["start_mm"], el.params["end_mm"]
             x0, y0 = float(s[0]) / 1000.0, float(s[1]) / 1000.0
@@ -203,15 +215,9 @@ def _pipe_solid(el: Element, model: ProjectModel, *, cyl_sides: int = 16) -> tup
             length = math.hypot(x1 - x0, y1 - y0)
             if length < 1e-6:
                 return None
-            # place cylinder along local +X by rotating via box AABB for simplicity
-            od = 0.05
-            if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
-                od = max(float(el.params["size_mm"][1]) / 1000.0, 0.02)
             z0 = (_level_z(model, el.level_id) + float(el.params.get("z0_mm", 0))) / 1000.0
-            # axis-aligned box along segment (AABB) — coordination grade
             xmin, xmax = min(x0, x1), max(x0, x1)
             ymin, ymax = min(y0, y1), max(y0, y1)
-            # thicken perpendicular in plan
             if abs(xmax - xmin) < 1e-6:
                 xmin -= od / 2
                 xmax += od / 2
