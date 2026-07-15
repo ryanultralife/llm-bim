@@ -362,3 +362,151 @@ def export_elevation_dxf(
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return p
+
+
+def _seg_intersection_param(
+    ax: float,
+    ay: float,
+    bx: float,
+    by: float,
+    cx: float,
+    cy: float,
+    dx: float,
+    dy: float,
+) -> float | None:
+    """t along AB where AB meets infinite line CD (within AB)."""
+    abx, aby = bx - ax, by - ay
+    cdx, cdy = dx - cx, dy - cy
+    den = abx * cdy - aby * cdx
+    if abs(den) < 1e-9:
+        return None
+    t = ((cx - ax) * cdy - (cy - ay) * cdx) / den
+    if t < -1e-6 or t > 1 + 1e-6:
+        return None
+    return max(0.0, min(1.0, t))
+
+
+def export_section_dxf(
+    model: ProjectModel,
+    p0: tuple[float, float] | list[float],
+    p1: tuple[float, float] | list[float],
+    path: str | Path,
+) -> Path:
+    """Section DXF R12 along plan cut p0→p1. X = distance along cut, Y = Z elev."""
+    x0, y0 = float(p0[0]), float(p0[1])
+    x1, y1 = float(p1[0]), float(p1[1])
+    cut_len = math.hypot(x1 - x0, y1 - y0)
+    if cut_len < 1:
+        cut_len = 1.0
+    ux, uy = (x1 - x0) / cut_len, (y1 - y0) / cut_len
+
+    def s_of(px: float, py: float) -> float:
+        return (px - x0) * ux + (py - y0) * uy
+
+    ents: list[str] = []
+
+    for el in model.query(category="wall"):
+        try:
+            s = el.params["start_mm"]
+            e = el.params["end_mm"]
+            ht = float(el.params.get("height_mm", 3000))
+        except (KeyError, TypeError, ValueError):
+            continue
+        t = _seg_intersection_param(
+            float(s[0]), float(s[1]), float(e[0]), float(e[1]), x0, y0, x1, y1
+        )
+        if t is None:
+            # wall may be parallel — project endpoints if near cut
+            continue
+        sx = float(s[0]) + t * (float(e[0]) - float(s[0]))
+        sy = float(s[1]) + t * (float(e[1]) - float(s[1]))
+        sc = s_of(sx, sy)
+        zbase = _level_elev(model, el.level_id)
+        half = float(el.params.get("thickness_mm", 200)) / 2.0
+        ents += _line(sc - half, zbase, sc + half, zbase, "WALLS")
+        ents += _line(sc + half, zbase, sc + half, zbase + ht, "WALLS")
+        ents += _line(sc + half, zbase + ht, sc - half, zbase + ht, "WALLS")
+        ents += _line(sc - half, zbase + ht, sc - half, zbase, "WALLS")
+
+    for el in model.elements:
+        if el.category not in {
+            "pipe",
+            "plumbing_pipe",
+            "duct",
+            "hvac",
+            "conduit",
+            "fitting",
+            "fittings",
+            "fixture",
+        } and el.params.get("fitting_type") not in {"pipe", "duct", "conduit"}:
+            continue
+        layer = _pipe_layer(el)
+        if el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct":
+            layer = "DUCT"
+        if el.category == "conduit" or el.params.get("fitting_type") == "conduit":
+            layer = "CONDUIT"
+        base = _level_elev(model, el.level_id)
+        if el.params.get("vertical") or el.params.get("orientation") == "vertical":
+            o = el.params.get("origin_mm") or el.params.get("start_mm")
+            if not o:
+                continue
+            sc = s_of(float(o[0]), float(o[1]))
+            if sc < -500 or sc > cut_len + 500:
+                continue
+            z_lo = base + float(el.params.get("z0_mm") or 0)
+            z_hi = base + float(el.params.get("z1_mm") or (z_lo + 1000))
+            ents += _line(sc, min(z_lo, z_hi), sc, max(z_lo, z_hi), layer)
+            continue
+        if "start_mm" in el.params and "end_mm" in el.params:
+            try:
+                s, e = el.params["start_mm"], el.params["end_mm"]
+                t = _seg_intersection_param(
+                    float(s[0]), float(s[1]), float(e[0]), float(e[1]), x0, y0, x1, y1
+                )
+                if t is None:
+                    # project midpoints near cut for parallel runs
+                    mx = (float(s[0]) + float(e[0])) / 2
+                    my = (float(s[1]) + float(e[1])) / 2
+                    # distance to cut line
+                    nx, ny = -uy, ux
+                    dist = abs((mx - x0) * nx + (my - y0) * ny)
+                    if dist > 800:
+                        continue
+                    sc0, sc1 = s_of(float(s[0]), float(s[1])), s_of(float(e[0]), float(e[1]))
+                else:
+                    ix = float(s[0]) + t * (float(e[0]) - float(s[0]))
+                    iy = float(s[1]) + t * (float(e[1]) - float(s[1]))
+                    sc0 = sc1 = s_of(ix, iy)
+                z = base + float(el.params.get("z0_mm") or 0)
+                if layer == "DUCT":
+                    elev_h = float(el.params.get("height_mm") or 250)
+                    ents += _line(min(sc0, sc1), z, max(sc0, sc1), z, layer)
+                    ents += _line(min(sc0, sc1), z + elev_h, max(sc0, sc1), z + elev_h, layer)
+                else:
+                    ents += _line(sc0, z, sc1, z, layer)
+            except (TypeError, ValueError, IndexError, KeyError):
+                continue
+        elif el.params.get("origin_mm"):
+            o = el.params["origin_mm"]
+            sc = s_of(float(o[0]), float(o[1]))
+            if sc < -500 or sc > cut_len + 500:
+                continue
+            z = base + float(el.params.get("z0_mm") or 0)
+            r = 40.0
+            ents += _line(sc - r, z, sc + r, z, "FITTINGS")
+            ents += _line(sc, z - r, sc, z + r, "FITTINGS")
+
+    for lv in model.levels:
+        z = float(lv.elevation_mm)
+        ents += _line(-1000, z, cut_len + 1000, z, "LEVELS")
+        ents += _text(0, z + 50, 120.0, f"{lv.name} EL {z:.0f}", "LEVELS")
+
+    # cut ground line
+    ents += _line(0, -200, cut_len, -200, "CUT")
+    ents += _text(cut_len / 2, -400, 100.0, "SECTION CUT", "CUT")
+
+    lines = _header() + ents + _footer()
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return p
