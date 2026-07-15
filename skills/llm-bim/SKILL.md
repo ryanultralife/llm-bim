@@ -80,13 +80,17 @@ CLI: `llmbim template office_bay`  → `output/office_bay/`
 p = Project.create("My Building")
 p.add_level("L1", 0)
 p.add_level("L2", 3500)
-p.create_wall(level="L1", start=(0,0), end=(12000,0), thickness_mm=200, height_mm=3500, name="W-S")
+p.create_wall(level="L1", start=(0,0), end=(12000,0), thickness_mm=200, height_mm=3500, name="W-S", fire_rating="2-hr")
 # or imperial:
 p.create_wall(level="L1", start=(0,0), end=(40,0), thickness=0.67, height=10, unit="ft")
+w = p.create_wall(level="L1", start=(0,0), end=(8000,0), thickness_mm=200, height_mm=3000)
+p.place_door(host=w, offset_mm=2000, width_mm=900, height_mm=2100, type_id="D-HM-36", fire_rating="90 min")
+p.place_window(host=w, offset_mm=5000, width_mm=1200, height_mm=900, sill_mm=900, type_id="WIN-VIEW")
 p.create_rect_shell(level="L1", x=0, y=0, w=12000, d=9000, height_mm=3500, thickness_mm=200, name_prefix="B")
 p.set_type(wall_id, "W-EXT-CMU")  # W-INT-GYP | W-SHIELD-CONC
 p.create_note(level="L1", text="Fire rating TBD", position=(1000, 1000))
 p.export_deliverables("out/pack")
+# openings also: MCP place_door/place_window · CLI place --kind wall|door|window · ops create_wall/place_door/place_window
 ```
 
 ### C. Import whatever the user has
@@ -252,6 +256,9 @@ llmbim place model --kind duct --origin 0,0 --end 8000,0 --width 600 --height 35
 llmbim place model --kind conduit --origin 0,500 --end 8000,500 --nps 1
 llmbim place model --kind cable_tray --origin 0,800 --end 8000,800 --width 450
 llmbim place model --kind riser --origin 4000,0 --to-level L2 --nps 2
+llmbim place model --kind wall --origin 0,0 --end 8000,0 --width 200 --height 3000 --fire-rating 2-hr
+llmbim place model --kind door --host <wall_id> --offset 2000 --width 900 --height 2100 --type-id D-HM-36 --fire-rating "90 min"
+llmbim place model --kind window --host <wall_id> --offset 5000 --sill 900 --type-id WIN-VIEW
 llmbim takeoff model --kind duct
 llmbim takeoff model --kind conduit
 llmbim takeoff model --kind cable_tray

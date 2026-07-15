@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -57,6 +58,39 @@ def element_aabb(el: Element, model: ProjectModel) -> AABB | None:
         # expand by half thickness roughly
         pad = th / 2
         return AABB(min(xs) - pad, min(ys) - pad, z0, max(xs) + pad, max(ys) + pad, z0 + ht)
+    if el.category in {"door", "window"}:
+        # Hosted opening AABB along host wall baseline (skip vs host via ignore_same_host)
+        try:
+            host = model.get_element(el.host_id) if el.host_id else None
+            if host is None or host.category != "wall":
+                return None
+            s = host.params["start_mm"]
+            e = host.params["end_mm"]
+            hx0, hy0 = float(s[0]), float(s[1])
+            hx1, hy1 = float(e[0]), float(e[1])
+            wlen = math.hypot(hx1 - hx0, hy1 - hy0)
+            if wlen < 1:
+                return None
+            off = float(el.params.get("offset_mm") or 0)
+            width_o = float(el.params.get("width_mm") or 900)
+            oh = float(el.params.get("height_mm") or (2100 if el.category == "door" else 1200))
+            sill = float(el.params.get("sill_mm") or 0)
+            th = float(host.params.get("thickness_mm") or 100)
+            ux, uy = (hx1 - hx0) / wlen, (hy1 - hy0) / wlen
+            ax, ay = hx0 + ux * off, hy0 + uy * off
+            bx, by = hx0 + ux * (off + width_o), hy0 + uy * (off + width_o)
+            pad = th / 2
+            hz0 = _level_z(model, host.level_id) + sill
+            return AABB(
+                min(ax, bx) - pad,
+                min(ay, by) - pad,
+                hz0,
+                max(ax, bx) + pad,
+                max(ay, by) + pad,
+                hz0 + oh,
+            )
+        except (KeyError, TypeError, ValueError, IndexError):
+            return None
     if el.category == "equipment" or el.category == "column" or el.params.get("fitting_type") == "column":
         try:
             o = el.params["origin_mm"]
@@ -181,6 +215,8 @@ def find_clashes(
     *,
     categories: tuple[str, ...] = (
         "wall",
+        "door",
+        "window",
         "equipment",
         "slab",
         "pipe",
@@ -242,12 +278,14 @@ def find_clashes(
             if ba.intersects(bb):
                 cats = {a.category, b.category}
                 sev = "warning"
-                if cats & mep and cats & {"wall", "equipment"}:
+                if cats & mep and cats & {"wall", "equipment", "door", "window"}:
                     sev = "error"
                 elif cats <= mep:
                     sev = "warning"  # pipe-pipe / pipe-fitting
                 elif cats == {"wall", "equipment"}:
                     sev = "warning"
+                elif cats & {"door", "window"} and cats & mep:
+                    sev = "error"
                 else:
                     sev = "error"
                 clashes.append(
