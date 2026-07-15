@@ -76,7 +76,8 @@
 | 50 | continue | section storey dims | section lacked level dims | level-dims + storey-height on section SVG | 120 unit | 9873377 |
 | 51 | continue | elev DXF CAD handoff | only plan DXF | export_elevation_dxf S/E in pack; SDK | 121 unit | bcab845 |
 | 52 | continue | query phase= | phase query incomplete docs | phase=new\|existing filter tests | 122 unit | bcab845 |
-| 53 | continue | full multi-trade pack smoke | chat path thin | elev DXF+zone+CSI+IFC space+STEP layers | 123 unit | (this) |
+| 53 | continue | full multi-trade pack smoke | chat path thin | elev DXF+zone+CSI+IFC space+STEP layers | 123 unit | 77868eb |
+| 54 | continue | DXF grid bubbles | plan DXF grids unlabeled | CIRCLE + A/B/1 labels on GRIDS | 124 unit | c8b4ad4 |
 
 ## Backlog (living — pull highest impact each pass)
 
