@@ -231,6 +231,8 @@ if HAS_MCP:
             return _tool_result(p.rebar_takeoff())
         if k == "csi":
             return _tool_result(p.csi_takeoff())
+        if k in ("csi_instances", "locator", "locators"):
+            return _tool_result({"count": len(p.csi_instances()), "instances": p.csi_instances()[:200]})
         if k in ("trades", "all"):
             return _tool_result(p.trade_schedule())
         if k in ("fixture", "fixtures"):
@@ -332,6 +334,107 @@ if HAS_MCP:
                 ],
             }
         )
+
+    @mcp.tool()
+    def import_module(
+        project_id: str,
+        source_path: str,
+        level: str = "L1",
+        mode: str = "native",
+        origin_x: float = 0,
+        origin_y: float = 0,
+        rotation_deg: float = 0,
+        kind: str = "fabrication",
+        name: str = "",
+    ) -> str:
+        """Import another project/module into host.
+        mode: native (editable) | block (CAD instance) | linked (re-syncable).
+        kind: fabrication | machine | block."""
+        p = store.get(project_id)
+        if not p.levels():
+            p.add_level(level, 0)
+        r = p.import_module(
+            source_path,
+            level=level,
+            origin=(origin_x, origin_y),
+            mode=mode,
+            name=name or None,
+            rotation_deg=rotation_deg,
+            kind=kind,
+        )
+        store.save(project_id)
+        return _tool_result(r)
+
+    @mcp.tool()
+    def export_module(
+        project_id: str,
+        out_path: str,
+        name: str = "",
+        kind: str = "fabrication",
+    ) -> str:
+        """Export current project as reusable module package (dir or .llmbim.json)."""
+        p = store.get(project_id)
+        r = p.export_module(out_path, name=name or None, kind=kind)
+        return _tool_result(r)
+
+    @mcp.tool()
+    def define_port(
+        project_id: str,
+        element_id: str,
+        port_name: str,
+        role: str = "process",
+        medium: str = "",
+        position_x: float = 0,
+        position_y: float = 0,
+    ) -> str:
+        """Define connection port on equipment/module (FEED, PWR, DRAIN, …)."""
+        p = store.get(project_id)
+        r = p.define_port(
+            element_id,
+            port_name,
+            role=role,
+            medium=medium,
+            position=(position_x, position_y) if (position_x or position_y) else None,
+        )
+        store.save(project_id)
+        return _tool_result(r)
+
+    @mcp.tool()
+    def connect_ports(
+        project_id: str,
+        from_id: str,
+        from_port: str,
+        to_id: str,
+        to_port: str,
+        medium: str = "process",
+        name: str = "",
+    ) -> str:
+        """Connect two ports (machine ↔ host header, module ↔ module)."""
+        p = store.get(project_id)
+        r = p.connect(from_id, from_port, to_id, to_port, medium=medium, name=name)
+        store.save(project_id)
+        return _tool_result(r)
+
+    @mcp.tool()
+    def list_modules(project_id: str) -> str:
+        """Module library definitions, instances, and connections on a project."""
+        p = store.get(project_id)
+        return _tool_result(p.modules())
+
+    @mcp.tool()
+    def explode_block(project_id: str, instance_id: str) -> str:
+        """Explode a block module_instance into native host elements."""
+        p = store.get(project_id)
+        r = p.explode_block(instance_id)
+        store.save(project_id)
+        return _tool_result(r)
+
+    @mcp.tool()
+    def csi_instances(project_id: str) -> str:
+        """Per-element MasterFormat CSI code + level/XY/Z locator to find items."""
+        p = store.get(project_id)
+        rows = p.csi_instances()
+        return _tool_result({"count": len(rows), "instances": rows[:200]})
 
     @mcp.tool()
     def wall_create(

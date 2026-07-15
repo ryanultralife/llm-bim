@@ -29,6 +29,7 @@
 | 4 | T+15m | CSI process + matrix modules | sep parts CSI empty; modules undoc'd | flange/cartridge/magnet/pedestal CSI; OUTPUT_MATRIX M6 | 68 unit pass | b5143a5 |
 | 5 | T+20m | IFC pipe/fitting/fixture | IFC only walls/equip | BuildingElementProxy for pipe/fitting/fixture/module | 70 unit pass | 6af664a |
 | 6 | T+~30m | CSI real codes + locators | codes too coarse; no XY/Z | csi_instance L1\|X\|Y\|Z; MF 22 42 13 toilets etc | 72 unit pass | 62a9f96 |
+| 7 | T+~35m | MCP modules + CSI | modules only via project_op | import_module/connect/ports/csi_instances MCP tools | 72 unit pass | (pending) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -44,11 +45,11 @@
 10. ~~CSI division 00 on process parts~~ (pass 4, related)
 11. ~~part_summary unit for linear m parts~~ (pass 2)
 12. ~~Process separator CSI~~ (pass 4)
-13. MCP tools for import_module / connect (modules via project_op only)
+13. ~~MCP module import/connect~~ (pass 7)
 14. ~~OUTPUT_MATRIX modules~~ (pass 4)
 15. ~~CSI MasterFormat + level/XY/Z locators~~ (pass 6)
 
-**Next suggested focus:** #13 MCP module tools or #7 glTF pipe markers
+**Next suggested focus:** #7 glTF pipe markers or #9 chat_smoke multi-trade
 
 ## Rules for each scheduled pass
 
