@@ -354,7 +354,7 @@ def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
         )
         seen_ids.add(el.id)
 
-    return annotate_boq_with_csi(rows)
+    return annotate_boq_with_csi(rows, model=model)
 
 
 def boq_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:

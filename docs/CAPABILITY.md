@@ -97,6 +97,22 @@ host.explode_block(block_instance_id)
 
 Ops: `import_module`, `export_module`, `explode_block`, `define_port`, `connect`, `list_modules`.
 
+## CSI MasterFormat + locators
+
+Every element can resolve a **real MasterFormat section** (e.g. `22 11 16` Domestic Water Piping, `22 42 13` Commercial Water Closets, `21 13 13` Wet-Pipe Sprinkler) plus a **locator** so you can find it:
+
+```text
+csi_code:     22 11 16
+csi_instance: 22 11 16 @ L1|X1200Y3400|Z900|NPS3/4
+level / x_mm / y_mm / z_mm / height_mm / nps
+```
+
+```python
+p.csi_instances()   # one row per element
+p.csi_takeoff()     # rollup by section + instance list
+# pack writes materials/csi_instances.csv
+```
+
 ## What “complete” means here
 
 | Layer | Completeness |
