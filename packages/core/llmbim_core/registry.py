@@ -461,6 +461,24 @@ def _place_column(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+@register("place_beam", description="Place structural steel beam start→end", mutates=True)
+def _place_beam(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import place_beam
+
+    start = p.get("start") or p.get("start_mm") or [0, 0]
+    end = p.get("end") or p.get("end_mm") or [3000, 0]
+    return place_beam(
+        model,
+        level=p.get("level") or model.levels[0].name,
+        start=start,
+        end=end,
+        section=str(p.get("section") or "W12x26"),
+        name=p.get("name"),
+        material_id=p.get("material_id") or p.get("material") or "steel_A36",
+        z0_mm=p.get("z0_mm") if p.get("z0_mm") is not None else None,
+    )
+
+
 @register("materials", description="Materials catalog", mutates=False)
 def _materials(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.materials import materials_catalog

@@ -41,3 +41,27 @@ def test_place_column_csi_boq_plan(tmp_path: Path):
     text = plan.read_text(encoding="utf-8")
     assert 'class="columns"' in text
     assert "W10x33" in text
+
+
+def test_place_beam_csi_and_plan(tmp_path: Path):
+    p = Project.create("beams", vcs=False)
+    p.add_level("L1", 0)
+    eid = p.place_beam(
+        level="L1",
+        start=(0, 2000),
+        end=(8000, 2000),
+        section="W12x26",
+        name="B1",
+    )
+    el = p.model.get_element(eid)
+    assert el.category == "beam"
+    assert abs(float(el.params["length_m"]) - 8.0) < 0.01
+    row = next(r for r in p.csi_instances() if r.get("element_id") == eid)
+    assert row["csi_code"] == "05 12 00"
+    boq = compute_boq(p.model)
+    assert any(r["category"] == "beam" and abs(float(r["qty"]) - 8.0) < 0.01 for r in boq)
+    plan = tmp_path / "p.svg"
+    write_plan_svg(p.model, "L1", plan, scale=0.02)
+    text = plan.read_text(encoding="utf-8")
+    assert 'class="beams"' in text
+    assert "W12x26" in text

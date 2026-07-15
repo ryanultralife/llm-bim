@@ -117,6 +117,7 @@ def render_plan_view(
             "hvac",
             "conduit",
             "cable_tray",
+            "beam",
         }
     ]
 
@@ -386,6 +387,36 @@ def render_plan_view(
             parts.append(
                 f'    <text x="{fmt(mx)}" y="{fmt(my)}" text-anchor="middle" '
                 f'font-size="{fmt(max(6, 9))}" fill="#263238" font-family="sans-serif">'
+                f"{esc(str(sec)[:16])}</text>"
+            )
+        except (KeyError, TypeError, ValueError, IndexError):
+            continue
+    parts.append("  </g>")
+
+    # Structural beams as centerlines
+    parts.append(
+        f'  <g class="beams" stroke="#546e7a" stroke-width="{fmt(max(1.0, 18 * scale))}" '
+        f'fill="none" stroke-linecap="butt">'
+    )
+    for el in mep_els:
+        if el.category != "beam" and el.params.get("fitting_type") != "beam":
+            continue
+        try:
+            s, e = el.params["start_mm"], el.params["end_mm"]
+            a = project(float(s[0]), float(s[1]))
+            b = project(float(e[0]), float(e[1]))
+            parts.append(
+                f'    <line x1="{fmt(a[0])}" y1="{fmt(a[1])}" '
+                f'x2="{fmt(b[0])}" y2="{fmt(b[1])}" stroke="#546e7a"/>'
+            )
+            mx, my = project(
+                (float(s[0]) + float(e[0])) / 2,
+                (float(s[1]) + float(e[1])) / 2,
+            )
+            sec = el.params.get("section") or "BM"
+            parts.append(
+                f'    <text x="{fmt(mx)}" y="{fmt(my - 4)}" text-anchor="middle" '
+                f'font-size="{fmt(max(6, 9))}" fill="#37474f" font-family="sans-serif">'
                 f"{esc(str(sec)[:16])}</text>"
             )
         except (KeyError, TypeError, ValueError, IndexError):

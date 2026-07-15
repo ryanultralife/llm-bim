@@ -701,6 +701,30 @@ class Project:
         )
         return str(r["element_id"])
 
+    def place_beam(
+        self,
+        *,
+        level: str,
+        start: tuple[float, float],
+        end: tuple[float, float],
+        section: str = "W12x26",
+        name: str | None = None,
+        material: str = "steel_A36",
+        z0_mm: float | None = None,
+    ) -> str:
+        """Structural steel beam along plan start→end. CSI 05 12 00."""
+        r = self.op(
+            "place_beam",
+            level=level,
+            start=list(start),
+            end=list(end),
+            section=section,
+            name=name,
+            material=material,
+            z0_mm=z0_mm,
+        )
+        return str(r["element_id"])
+
     def place_cable_tray(
         self,
         *,
