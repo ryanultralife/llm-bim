@@ -131,6 +131,16 @@
       }
     },
     {
+      "name": "cable_tray_takeoff",
+      "description": "Cable tray runs: length_m + area by width",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
       "name": "catalog",
       "description": "Type catalog wall/door/window",
       "mutates": false,
@@ -143,6 +153,16 @@
     {
       "name": "clash",
       "description": "AABB clashes",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "conduit_takeoff",
+      "description": "Electrical conduit length by trade size",
       "mutates": false,
       "parameters": {
         "type": "object",
@@ -214,6 +234,16 @@
       "name": "design_option",
       "description": "Clone elements into a design option assembly",
       "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "duct_takeoff",
+      "description": "HVAC duct runs: length_m + area_m2 by size",
+      "mutates": false,
       "parameters": {
         "type": "object",
         "additionalProperties": true,
@@ -472,7 +502,7 @@
     },
     {
       "name": "system_takeoff",
-      "description": "Takeoff by trade system: fire|process|rebar|steel|framing|fixture",
+      "description": "Takeoff by trade: fire|process|rebar|steel|duct|conduit|tray|framing|fixture",
       "mutates": false,
       "parameters": {
         "type": "object",

@@ -568,9 +568,40 @@ def _csi_takeoff(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     return {"rows": rows, "count": len(rows)}
 
 
-@register("system_takeoff", description="Takeoff by trade system: fire|process|rebar|steel|framing|fixture", mutates=False)
+@register("duct_takeoff", description="HVAC duct runs: length_m + area_m2 by size", mutates=False)
+def _duct_takeoff(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.material_lists import duct_takeoff
+
+    rows = duct_takeoff(model)
+    return {"duct": rows, "count": len(rows)}
+
+
+@register("conduit_takeoff", description="Electrical conduit length by trade size", mutates=False)
+def _conduit_takeoff(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.material_lists import conduit_takeoff
+
+    rows = conduit_takeoff(model)
+    return {"conduit": rows, "count": len(rows)}
+
+
+@register("cable_tray_takeoff", description="Cable tray runs: length_m + area by width", mutates=False)
+def _cable_tray_takeoff(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.material_lists import cable_tray_takeoff
+
+    rows = cable_tray_takeoff(model)
+    return {"cable_tray": rows, "count": len(rows)}
+
+
+@register(
+    "system_takeoff",
+    description="Takeoff by trade: fire|process|rebar|steel|duct|conduit|tray|framing|fixture",
+    mutates=False,
+)
 def _system_takeoff(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.material_lists import (
+        cable_tray_takeoff,
+        conduit_takeoff,
+        duct_takeoff,
         fire_takeoff,
         rebar_takeoff,
         steel_takeoff,
@@ -582,6 +613,12 @@ def _system_takeoff(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
         return fire_takeoff(model)
     if sys in ("steel", "structural_steel"):
         return {"rows": steel_takeoff(model)}
+    if sys in ("duct", "hvac"):
+        return {"duct": duct_takeoff(model)}
+    if sys == "conduit":
+        return {"conduit": conduit_takeoff(model)}
+    if sys in ("cable_tray", "tray"):
+        return {"cable_tray": cable_tray_takeoff(model)}
     if sys == "rebar":
         return {"rows": rebar_takeoff(model)}
     if sys == "all":

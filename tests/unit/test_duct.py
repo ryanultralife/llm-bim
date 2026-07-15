@@ -177,3 +177,18 @@ def test_cli_takeoff_duct_conduit(tmp_path: Path, capsys):
     out = capsys.readouterr().out
     assert "conduit" in out
     assert "26 05 33" in out
+
+
+def test_registry_duct_and_tray_takeoff_ops():
+    p = Project.create("op-mep", vcs=False)
+    p.add_level("L1", 0)
+    p.place_duct(level="L1", start=(0, 0), end=(5000, 0), width_mm=400, height_mm=250)
+    p.place_cable_tray(level="L1", start=(0, 500), end=(4000, 500), width_mm=300)
+    d = p.op("duct_takeoff")
+    assert d.get("count") == 1
+    assert d["duct"][0]["csi_code"] == "23 31 00"
+    t = p.op("cable_tray_takeoff")
+    assert t.get("count") == 1
+    assert t["cable_tray"][0]["csi_code"] == "26 05 36"
+    s = p.op("system_takeoff", system="duct")
+    assert "duct" in s
