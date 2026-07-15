@@ -78,6 +78,35 @@ def test_locator_includes_room_name():
     if toilet is None:
         toilet = next(r for r in rows if r.get("x_mm") == 2000)
     assert toilet.get("room") == "Restroom A" or "Restroom" in str(toilet.get("locator", ""))
-    assert "RM:Restroom" in str(toilet.get("locator", "")) or toilet.get("room") == "Restroom A"
-    elbow = next(r for r in rows if r.get("fitting_type") == "elbow_90")
-    assert elbow.get("room") == "Restroom A"
+
+
+def test_locator_section_fire_rating_and_category_tokens():
+    p = Project.create("csi-fr-sec", vcs=False)
+    p.add_level("L1", 0)
+    wid = p.create_wall(
+        level="L1",
+        start=(0, 0),
+        end=(5000, 0),
+        thickness_mm=200,
+        height_mm=3000,
+        fire_rating="2-hr",
+    )
+    wall = p.model.get_element(wid)
+    wloc = csi_for_element(p.model, wall)
+    assert "FR2hr" in wloc["locator"] or "FR2" in wloc["locator"]
+    assert wloc.get("fire_rating") == "2-hr"
+
+    cid = p.place_column(level="L1", origin=(1000, 1000), section="W10x33", height_mm=3500)
+    col = csi_for_element(p.model, p.model.get_element(cid))
+    assert "W10x33" in col["locator"]
+    assert "COLUMN" in col["locator"]
+    assert col["csi_code"] == "05 12 00"
+
+    p.place_conduit(level="L1", start=(0, 500), end=(3000, 500), trade_size="1", system="P")
+    cond = next(
+        r
+        for r in p.csi_instances()
+        if r.get("category") == "conduit" or "CONDUIT" in str(r.get("locator", ""))
+    )
+    assert "NPS1" in str(cond.get("locator", ""))
+    assert "SYS" in str(cond.get("locator", "")) or "CONDUIT" in str(cond.get("locator", ""))

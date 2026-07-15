@@ -406,8 +406,11 @@ def location_for_element(model: ProjectModel, el: Element) -> dict[str, Any]:
     z_abs = None
     if z is not None:
         z_abs = level_elev + float(z)
-    nps = el.params.get("nps") or ""
+    nps = el.params.get("nps") or el.params.get("trade_size") or ""
     section = el.params.get("section") or el.params.get("bar_size") or ""
+    fire_rating = el.params.get("fire_rating") or ""
+    system = el.params.get("system") or ""
+    trade_size = el.params.get("trade_size") or ""
     room = None
     if x is not None and y is not None:
         room = room_containing(model, x, y, el.level_id)
@@ -426,11 +429,21 @@ def location_for_element(model: ProjectModel, el: Element) -> dict[str, Any]:
     if h is not None:
         parts.append(f"H{h:.0f}")
     if nps:
+        # conduits often use trade_size; pipes use nps — both as NPS token for agents
         parts.append(f"NPS{nps}")
+    if trade_size and str(trade_size) != str(nps):
+        parts.append(f"TS{trade_size}")
     if section:
         parts.append(str(section).replace(" ", ""))
+    if system:
+        parts.append(f"SYS{str(system)[:12]}")
+    if fire_rating:
+        fr = str(fire_rating).replace(" ", "").replace("-", "")
+        parts.append(f"FR{fr[:12]}")
     if el.params.get("vertical"):
         parts.append("RISER")
+    if el.category in {"column", "beam", "duct", "conduit", "cable_tray"}:
+        parts.append(str(el.category).upper().replace("_", "")[:10])
     locator = "|".join(parts) if parts else el.id
     return {
         "level": level_name or None,
@@ -442,7 +455,10 @@ def location_for_element(model: ProjectModel, el: Element) -> dict[str, Any]:
         "z_absolute_mm": round(z_abs, 1) if z_abs is not None else None,
         "height_mm": round(h, 1) if h is not None else None,
         "nps": nps or None,
+        "trade_size": trade_size or None,
         "section_mark": section or None,
+        "fire_rating": fire_rating or None,
+        "system": system or None,
         "locator": locator,
     }
 

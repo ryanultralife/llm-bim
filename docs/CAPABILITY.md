@@ -110,10 +110,10 @@ Every element can resolve a **real MasterFormat section** (e.g. `22 11 16` Domes
 ```text
 csi_code:     22 11 16
 csi_instance: 22 11 16 @ L1|RM:Restroom_A|X1200Y3400|Z900|NPS3/4
-level / room / x_mm / y_mm / z_mm / height_mm / nps / RISER
+level / room / x_mm / y_mm / z_mm / height_mm / nps / RISER / FR… / SYS… / COLUMN
 ```
 
-Locator tokens (pipe-separated): `level` · `RM:RoomName` (point-in-polygon) · `X…Y…` · `Z…` · `Zabs…` · `H…` · `NPS…` · section · `RISER`.
+Locator tokens (pipe-separated): `level` · `RM:RoomName` · `X…Y…` · `Z…` · `Zabs…` · `H…` · `NPS…` · `TS…` · section · `SYS…` · `FR…` · `RISER` · category (`COLUMN`/`BEAM`/`DUCT`/`CONDUIT`/`CABLETRAY`).
 
 ```python
 p.csi_instances()   # one row per element (includes room + locator)
