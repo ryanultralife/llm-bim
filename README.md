@@ -83,8 +83,13 @@ llmbim import drawing.dxf --out output/from_dxf --pack
 llmbim import-step part.step --level L1 --out output/part
 llmbim pack model.llmbim.json --out output/pack
 llmbim boq output/pack/model.llmbim.json
-llmbim takeoff output/pack --kind plumbing   # copper 90° elbows by size, etc.
-llmbim parts --fitting-type elbow_90 --nps 1/2
+llmbim takeoff output/pack --kind plumbing   # copper 90° elbows by size
+llmbim takeoff output/pack --kind fire       # sprinklers + FP fittings
+llmbim takeoff output/pack --kind steel      # W-shapes, bolts
+llmbim takeoff output/pack --kind rebar      # #3–#11 + WWF
+llmbim takeoff output/pack --kind csi        # MasterFormat rollup
+llmbim takeoff output/pack --kind trades     # everything
+llmbim parts --system fire --fitting-type elbow_90
 llmbim materials output/pack --out output/lists
 llmbim clash output/pack/model.llmbim.json
 llmbim rules output/pack/model.llmbim.json -v

@@ -50,7 +50,18 @@ def part_assignment_list(model: ProjectModel) -> list[dict[str, Any]]:
         if not pid:
             continue
         part = get_part(str(pid))
-        qty = float(el.params.get("part_qty") or 1)
+        # prefer explicit qty; else length_m for linear parts (steel/rebar/studs)
+        if el.params.get("part_qty") is not None:
+            qty = float(el.params["part_qty"])
+        elif el.params.get("length_m") is not None:
+            qty = float(el.params["length_m"])
+        else:
+            qty = 1.0
+        # if part sold per m and length set, use length even when part_qty was wiped to 1
+        unit = (part.specs or {}).get("unit") if part else "ea"
+        if unit in ("m", "m2") and el.params.get("length_m") is not None:
+            if float(el.params.get("part_qty") or 1) == 1.0 and float(el.params["length_m"]) != 1.0:
+                qty = float(el.params["length_m"])
         rows.append(
             {
                 "element_id": el.id,
@@ -242,33 +253,40 @@ def fitting_takeoff(
     fitting_type: str | None = None,
     nps: str | None = None,
     material: str | None = None,
-    system: str = "plumbing",
+    system: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Count fittings by type + size (+ material).
+    """Count fittings by type + size (+ material / system).
 
     Answers: "how many 90° copper fittings of what size?"
+    Also fire/process: system=\"fire\"|\"process\"|\"plumbing\".
 
-    Returns one row per (fitting_type, nps, material) with qty and element ids.
-    Filters:
-      - fitting_type: elbow_90 | elbow_45 | tee | coupling | ...
-      - nps: "1/2", "3/4", "1", ...
-      - material: copper | pvc | copper_fitting | copper_C12200
+    Returns one row per (fitting_type, nps, material, system).
     """
-    buckets: dict[tuple[str, str, str], dict[str, Any]] = {}
+    buckets: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    pipe_systems = {"plumbing", "fire", "process", "process_piping", "fire_protection"}
 
     for el in model.elements:
         pid, part = _element_part_meta(el)
         if not part:
             continue
         sp = part.specs or {}
-        if system and sp.get("system") != system and part.category != "plumbing":
-            # still allow plumbing category without system tag
-            if part.category != "plumbing":
-                continue
+        sys = str(sp.get("system") or part.category or "")
+        if system:
+            if sys != system and part.category != system and system not in (sys, part.category):
+                # aliases
+                aliases = {
+                    "fire": ("fire", "fire_protection"),
+                    "process": ("process", "process_piping"),
+                    "plumbing": ("plumbing",),
+                }
+                allowed = aliases.get(system, (system,))
+                if sys not in allowed and part.category not in allowed:
+                    continue
         ftype = sp.get("fitting_type") or el.params.get("fitting_type")
         if not ftype or ftype == "pipe":
             continue
-        size = str(sp.get("nps") or el.params.get("nps") or "")
+        # discrete fixtures counted in system_takeoff; fittings are pipe fittings + heads
+        size = str(sp.get("nps") or el.params.get("nps") or sp.get("size") or sp.get("bar_size") or "")
         mat = str(
             sp.get("material")
             or part.primary_material_id
@@ -283,25 +301,34 @@ def fitting_takeoff(
             ml = material.lower()
             if ml not in mat.lower() and not (
                 ml in ("copper", "cu") and "copper" in mat.lower()
-            ):
+            ) and not (ml in ("ss", "ss316") and "ss316" in mat.lower()):
                 continue
 
         qty = float(el.params.get("part_qty") or 1)
-        key = (str(ftype), size, mat)
+        # length-based for framing studs / rebar / steel sold per m
+        unit = str(sp.get("unit") or "ea")
+        if unit in ("m", "m2") and el.params.get("length_m") is not None:
+            qty = float(el.params["length_m"])
+        elif unit == "m" and el.params.get("length_mm") is not None:
+            qty = float(el.params["length_mm"]) / 1000.0
+
+        key = (str(ftype), size, mat, sys)
         if key not in buckets:
             buckets[key] = {
                 "fitting_type": ftype,
                 "nps": size,
                 "nps_in": size,
+                "size": size,
+                "system": sys,
                 "material_id": mat,
                 "part_id": part.id,
                 "part_name": part.name,
                 "qty": 0.0,
-                "unit": "ea",
+                "unit": unit,
                 "unit_cost": part_unit_cost(part),
                 "est_cost": 0.0,
                 "angle_deg": sp.get("angle_deg"),
-                "csi_code": part.csi_code,
+                "csi_code": part.csi_code or sp.get("csi_code") or "",
                 "element_ids": [],
                 "element_names": [],
             }
@@ -314,16 +341,18 @@ def fitting_takeoff(
 
     rows = list(buckets.values())
     for r in rows:
-        r["qty"] = int(r["qty"]) if r["qty"] == int(r["qty"]) else round(r["qty"], 2)
-    # sort: fitting type then size
-    nps_order = ["1/2", "3/4", "1", "1-1/4", "1-1/2", "2", "2-1/2", "3", "4"]
+        if r["unit"] == "ea" and r["qty"] == int(r["qty"]):
+            r["qty"] = int(r["qty"])
+        else:
+            r["qty"] = round(float(r["qty"]), 3)
+    nps_order = ["1/2", "3/4", "1", "1-1/4", "1-1/2", "2", "2-1/2", "3", "4", "6", "8"]
 
     def _sk(r: dict[str, Any]) -> tuple:
         try:
             ni = nps_order.index(r["nps"])
         except ValueError:
             ni = 99
-        return (str(r["fitting_type"]), ni, str(r["material_id"]))
+        return (str(r.get("system")), str(r["fitting_type"]), ni, str(r["material_id"]))
 
     return sorted(rows, key=_sk)
 
@@ -433,19 +462,154 @@ def part_summary(model: ProjectModel) -> list[dict[str, Any]]:
 
 def plumbing_schedule(model: ProjectModel) -> dict[str, Any]:
     """Full plumbing package answer for agents."""
-    fittings = fitting_takeoff(model)
+    fittings = fitting_takeoff(model, system="plumbing")
+    # also fixtures without system filter miss — include copper fittings from unfiltered
+    all_fit = fitting_takeoff(model)
+    fittings = [r for r in all_fit if r.get("system") in ("plumbing", "", None) or "copper" in str(r.get("material_id", "")).lower()]
+    if not fittings:
+        fittings = [r for r in all_fit if r.get("system") not in ("fire", "process", "structural_steel", "rebar", "framing")]
     pipes = pipe_takeoff(model)
-    copper_90 = [r for r in fittings if r["fitting_type"] == "elbow_90" and "copper" in str(r["material_id"]).lower()]
+    copper_90 = [
+        r
+        for r in all_fit
+        if r["fitting_type"] == "elbow_90" and "copper" in str(r["material_id"]).lower()
+    ]
+    fixtures = [
+        r
+        for r in part_summary(model)
+        if str(r.get("part_id", "")).startswith("PT-PLB") or str(r.get("part_id", "")).startswith("PT-ACC")
+    ]
     return {
         "fittings": fittings,
         "pipe": pipes,
         "copper_90_elbows_by_size": copper_90,
+        "fixtures_and_accessories": fixtures,
         "totals": {
-            "fitting_pieces": sum(int(r["qty"]) if isinstance(r["qty"], (int, float)) else 0 for r in fittings),
+            "fitting_pieces": sum(float(r["qty"]) for r in fittings if r.get("unit") == "ea"),
             "pipe_length_m": round(sum(float(r["length_m"]) for r in pipes), 3),
             "est_cost_fittings": round(sum(float(r["est_cost"]) for r in fittings), 2),
             "est_cost_pipe": round(sum(float(r["est_cost"]) for r in pipes), 2),
         },
+    }
+
+
+def system_takeoff(model: ProjectModel, system: str | None = None) -> list[dict[str, Any]]:
+    """Rollup all assigned parts filtered by system (fire, process, rebar, …)."""
+    rows = []
+    for r in part_summary(model):
+        part = get_part(str(r["part_id"]))
+        if not part:
+            continue
+        sys = str((part.specs or {}).get("system") or part.category)
+        if system and sys != system and part.category != system:
+            aliases = {
+                "fire": ("fire", "fire_protection"),
+                "process": ("process", "process_piping"),
+                "steel": ("structural_steel", "structural"),
+                "structural_steel": ("structural_steel", "structural"),
+                "fixture": ("plumbing_fixture", "fixture", "toilet_accessory", "accessory"),
+            }
+            allowed = aliases.get(system, (system,))
+            if sys not in allowed and part.category not in allowed:
+                continue
+        rows.append(
+            {
+                **r,
+                "system": sys,
+                "fitting_type": (part.specs or {}).get("fitting_type"),
+                "nps": (part.specs or {}).get("nps"),
+                "section": (part.specs or {}).get("section"),
+                "bar_size": (part.specs or {}).get("bar_size"),
+                "csi_code": part.csi_code,
+            }
+        )
+    return rows
+
+
+def csi_takeoff(model: ProjectModel, *, division: str | None = None) -> list[dict[str, Any]]:
+    """Aggregate assigned parts + BOQ-ish lines by CSI code."""
+    from llmbim_core.csi import CSI_DIVISIONS, CSI_SECTIONS
+
+    buckets: dict[str, dict[str, Any]] = {}
+    for r in part_assignment_list(model):
+        part = get_part(str(r["part_id"]))
+        code = (part.csi_code if part else "") or "01 00 00"
+        if division and not code.startswith(division):
+            continue
+        qty = float(r.get("qty") or 1)
+        cost = float(r.get("est_cost") or 0)
+        b = buckets.setdefault(
+            code,
+            {
+                "csi_code": code,
+                "csi_section_name": CSI_SECTIONS.get(code, ""),
+                "csi_division": code.split()[0],
+                "csi_division_name": CSI_DIVISIONS.get(code.split()[0], ""),
+                "qty_lines": 0,
+                "est_cost": 0.0,
+                "parts": {},
+            },
+        )
+        b["qty_lines"] += 1
+        b["est_cost"] += cost
+        pid = str(r["part_id"])
+        pb = b["parts"].setdefault(pid, {"part_id": pid, "part_name": r.get("part_name"), "qty": 0.0, "est_cost": 0.0})
+        pb["qty"] += qty
+        pb["est_cost"] += cost
+    out = []
+    for code, b in buckets.items():
+        b["est_cost"] = round(b["est_cost"], 2)
+        b["parts"] = sorted(b["parts"].values(), key=lambda x: -x["est_cost"])
+        out.append(b)
+    return sorted(out, key=lambda x: x["csi_code"])
+
+
+def steel_takeoff(model: ProjectModel) -> list[dict[str, Any]]:
+    """Structural steel by section (meters × weight)."""
+    return system_takeoff(model, "structural_steel")
+
+
+def rebar_takeoff(model: ProjectModel) -> list[dict[str, Any]]:
+    """Rebar by bar size."""
+    return system_takeoff(model, "rebar")
+
+
+def fire_takeoff(model: ProjectModel) -> dict[str, Any]:
+    """Fire protection: pipe + fittings + heads."""
+    fits = fitting_takeoff(model, system="fire")
+    heads = [r for r in fits if r["fitting_type"] == "sprinkler_head"]
+    elbows = [r for r in fits if r["fitting_type"] == "elbow_90"]
+    pipes = [
+        r
+        for r in pipe_takeoff(model)
+        if "black" in str(r.get("material_id", "")).lower() or str(r.get("part_id", "")).startswith("PT-FP")
+    ]
+    # also pipe from fire parts with length
+    return {
+        "fittings": fits,
+        "sprinkler_heads": heads,
+        "elbow_90_by_size": elbows,
+        "pipe": pipes,
+        "devices": system_takeoff(model, "fire"),
+    }
+
+
+def full_trade_schedule(model: ProjectModel) -> dict[str, Any]:
+    """Master schedule: all trades + CSI rollup."""
+    return {
+        "plumbing": plumbing_schedule(model),
+        "fire": fire_takeoff(model),
+        "process": {
+            "fittings": fitting_takeoff(model, system="process"),
+            "parts": system_takeoff(model, "process"),
+        },
+        "structural_steel": steel_takeoff(model),
+        "rebar": rebar_takeoff(model),
+        "framing": system_takeoff(model, "framing"),
+        "fixtures": system_takeoff(model, "fixture"),
+        "csi": csi_takeoff(model),
+        "part_summary": part_summary(model),
+        "material_summary": material_summary(exploded_material_bom(model)),
     }
 
 
@@ -489,6 +653,11 @@ def export_lists(model: ProjectModel, out_dir: str | Path) -> dict[str, str]:
     pipes = pipe_takeoff(model)
     parts_sum = part_summary(model)
     plumbing = plumbing_schedule(model)
+    fire = fire_takeoff(model)
+    steel = steel_takeoff(model)
+    rebar = rebar_takeoff(model)
+    csi = csi_takeoff(model)
+    trades = full_trade_schedule(model)
 
     files: dict[str, Any] = {
         "material_assignments": mat_assign,
@@ -498,6 +667,9 @@ def export_lists(model: ProjectModel, out_dir: str | Path) -> dict[str, str]:
         "fitting_takeoff": fittings,
         "pipe_takeoff": pipes,
         "part_summary": parts_sum,
+        "steel_takeoff": steel,
+        "rebar_takeoff": rebar,
+        "csi_takeoff": csi,
     }
     written: dict[str, str] = {}
     for name, rows in files.items():
@@ -507,10 +679,15 @@ def export_lists(model: ProjectModel, out_dir: str | Path) -> dict[str, str]:
         _write_csv(cp, rows if isinstance(rows, list) else [])
         written[name] = str(jp.name)
 
-    (out / "plumbing_schedule.json").write_text(
-        json.dumps(plumbing, indent=2) + "\n", encoding="utf-8"
-    )
-    written["plumbing_schedule"] = "plumbing_schedule.json"
+    for name, obj in (
+        ("plumbing_schedule", plumbing),
+        ("fire_takeoff", fire),
+        ("trade_schedule", trades),
+    ):
+        (out / f"{name}.json").write_text(json.dumps(obj, indent=2) + "\n", encoding="utf-8")
+        written[name] = f"{name}.json"
+
+    from llmbim_core.parts_catalog import catalog_summary
 
     payload = {
         "material_assignments": mat_assign,
@@ -521,9 +698,13 @@ def export_lists(model: ProjectModel, out_dir: str | Path) -> dict[str, str]:
         "pipe_takeoff": pipes,
         "part_summary": parts_sum,
         "plumbing": plumbing,
+        "fire": fire,
+        "steel": steel,
+        "rebar": rebar,
+        "csi": csi,
+        "trades": trades,
         "catalog_materials": list(MATERIALS.keys()),
-        "catalog_parts_count": len(PARTS),
-        "catalog_plumbing_parts": [k for k, v in PARTS.items() if v.category == "plumbing"],
+        "catalog": catalog_summary(),
     }
     (out / "MATERIALS_AND_PARTS.json").write_text(
         json.dumps(payload, indent=2) + "\n", encoding="utf-8"

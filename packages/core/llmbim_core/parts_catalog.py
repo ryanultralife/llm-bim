@@ -391,6 +391,11 @@ PARTS: dict[str, PartType] = {
 
 _register_plumbing_parts(PARTS)
 
+# Fire, process, framing, structural steel, rebar, fixtures, HVAC/elec
+from llmbim_core.catalog_systems import register_all_systems  # noqa: E402
+
+register_all_systems(PARTS)
+
 
 def get_part(part_id: str) -> PartType | None:
     return PARTS.get(part_id)
@@ -407,8 +412,11 @@ def list_parts(
     nps: str | None = None,
     material: str | None = None,
     system: str | None = None,
+    csi_prefix: str | None = None,
+    section: str | None = None,
+    bar_size: str | None = None,
 ) -> list[PartType]:
-    """Filter catalog parts (plumbing takeoff helper)."""
+    """Filter catalog parts by trade attributes."""
     out: list[PartType] = []
     for p in PARTS.values():
         if category and p.category != category:
@@ -418,13 +426,21 @@ def list_parts(
             continue
         if nps and str(sp.get("nps") or "") != nps:
             continue
-        if material and (
-            p.primary_material_id != material
-            and sp.get("material") != material
-            and not (material.startswith("copper") and "copper" in (p.primary_material_id or ""))
-        ):
+        if section and str(sp.get("section") or "") != section:
             continue
-        if system and sp.get("system") != system:
+        if bar_size and str(sp.get("bar_size") or sp.get("bar_no") or "") != str(bar_size):
+            continue
+        if material:
+            ml = material.lower()
+            mid = (p.primary_material_id or "").lower()
+            sm = str(sp.get("material") or "").lower()
+            if ml not in mid and ml not in sm and not (
+                ml in ("copper", "cu") and "copper" in mid
+            ) and not (ml in ("ss", "ss316", "316") and "ss316" in mid):
+                continue
+        if system and sp.get("system") != system and p.category != system:
+            continue
+        if csi_prefix and not (p.csi_code or "").startswith(csi_prefix):
             continue
         out.append(p)
     return sorted(out, key=lambda x: x.id)
@@ -436,10 +452,20 @@ def resolve_fitting_part_id(
     *,
     material: str = "copper",
 ) -> str | None:
-    """Map (elbow_90, 1/2, copper) → PT-CU-ELB90-1_2."""
+    """Map (elbow_90, 1/2, copper|fire|ss|pvc) → catalog part id."""
     slug = nps_slug(nps)
-    mat = material.lower()
-    prefix = "PT-CU" if "copper" in mat or mat in ("cu", "c12200") else ("PT-PVC" if "pvc" in mat else None)
+    mat = material.lower().replace(" ", "_")
+    # material / system aliases → part id prefix
+    if mat in ("copper", "cu", "c12200", "copper_c12200", "plumbing"):
+        prefix = "PT-CU"
+    elif "pvc" in mat:
+        prefix = "PT-PVC"
+    elif mat in ("fire", "fp", "sprinkler", "black_steel", "black", "a53"):
+        prefix = "PT-FP"
+    elif mat in ("process", "ss", "ss316", "ss316l", "316", "316l", "stainless"):
+        prefix = "PT-SS"
+    else:
+        prefix = None
     if not prefix:
         return None
     type_map = {
@@ -453,6 +479,10 @@ def resolve_fitting_part_id(
         "cap": "CAP",
         "union": "UNION",
         "ball_valve": "BALL",
+        "gate_valve": "GATE",
+        "check_valve": "CHK",
+        "flange": "FLG",
+        "grooved_coupling": "GRV",
         "valve": "BALL",
         "reducer": "RED",
         "pipe": "PIPE",
@@ -464,10 +494,106 @@ def resolve_fitting_part_id(
     return pid if pid in PARTS else None
 
 
+def resolve_part_id(
+    *,
+    kind: str | None = None,
+    section: str | None = None,
+    bar_size: str | None = None,
+    fitting_type: str | None = None,
+    nps: str | None = None,
+    material: str = "copper",
+    name_contains: str | None = None,
+) -> str | None:
+    """Resolve common trade items to catalog ids.
+
+    Examples:
+      resolve_part_id(section=\"W10x33\")
+      resolve_part_id(bar_size=\"5\")
+      resolve_part_id(kind=\"toilet\")
+      resolve_part_id(kind=\"tp_dispenser\")
+      resolve_part_id(fitting_type=\"elbow_90\", nps=\"2\", material=\"fire\")
+    """
+    if fitting_type and nps:
+        pid = resolve_fitting_part_id(fitting_type, nps, material=material)
+        if pid:
+            return pid
+    if section:
+        # W10x33 → PT-STL-W10x33 or existing PT-COLUMN-W10x33
+        sec = section.replace("×", "x").replace(" ", "")
+        for cand in (f"PT-STL-{sec}", f"PT-COLUMN-{sec}", f"PT-STL-{sec.replace('/', '_')}"):
+            if cand in PARTS:
+                return cand
+        for p in PARTS.values():
+            if (p.specs or {}).get("section") == section or (p.specs or {}).get("section") == sec:
+                return p.id
+    if bar_size is not None:
+        pid = f"PT-RBR-BAR-{bar_size}"
+        if pid in PARTS:
+            return pid
+    if kind:
+        k = kind.lower().replace(" ", "_").replace("-", "_")
+        aliases = {
+            "toilet": "PT-PLB-WC-FLOOR",
+            "wc": "PT-PLB-WC-FLOOR",
+            "water_closet": "PT-PLB-WC-FLOOR",
+            "toilet_ada": "PT-PLB-WC-ADA",
+            "urinal": "PT-PLB-URINAL-WALL",
+            "lavatory": "PT-PLB-LAV-WALL",
+            "lav": "PT-PLB-LAV-WALL",
+            "toilet_hose": "PT-PLB-HOSE-WC-BRAID",
+            "supply_hose": "PT-PLB-HOSE-WC-BRAID",
+            "tp_dispenser": "PT-ACC-TP-DOUBLE",
+            "toilet_paper": "PT-ACC-TP-DOUBLE",
+            "toilet_paper_dispenser": "PT-ACC-TP-DOUBLE",
+            "soap_dispenser": "PT-ACC-SOAP-MAN",
+            "grab_bar": "PT-ACC-GRAB-36",
+            "hand_dryer": "PT-ACC-HAND-DRY",
+            "mirror": "PT-ACC-MIRROR-18X36",
+            "sprinkler": "PT-FP-HEAD-PENDENT_5_6_155F",
+            "sprinkler_head": "PT-FP-HEAD-PENDENT_5_6_155F",
+            "extinguisher": "PT-FP-EXT-ABC-10",
+            "floor_drain": "PT-PLB-FD-3",
+            "flush_valve": "PT-PLB-FLUSH-VALVE",
+            "stud_2x4": "PT-WD-STUD-2X4",
+            "metal_stud": "PT-MS-STUD-362-20",
+        }
+        if k in aliases and aliases[k] in PARTS:
+            return aliases[k]
+        for p in PARTS.values():
+            if (p.specs or {}).get("fitting_type") == k:
+                return p.id
+            if k in p.id.lower() or k in p.name.lower().replace(" ", "_"):
+                return p.id
+    if name_contains:
+        nc = name_contains.lower()
+        for p in PARTS.values():
+            if nc in p.name.lower() or nc in p.id.lower():
+                return p.id
+    return None
+
+
 def register_part(part: PartType) -> PartType:
     """Agent extension: add custom part to runtime catalog."""
     PARTS[part.id] = part
     return part
+
+
+def catalog_summary() -> dict[str, Any]:
+    by_cat: dict[str, int] = {}
+    by_sys: dict[str, int] = {}
+    by_csi: dict[str, int] = {}
+    for p in PARTS.values():
+        by_cat[p.category] = by_cat.get(p.category, 0) + 1
+        sys = (p.specs or {}).get("system") or p.category
+        by_sys[str(sys)] = by_sys.get(str(sys), 0) + 1
+        div = (p.csi_code or "00")[:2]
+        by_csi[div] = by_csi.get(div, 0) + 1
+    return {
+        "parts_count": len(PARTS),
+        "by_category": dict(sorted(by_cat.items())),
+        "by_system": dict(sorted(by_sys.items())),
+        "by_csi_division": dict(sorted(by_csi.items())),
+    }
 
 
 def part_unit_cost(part: PartType) -> float:

@@ -346,21 +346,40 @@ def cmd_parts(args: argparse.Namespace) -> int:
 
 
 def cmd_takeoff(args: argparse.Namespace) -> int:
-    """Plumbing / fitting takeoff — answer 'how many 90 copper of what size?'."""
+    """Trade takeoff — copper 90s, fire sprinklers, rebar, steel, CSI, fixtures."""
     from llmbim import Project
 
     p = Project.open(args.path)
-    if args.kind == "pipe":
+    kind = args.kind
+    if kind == "pipe":
         print(json.dumps(p.pipe_takeoff(nps=args.nps, material=args.material), indent=2))
         return 0
-    if args.kind == "plumbing":
+    if kind == "plumbing":
         print(json.dumps(p.plumbing_schedule(), indent=2))
         return 0
-    # default fittings
+    if kind == "fire":
+        print(json.dumps(p.fire_takeoff(), indent=2))
+        return 0
+    if kind in ("steel", "structural_steel"):
+        print(json.dumps(p.steel_takeoff(), indent=2))
+        return 0
+    if kind == "rebar":
+        print(json.dumps(p.rebar_takeoff(), indent=2))
+        return 0
+    if kind == "csi":
+        print(json.dumps(p.csi_takeoff(division=args.division), indent=2))
+        return 0
+    if kind in ("trades", "all"):
+        print(json.dumps(p.trade_schedule(), indent=2, default=str))
+        return 0
+    if kind in ("fixture", "fixtures", "process", "framing"):
+        print(json.dumps(p.system_takeoff(kind if kind != "fixtures" else "fixture"), indent=2))
+        return 0
     rows = p.fitting_takeoff(
         fitting_type=args.fitting_type,
         nps=args.nps,
         material=args.material,
+        system=args.system,
     )
     print(json.dumps({"fittings": rows, "count_rows": len(rows)}, indent=2))
     return 0
@@ -602,17 +621,34 @@ def main(argv: list[str] | None = None) -> int:
     p_pts.add_argument("--full", action="store_true")
     p_pts.set_defaults(func=cmd_parts)
 
-    p_tk = sub.add_parser("takeoff", help="Fitting/pipe takeoff from a project")
+    p_tk = sub.add_parser("takeoff", help="Trade takeoff: fittings/fire/steel/rebar/csi/fixtures")
     p_tk.add_argument("path", help="Project dir or model.llmbim.json")
     p_tk.add_argument(
         "--kind",
         default="fittings",
-        choices=["fittings", "pipe", "plumbing"],
-        help="fittings (default) | pipe | plumbing (full schedule)",
+        choices=[
+            "fittings",
+            "pipe",
+            "plumbing",
+            "fire",
+            "steel",
+            "structural_steel",
+            "rebar",
+            "csi",
+            "trades",
+            "all",
+            "fixture",
+            "fixtures",
+            "process",
+            "framing",
+        ],
+        help="fittings|pipe|plumbing|fire|steel|rebar|csi|trades|fixture|process|framing",
     )
-    p_tk.add_argument("--fitting-type", default=None, help="elbow_90 | tee | ...")
+    p_tk.add_argument("--fitting-type", default=None, help="elbow_90 | tee | sprinkler_head | ...")
     p_tk.add_argument("--nps", default=None)
-    p_tk.add_argument("--material", default=None, help="copper | pvc | ...")
+    p_tk.add_argument("--material", default=None, help="copper | fire | process | pvc")
+    p_tk.add_argument("--system", default=None, help="plumbing | fire | process")
+    p_tk.add_argument("--division", default=None, help="CSI division filter e.g. 21 or 05")
     p_tk.set_defaults(func=cmd_takeoff)
 
     args = parser.parse_args(argv)

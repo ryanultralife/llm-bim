@@ -481,7 +481,7 @@ class Project:
         element_id: str,
         part_id: str,
         *,
-        qty: float = 1.0,
+        qty: float | None = None,
         apply_geometry: bool = False,
     ) -> dict[str, Any]:
         from llmbim_core.assign_commands import AssignPart
@@ -506,7 +506,7 @@ class Project:
         qty: float = 1.0,
         system: str = "CW",
     ) -> str:
-        """Place a catalog plumbing fitting (e.g. copper 90° elbow 1/2\")."""
+        """Place fitting. material: copper | fire | process | pvc."""
         r = self.op(
             "place_fitting",
             level=level,
@@ -532,7 +532,7 @@ class Project:
         system: str = "CW",
         z0_mm: float = 0.0,
     ) -> str:
-        """Place a straight copper/PVC pipe segment (length from start→end)."""
+        """Place pipe. material: copper | fire (black steel) | process (SS316) | pvc."""
         r = self.op(
             "place_pipe",
             level=level,
@@ -546,14 +546,43 @@ class Project:
         )
         return str(r["element_id"])
 
+    def place_part(
+        self,
+        *,
+        level: str,
+        part_id: str | None = None,
+        origin: tuple[float, float] = (0.0, 0.0),
+        name: str | None = None,
+        qty: float = 1.0,
+        length_m: float | None = None,
+        kind: str | None = None,
+        section: str | None = None,
+        bar_size: str | None = None,
+    ) -> str:
+        """Place any catalog part: toilet, tp_dispenser, W10x33, rebar #5, …"""
+        r = self.op(
+            "place_part",
+            level=level,
+            part_id=part_id,
+            origin=list(origin),
+            name=name,
+            qty=qty,
+            length_m=length_m,
+            kind=kind,
+            section=section,
+            bar_size=bar_size,
+        )
+        return str(r["element_id"])
+
     def fitting_takeoff(
         self,
         *,
         fitting_type: str | None = None,
         nps: str | None = None,
         material: str | None = None,
+        system: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Count fittings by type and size — e.g. copper 90° elbows by NPS."""
+        """Count fittings by type/size/system — copper 90°, fire 90°, process tees, …"""
         from llmbim_core.material_lists import fitting_takeoff
 
         return fitting_takeoff(
@@ -561,7 +590,38 @@ class Project:
             fitting_type=fitting_type,
             nps=nps,
             material=material,
+            system=system,
         )
+
+    def system_takeoff(self, system: str | None = None) -> list[dict[str, Any]]:
+        from llmbim_core.material_lists import system_takeoff
+
+        return system_takeoff(self._model, system)
+
+    def csi_takeoff(self, *, division: str | None = None) -> list[dict[str, Any]]:
+        from llmbim_core.material_lists import csi_takeoff
+
+        return csi_takeoff(self._model, division=division)
+
+    def fire_takeoff(self) -> dict[str, Any]:
+        from llmbim_core.material_lists import fire_takeoff
+
+        return fire_takeoff(self._model)
+
+    def steel_takeoff(self) -> list[dict[str, Any]]:
+        from llmbim_core.material_lists import steel_takeoff
+
+        return steel_takeoff(self._model)
+
+    def rebar_takeoff(self) -> list[dict[str, Any]]:
+        from llmbim_core.material_lists import rebar_takeoff
+
+        return rebar_takeoff(self._model)
+
+    def trade_schedule(self) -> dict[str, Any]:
+        from llmbim_core.material_lists import full_trade_schedule
+
+        return full_trade_schedule(self._model)
 
     def pipe_takeoff(
         self,

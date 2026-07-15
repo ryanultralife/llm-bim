@@ -172,6 +172,45 @@ python examples/plumbing_loop.py   # demo → output/plumbing_loop/COPPER_90_ELB
 
 Catalog: copper Type L pipe + 90/45 elbows, tees, couplings, caps, unions, ball valves (NPS ½–4"); PVC Sch40 subset. Part ids like `PT-CU-ELB90-1_2`, `PT-CU-PIPE-3_4`.
 
+### H2. All trades (fire, process, steel, rebar, framing, fixtures)
+
+```python
+# Fire sprinkler black steel
+p.place_pipe(level="L1", nps="4", start=(0,0), end=(20000,0), material="fire")
+p.place_fitting(level="L1", fitting_type="elbow_90", nps="2", origin=(0,0), material="fire")
+p.place_part(level="L1", part_id="PT-FP-HEAD-PENDENT_5_6_155F", origin=(1000,1000))
+print(p.fire_takeoff())
+
+# Process SS316
+p.place_fitting(level="L1", fitting_type="tee", nps="2", origin=(0,0), material="process")
+
+# Structural steel + rebar
+p.place_part(level="L1", section="W10x33", length_m=3.5)
+p.place_part(level="L1", bar_size="5", length_m=120)
+
+# Restroom: toilets, hoses, TP dispensers
+p.place_part(level="L1", kind="toilet", origin=(0,0))
+p.place_part(level="L1", kind="toilet_hose", origin=(0,0))
+p.place_part(level="L1", kind="tp_dispenser", origin=(100,100))
+p.place_part(level="L1", kind="grab_bar", origin=(100,200))
+
+print(p.csi_takeoff())           # by CSI MasterFormat
+print(p.trade_schedule())        # all trades
+print(p.system_takeoff("fixture"))
+```
+
+```bash
+llmbim parts --system fire --fitting-type elbow_90
+llmbim takeoff model --kind fire
+llmbim takeoff model --kind steel
+llmbim takeoff model --kind rebar
+llmbim takeoff model --kind csi
+llmbim takeoff model --kind trades
+python examples/multi_trade_catalog.py
+```
+
+Systems: `plumbing` · `fire` · `process` · `structural_steel` · `rebar` · `framing` · `fixture` / accessories · `hvac` · `electrical`. CSI divisions 03–10, 21–23, 26, 40, 43.
+
 ### I. Scripted generative design
 
 ```python

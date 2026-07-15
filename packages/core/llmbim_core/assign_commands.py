@@ -36,7 +36,7 @@ class AssignMaterial(Command):
 class AssignPart(Command):
     element_id: str
     part_id: str
-    qty: float = 1.0
+    qty: float | None = None  # None = preserve existing qty/length
     apply_geometry: bool = False
     op: str = "assign_part"
     _prev: dict[str, Any] = field(default_factory=dict)

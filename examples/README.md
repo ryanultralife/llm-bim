@@ -6,6 +6,7 @@
 | **`intec_site.py`** | facility (m) | `intec_fusion_params.json` + INT-GA | plan, section, glTF, CW copper takeoff |
 | **`proto10_separator.py`** | equipment (mm) | Fusion MB-SEP-PROTO / RFQ | plan, section, parts assigned |
 | **`plumbing_loop.py`** | room MEP | synthetic CW loop | **90° copper elbows by size** |
+| **`multi_trade_catalog.py`** | all CSI trades | fire/process/steel/rebar/fixtures | `TRADE_ANSWERS.json` |
 
 ## Run
 

@@ -171,6 +171,16 @@
       }
     },
     {
+      "name": "csi_takeoff",
+      "description": "Cost rollup by CSI MasterFormat code",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
       "name": "delete",
       "description": "Delete element (cascade hosted)",
       "mutates": true,
@@ -202,7 +212,7 @@
     },
     {
       "name": "fitting_takeoff",
-      "description": "Count fittings by type+size (e.g. copper 90\u00b0 elbows)",
+      "description": "Count fittings by type+size+system (copper/fire/process 90\u00b0 elbows)",
       "mutates": false,
       "parameters": {
         "type": "object",
@@ -242,7 +252,7 @@
     },
     {
       "name": "parts",
-      "description": "Parts catalog (filter: category, fitting_type, nps)",
+      "description": "Parts catalog (filter: category, system, fitting_type, nps, csi)",
       "mutates": false,
       "parameters": {
         "type": "object",
@@ -253,6 +263,16 @@
     {
       "name": "place_fitting",
       "description": "Place plumbing fitting by type+NPS (copper/pvc)",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "place_part",
+      "description": "Place catalog part: toilet, TP dispenser, W10x33, rebar #5",
       "mutates": true,
       "parameters": {
         "type": "object",
@@ -323,6 +343,16 @@
     {
       "name": "stats",
       "description": "Element counts",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "system_takeoff",
+      "description": "Takeoff by trade system: fire|process|rebar|steel|framing|fixture",
       "mutates": false,
       "parameters": {
         "type": "object",

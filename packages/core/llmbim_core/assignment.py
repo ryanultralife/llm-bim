@@ -43,16 +43,25 @@ def assign_part(
     element_id: str,
     part_id: str,
     *,
-    qty: float = 1.0,
+    qty: float | None = None,
     apply_geometry: bool = False,
 ) -> dict[str, Any]:
-    """Link element to a catalog part type; optional geometry defaults."""
+    """Link element to a catalog part type; optional geometry defaults.
+
+    If ``qty`` is omitted, preserves existing ``part_qty`` / ``length_m``
+    (so auto_assign does not wipe steel/rebar lengths).
+    """
     part = get_part(part_id)
     if not part:
         raise ValidationError("Unknown part_id", part_id=part_id)
     el = model.get_element(element_id)
     el.params["part_id"] = part_id
-    el.params["part_qty"] = float(qty)
+    if qty is not None:
+        el.params["part_qty"] = float(qty)
+    elif el.params.get("length_m") is not None and not el.params.get("part_qty"):
+        el.params["part_qty"] = float(el.params["length_m"])
+    elif "part_qty" not in el.params:
+        el.params["part_qty"] = 1.0
     el.type_id = part_id
     if not el.params.get("material_id"):
         el.params["material_id"] = part.primary_material_id
@@ -78,7 +87,7 @@ def assign_part(
         "element_id": element_id,
         "part_id": part_id,
         "part_name": part.name,
-        "qty": qty,
+        "qty": el.params.get("part_qty"),
         "unit_cost": part_unit_cost(part),
     }
 
@@ -201,6 +210,64 @@ def auto_assign_all(model: ProjectModel) -> dict[str, Any]:
     return {"assigned": len(results), "details": results[:100]}
 
 
+def place_part(
+    model: ProjectModel,
+    *,
+    level: str,
+    part_id: str | None = None,
+    origin: tuple[float, float] | list[float] = (0.0, 0.0),
+    name: str | None = None,
+    qty: float = 1.0,
+    length_m: float | None = None,
+    kind: str | None = None,
+    section: str | None = None,
+    bar_size: str | None = None,
+    category: str | None = None,
+) -> dict[str, Any]:
+    """Place any catalog part (toilet, TP dispenser, W10x33, rebar #5, …)."""
+    from llmbim_core.ids import new_id
+    from llmbim_core.parts_catalog import resolve_part_id
+
+    pid = part_id or resolve_part_id(kind=kind, section=section, bar_size=bar_size)
+    if not pid or not get_part(pid):
+        raise ValidationError("Unknown part", part_id=part_id, kind=kind, section=section)
+    part = get_part(pid)
+    assert part is not None
+    level_id = model.get_level(level).id
+    sp = part.specs or {}
+    q = float(length_m if length_m is not None else qty)
+    cat = category or (
+        "fixture"
+        if part.category in ("fixture", "accessory")
+        else ("rebar" if part.category == "rebar" else ("steel" if part.category == "structural_steel" else part.category))
+    )
+    el = Element(
+        id=new_id(cat[:3] if len(cat) >= 3 else "prt"),
+        category=cat,
+        name=name or part.name,
+        level_id=level_id,
+        type_id=pid,
+        params={
+            "origin_mm": [float(origin[0]), float(origin[1])],
+            "part_id": pid,
+            "part_qty": q,
+            "material_id": part.primary_material_id,
+            "fitting_type": sp.get("fitting_type"),
+            "nps": sp.get("nps"),
+            "section": sp.get("section"),
+            "bar_size": sp.get("bar_size"),
+            "system": sp.get("system"),
+            "size_mm": list(part.default_size_mm or [100, 100, 100]),
+            "shape": part.shape,
+            "length_m": length_m,
+            "length_mm": (length_m * 1000.0) if length_m is not None else None,
+        },
+    )
+    model.add_element(el)
+    assign_part(model, el.id, pid, qty=q)
+    return {"element_id": el.id, "part_id": pid, "part_name": part.name, "qty": q}
+
+
 def place_fitting(
     model: ProjectModel,
     *,
@@ -211,9 +278,9 @@ def place_fitting(
     name: str | None = None,
     material: str = "copper",
     qty: float = 1.0,
-    system_tag: str = "CW",  # cold water / HW / DWV
+    system_tag: str = "CW",  # cold water / HW / DWV / FP / process
 ) -> dict[str, Any]:
-    """Create a plumbing fitting element linked to catalog part."""
+    """Create a pipe fitting element (copper / fire black steel / process SS)."""
     from llmbim_core.ids import new_id
     from llmbim_core.parts_catalog import resolve_fitting_part_id
 
@@ -263,7 +330,7 @@ def place_pipe(
     system_tag: str = "CW",
     z0_mm: float = 0.0,
 ) -> dict[str, Any]:
-    """Create a straight pipe run (plan 2D) with length and catalog part."""
+    """Create a straight pipe run (copper / fire / process SS)."""
     import math
 
     from llmbim_core.ids import new_id

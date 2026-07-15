@@ -310,11 +310,12 @@ def _assign_material(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
 def _assign_part(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.assignment import assign_part
 
+    qty = p.get("qty")
     return assign_part(
         model,
         p["element_id"],
         p["part_id"],
-        qty=float(p.get("qty") or 1),
+        qty=float(qty) if qty is not None else None,
         apply_geometry=bool(p.get("apply_geometry")),
     )
 
@@ -370,49 +371,107 @@ def _materials(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     return materials_catalog()
 
 
-@register("parts", description="Parts catalog (filter: category, fitting_type, nps)", mutates=False)
+@register("parts", description="Parts catalog (filter: category, system, fitting_type, nps, csi)", mutates=False)
 def _parts(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
-    from llmbim_core.parts_catalog import list_parts, parts_catalog
+    from llmbim_core.parts_catalog import catalog_summary, list_parts, parts_catalog
 
-    if p.get("filter") or p.get("category") or p.get("fitting_type") or p.get("nps"):
+    if p.get("filter") or p.get("category") or p.get("fitting_type") or p.get("nps") or p.get("system") or p.get("csi_prefix"):
         rows = list_parts(
             category=p.get("category"),
             fitting_type=p.get("fitting_type"),
             nps=p.get("nps"),
             material=p.get("material"),
             system=p.get("system"),
+            csi_prefix=p.get("csi_prefix"),
+            section=p.get("section"),
+            bar_size=p.get("bar_size"),
         )
-        return {"count": len(rows), "parts": [r.model_dump() for r in rows]}
+        return {"count": len(rows), "parts": [r.model_dump() for r in rows[:200]]}
     if p.get("full"):
         return parts_catalog()
-    # summary only
-    from llmbim_core.parts_catalog import PARTS
-
-    by_cat: dict[str, int] = {}
-    for pt in PARTS.values():
-        by_cat[pt.category] = by_cat.get(pt.category, 0) + 1
-    return {"count": len(PARTS), "by_category": by_cat, "ids_sample": list(PARTS.keys())[:40]}
+    return catalog_summary()
 
 
 @register(
     "fitting_takeoff",
-    description="Count fittings by type+size (e.g. copper 90° elbows)",
+    description="Count fittings by type+size+system (copper/fire/process 90° elbows)",
     mutates=False,
 )
 def _fitting_takeoff(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
-    from llmbim_core.material_lists import fitting_takeoff, pipe_takeoff, plumbing_schedule
+    from llmbim_core.material_lists import (
+        fire_takeoff,
+        fitting_takeoff,
+        full_trade_schedule,
+        pipe_takeoff,
+        plumbing_schedule,
+    )
 
-    if p.get("full_schedule"):
+    if p.get("full_schedule") or p.get("trades"):
+        return full_trade_schedule(model)
+    if p.get("fire"):
+        return fire_takeoff(model)
+    if p.get("plumbing_only"):
         return plumbing_schedule(model)
     rows = fitting_takeoff(
         model,
         fitting_type=p.get("fitting_type"),
         nps=p.get("nps"),
         material=p.get("material"),
-        system=p.get("system") or "plumbing",
+        system=p.get("system"),  # None = all systems
     )
     pipes = pipe_takeoff(model, nps=p.get("nps"), material=p.get("material"))
     return {"fittings": rows, "pipe": pipes, "count_rows": len(rows)}
+
+
+@register("place_part", description="Place catalog part: toilet, TP dispenser, W10x33, rebar #5", mutates=True)
+def _place_part(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import place_part
+
+    return place_part(
+        model,
+        level=p.get("level") or model.levels[0].name,
+        part_id=p.get("part_id"),
+        origin=p.get("origin") or [0, 0],
+        name=p.get("name"),
+        qty=float(p.get("qty") or 1),
+        length_m=p.get("length_m"),
+        kind=p.get("kind"),
+        section=p.get("section"),
+        bar_size=p.get("bar_size") or p.get("bar"),
+        category=p.get("category"),
+    )
+
+
+@register("csi_takeoff", description="Cost rollup by CSI MasterFormat code", mutates=False)
+def _csi_takeoff(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.csi import csi_catalog
+    from llmbim_core.material_lists import csi_takeoff
+
+    if p.get("catalog"):
+        return csi_catalog()
+    rows = csi_takeoff(model, division=p.get("division"))
+    return {"rows": rows, "count": len(rows)}
+
+
+@register("system_takeoff", description="Takeoff by trade system: fire|process|rebar|steel|framing|fixture", mutates=False)
+def _system_takeoff(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.material_lists import (
+        fire_takeoff,
+        rebar_takeoff,
+        steel_takeoff,
+        system_takeoff,
+    )
+
+    sys = p.get("system") or "all"
+    if sys == "fire":
+        return fire_takeoff(model)
+    if sys in ("steel", "structural_steel"):
+        return {"rows": steel_takeoff(model)}
+    if sys == "rebar":
+        return {"rows": rebar_takeoff(model)}
+    if sys == "all":
+        return {"rows": system_takeoff(model, None)}
+    return {"rows": system_takeoff(model, sys)}
 
 
 @register("material_lists", description="Export material/part/fitting lists to folder", mutates=False)

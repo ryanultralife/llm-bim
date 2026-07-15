@@ -53,7 +53,28 @@ JSON · IFC · glTF · STEP · SVG sheets · DXF · PDF plot set · BOQ (CSI) ·
 | Full plumbing schedule | `p.plumbing_schedule()` |
 | Export lists | `p.export_material_lists()` / pack `materials/` |
 
-Ops: `assign_material`, `assign_part`, `place_fitting`, `place_pipe`, `fitting_takeoff`, `auto_assign`, `materials`, `parts`.
+Ops: `assign_material`, `assign_part`, `place_fitting`, `place_pipe`, `place_part`, `fitting_takeoff`, `system_takeoff`, `csi_takeoff`, `auto_assign`, `materials`, `parts`.
+
+### Trade catalogs (~430 parts)
+
+| System | Examples | CSI |
+|--------|----------|-----|
+| Plumbing | copper/PVC pipe+fittings, toilets, hoses, TP dispensers | 22 / 10 28 |
+| Fire | black steel FP pipe, 90s, heads, OS&Y, extinguishers | 21 |
+| Process | SS316L pipe/fittings/valves/strainers | 40 05 |
+| Structural steel | W8–W30, HSS, C, L, plate, A325 bolts, deck | 05 12 |
+| Rebar | #3–#11, WWF, chairs, couplers | 03 20 |
+| Framing | 2x4/2x6, metal studs/track, plywood/OSB | 06 / 09 22 |
+| HVAC / Electrical | diffusers, VAV, panels, luminaires, EMT | 23 / 26 |
+
+```python
+p.place_part(level="L1", kind="toilet")
+p.place_part(level="L1", kind="tp_dispenser")
+p.place_part(level="L1", section="W10x33", length_m=3.5)
+p.place_part(level="L1", bar_size="5", length_m=120)
+p.place_fitting(level="L1", fitting_type="elbow_90", nps="2", material="fire")
+p.csi_takeoff()  # by MasterFormat
+```
 
 ## What “complete” means here
 
