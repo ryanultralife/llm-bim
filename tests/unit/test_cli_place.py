@@ -61,6 +61,39 @@ def test_cli_place_riser_and_fitting(tmp_path: Path):
     assert any(e.category == "fitting" for e in p3.model.elements)
 
 
+def test_cli_place_slab_rect(tmp_path: Path, capsys):
+    p = Project.create("cli-slab", vcs=False)
+    p.add_level("L1", 0)
+    model = tmp_path / "model.llmbim.json"
+    p.save(model)
+    rc = main(
+        [
+            "place",
+            str(model),
+            "--kind",
+            "slab",
+            "--level",
+            "L1",
+            "--origin",
+            "0,0",
+            "--end",
+            "10000,8000",
+            "--width",
+            "200",
+            "--name",
+            "Slab-L1",
+        ]
+    )
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["kind"] == "slab"
+    assert out["thickness_mm"] == 200
+    p2 = Project.open(model)
+    slabs = [e for e in p2.model.elements if e.category == "slab"]
+    assert len(slabs) == 1
+    assert slabs[0].params.get("thickness_mm") == 200
+
+
 def test_cli_place_room_rect_and_boundary(tmp_path: Path, capsys):
     p = Project.create("cli-room", vcs=False)
     p.add_level("L1", 0)

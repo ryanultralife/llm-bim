@@ -211,6 +211,16 @@
       }
     },
     {
+      "name": "create_slab",
+      "description": "Create floor slab from polygon (mm) + thickness",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
       "name": "create_wall",
       "description": "Create wall start\u2192end with optional fire_rating",
       "mutates": true,

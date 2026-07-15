@@ -73,6 +73,7 @@ def test_mcp_export_pack_and_set_phase_signatures():
     assert "def place_door" in src
     assert "def place_window" in src
     assert "def room_create" in src
+    assert "def slab_create" in src
     assert "fire_rating" in src
 
 
