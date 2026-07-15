@@ -67,6 +67,7 @@
 | 41 | continue | zone schedule + pack phases | no area/volume sched; CLI no --phases | zone_areas.csv; pack --phases | 112 unit | 66a1c49 |
 | 42 | continue | IFC SpaceContents MEP | MEP not linked to IfcSpace | room pass + SpaceContents rel by point-in-poly | 113 unit | f097492 |
 | 43 | continue | MCP pack phases | MCP export lacked phase filter | project_export_pack phases + set_phase tool | 114 unit | e0a9cee |
+| 44 | continue | plan MEP dimensions | dims walls only | pipe/duct/conduit length dims on plan | 115 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -113,7 +114,7 @@
 40. ~~HVAC duct place + takeoff (generic or catalog)~~ (pass 29)
 41. ~~Electrical raceway / conduit place~~ (pass 30)
 42. ~~Grid intersection labels on plans~~ (pass 31)
-43. Dimension strings on plan SVG (partial — show_dimensions exists)
+43. ~~Dimension strings on plan SVG (walls + MEP runs)~~ (pass 44)
 44. ~~CLI place duct/conduit~~ (pass 29–30)
 45. ~~Elev draw ducts as rectangles~~ (pass 32)
 46. ~~Panelboard CSI from catalog part~~ (pass 32)
