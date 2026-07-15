@@ -109,6 +109,7 @@ class CreateWall(Command):
     thickness_mm: float
     height_mm: float
     name: str = ""
+    fire_rating: str = ""
     op: str = "create_wall"
     _element_id: str | None = None
 
@@ -118,22 +119,30 @@ class CreateWall(Command):
         if self.thickness_mm <= 0 or self.height_mm <= 0:
             raise ValidationError("thickness_mm and height_mm must be positive")
         eid = self._element_id or new_id("wal")
+        params: dict[str, Any] = {
+            "start_mm": [float(self.start[0]), float(self.start[1])],
+            "end_mm": [float(self.end[0]), float(self.end[1])],
+            "thickness_mm": float(self.thickness_mm),
+            "height_mm": float(self.height_mm),
+            "length_mm": float(length),
+        }
+        if self.fire_rating:
+            params["fire_rating"] = str(self.fire_rating)
         el = Element(
             id=eid,
             category="wall",
             name=self.name,
             level_id=lv.id,
-            params={
-                "start_mm": [float(self.start[0]), float(self.start[1])],
-                "end_mm": [float(self.end[0]), float(self.end[1])],
-                "thickness_mm": float(self.thickness_mm),
-                "height_mm": float(self.height_mm),
-                "length_mm": float(length),
-            },
+            params=params,
         )
         model.add_element(el)
         self._element_id = el.id
-        return {"element_id": el.id, "category": "wall", "length_mm": length}
+        return {
+            "element_id": el.id,
+            "category": "wall",
+            "length_mm": length,
+            "fire_rating": self.fire_rating or None,
+        }
 
     def invert(self) -> Command:
         if not self._element_id:

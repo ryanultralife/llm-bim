@@ -258,6 +258,7 @@ def export_deliverables(
         "window",
         "wall",
         "column",
+        "beam",
         "equipment",
         "fitting",
         "pipe",
