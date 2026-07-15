@@ -88,7 +88,10 @@
 | 62 | continue | cable tray place+takeoff | only conduit raceway | place_cable_tray CSI 26 05 36 + plan/DXF/BOQ | (this) | (this) |
 | 63 | continue | skill takeoff docs | skill lacked duct/tray takeoff | SKILL place+takeoff duct/conduit/tray | 135 unit | f1fb83f |
 | 64 | continue | level schedule | no storey floor-to-floor | schedule kind level + levels.csv | (this) | (this) |
-| 65 | continue | drawing list index | pack had no sheet inventory | schedules/drawing_list.csv + JSON | (this) | (this) |
+| 65 | continue | drawing list index | pack had no sheet inventory | schedules/drawing_list.csv + JSON | 137 unit | 5354d92 |
+| 66 | continue | door fire_rating | door sched no rating | place_door fire_rating + schedule col | (this) | (this) |
+| 67 | continue | glTF/STEP cable tray | tray missing 3D colors | cable_tray material + CABLE-TRAY STEP | (this) | (this) |
+| 68 | continue | HTML drawing list | index no sheet table | drawing list sample in index.html | (this) | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -183,7 +186,10 @@
 88. ~~Skill docs duct/conduit/tray takeoffs~~ (pass 63)
 89. ~~Level / storey schedule~~ (pass 64)
 90. ~~Drawing list sheet index~~ (pass 65)
-91. Keep closing residual gaps until pass 120 / 10h
+91. ~~Door fire_rating on place + schedule~~ (pass 66)
+92. ~~glTF/STEP cable tray~~ (pass 67)
+93. ~~HTML drawing list sample~~ (pass 68)
+94. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 

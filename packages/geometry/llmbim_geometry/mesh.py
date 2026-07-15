@@ -77,6 +77,7 @@ _MATERIAL_RGBA: dict[str, list[float]] = {
     "pipe_pvc": [0.9, 0.85, 0.29, 1.0],
     "duct": [0.18, 0.49, 0.2, 1.0],  # green
     "conduit": [0.42, 0.11, 0.6, 1.0],  # purple
+    "cable_tray": [0.55, 0.15, 0.7, 1.0],  # deep purple
     "fitting": [0.95, 0.6, 0.2, 1.0],
     "fixture": [0.45, 0.35, 0.65, 1.0],
     "module": [0.55, 0.55, 0.7, 1.0],
@@ -125,7 +126,9 @@ def _box_from_pipe(el: Element, model: ProjectModel) -> list[float]:
         od = 50.0
         if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
             od = max(float(el.params["size_mm"][1]), 20.0)
-        if el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct":
+        is_duct = el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct"
+        is_tray = el.category == "cable_tray" or el.params.get("fitting_type") == "cable_tray"
+        if is_duct or is_tray:
             od = float(el.params.get("width_mm") or od)
         # vertical riser: box at XY spanning z0→z1
         if el.params.get("vertical") or el.params.get("orientation") == "vertical":
@@ -151,8 +154,10 @@ def _box_from_pipe(el: Element, model: ProjectModel) -> list[float]:
         z0_off = float(el.params.get("z0_mm", 0))
         z0 = _level_z(model, el.level_id) + z0_off
         elev_h = od
-        if el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct":
+        if is_duct:
             elev_h = float(el.params.get("height_mm") or 250)
+        elif is_tray:
+            elev_h = float(el.params.get("height_mm") or 100)
         return _wall_box_positions(x0, y0, x1, y1, od, z0, z0 + elev_h)
     except (KeyError, TypeError, ValueError, IndexError):
         return []
@@ -169,6 +174,8 @@ def _gltf_material_key(el: Element) -> str:
         return "duct"
     if cat == "conduit" or el.params.get("fitting_type") == "conduit":
         return "conduit"
+    if cat == "cable_tray" or el.params.get("fitting_type") == "cable_tray":
+        return "cable_tray"
     if cat in {"fixture", "accessory"}:
         return "fixture"
     if cat in {"module_instance", "module_root"}:
@@ -217,7 +224,7 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
             )
         elif el.category == "equipment":
             pos = _box_from_origin_size(el, model)
-        elif el.category in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac"}:
+        elif el.category in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac", "cable_tray"}:
             pos = _box_from_pipe(el, model)
         elif el.category in _PROXY_CATS:
             if el.params.get("start_mm") and el.params.get("end_mm"):

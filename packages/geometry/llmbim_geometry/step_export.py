@@ -268,6 +268,8 @@ def _step_layer(el: Element) -> str:
         return "EQUIP"
     if cat == "conduit" or ftype == "conduit":
         return "CONDUIT"
+    if cat == "cable_tray" or ftype == "cable_tray":
+        return "CABLE-TRAY"
     if cat in {"duct", "hvac"} or ftype == "duct":
         return "DUCT"
     if cat in {"pipe", "plumbing_pipe"} or ftype == "pipe":
@@ -358,6 +360,7 @@ def export_step(
         "duct",
         "hvac",
         "conduit",
+        "cable_tray",
     }
     for el in model.elements:
         pname = _step_product_name(el)
@@ -365,7 +368,7 @@ def export_step(
             solid = _equipment_solid(el, model, cyl_sides=cyl_sides)
             if solid:
                 solids.append((pname, solid[0], solid[1]))
-        elif el.category in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac"}:
+        elif el.category in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac", "cable_tray"}:
             solid = _pipe_solid(el, model, cyl_sides=max(8, cyl_sides // 2))
             if solid:
                 solids.append((pname, solid[0], solid[1]))

@@ -71,6 +71,8 @@ def schedule_rows(model: ProjectModel, kind: str) -> list[dict[str, Any]]:
                     "width_mm": el.params.get("width_mm"),
                     "height_mm": el.params.get("height_mm"),
                     "type_id": el.type_id,
+                    "fire_rating": el.params.get("fire_rating") or "",
+                    "mark": el.params.get("mark") or el.name or el.type_id,
                 },
             )
             for el in model.query(category="door")
