@@ -126,6 +126,7 @@
 | 100 | continue | registry wall/door/window | no create_wall/place_door ops | register create_wall/place_door/window | 169 unit | (this) |
 | 101 | continue | section SVG duct/conduit/tray | cut section only pipes | multi-trade cut marks green/purple | 170 unit | (this) |
 | 102 | continue | door/window clash AABB | openings not in clash | host AABB + skill door/window docs | 171 unit | (this) |
+| 103 | continue | ops schema + capability openings | schema/docs missing wall/door ops | regenerate ops.schema + CAPABILITY | 171 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -257,7 +258,8 @@
 125. ~~Registry create_wall/place_door/window~~ (pass 100)
 126. ~~Section SVG duct/conduit/tray cuts~~ (pass 101)
 127. ~~Door/window clash AABB + skill docs~~ (pass 102)
-128. Keep closing residual gaps until pass 120 / 10h
+128. ~~ops.schema + CAPABILITY openings~~ (pass 103)
+129. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 

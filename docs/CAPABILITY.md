@@ -51,14 +51,15 @@ JSON · IFC · glTF · STEP · SVG sheets · DXF · PDF plot set · BOQ (CSI) ·
 | Place pipe | `p.place_pipe(level=..., nps="3/4", start=..., end=...)` |
 | Place duct / conduit / tray | `p.place_duct` · `place_conduit` · `place_cable_tray` |
 | Place steel | `p.place_column` · `place_beam` → IFCCOLUMN/IFCBEAM |
+| Place openings | `p.create_wall` · `place_door` · `place_window` (FR/type) → IFC/glTF/STEP/DXF/SVG |
 | Count 90° copper by size | `p.fitting_takeoff(fitting_type="elbow_90", material="copper")` |
 | MEP takeoffs | `p.duct_takeoff()` · `conduit_takeoff()` · `cable_tray_takeoff()` · ops |
-| Schedules | `p.schedule("column")` · zone · duct · cable_tray · csi |
+| Schedules | `p.schedule("column")` · zone · duct · cable_tray · csi · door |
 | Full plumbing schedule | `p.plumbing_schedule()` |
 | Export lists | `p.export_material_lists()` / pack `materials/` |
 | Verify pack | `p.verify_pack(out)` / MCP `project_verify_pack` |
 
-Ops: `place_duct/conduit/cable_tray/column/beam`, `duct_takeoff`/`conduit_takeoff`/`cable_tray_takeoff`/`steel_takeoff`, `fitting_takeoff`, `csi_takeoff`, `export_pack`, …
+Ops: `create_wall`/`place_door`/`place_window`, `place_duct/conduit/cable_tray/column/beam`, `duct_takeoff`/`conduit_takeoff`/`cable_tray_takeoff`/`steel_takeoff`, `fitting_takeoff`, `csi_takeoff`, `export_pack`, …
 
 ### Trade catalogs (~430 parts)
 
