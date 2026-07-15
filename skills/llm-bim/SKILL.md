@@ -197,8 +197,11 @@ print(p.fire_takeoff())
 p.place_fitting(level="L1", fitting_type="tee", nps="2", origin=(0,0), material="process")
 
 # Structural steel + rebar
+p.place_column(level="L1", origin=(0,0), section="W10x33", height_mm=3500)  # CSI 05 12 00
+p.place_beam(level="L1", start=(0,0), end=(8000,0), section="W12x26")       # CSI 05 12 00
 p.place_part(level="L1", section="W10x33", length_m=3.5)
 p.place_part(level="L1", bar_size="5", length_m=120)
+p.create_wall(level="L1", start=(0,0), end=(8000,0), thickness_mm=200, height_mm=3500, fire_rating="2-hr")
 
 # Restroom: toilets, hoses, TP dispensers
 p.place_part(level="L1", kind="toilet", origin=(0,0))

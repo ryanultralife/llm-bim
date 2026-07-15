@@ -67,7 +67,8 @@ Ops: `assign_material`, `assign_part`, `place_fitting`, `place_pipe`, `place_duc
 | Structural steel | W8–W30, HSS, C, L, plate, A325 bolts, deck | 05 12 |
 | Rebar | #3–#11, WWF, chairs, couplers | 03 20 |
 | Framing | 2x4/2x6, metal studs/track, plywood/OSB | 06 / 09 22 |
-| HVAC / Electrical | diffusers, VAV, panels, luminaires, EMT | 23 / 26 |
+| HVAC / Electrical | duct, conduit, cable tray, VAV, panels, luminaires | 23 / 26 |
+| Structure | place_column / place_beam (W sections), rebar, framing | 05 / 03 |
 
 ```python
 p.place_part(level="L1", kind="toilet")
