@@ -755,6 +755,18 @@ class Project:
 
         return pipe_takeoff(self._model, nps=nps, material=material)
 
+    def duct_takeoff(self) -> list[dict[str, Any]]:
+        """HVAC duct runs: length_m + area_m2 by size."""
+        from llmbim_core.material_lists import duct_takeoff
+
+        return duct_takeoff(self._model)
+
+    def conduit_takeoff(self) -> list[dict[str, Any]]:
+        """Electrical conduit length by trade size (m)."""
+        from llmbim_core.material_lists import conduit_takeoff
+
+        return conduit_takeoff(self._model)
+
     def plumbing_schedule(self) -> dict[str, Any]:
         """Full plumbing takeoff: fittings by type/size + pipe lengths."""
         from llmbim_core.material_lists import plumbing_schedule

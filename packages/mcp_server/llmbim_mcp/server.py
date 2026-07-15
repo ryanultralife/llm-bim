@@ -280,8 +280,8 @@ if HAS_MCP:
         material: str = "",
         system: str = "",
     ) -> str:
-        """Trade takeoff. kind: plumbing|fire|steel|rebar|csi|trades|fittings|fixture.
-        Answers e.g. how many 90° copper elbows by size."""
+        """Trade takeoff. kind: plumbing|fire|steel|rebar|csi|duct|hvac|conduit|electrical|trades|fittings|fixture.
+        Answers e.g. how many 90° copper elbows by size, or duct area / conduit length."""
         p = store.get(project_id)
         k = (kind or "plumbing").lower()
         if k == "fire":
@@ -300,6 +300,10 @@ if HAS_MCP:
             return _tool_result(p.system_takeoff("fixture"))
         if k == "plumbing":
             return _tool_result(p.plumbing_schedule())
+        if k in ("duct", "hvac"):
+            return _tool_result({"duct": p.duct_takeoff()})
+        if k in ("conduit", "electrical"):
+            return _tool_result({"conduit": p.conduit_takeoff()})
         rows = p.fitting_takeoff(
             fitting_type=fitting_type or None,
             material=material or None,

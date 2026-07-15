@@ -435,6 +435,84 @@ def pipe_takeoff(
     return sorted(out, key=lambda x: (str(x["nps"]), str(x["material_id"])))
 
 
+def duct_takeoff(model: ProjectModel) -> list[dict[str, Any]]:
+    """Rectangular duct runs: length_m + area_m2 by size/system."""
+    rows: list[dict[str, Any]] = []
+    for el in model.elements:
+        if el.category not in {"duct", "hvac"} and el.params.get("fitting_type") != "duct":
+            continue
+        if el.params.get("fitting_type") in {"vav", "diffuser", "grille", "fire_damper", "smoke_damper"}:
+            continue
+        length_m = float(el.params.get("length_m") or 0)
+        if not length_m and el.params.get("length_mm"):
+            length_m = float(el.params["length_mm"]) / 1000.0
+        if not length_m and el.params.get("start_mm") and el.params.get("end_mm"):
+            import math
+
+            s, e = el.params["start_mm"], el.params["end_mm"]
+            length_m = math.hypot(float(e[0]) - float(s[0]), float(e[1]) - float(s[1])) / 1000.0
+        area_m2 = float(el.params.get("area_m2") or el.params.get("part_qty") or 0)
+        w = float(el.params.get("width_mm") or 0)
+        h = float(el.params.get("height_mm") or 0)
+        if not area_m2 and w and h and length_m:
+            area_m2 = 2.0 * (w + h) * length_m * 1000.0 / 1_000_000.0
+        rows.append(
+            {
+                "element_id": el.id,
+                "name": el.name,
+                "category": "duct",
+                "width_mm": w or None,
+                "height_mm": h or None,
+                "size": f"{w:.0f}x{h:.0f}" if w and h else None,
+                "length_m": round(length_m, 3),
+                "area_m2": round(area_m2, 3),
+                "system": el.params.get("system"),
+                "material_id": el.params.get("material_id"),
+                "part_id": el.params.get("part_id") or el.type_id,
+                "csi_code": el.params.get("csi_code") or "23 31 00",
+                "unit": "m2" if area_m2 else "m",
+            }
+        )
+    return sorted(rows, key=lambda r: (str(r.get("size") or ""), r["element_id"]))
+
+
+def conduit_takeoff(model: ProjectModel) -> list[dict[str, Any]]:
+    """Electrical conduit length by trade size (m)."""
+    buckets: dict[str, dict[str, Any]] = {}
+    for el in model.elements:
+        if el.category != "conduit" and el.params.get("fitting_type") != "conduit":
+            continue
+        size = str(el.params.get("nps") or el.params.get("trade_size") or "?")
+        length_m = float(el.params.get("length_m") or 0)
+        if not length_m and el.params.get("length_mm"):
+            length_m = float(el.params["length_mm"]) / 1000.0
+        if not length_m and el.params.get("start_mm") and el.params.get("end_mm"):
+            import math
+
+            s, e = el.params["start_mm"], el.params["end_mm"]
+            length_m = math.hypot(float(e[0]) - float(s[0]), float(e[1]) - float(s[1])) / 1000.0
+        if length_m <= 0:
+            continue
+        if size not in buckets:
+            buckets[size] = {
+                "trade_size": size,
+                "nps": size,
+                "length_m": 0.0,
+                "segment_count": 0,
+                "unit": "m",
+                "csi_code": "26 05 33",
+                "element_ids": [],
+            }
+        b = buckets[size]
+        b["length_m"] += length_m
+        b["segment_count"] += 1
+        b["element_ids"].append(el.id)
+    out = list(buckets.values())
+    for r in out:
+        r["length_m"] = round(r["length_m"], 3)
+    return sorted(out, key=lambda x: str(x["trade_size"]))
+
+
 def part_summary(model: ProjectModel) -> list[dict[str, Any]]:
     """Aggregate assigned parts by part_id (qty × unit cost)."""
     buckets: dict[str, dict[str, Any]] = {}
@@ -664,6 +742,14 @@ def full_trade_schedule(model: ProjectModel) -> dict[str, Any]:
         "rebar": rebar_takeoff(model),
         "framing": system_takeoff(model, "framing"),
         "fixtures": system_takeoff(model, "fixture"),
+        "hvac": {
+            "duct": duct_takeoff(model),
+            "devices": system_takeoff(model, "hvac"),
+        },
+        "electrical": {
+            "conduit": conduit_takeoff(model),
+            "devices": system_takeoff(model, "electrical"),
+        },
         "csi": csi_takeoff(model),
         "part_summary": part_summary(model),
         "material_summary": material_summary(exploded_material_bom(model)),
@@ -747,6 +833,8 @@ def export_lists(model: ProjectModel, out_dir: str | Path) -> dict[str, str]:
     summary = material_summary(exploded)
     fittings = fitting_takeoff(model)
     pipes = pipe_takeoff(model)
+    ducts = duct_takeoff(model)
+    conduits = conduit_takeoff(model)
     parts_sum = part_summary(model)
     plumbing = plumbing_schedule(model)
     fire = fire_takeoff(model)
@@ -766,6 +854,8 @@ def export_lists(model: ProjectModel, out_dir: str | Path) -> dict[str, str]:
         "material_summary": summary,
         "fitting_takeoff": fittings,
         "pipe_takeoff": pipes,
+        "duct_takeoff": ducts,
+        "conduit_takeoff": conduits,
         "part_summary": parts_sum,
         "steel_takeoff": steel,
         "rebar_takeoff": rebar,
