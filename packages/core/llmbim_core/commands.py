@@ -188,6 +188,7 @@ class PlaceDoor(Command):
     width_mm: float
     height_mm: float
     name: str = ""
+    type_id: str = ""
     op: str = "place_door"
     _element_id: str | None = None
 
@@ -206,21 +207,27 @@ class PlaceDoor(Command):
                 wall_length_mm=wall_len,
             )
         eid = self._element_id or new_id("dor")
+        # default hollow-metal marks by width
+        tid = (self.type_id or "").strip()
+        if not tid:
+            tid = "D-HM-72" if self.width_mm >= 1500 else "D-HM-36"
         el = Element(
             id=eid,
             category="door",
             name=self.name,
             level_id=host.level_id,
             host_id=host.id,
+            type_id=tid,
             params={
                 "offset_mm": float(self.offset_mm),
                 "width_mm": float(self.width_mm),
                 "height_mm": float(self.height_mm),
+                "type_id": tid,
             },
         )
         model.add_element(el)
         self._element_id = el.id
-        return {"element_id": el.id, "category": "door", "host_id": host.id}
+        return {"element_id": el.id, "category": "door", "host_id": host.id, "type_id": tid}
 
     def invert(self) -> Command:
         if not self._element_id:
@@ -236,6 +243,7 @@ class PlaceWindow(Command):
     height_mm: float
     sill_mm: float
     name: str = ""
+    type_id: str = ""
     op: str = "place_window"
     _element_id: str | None = None
 
@@ -264,22 +272,25 @@ class PlaceWindow(Command):
                 wall_length_mm=wall_len,
             )
         eid = self._element_id or new_id("wnd")
+        tid = (self.type_id or "").strip() or "WIN-VIEW-24x24"
         el = Element(
             id=eid,
             category="window",
             name=self.name,
             level_id=host.level_id,
             host_id=host.id,
+            type_id=tid,
             params={
                 "offset_mm": float(self.offset_mm),
                 "width_mm": float(self.width_mm),
                 "height_mm": float(self.height_mm),
                 "sill_mm": float(self.sill_mm),
+                "type_id": tid,
             },
         )
         model.add_element(el)
         self._element_id = el.id
-        return {"element_id": el.id, "category": "window", "host_id": host.id}
+        return {"element_id": el.id, "category": "window", "host_id": host.id, "type_id": tid}
 
     def invert(self) -> Command:
         if not self._element_id:

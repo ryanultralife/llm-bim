@@ -268,6 +268,7 @@ class Project:
         width_mm: float,
         height_mm: float,
         name: str | None = None,
+        type_id: str | None = None,
     ) -> str:
         result = self._log.execute(
             self._model,
@@ -277,6 +278,7 @@ class Project:
                 width_mm=width_mm,
                 height_mm=height_mm,
                 name=name or "",
+                type_id=type_id or "",
             ),
         )
         return str(result["result"]["element_id"])
@@ -290,6 +292,7 @@ class Project:
         height_mm: float,
         sill_mm: float,
         name: str | None = None,
+        type_id: str | None = None,
     ) -> str:
         result = self._log.execute(
             self._model,
@@ -300,6 +303,7 @@ class Project:
                 height_mm=height_mm,
                 sill_mm=sill_mm,
                 name=name or "",
+                type_id=type_id or "",
             ),
         )
         return str(result["result"]["element_id"])

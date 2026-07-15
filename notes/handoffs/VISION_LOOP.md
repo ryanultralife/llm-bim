@@ -60,6 +60,7 @@
 | 34 | continue | wall types + HTML conn | plan no type marks | wall-types class; connections table in index | 103 unit | f0eaac0 |
 | 35 | continue | room ceiling height | rooms area-only | height_mm/ceiling_height_mm on room + schedule | 104 unit | d72f0c0 |
 | 36 | continue | BOQ+MCP duct/conduit | BOQ skipped MEP duct; MCP no place | BOQ m2/m; MCP place_duct/conduit; glTF | 105 unit | cfd2ae5 |
+| 37 | continue | door/window type marks | plan only D1/W1 | type_id on place + opening-type on plan; matrix duct/conduit | 106 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -112,20 +113,21 @@
 46. ~~Panelboard CSI from catalog part~~ (pass 32)
 47. Connection schedule on HTML index
 48. ~~Multi-trade smoke case for duct+conduit+riser~~ (pass 32)
-49. Tag walls with type mark on plan
-50. Space height / ceiling height params
+49. ~~Tag walls with type mark on plan~~ (pass 34)
+50. ~~Space height / ceiling height params~~ (pass 35)
 51. ~~Clash: duct vs pipe AABB~~ (pass 33)
 52. ~~Skill docs for duct/conduit/to_level~~ (pass 33)
 53. ~~Wall type marks on plan~~ (pass 34)
 54. ~~HTML connections schedule~~ (pass 34)
 55. ~~Ceiling height / room height_mm~~ (pass 35)
-56. Door/window type marks on plan (beyond D1/W1)
+56. ~~Door/window type marks on plan (beyond D1/W1)~~ (pass 37)
 57. glTF materials by system color (pipe/duct/conduit) — geometry yes, color TBD
 58. ~~BOQ include duct area_m2 + conduit length~~ (pass 36)
 59. ~~MCP place_duct / place_conduit tools~~ (pass 36)
 60. Phase filters on export pack
 61. Zone / area schedule with room heights
 62. Fire damper / VAV place as fittings
+63. ~~OUTPUT_MATRIX duct/conduit/MCP place~~ (pass 37)
 
 ## Rules for each scheduled pass
 

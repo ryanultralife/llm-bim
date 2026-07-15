@@ -55,7 +55,10 @@
 | Structural steel W/HSS/bolts | takeoff | ✅ | `steel_takeoff` |
 | Rebar #3–#11 + WWF | takeoff | ✅ | `rebar_takeoff` |
 | Fixtures (toilet, hose, TP dispenser) | place + takeoff | ✅ | `place_part` kinds |
-| CSI MasterFormat rollup | JSON/CSV | ✅ | `csi_takeoff` |
+| HVAC rectangular duct | place + BOQ m² + plan/DXF | ✅ | `place_duct` CSI 23 31 00 |
+| Electrical conduit | place + BOQ m + plan/DXF | ✅ | `place_conduit` CSI 26 05 33 |
+| Vertical multi-storey riser | place + IFC/glTF | ✅ | `place_riser(to_level=…)` |
+| CSI MasterFormat rollup | JSON/CSV | ✅ | `csi_takeoff` + room locators |
 | Pack `materials/` folder | export | ✅ | `export_lists` in deliverables |
 | Trade schedule all-in-one | JSON | ✅ | `full_trade_schedule` |
 
@@ -91,9 +94,9 @@ Project.export_deliverables(out_dir)
 | Surface | Status |
 |---------|--------|
 | Python SDK `llmbim.Project` | ✅ |
-| CLI `llmbim` | ✅ pack, takeoff, **place** fitting/pipe/riser/part, csi_instances, modules, VCS, … |
+| CLI `llmbim` | ✅ pack, takeoff, **place** fitting/pipe/riser/part/duct/conduit, csi_instances, modules, VCS, … |
 | Registry ops + `ops.schema.json` | ✅ ~40 tools |
-| MCP stdio | ✅ takeoff/parts + import_module/connect/define_port/csi_instances |
+| MCP stdio | ✅ takeoff/parts + place_pipe/riser/duct/conduit + modules/CSI query |
 | Skill `skills/llm-bim/SKILL.md` | ✅ |
 | Templates | ✅ office_bay, warehouse, hot_cell_bay, lab_bench |
 | Cases | ✅ intec, proto10, plumbing_loop, multi_trade, module_machine_host |
