@@ -697,6 +697,45 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
             w.writerow(row)
 
 
+def connection_schedule(model: ProjectModel) -> list[dict[str, Any]]:
+    """Module/equipment port connections with resolved element names for agents."""
+    rows: list[dict[str, Any]] = []
+    for c in list(model.meta.get("connections") or []):
+        if not isinstance(c, dict):
+            continue
+        from_id = str(c.get("from_id") or "")
+        to_id = str(c.get("to_id") or "")
+        from_name = from_id
+        to_name = to_id
+        try:
+            from_name = model.get_element(from_id).name or from_id
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            to_name = model.get_element(to_id).name or to_id
+        except Exception:  # noqa: BLE001
+            pass
+        fport = str(c.get("from_port") or "")
+        tport = str(c.get("to_port") or "")
+        medium = str(c.get("medium") or "")
+        rows.append(
+            {
+                "id": c.get("id"),
+                "name": c.get("name") or f"{fport}→{tport}",
+                "from_id": from_id,
+                "from_name": from_name,
+                "from_port": fport,
+                "to_id": to_id,
+                "to_name": to_name,
+                "to_port": tport,
+                "medium": medium,
+                "locator": f"{from_name}.{fport} → {to_name}.{tport}"
+                + (f" [{medium}]" if medium else ""),
+            }
+        )
+    return rows
+
+
 def export_lists(model: ProjectModel, out_dir: str | Path) -> dict[str, str]:
     """Write assignment + BOM + fitting takeoff lists to a directory."""
     out = Path(out_dir)
@@ -718,7 +757,7 @@ def export_lists(model: ProjectModel, out_dir: str | Path) -> dict[str, str]:
 
     csi_instances = csi_instance_schedule(model)
     trades = full_trade_schedule(model)
-    connections = list(model.meta.get("connections") or [])
+    connections = connection_schedule(model)
 
     files: dict[str, Any] = {
         "material_assignments": mat_assign,

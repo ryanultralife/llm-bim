@@ -90,6 +90,14 @@ def test_connect_machine_to_host(tmp_path: Path):
     conn = host.connect(skid.id, "PROC_IN", header, "BRANCH_1", medium="slurry", name="feed")
     assert conn["from_port"] == "PROC_IN"
     assert len(host.modules()["connections"]) == 1
+    from llmbim_core.material_lists import connection_schedule
+    from llmbim_drawings.schedules import schedule_rows
+
+    rows = connection_schedule(host.model)
+    assert rows and rows[0]["from_port"] == "PROC_IN"
+    assert "locator" in rows[0]
+    assert "slurry" in rows[0]["locator"] or rows[0]["medium"] == "slurry"
+    assert schedule_rows(host.model, "connection")
 
 
 def test_export_module_package(tmp_path: Path):

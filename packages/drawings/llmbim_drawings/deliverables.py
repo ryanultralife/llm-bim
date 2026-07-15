@@ -245,8 +245,13 @@ def export_deliverables(
         "part",
         "material",
         "csi",
+        "connection",
     ):
-        fname = "zone_areas.csv" if kind == "zone" else f"{kind}.csv"
+        fname = (
+            "zone_areas.csv"
+            if kind == "zone"
+            else ("connections.csv" if kind == "connection" else f"{kind}.csv")
+        )
         _try(
             f"schedule_{kind}",
             errors,

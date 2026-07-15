@@ -68,6 +68,7 @@
 | 42 | continue | IFC SpaceContents MEP | MEP not linked to IfcSpace | room pass + SpaceContents rel by point-in-poly | 113 unit | f097492 |
 | 43 | continue | MCP pack phases | MCP export lacked phase filter | project_export_pack phases + set_phase tool | 114 unit | e0a9cee |
 | 44 | continue | plan MEP dimensions | dims walls only | pipe/duct/conduit length dims on plan | 115 unit | 52807c1 |
+| 45 | continue | connection schedule | HTML only raw ports; no names | connection_schedule locator; schedules/connections.csv | 115 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -108,7 +109,7 @@
 34. ~~Skill SKILL.md place_riser + RM: locators~~ (pass 24)
 35. ~~MCP query tool with room/csi filters~~ (pass 27)
 36. ~~Multi-level riser spanning storeys~~ (pass 28)
-37. Connection schedule in HTML index
+37. ~~Connection schedule in HTML index~~ (pass 45)
 38. ~~IFC IfcFlowSegment for pipes (vs proxy)~~ (pass 25)
 39. ~~Agent recipe: restroom + CW loop + CSI takeoff~~ (pass 26)
 40. ~~HVAC duct place + takeoff (generic or catalog)~~ (pass 29)
@@ -118,14 +119,14 @@
 44. ~~CLI place duct/conduit~~ (pass 29–30)
 45. ~~Elev draw ducts as rectangles~~ (pass 32)
 46. ~~Panelboard CSI from catalog part~~ (pass 32)
-47. Connection schedule on HTML index
+47. ~~Connection schedule on HTML index~~ (pass 45)
 48. ~~Multi-trade smoke case for duct+conduit+riser~~ (pass 32)
 49. ~~Tag walls with type mark on plan~~ (pass 34)
 50. ~~Space height / ceiling height params~~ (pass 35)
 51. ~~Clash: duct vs pipe AABB~~ (pass 33)
 52. ~~Skill docs for duct/conduit/to_level~~ (pass 33)
 53. ~~Wall type marks on plan~~ (pass 34)
-54. ~~HTML connections schedule~~ (pass 34)
+54. ~~HTML connections schedule~~ (pass 34 / enriched 45)
 55. ~~Ceiling height / room height_mm~~ (pass 35)
 56. ~~Door/window type marks on plan (beyond D1/W1)~~ (pass 37)
 57. ~~glTF materials by system color (pipe/duct/conduit)~~ (pass 38)
