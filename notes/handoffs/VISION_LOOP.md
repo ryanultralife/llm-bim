@@ -38,7 +38,7 @@
 | 13 | continue | elev/section pipes + clash | elev no MEP; clash no pipe | elev/section pipe draw; find_clashes includes MEP | 82 unit | 0804cf2 |
 | 14 | continue | DXF MEP layers | DXF walls/equip only | PIPE-CU/FP/SS + FITTINGS layers | 82 unit | d2242fa |
 | 15 | continue | HTML CSI/MEP index | index thin on takeoff | csi sample table + MEP legend | 82 unit | 23e4994 |
-| 16 | continue | vertical pipe risers | pipes horizontal-only | place_riser + plan/elev/AABB + ops schema | 84 unit | (pending) |
+| 16 | continue | vertical pipe risers | pipes horizontal-only | place_riser + plan/elev/AABB + ops schema | 84 unit | 4353a8f |
 
 ## Backlog (living — pull highest impact each pass)
 
