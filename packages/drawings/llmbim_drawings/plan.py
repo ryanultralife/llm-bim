@@ -91,6 +91,12 @@ def render_plan_view(
     windows = model.query(category="window", level=lvl.name)
     rooms = model.query(category="room", level=lvl.name)
     equipment = model.query(category="equipment", level=lvl.name)
+    columns = [
+        el
+        for el in model.elements
+        if el.level_id == lvl.id
+        and (el.category == "column" or el.params.get("fitting_type") == "column")
+    ]
     notes = model.query(category="note", level=lvl.name)
     # MEP + catalog proxies on this level
     mep_els = [
@@ -337,6 +343,53 @@ def render_plan_view(
             f"{fmt(px)},{fmt(py)}" for px, py in (project(float(p[0]), float(p[1])) for p in poly)
         )
         parts.append(f'    <polygon points="{pts}"/>')
+    parts.append("  </g>")
+
+    # Structural columns as plan crosses / squares
+    parts.append(
+        f'  <g class="columns" fill="none" stroke="#37474f" '
+        f'stroke-width="{fmt(max(0.6, 10 * scale))}">'
+    )
+    for col in columns:
+        try:
+            o = col.params.get("origin_mm")
+            if not o:
+                continue
+            ox, oy = float(o[0]), float(o[1])
+            sz = col.params.get("size_mm") or [250, 250, 3000]
+            half_x = float(sz[0]) / 2
+            half_y = float(sz[1]) / 2 if len(sz) > 1 else half_x
+            corners = [
+                (ox - half_x, oy - half_y),
+                (ox + half_x, oy - half_y),
+                (ox + half_x, oy + half_y),
+                (ox - half_x, oy + half_y),
+            ]
+            pts = " ".join(
+                f"{fmt(px)},{fmt(py)}"
+                for px, py in (project(float(p[0]), float(p[1])) for p in corners)
+            )
+            parts.append(f'    <polygon points="{pts}" fill="#eceff1"/>')
+            # X mark
+            a = project(ox - half_x * 0.6, oy - half_y * 0.6)
+            b = project(ox + half_x * 0.6, oy + half_y * 0.6)
+            c = project(ox - half_x * 0.6, oy + half_y * 0.6)
+            d = project(ox + half_x * 0.6, oy - half_y * 0.6)
+            parts.append(
+                f'    <line x1="{fmt(a[0])}" y1="{fmt(a[1])}" x2="{fmt(b[0])}" y2="{fmt(b[1])}"/>'
+            )
+            parts.append(
+                f'    <line x1="{fmt(c[0])}" y1="{fmt(c[1])}" x2="{fmt(d[0])}" y2="{fmt(d[1])}"/>'
+            )
+            sec = col.params.get("section") or col.name or "COL"
+            mx, my = project(ox, oy - half_y - 80)
+            parts.append(
+                f'    <text x="{fmt(mx)}" y="{fmt(my)}" text-anchor="middle" '
+                f'font-size="{fmt(max(6, 9))}" fill="#263238" font-family="sans-serif">'
+                f"{esc(str(sec)[:16])}</text>"
+            )
+        except (KeyError, TypeError, ValueError, IndexError):
+            continue
     parts.append("  </g>")
 
     # MEP: pipes (lines) + fittings/fixtures (markers)

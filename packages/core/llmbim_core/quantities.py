@@ -47,6 +47,7 @@ def equipment_volume_m3(el) -> float:
 def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
     """Bill of quantities with optional catalog costs + CSI codes."""
     from llmbim_core.csi import annotate_boq_with_csi, boq_by_csi_division
+    from llmbim_core.parts_catalog import get_part, part_unit_cost
 
     rows: list[dict[str, Any]] = []
 
@@ -177,6 +178,38 @@ def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
                 "est_cost": 0,
                 "phase": el.params.get("phase", "new"),
                 "materials": [],
+            }
+        )
+
+    for el in model.elements:
+        if el.category != "column" and el.params.get("fitting_type") != "column":
+            continue
+        length_m = float(el.params.get("length_m") or 0)
+        if not length_m and el.params.get("height_mm"):
+            length_m = float(el.params["height_mm"]) / 1000.0
+        pid = el.params.get("part_id") or el.type_id
+        part = get_part(str(pid)) if pid else None
+        unit_cost = part_unit_cost(part) if part else 45.0
+        rows.append(
+            {
+                "category": "column",
+                "id": el.id,
+                "name": el.name,
+                "type_id": str(pid or el.params.get("section") or "COLUMN"),
+                "type_name": part.name if part else str(el.params.get("section") or "column"),
+                "qty": round(length_m, 3),
+                "unit": "m",
+                "secondary_qty": el.params.get("section"),
+                "secondary_unit": "section",
+                "est_cost": round(length_m * unit_cost, 2),
+                "phase": el.params.get("phase", "new"),
+                "csi_code": el.params.get("csi_code") or (part.csi_code if part else "05 12 00"),
+                "materials": [
+                    {
+                        "material": el.params.get("material_id") or "steel_A36",
+                        "section": el.params.get("section"),
+                    }
+                ],
             }
         )
 

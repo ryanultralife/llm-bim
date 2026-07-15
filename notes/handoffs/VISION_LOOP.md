@@ -91,7 +91,8 @@
 | 65 | continue | drawing list index | pack had no sheet inventory | schedules/drawing_list.csv + JSON | 137 unit | 5354d92 |
 | 66 | continue | door fire_rating | door sched no rating | place_door fire_rating + schedule col | (this) | (this) |
 | 67 | continue | glTF/STEP cable tray | tray missing 3D colors | cable_tray material + CABLE-TRAY STEP | (this) | (this) |
-| 68 | continue | HTML drawing list | index no sheet table | drawing list sample in index.html | (this) | (this) |
+| 68 | continue | HTML drawing list | index no sheet table | drawing list sample in index.html | 138 unit | 85a064f |
+| 69 | continue | structural columns | only place_part steel | place_column W-section + plan/BOQ/CSI | 139 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -189,7 +190,8 @@
 91. ~~Door fire_rating on place + schedule~~ (pass 66)
 92. ~~glTF/STEP cable tray~~ (pass 67)
 93. ~~HTML drawing list sample~~ (pass 68)
-94. Keep closing residual gaps until pass 120 / 10h
+94. ~~Structural place_column~~ (pass 69)
+95. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 

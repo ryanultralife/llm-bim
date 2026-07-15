@@ -268,6 +268,75 @@ def place_part(
     return {"element_id": el.id, "part_id": pid, "part_name": part.name, "qty": q}
 
 
+def place_column(
+    model: ProjectModel,
+    *,
+    level: str,
+    origin: tuple[float, float] | list[float] = (0.0, 0.0),
+    section: str = "W10x33",
+    height_mm: float = 3000.0,
+    name: str | None = None,
+    material_id: str = "steel_A36",
+    rotation_deg: float = 0.0,
+) -> dict[str, Any]:
+    """Structural steel column (W/HSS section). Vertical, CSI 05 12 00."""
+    from llmbim_core.ids import new_id
+    from llmbim_core.parts_catalog import get_part, resolve_part_id
+
+    pid = resolve_part_id(section=section) or f"PT-STL-{section.replace('×', 'x')}"
+    part = get_part(pid)
+    h = float(height_mm)
+    if h < 100:
+        raise ValidationError("Column height too small", height_mm=height_mm)
+    # approximate plan size from section depth if catalog size available
+    size = list(part.default_size_mm) if part and part.default_size_mm else [250.0, 250.0, h]
+    if len(size) < 3:
+        size = [size[0] if size else 250.0, size[1] if len(size) > 1 else 250.0, h]
+    else:
+        size[2] = h
+    # for vertical column, size_mm is plan X, plan Y, height
+    depth = float(size[0]) if size[0] > 10 else 250.0
+    width = float(size[1]) if len(size) > 1 and size[1] > 10 else depth
+    level_id = model.get_level(level).id
+    el = Element(
+        id=new_id("col"),
+        category="column",
+        name=name or f"Col {section} H={h / 1000:.2f}m",
+        level_id=level_id,
+        type_id=pid if part else "COLUMN",
+        params={
+            "origin_mm": [float(origin[0]), float(origin[1])],
+            "section": section,
+            "height_mm": h,
+            "length_m": h / 1000.0,
+            "length_mm": h,
+            "size_mm": [depth, width, h],
+            "shape": "box",
+            "z0_mm": 0.0,
+            "material_id": material_id,
+            "part_id": pid if part else None,
+            "part_qty": h / 1000.0,
+            "rotation_deg": float(rotation_deg),
+            "fitting_type": "column",
+            "csi_code": "05 12 00",
+            "system": "structural_steel",
+        },
+    )
+    model.add_element(el)
+    if part:
+        try:
+            assign_part(model, el.id, pid, qty=h / 1000.0)
+        except Exception:  # noqa: BLE001
+            pass
+    return {
+        "element_id": el.id,
+        "section": section,
+        "height_mm": h,
+        "length_m": round(h / 1000.0, 3),
+        "part_id": pid if part else None,
+    }
+
+
 def place_fitting(
     model: ProjectModel,
     *,

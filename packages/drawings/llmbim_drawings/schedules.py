@@ -59,6 +59,29 @@ def schedule_rows(model: ProjectModel, kind: str) -> list[dict[str, Any]]:
                 }
             )
         return rows
+    if kind in {"column", "columns"}:
+        rows = []
+        for el in model.elements:
+            if el.category != "column" and el.params.get("fitting_type") != "column":
+                continue
+            rows.append(
+                _annotate_csi(
+                    model,
+                    el,
+                    {
+                        "id": el.id,
+                        "name": el.name,
+                        "section": el.params.get("section"),
+                        "height_mm": el.params.get("height_mm"),
+                        "length_m": el.params.get("length_m"),
+                        "part_id": el.params.get("part_id") or el.type_id,
+                        "material_id": el.params.get("material_id"),
+                        "origin_mm": el.params.get("origin_mm"),
+                        "rotation_deg": el.params.get("rotation_deg"),
+                    },
+                )
+            )
+        return rows
     if kind == "door":
         return [
             _annotate_csi(

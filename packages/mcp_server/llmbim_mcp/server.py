@@ -518,6 +518,28 @@ if HAS_MCP:
         return _tool_result({"element_id": eid})
 
     @mcp.tool()
+    def place_column(
+        project_id: str,
+        level: str,
+        origin_x: float = 0,
+        origin_y: float = 0,
+        section: str = "W10x33",
+        height_mm: float = 3000,
+        name: str = "",
+    ) -> str:
+        """Structural steel column (CSI 05 12 00). section e.g. W10x33."""
+        p = store.get(project_id)
+        eid = p.place_column(
+            level=level,
+            origin=(origin_x, origin_y),
+            section=section,
+            height_mm=height_mm,
+            name=name or None,
+        )
+        store.save(project_id)
+        return _tool_result({"element_id": eid})
+
+    @mcp.tool()
     def parts_catalog(
         category: str = "",
         system: str = "",

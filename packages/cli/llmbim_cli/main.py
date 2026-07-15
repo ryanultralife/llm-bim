@@ -612,6 +612,16 @@ def cmd_place(args: argparse.Namespace) -> int:
             material=args.material or "galv_steel",
         )
         result = {"element_id": eid, "kind": "cable_tray"}
+    elif kind == "column":
+        eid = p.place_column(
+            level=level,
+            origin=origin,
+            section=args.section or args.fitting_type or "W10x33",
+            height_mm=float(args.height if args.height is not None else 3000),
+            name=args.name,
+            material=args.material or "steel_A36",
+        )
+        result = {"element_id": eid, "kind": "column"}
     else:
         raise SystemExit(f"Unknown place kind: {kind}")
     # persist back to path
@@ -959,16 +969,27 @@ def main(argv: list[str] | None = None) -> int:
     p_pl.add_argument(
         "--kind",
         required=True,
-        choices=["fitting", "pipe", "riser", "part", "duct", "conduit", "cable_tray", "tray"],
+        choices=[
+            "fitting",
+            "pipe",
+            "riser",
+            "part",
+            "duct",
+            "conduit",
+            "cable_tray",
+            "tray",
+            "column",
+        ],
         help="What to place",
     )
     p_pl.add_argument("--width", type=float, default=None, help="Duct width mm")
-    p_pl.add_argument("--height", type=float, default=None, help="Duct height mm")
+    p_pl.add_argument("--height", type=float, default=None, help="Duct height mm / column height mm")
     p_pl.add_argument("--level", default=None)
     p_pl.add_argument("--origin", default="0,0", help="x,y mm plan origin / pipe start")
     p_pl.add_argument("--end", default=None, help="x,y mm pipe end (pipe only)")
     p_pl.add_argument("--nps", default=None, help='Nominal pipe size e.g. 3/4 or 2')
     p_pl.add_argument("--fitting-type", default=None, help="elbow_90 | tee | ...")
+    p_pl.add_argument("--section", default=None, help="Steel section for column e.g. W10x33")
     p_pl.add_argument("--part-kind", default=None, help="toilet | sink | ... for kind=part")
     p_pl.add_argument("--material", default=None, help="copper | fire | process | pvc")
     p_pl.add_argument("--system", default=None)

@@ -444,6 +444,23 @@ def _place_cable_tray(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+@register("place_column", description="Place structural steel column (W/HSS section)", mutates=True)
+def _place_column(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import place_column
+
+    origin = p.get("origin") or p.get("origin_mm") or [0, 0]
+    return place_column(
+        model,
+        level=p.get("level") or model.levels[0].name,
+        origin=origin,
+        section=str(p.get("section") or "W10x33"),
+        height_mm=float(p.get("height_mm") or p.get("height") or 3000),
+        name=p.get("name"),
+        material_id=p.get("material_id") or p.get("material") or "steel_A36",
+        rotation_deg=float(p.get("rotation_deg") or p.get("rotation") or 0),
+    )
+
+
 @register("materials", description="Materials catalog", mutates=False)
 def _materials(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.materials import materials_catalog
