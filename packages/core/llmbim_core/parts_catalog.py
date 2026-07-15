@@ -560,6 +560,17 @@ def resolve_part_id(
             "flush_valve": "PT-PLB-FLUSH-VALVE",
             "stud_2x4": "PT-WD-STUD-2X4",
             "metal_stud": "PT-MS-STUD-362-20",
+            "vav": "PT-HVAC-VAV-8",
+            "vav_box": "PT-HVAC-VAV-8",
+            "fire_damper": "PT-HVAC-FDAMPER-24",
+            "damper": "PT-HVAC-FDAMPER-24",
+            "smoke_damper": "PT-HVAC-SDAMPER-12",
+            "diffuser": "PT-HVAC-DIFF-24",
+            "grille": "PT-HVAC-GRILLE-12",
+            "panel": "PT-ELEC-PANEL-42",
+            "panelboard": "PT-ELEC-PANEL-42",
+            "luminaire": "PT-ELEC-LT-2X4",
+            "light": "PT-ELEC-LT-2X4",
         }
         if k in aliases and aliases[k] in PARTS:
             return aliases[k]

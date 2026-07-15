@@ -224,6 +224,9 @@ Systems: `plumbing` · `fire` · `process` · `structural_steel` · `rebar` · `
 # HVAC duct + electrical conduit + multi-storey riser
 p.place_duct(level="L1", start=(0,0), end=(8000,0), width_mm=600, height_mm=350)  # CSI 23 31 00
 p.place_conduit(level="L1", start=(0,500), end=(8000,500), trade_size="1")        # CSI 26 05 33
+p.place_part(level="L1", kind="vav", origin=(2000,2000))            # CSI 23 36 00
+p.place_part(level="L1", kind="fire_damper", origin=(4000,2000))    # CSI 23 33 00
+p.place_part(level="L1", kind="diffuser", origin=(6000,2000))       # CSI 23 37 00
 p.add_level("L2", 3500)
 p.place_riser(level="L1", nps="2", origin=(4000,0), to_level="L2")  # spans storeys
 p.place_part(level="L1", part_id="PT-ELEC-PANEL-42", origin=(500,500))

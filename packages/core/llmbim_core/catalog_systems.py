@@ -608,19 +608,23 @@ def register_fixtures(into: dict, PartType: type, BomLine: type) -> None:
 def register_hvac_electrical_misc(into: dict, PartType: type, BomLine: type) -> None:
     """Light CSI 23 / 26 catalog so divisions aren't empty."""
     items = [
-        ("PT-HVAC-DIFF-24", "Ceiling diffuser 24×24", "diffuser", 85.0, "aluminum_6061", "23 37 00", "hvac"),
-        ("PT-HVAC-GRILLE-12", "Return grille 12×12", "grille", 45.0, "aluminum_6061", "23 37 00", "hvac"),
-        ("PT-HVAC-VAV-8", "VAV box 8\" inlet", "vav", 1200.0, "steel_A36", "23 36 00", "hvac"),
-        ("PT-HVAC-DUCT-RECT", "Rect duct Galv (per m2)", "duct", 55.0, "galv_steel", "23 31 00", "hvac"),
-        ("PT-HVAC-FLEX-8", "Flex duct 8\" (per m)", "flex_duct", 18.0, "galv_steel", "23 31 00", "hvac"),
-        ("PT-ELEC-PANEL-42", "Panelboard 42-ckt 208Y/120", "panel", 2800.0, "steel_A36", "26 24 16", "electrical"),
-        ("PT-ELEC-LT-2X4", "LED troffer 2×4", "luminaire", 95.0, "aluminum_6061", "26 51 00", "electrical"),
-        ("PT-ELEC-REC-DUP", "Duplex receptacle 20A", "receptacle", 12.0, "generic", "26 27 26", "electrical"),
-        ("PT-ELEC-SW-SP", "Single-pole switch", "switch", 8.0, "generic", "26 27 26", "electrical"),
-        ("PT-ELEC-CONDUIT-3_4", "EMT conduit 3/4\" (per m)", "conduit", 4.5, "steel_A36", "26 05 33", "electrical"),
-        ("PT-ELEC-WIRE-12", "THHN #12 Cu (per m)", "wire", 1.2, "copper_C12200", "26 05 19", "electrical"),
+        ("PT-HVAC-DIFF-24", "Ceiling diffuser 24×24", "diffuser", 85.0, "aluminum_6061", "23 37 00", "hvac", [600, 600, 100]),
+        ("PT-HVAC-GRILLE-12", "Return grille 12×12", "grille", 45.0, "aluminum_6061", "23 37 00", "hvac", [300, 300, 50]),
+        ("PT-HVAC-VAV-8", "VAV box 8\" inlet", "vav", 1200.0, "steel_A36", "23 36 00", "hvac", [800, 500, 400]),
+        ("PT-HVAC-FDAMPER-24", "Fire damper 24×12", "fire_damper", 450.0, "galv_steel", "23 33 00", "hvac", [600, 300, 150]),
+        ("PT-HVAC-SDAMPER-12", "Smoke damper 12×12", "smoke_damper", 380.0, "galv_steel", "23 33 00", "hvac", [300, 300, 150]),
+        ("PT-HVAC-DUCT-RECT", "Rect duct Galv (per m2)", "duct", 55.0, "galv_steel", "23 31 00", "hvac", None),
+        ("PT-HVAC-FLEX-8", "Flex duct 8\" (per m)", "flex_duct", 18.0, "galv_steel", "23 31 00", "hvac", None),
+        ("PT-ELEC-PANEL-42", "Panelboard 42-ckt 208Y/120", "panel", 2800.0, "steel_A36", "26 24 16", "electrical", [600, 150, 1200]),
+        ("PT-ELEC-LT-2X4", "LED troffer 2×4", "luminaire", 95.0, "aluminum_6061", "26 51 00", "electrical", [1200, 600, 100]),
+        ("PT-ELEC-REC-DUP", "Duplex receptacle 20A", "receptacle", 12.0, "generic", "26 27 26", "electrical", [100, 50, 50]),
+        ("PT-ELEC-SW-SP", "Single-pole switch", "switch", 8.0, "generic", "26 27 26", "electrical", [80, 40, 100]),
+        ("PT-ELEC-CONDUIT-3_4", "EMT conduit 3/4\" (per m)", "conduit", 4.5, "steel_A36", "26 05 33", "electrical", None),
+        ("PT-ELEC-WIRE-12", "THHN #12 Cu (per m)", "wire", 1.2, "copper_C12200", "26 05 19", "electrical", None),
     ]
-    for pid, name, ftype, cost, mat, csi, system in items:
+    for row in items:
+        pid, name, ftype, cost, mat, csi, system = row[:7]
+        size = row[7] if len(row) > 7 else None
         into[pid] = PartType(
             id=pid,
             name=name,
@@ -628,6 +632,7 @@ def register_hvac_electrical_misc(into: dict, PartType: type, BomLine: type) -> 
             primary_material_id=mat,
             csi_code=csi,
             unit_cost=cost,
+            default_size_mm=size,
             specs={"system": system, "fitting_type": ftype, "unit": "ea", "csi_code": csi},
         )
 

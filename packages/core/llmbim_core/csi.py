@@ -224,6 +224,18 @@ FITTING_CSI: dict[str, str] = {
     "wide_flange": "05 12 00",
     "rebar": "03 21 00",
     "wwf": "03 21 00",
+    "vav": "23 36 00",
+    "diffuser": "23 37 00",
+    "grille": "23 37 00",
+    "fire_damper": "23 33 00",
+    "smoke_damper": "23 33 00",
+    "duct": "23 31 00",
+    "flex_duct": "23 31 00",
+    "panel": "26 24 16",
+    "luminaire": "26 51 00",
+    "receptacle": "26 27 26",
+    "switch": "26 27 26",
+    "conduit": "26 05 33",
 }
 
 MATERIAL_CSI_OVERRIDE: dict[str, str] = {
