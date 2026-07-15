@@ -112,6 +112,9 @@ llmbim verify out/pack --require-parts
 ```bash
 llmbim query model.llmbim.json "category=wall param.thickness_mm>200"
 llmbim query model.llmbim.json "category=equipment kind=shell"
+llmbim query model.llmbim.json "room~Restroom category=fitting"
+llmbim query model.llmbim.json "csi~22_11"          # MasterFormat (use _ for spaces)
+llmbim query model.llmbim.json "vertical=true nps=2"  # risers
 ```
 
 ### F. Extensible ops
@@ -158,7 +161,7 @@ p.place_fitting(level="L1", fitting_type="elbow_90", nps="1/2", origin=(100,0), 
 print(p.fitting_takeoff(fitting_type="elbow_90", material="copper"))
 print(p.pipe_takeoff())  # includes riser length_m
 print(p.plumbing_schedule()["copper_90_elbows_by_size"])
-print(p.csi_instances()[:3])  # MasterFormat + L1|X|Y|Z locators
+print(p.csi_instances()[:3])  # MasterFormat + L1|RM:Room|X|Y|Z|NPS|RISER locators
 p.assign_part(equip_id, "PT-SEP-SHELL-320")
 p.assign_material(wall_id, "CMU")
 p.auto_assign()  # equipment kind → part; wall type → materials
@@ -169,6 +172,9 @@ man = p.export_deliverables()  # includes materials/ + schedules/plumbing_takeof
 llmbim parts --fitting-type elbow_90 --material copper
 llmbim takeoff model.llmbim.json --kind plumbing
 llmbim takeoff model.llmbim.json --fitting-type elbow_90 --material copper
+llmbim takeoff model.llmbim.json --kind csi_instances   # MF code + room + XY locator
+llmbim place model.llmbim.json --kind riser --origin 2500,1000 --nps 2 --z0 0 --z1 3500
+llmbim place model.llmbim.json --kind fitting --origin 0,0 --fitting-type elbow_90 --nps 3/4
 llmbim materials model.llmbim.json --out output/lists
 python examples/plumbing_loop.py   # demo → output/plumbing_loop/COPPER_90_ELBOWS.json
 ```
