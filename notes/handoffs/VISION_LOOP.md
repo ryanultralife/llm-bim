@@ -22,13 +22,14 @@
 | 0 | setup | loop infrastructure | — | VISION_LOOP + scheduler 5m + stop 2h | — | setup |
 | 1 | T+0 | docs + MCP agent surface | matrix/vision stale; MCP lacked takeoff | OUTPUT_MATRIX, VISION roadmap, MCP place/takeoff/parts | 60 unit pass | 3a3da9a |
 | 2 | T+5m | BOQ/takeoff units | steel/rebar listed as ea | quantities + part_assignment unit m/m2; test | 61 unit pass | 6463cca |
+| 3 | T+10m | verify materials pack | verify ignored materials/ | require_materials + CLI flag + tests | 62 unit pass | (pending) |
 
 ## Backlog (living — pull highest impact each pass)
 
 1. ~~OUTPUT_MATRIX incomplete~~ (pass 1)
 2. ~~VISION roadmap stale~~ (pass 1)
 3. ~~BOQ unit for linear steel `m`~~ (pass 2)
-4. Verify pack should optionally require materials/ when parts assigned
+4. ~~Verify pack materials/~~ (pass 3)
 5. ~~MCP tools for place_part / takeoff~~ (pass 1)
 6. IFC export of fittings/pipe categories
 7. glTF for pipe/fitting markers (optional)
@@ -38,7 +39,7 @@
 11. ~~part_summary unit for linear m parts~~ (pass 2)
 12. Process separator parts missing csi_code on flanges/cartridge
 
-**Next suggested focus:** #4 verify_pack materials/ or #12 CSI on process parts
+**Next suggested focus:** #12 CSI on process separator parts or #6 IFC fittings
 
 ## Rules for each scheduled pass
 

@@ -111,7 +111,11 @@ def cmd_pack(args: argparse.Namespace) -> int:
 def cmd_verify(args: argparse.Namespace) -> int:
     from llmbim_drawings.deliverables import verify_pack
 
-    v = verify_pack(args.path, require_parts=args.require_parts)
+    v = verify_pack(
+        args.path,
+        require_parts=args.require_parts,
+        require_materials=getattr(args, "require_materials", False),
+    )
     print(json.dumps(v, indent=2))
     return 0 if v.get("ok") else 1
 
@@ -493,6 +497,11 @@ def main(argv: list[str] | None = None) -> int:
     p_ver = sub.add_parser("verify", help="Verify a deliverables pack directory")
     p_ver.add_argument("path", help="Pack directory")
     p_ver.add_argument("--require-parts", action="store_true")
+    p_ver.add_argument(
+        "--require-materials",
+        action="store_true",
+        help="Require materials/MATERIALS_AND_PARTS.json takeoff package",
+    )
     p_ver.set_defaults(func=cmd_verify)
 
     p_boq = sub.add_parser("boq", help="Bill of quantities for a project file")
