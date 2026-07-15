@@ -313,8 +313,67 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
     contained: dict[int, list[int]] = {s: [] for s in storey_ids.values()}
     if default_storey not in contained:
         contained[default_storey] = []
+    # IfcSpace id → MEP/product ids inside that room (coordination linkage)
+    space_members: dict[int, list[int]] = {}
+    # room element name → IfcSpace entity id
+    space_by_name: dict[str, int] = {}
+
+    def _room_for_el(el) -> str | None:
+        try:
+            from llmbim_core.csi import element_position_mm, room_containing
+
+            x, y, _z = element_position_mm(el)
+            if x is None or y is None:
+                return None
+            return room_containing(model, x, y, el.level_id)
+        except Exception:  # noqa: BLE001
+            return None
+
+    def _link_to_space(el, ifc_eid: int | None) -> None:
+        if ifc_eid is None:
+            return
+        room = _room_for_el(el)
+        if not room:
+            return
+        sid = space_by_name.get(str(room))
+        if sid is None:
+            return
+        space_members.setdefault(sid, []).append(ifc_eid)
+
+    # Pass 1: rooms → IfcSpace (so MEP can link by name)
+    for el in model.elements:
+        if el.category != "room":
+            continue
+        storey = storey_ids.get(el.level_id or "", default_storey)
+        try:
+            b = el.params.get("boundary_mm") or el.params.get("boundary") or []
+            if len(b) < 3:
+                continue
+            xs = [float(p[0]) for p in b]
+            ys = [float(p[1]) for p in b]
+            minx, miny = min(xs), min(ys)
+            dx, dy = max(xs) - minx, max(ys) - miny
+        except (TypeError, ValueError, IndexError):
+            continue
+        pt = f.add(f"IFCCARTESIANPOINT(({minx},{miny},0.))")
+        a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{axis_x})")
+        loc = f.add(f"IFCLOCALPLACEMENT($,#{a3})")
+        rname = el.name or el.id
+        desc = f"RM:{_esc(rname)}"
+        h = el.params.get("height_mm") or el.params.get("ceiling_height_mm")
+        if h is not None:
+            desc += f"|H{float(h):.0f}"
+        space = f.add(
+            f"IFCSPACE('{f.guid()}',#{owner},'{_esc(rname)}','{desc}',$,#{loc},$,$,"
+            f".ELEMENT.,.INTERNAL.,$)"
+        )
+        contained[storey].append(space)
+        space_by_name[str(rname)] = space
+        space_members.setdefault(space, [])
 
     for el in model.elements:
+        if el.category == "room":
+            continue  # already exported
         storey = storey_ids.get(el.level_id or "", default_storey)
         # Get storey local placement id — re-parse from entity is hard; use building local offset
         # Simpler: place relative to storey with elevation already in storey
@@ -377,11 +436,13 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
             eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect)
             if eid is not None:
                 contained[storey].append(eid)
+                _link_to_space(el, eid)
 
         elif el.category in {"pipe", "plumbing_pipe", "conduit"}:
             eid = _export_pipe_proxy(f, el, owner, axis_z, extrude_rect)
             if eid is not None:
                 contained[storey].append(eid)
+                _link_to_space(el, eid)
 
         elif el.category in {"duct", "hvac"}:
             # rectangular duct as FlowSegment envelope
@@ -390,6 +451,7 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
                 eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect)
             if eid is not None:
                 contained[storey].append(eid)
+                _link_to_space(el, eid)
 
         elif el.category in {
             "fitting",
@@ -409,25 +471,7 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
             eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect)
             if eid is not None:
                 contained[storey].append(eid)
-
-        elif el.category == "room":
-            try:
-                b = el.params["boundary_mm"]
-            except (KeyError, TypeError):
-                continue
-            xs = [float(p[0]) for p in b]
-            ys = [float(p[1]) for p in b]
-            minx, miny = min(xs), min(ys)
-            dx, dy = max(xs) - minx, max(ys) - miny
-            pt = f.add(f"IFCCARTESIANPOINT(({minx},{miny},0.))")
-            a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{axis_x})")
-            loc = f.add(f"IFCLOCALPLACEMENT($,#{a3})")
-            # space body optional
-            space = f.add(
-                f"IFCSPACE('{f.guid()}',#{owner},'{_esc(el.name)}',$,$,#{loc},$,$,"
-                f".ELEMENT.,.INTERNAL.,$)"
-            )
-            contained[storey].append(space)
+                _link_to_space(el, eid)
 
         elif el.category in {"door", "window"}:
             # Place as opening proxy at host offset — simplified box at origin
@@ -448,11 +492,21 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
     for storey, els in contained.items():
         if not els:
             continue
-        # IFCRELCONTAINEDINSPATIALSTRUCTURE
+        # IFCRELCONTAINEDINSPATIALSTRUCTURE — storey contains walls/spaces/MEP
         ids = ",".join(f"#{e}" for e in els)
         f.add(
             f"IFCRELCONTAINEDINSPATIALSTRUCTURE('{f.guid()}',#{owner},$,$,"
             f"({ids}),#{storey})"
+        )
+
+    # Space membership: MEP products contained in IfcSpace (room linkage for agents)
+    for space_id, members in space_members.items():
+        if not members:
+            continue
+        ids = ",".join(f"#{e}" for e in members)
+        f.add(
+            f"IFCRELCONTAINEDINSPATIALSTRUCTURE('{f.guid()}',#{owner},"
+            f"'SpaceContents',$,({ids}),#{space_id})"
         )
 
     header = [

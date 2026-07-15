@@ -40,3 +40,31 @@ def test_ifc_exports_vertical_riser(tmp_path: Path) -> None:
     text = out.read_text(encoding="utf-8")
     assert "IFCFLOWSEGMENT" in text
     assert "RISER" in text
+
+
+def test_ifc_space_links_mep_in_room(tmp_path: Path) -> None:
+    """MEP inside a room polygon is related to IfcSpace via SpaceContents rel."""
+    p = Project.create("Space MEP", vcs=False)
+    p.add_level("L1", 0)
+    p.create_room(
+        level="L1",
+        name="Restroom A",
+        boundary=[(0, 0), (5000, 0), (5000, 4000), (0, 4000)],
+        height_mm=2700,
+    )
+    p.place_fitting(
+        level="L1",
+        fitting_type="elbow_90",
+        nps="1/2",
+        origin=(2000, 2000),
+        material="copper",
+    )
+    p.place_part(level="L1", kind="toilet", origin=(2500, 1500))
+    out = tmp_path / "space.ifc"
+    export_ifc(p.model, out)
+    text = out.read_text(encoding="utf-8")
+    assert "IFCSPACE" in text
+    assert "Restroom" in text or "RM:Restroom" in text
+    assert "SpaceContents" in text
+    # at least one containment rel naming SpaceContents
+    assert text.count("IFCRELCONTAINEDINSPATIALSTRUCTURE") >= 2
