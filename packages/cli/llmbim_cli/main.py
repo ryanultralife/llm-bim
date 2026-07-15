@@ -750,6 +750,39 @@ def cmd_place(args: argparse.Namespace) -> int:
             "name": args.name or "Room",
             "boundary_pts": len(boundary),
         }
+    elif kind == "slab":
+        b_arg = getattr(args, "boundary", None)
+        if b_arg:
+            polygon = _parse_boundary(b_arg)
+        elif args.end:
+            x0, y0 = origin
+            x1, y1 = _parse_xy(args.end)
+            polygon = [
+                (min(x0, x1), min(y0, y1)),
+                (max(x0, x1), min(y0, y1)),
+                (max(x0, x1), max(y0, y1)),
+                (min(x0, x1), max(y0, y1)),
+            ]
+        else:
+            raise SystemExit(
+                "place slab requires --boundary 'x1,y1;x2,y2;...' or --origin + --end for a rectangle"
+            )
+        th = float(args.width if args.width is not None else 200)  # thickness_mm
+        # allow --height as thickness alias for slabs if width not set
+        if args.width is None and args.height is not None and args.height < 500:
+            th = float(args.height)
+        eid = p.create_slab(
+            level=level,
+            polygon=polygon,
+            thickness_mm=th,
+            name=args.name,
+        )
+        result = {
+            "element_id": eid,
+            "kind": "slab",
+            "thickness_mm": th,
+            "polygon_pts": len(polygon),
+        }
     else:
         raise SystemExit(f"Unknown place kind: {kind}")
     # persist back to path
@@ -1094,7 +1127,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p_pl = sub.add_parser(
         "place",
-        help="Place fitting|pipe|riser|part|wall|door|window|room|MEP|structure on a project and save",
+        help="Place fitting|pipe|riser|part|wall|door|window|room|slab|MEP|structure on a project and save",
     )
     p_pl.add_argument("path", help="Project dir or model.llmbim.json")
     p_pl.add_argument(
@@ -1115,18 +1148,33 @@ def main(argv: list[str] | None = None) -> int:
             "door",
             "window",
             "room",
+            "slab",
         ],
         help="What to place",
     )
-    p_pl.add_argument("--width", type=float, default=None, help="Duct/door/window width mm; wall thickness")
-    p_pl.add_argument("--height", type=float, default=None, help="Duct/column/door/window/wall/room clear height mm")
+    p_pl.add_argument(
+        "--width",
+        type=float,
+        default=None,
+        help="Duct/door/window width mm; wall thickness; slab thickness_mm",
+    )
+    p_pl.add_argument(
+        "--height",
+        type=float,
+        default=None,
+        help="Duct/column/door/window/wall/room clear height mm",
+    )
     p_pl.add_argument("--level", default=None)
-    p_pl.add_argument("--origin", default="0,0", help="x,y mm plan origin / pipe start / wall start / room SW")
-    p_pl.add_argument("--end", default=None, help="x,y mm end (pipe/duct/wall/beam/room NE rect)")
+    p_pl.add_argument(
+        "--origin",
+        default="0,0",
+        help="x,y mm plan origin / pipe start / wall start / room|slab SW",
+    )
+    p_pl.add_argument("--end", default=None, help="x,y mm end (pipe/duct/wall/beam/room|slab NE rect)")
     p_pl.add_argument(
         "--boundary",
         default=None,
-        help="Room polygon: x1,y1;x2,y2;x3,y3 (mm). Or use --origin + --end for rectangle",
+        help="Room/slab polygon: x1,y1;x2,y2;x3,y3 (mm). Or --origin + --end for rectangle",
     )
     p_pl.add_argument("--host", default=None, help="Host wall element id (door/window)")
     p_pl.add_argument("--offset", type=float, default=None, help="Offset along host wall mm (door/window)")

@@ -69,6 +69,8 @@ def test_registry_create_wall_place_door_window() -> None:
     assert "create_wall" in names
     assert "place_door" in names
     assert "place_window" in names
+    assert "create_slab" in names
+    assert "create_room" in names
 
     p = Project.create("reg-open", vcs=False)
     p.add_level("L1", 0)
@@ -129,3 +131,16 @@ def test_registry_create_wall_place_door_window() -> None:
     )
     assert room.get("element_id") or room.get("category") == "room" or "Office" in str(room)
     assert p.stats().get("room") == 1
+
+    slab = dispatch(
+        p.model,
+        "create_slab",
+        {
+            "level": "L1",
+            "polygon": [[0, 0], [8000, 0], [8000, 6000], [0, 6000]],
+            "thickness_mm": 200,
+            "name": "S1",
+        },
+    )
+    assert slab.get("category") == "slab" or slab.get("element_id")
+    assert p.stats().get("slab") == 1

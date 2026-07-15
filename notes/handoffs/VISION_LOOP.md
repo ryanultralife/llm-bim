@@ -133,6 +133,7 @@
 | 107 | continue | skill batch openings recipe | batch_ops used generic only | place_door bulk + fire_rating query docs | 174 unit | (this) |
 | 108 | continue | create_room op + MCP | rooms only via SDK | create_room registry + room_create MCP | 175 unit | (this) |
 | 109 | continue | CLI place room + docs | room only SDK/MCP | place --kind room boundary/rect + matrix | 175 unit | (this) |
+| 110 | continue | create_slab agent wiring | slab SDK-only | registry/CLI/MCP create_slab + docs | 176 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -271,7 +272,8 @@
 132. ~~Skill batch openings + FR query~~ (pass 107)
 133. ~~create_room op + MCP room_create~~ (pass 108)
 134. ~~CLI place room + agent surface docs~~ (pass 109)
-135. Keep closing residual gaps until pass 120 / 10h residual gaps until pass 120 / 10h
+135. ~~create_slab registry/CLI/MCP~~ (pass 110)
+136. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 

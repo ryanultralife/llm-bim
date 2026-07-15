@@ -839,6 +839,28 @@ if HAS_MCP:
         return _tool_result({"element_id": rid, "name": name})
 
     @mcp.tool()
+    def slab_create(
+        project_id: str,
+        level: str,
+        polygon_json: str,
+        thickness_mm: float = 200,
+        name: str = "",
+    ) -> str:
+        """Create floor slab. polygon_json is [[x,y],...] mm plan polygon (≥3 pts)."""
+        import json as _json
+
+        p = store.get(project_id)
+        poly = _json.loads(polygon_json)
+        sid = p.create_slab(
+            level=level,
+            polygon=[(float(pt[0]), float(pt[1])) for pt in poly],
+            thickness_mm=thickness_mm,
+            name=name or None,
+        )
+        store.save(project_id)
+        return _tool_result({"element_id": sid, "thickness_mm": thickness_mm})
+
+    @mcp.tool()
     def level_add(project_id: str, name: str, elevation_mm: float) -> str:
         p = store.get(project_id)
         lid = p.add_level(name, elevation_mm)

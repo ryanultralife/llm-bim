@@ -332,6 +332,24 @@ def _create_room(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     return cmd.apply(model)
 
 
+@register("create_slab", description="Create floor slab from polygon (mm) + thickness", mutates=True)
+def _create_slab(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.commands import CreateSlab
+
+    polygon = p.get("polygon") or p.get("polygon_mm") or p.get("boundary") or p.get("boundary_mm") or []
+    if len(polygon) < 3:
+        raise ValueError("create_slab requires polygon with ≥3 points [[x,y],...]")
+    pts = [(float(pt[0]), float(pt[1])) for pt in polygon]
+    th = p.get("thickness_mm") if p.get("thickness_mm") is not None else p.get("thickness", 200)
+    cmd = CreateSlab(
+        level=p.get("level") or model.levels[0].name,
+        polygon=pts,
+        thickness_mm=float(th),
+        name=str(p.get("name") or ""),
+    )
+    return cmd.apply(model)
+
+
 @register("create_assembly", description="Group elements into named assembly", mutates=True)
 def _create_assembly(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.ids import new_id
