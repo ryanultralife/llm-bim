@@ -192,6 +192,43 @@ def write_pack_index(out_dir: str | Path) -> Path:
         except Exception:  # noqa: BLE001
             draw_preview = ""
 
+    # design rules findings sample
+    rules_preview = ""
+    rules_path = out / "design_rules.json"
+    if rules_path.is_file():
+        try:
+            rdata = json.loads(rules_path.read_text(encoding="utf-8"))
+            findings = rdata.get("findings") or []
+            summary = rdata.get("summary") or {}
+            lines = []
+            for f in findings[:15]:
+                lines.append(
+                    "<tr>"
+                    f"<td>{f.get('severity') or ''}</td>"
+                    f"<td><code>{f.get('rule') or ''}</code></td>"
+                    f"<td>{f.get('domain') or ''}</td>"
+                    f"<td>{(f.get('message') or '')[:80]}</td>"
+                    "</tr>"
+                )
+            if lines or summary:
+                tot = summary.get("total", len(findings))
+                rules_preview = (
+                    "<h2>Design rules (sample)</h2>"
+                    f"<p>Findings: {tot} "
+                    f"(err {summary.get('error', 0)} / warn {summary.get('warning', 0)} / "
+                    f"info {summary.get('info', 0)}). Full: "
+                    "<a href=\"design_rules.json\">design_rules.json</a></p>"
+                )
+                if lines:
+                    rules_preview += (
+                        "<table><tr><th>Sev</th><th>Rule</th><th>Domain</th>"
+                        "<th>Message</th></tr>"
+                        + "".join(lines)
+                        + "</table>"
+                    )
+        except Exception:  # noqa: BLE001
+            rules_preview = ""
+
     legend = """
 <h2>MEP / layers legend</h2>
 <ul>
@@ -224,6 +261,7 @@ th{{background:#161b22}}
 {zone_preview}
 {conn_preview}
 {draw_preview}
+{rules_preview}
 {legend}
 <h2>Drawings (SVG)</h2><ul>{"".join(links) or "<li>none</li>"}</ul>
 <h2>Manifest</h2><pre>{json.dumps(manifest.get("verification", {}), indent=2)}</pre>

@@ -204,24 +204,30 @@ def render_plan_view(
         )
     parts.append("  </g>")
 
-    # Wall type marks (type_id) at midspan
+    # Wall type marks (type_id) + optional fire_rating at midspan
     parts.append(
         '  <g class="wall-types" fill="#333" font-family="sans-serif" '
         f'font-size="{fmt(max(6, 9))}">'
     )
     for el, (x0, y0, x1, y1, _t) in walls:
         tid = el.type_id or el.params.get("type_id") or ""
-        if not tid:
+        fr = el.params.get("fire_rating") or ""
+        if not tid and not fr:
             continue
         # short mark e.g. W-EXT-CMU → EXT or last token
-        short = str(tid)
+        short = str(tid) if tid else ""
         if short.startswith("W-") and len(short) > 4:
             short = short[2:]  # drop W-
         if len(short) > 12:
             short = short[:12]
+        if fr:
+            fr_s = str(fr).replace(" min", "m").replace("-hr", "HR").replace(" hr", "HR")
+            if len(fr_s) > 8:
+                fr_s = fr_s[:8]
+            short = f"{short} {fr_s}".strip() if short else fr_s
         mx, my = project((x0 + x1) / 2, (y0 + y1) / 2)
         parts.append(
-            f'    <text x="{fmt(mx)}" y="{fmt(my - 4)}" text-anchor="middle" '
+            f'    <text class="wall-type" x="{fmt(mx)}" y="{fmt(my - 4)}" text-anchor="middle" '
             f'fill="#1a1a1a">{esc(short)}</text>'
         )
     parts.append("  </g>")
@@ -270,6 +276,10 @@ def render_plan_view(
             door_num += 1
             tag = f"D{door_num}"
             tshort = _opening_type_short(opening)
+            fr = opening.params.get("fire_rating") or ""
+            if fr:
+                fr_s = str(fr).replace(" min", "m").replace("-hr", "HR").replace(" hr", "HR")
+                tshort = f"{tshort} {fr_s}".strip() if tshort else fr_s
             r = max(6.0, 80 * scale)
             parts.append(
                 f'    <circle cx="{fmt(pm[0])}" cy="{fmt(pm[1])}" r="{fmt(r)}" '
@@ -283,7 +293,7 @@ def render_plan_view(
                 parts.append(
                     f'    <text class="opening-type" x="{fmt(pm[0])}" y="{fmt(pm[1] + r * 1.55)}" '
                     f'text-anchor="middle" font-size="{fmt(max(5, r * 0.65))}" '
-                    f'fill="#145214" font-family="sans-serif">{esc(tshort)}</text>'
+                    f'fill="#145214" font-family="sans-serif">{esc(tshort[:18])}</text>'
                 )
         else:
             win_num += 1
