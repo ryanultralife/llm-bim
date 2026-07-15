@@ -106,7 +106,8 @@
 | 80 | continue | MCP query enrichment | query rows thin on section/system | section/trade_size/fire/phase + docs | 149 unit | d8b6bad |
 | 81 | continue | plan FR tags + rules HTML | fire_rating not on plan; index no rules | wall/door FR marks; design_rules sample | 151 unit | 40cf5c3 |
 | 82 | continue | DXF wall FR + chat_smoke | plan DXF no WALL-TYPES; smoke thin | WALL-TYPES FR; multi-trade structure smoke | 152 unit | 18ee017 |
-| 83 | continue | verify_pack vision signals | verify ignored drawing_list/DXF | levels/drawing_list/elev+section DXF flags | 153 unit | (this) |
+| 83 | continue | verify_pack vision signals | verify ignored drawing_list/DXF | levels/drawing_list/elev+section DXF flags | 153 unit | 6f4dd77 |
+| 84 | continue | CSI locator FR/section/SYS | locators missing FR/system/category | FR/SYS/COLUMN tokens; VISION M4 | 154 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -219,7 +220,8 @@
 106. ~~Plan fire_rating tags + design_rules HTML~~ (pass 81)
 107. ~~Plan DXF WALL-TYPES FR + chat_smoke multi-trade~~ (pass 82)
 108. ~~verify_pack drawing_list/elev/section DXF signals~~ (pass 83)
-109. Keep closing residual gaps until pass 120 / 10h
+109. ~~CSI locator FR/SYS/section/category tokens~~ (pass 84)
+110. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
