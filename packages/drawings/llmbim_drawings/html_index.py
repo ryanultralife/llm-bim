@@ -234,8 +234,8 @@ def write_pack_index(out_dir: str | Path) -> Path:
 <ul>
 <li><strong>Plan SVG</strong> — copper pipes orange; fire black steel dark; process SS gray; PVC yellow; risers = concentric circles; ducts green; conduit purple; cable tray dashed purple; columns X-marks; beams gray</li>
 <li><strong>DXF layers</strong> — WALLS, EQUIP, ROOMS, PIPE-CU/FP/SS, DUCT, CONDUIT, CABLE-TRAY, COLUMNS, BEAMS, FITTINGS (risers = CIRCLE)</li>
-<li><strong>CSI</strong> — e.g. <code>22 11 16</code> domestic water, <code>21 13 13</code> wet sprinkler, <code>22 42 13</code> water closets</li>
-<li><strong>Locator</strong> — <code>L1|RM:Restroom_A|X1200Y3400|Z900|NPS3/4|RISER</code></li>
+<li><strong>CSI</strong> — e.g. <code>22 11 16</code> domestic water, <code>21 13 13</code> wet sprinkler, <code>05 12 00</code> structural steel, <code>23 31 00</code> duct, <code>26 05 33</code> conduit</li>
+<li><strong>Locator</strong> — <code>L1|RM:Restroom_A|X1200Y3400|Z900|NPS3/4|W10x33|SYS SA|FR2hr|COLUMN|RISER</code> (level · RM: · XY · Z · H · NPS · section · SYS · FR · category)</li>
 <li><strong>Honesty</strong> — ENGINEERING ESTIMATE envelopes/takeoff; not PE-sealed CDs</li>
 </ul>
 """

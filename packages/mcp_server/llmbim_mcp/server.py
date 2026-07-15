@@ -162,6 +162,25 @@ if HAS_MCP:
         )
 
     @mcp.tool()
+    def project_verify_pack(
+        pack_dir: str,
+        require_materials: bool = True,
+        require_parts: bool = False,
+    ) -> str:
+        """Verify a deliverables pack directory for vision completeness.
+
+        Checks model.ifc/gltf/step, materials package, drawing_list, levels,
+        plan/elev/section DXF, design_rules. Returns ok + signal flags."""
+        from llmbim_drawings.deliverables import verify_pack
+
+        v = verify_pack(
+            pack_dir,
+            require_parts=require_parts,
+            require_materials=require_materials,
+        )
+        return _tool_result(v)
+
+    @mcp.tool()
     def set_phase(project_id: str, element_id: str, phase: str = "new") -> str:
         """Set element phase: new | existing | demo | temp (for pack phase filters)."""
         p = store.get(project_id)

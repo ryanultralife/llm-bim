@@ -68,3 +68,5 @@ def test_mcp_export_pack_and_set_phase_signatures():
     assert "def set_phase" in src
     assert "export_deliverables" in src
     assert "phase_filter" in src
+    assert "def project_verify_pack" in src
+    assert "verify_pack" in src

@@ -96,3 +96,6 @@ def test_verify_pack_vision_schedule_and_view_signals(tmp_path: Path) -> None:
         "materials/duct_takeoff.json"
     )
     assert "design_rules_findings" in v or (out / "design_rules.json").is_file()
+    # HTML documents new locator tokens
+    html = (out / "index.html").read_text(encoding="utf-8")
+    assert "FR" in html and "SYS" in html

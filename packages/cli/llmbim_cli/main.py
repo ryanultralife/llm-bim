@@ -760,7 +760,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_pack.set_defaults(func=cmd_pack)
 
-    p_ver = sub.add_parser("verify", help="Verify a deliverables pack directory")
+    p_ver = sub.add_parser(
+        "verify",
+        help="Verify pack: IFC/glTF/STEP, materials, drawing_list, elev/section DXF signals",
+    )
     p_ver.add_argument("path", help="Pack directory")
     p_ver.add_argument("--require-parts", action="store_true")
     p_ver.add_argument(
