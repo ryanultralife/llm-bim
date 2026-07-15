@@ -548,6 +548,70 @@ def export_section_dxf(
         ents += _line(sc + half, zbase + ht, sc - half, zbase + ht, "WALLS")
         ents += _line(sc - half, zbase + ht, sc - half, zbase, "WALLS")
 
+    # structural columns near cut plane
+    for el in model.elements:
+        if el.category != "column" and el.params.get("fitting_type") != "column":
+            continue
+        o = el.params.get("origin_mm")
+        if not o:
+            continue
+        ox, oy = float(o[0]), float(o[1])
+        # distance to infinite cut line
+        nx, ny = -uy, ux
+        dist = abs((ox - x0) * nx + (oy - y0) * ny)
+        if dist > 800:
+            continue
+        sc = s_of(ox, oy)
+        if sc < -500 or sc > cut_len + 500:
+            continue
+        base = _level_elev(model, el.level_id)
+        z0 = base + float(el.params.get("z0_mm") or 0)
+        sz = el.params.get("size_mm") or [250.0, 250.0, 3000.0]
+        half = float(sz[0]) / 2
+        ht = float(el.params.get("height_mm") or (sz[2] if len(sz) > 2 else 3000.0))
+        ents += _line(sc - half, z0, sc + half, z0, "COLUMNS")
+        ents += _line(sc + half, z0, sc + half, z0 + ht, "COLUMNS")
+        ents += _line(sc + half, z0 + ht, sc - half, z0 + ht, "COLUMNS")
+        ents += _line(sc - half, z0 + ht, sc - half, z0, "COLUMNS")
+        sec = el.params.get("section") or "COL"
+        ents += _text(sc, z0 + ht + 80, 100.0, str(sec)[:20], "COLUMNS")
+
+    # structural beams crossing / near cut
+    for el in model.elements:
+        if el.category != "beam" and el.params.get("fitting_type") != "beam":
+            continue
+        if "start_mm" not in el.params or "end_mm" not in el.params:
+            continue
+        try:
+            s, e = el.params["start_mm"], el.params["end_mm"]
+            t = _seg_intersection_param(
+                float(s[0]), float(s[1]), float(e[0]), float(e[1]), x0, y0, x1, y1
+            )
+            if t is None:
+                mx = (float(s[0]) + float(e[0])) / 2
+                my = (float(s[1]) + float(e[1])) / 2
+                nx, ny = -uy, ux
+                dist = abs((mx - x0) * nx + (my - y0) * ny)
+                if dist > 800:
+                    continue
+                sc = s_of(mx, my)
+            else:
+                ix = float(s[0]) + t * (float(e[0]) - float(s[0]))
+                iy = float(s[1]) + t * (float(e[1]) - float(s[1]))
+                sc = s_of(ix, iy)
+            base = _level_elev(model, el.level_id)
+            z = base + float(el.params.get("z0_mm") or 0)
+            depth = float(el.params.get("height_mm") or el.params.get("depth_mm") or 300)
+            half = float(el.params.get("width_mm") or 150) / 2
+            ents += _line(sc - half, z, sc + half, z, "BEAMS")
+            ents += _line(sc + half, z, sc + half, z + depth, "BEAMS")
+            ents += _line(sc + half, z + depth, sc - half, z + depth, "BEAMS")
+            ents += _line(sc - half, z + depth, sc - half, z, "BEAMS")
+            sec = el.params.get("section") or "BM"
+            ents += _text(sc, z + depth + 60, 90.0, str(sec)[:20], "BEAMS")
+        except (TypeError, ValueError, IndexError, KeyError):
+            continue
+
     for el in model.elements:
         if el.category not in {
             "pipe",
@@ -555,16 +619,24 @@ def export_section_dxf(
             "duct",
             "hvac",
             "conduit",
+            "cable_tray",
             "fitting",
             "fittings",
             "fixture",
-        } and el.params.get("fitting_type") not in {"pipe", "duct", "conduit"}:
+        } and el.params.get("fitting_type") not in {
+            "pipe",
+            "duct",
+            "conduit",
+            "cable_tray",
+        }:
             continue
         layer = _pipe_layer(el)
         if el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct":
             layer = "DUCT"
         if el.category == "conduit" or el.params.get("fitting_type") == "conduit":
             layer = "CONDUIT"
+        if el.category == "cable_tray" or el.params.get("fitting_type") == "cable_tray":
+            layer = "CABLE-TRAY"
         base = _level_elev(model, el.level_id)
         if el.params.get("vertical") or el.params.get("orientation") == "vertical":
             o = el.params.get("origin_mm") or el.params.get("start_mm")
