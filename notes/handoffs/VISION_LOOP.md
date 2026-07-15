@@ -41,6 +41,9 @@
 | 16 | continue | vertical pipe risers | pipes horizontal-only | place_riser + plan/elev/AABB + ops schema | 84 unit | 4353a8f |
 | 17 | continue | riser 3D + MCP | STEP/glTF/MCP missing risers | STEP/glTF vertical solids; MCP place_pipe/riser | 85 unit | 95025a7 |
 | 18 | continue | schedules CSI+locator | schedules no MF codes | door/pipe/fitting/equip CSI+locator; schedules/csi.csv | 87 unit | 190cda6 |
+| 19 | continue | CSI room in locator | locator lacked room | room_containing PIP + RM:RoomName; RISER token | 88 unit | d715459 |
+| 20 | continue | DXF vertical risers | DXF zero-length pipe line | CIRCLE riser plan symbol + PIPE layer | 89+ unit | (next) |
+| 21 | continue | CLI place + csi_instances | no CLI place_riser/fitting | `llmbim place` + takeoff --kind csi_instances | 91+ unit | (next) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -71,6 +74,14 @@
 24. ~~Vertical pipe risers place_riser~~ (pass 16)
 25. ~~Riser STEP/glTF + MCP place_pipe/riser~~ (pass 17)
 26. ~~Schedules CSI + locator columns~~ (pass 18)
+27. ~~CSI locator room name (RM:)~~ (pass 19)
+28. ~~DXF plan riser CIRCLE symbols~~ (pass 20)
+29. ~~CLI place fitting/pipe/riser/part + csi_instances~~ (pass 21)
+30. Room column in schedules CSV
+31. IFC IfcSpace room linkage for placed MEP
+32. HTML index room+CSI locator sample
+33. Query language filter by CSI / room / locator
+34. Skill SKILL.md place_riser + RM: locators
 
 ## Rules for each scheduled pass
 

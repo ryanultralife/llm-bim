@@ -76,6 +76,33 @@ def _text(x: float, y: float, h: float, s: str, layer: str = "TEXT") -> list[str
     ]
 
 
+def _circle(cx: float, cy: float, r: float, layer: str = "0") -> list[str]:
+    """DXF R12 CIRCLE entity (plan-space, Z=0)."""
+    return [
+        "0",
+        "CIRCLE",
+        "8",
+        layer,
+        "10",
+        f"{cx:.4f}",
+        "20",
+        f"{cy:.4f}",
+        "30",
+        "0.0",
+        "40",
+        f"{r:.4f}",
+    ]
+
+
+def _pipe_layer(el) -> str:
+    mid = str(el.params.get("material_id") or "")
+    if "black" in mid:
+        return "PIPE-FP"
+    if "ss316" in mid or (mid.startswith("ss") and "ss" in mid):
+        return "PIPE-SS"
+    return "PIPE-CU"
+
+
 def export_plan_dxf(
     model: ProjectModel,
     level: str,
@@ -124,22 +151,39 @@ def export_plan_dxf(
         if el.level_id != lvl.id:
             continue
         if el.category in {"pipe", "plumbing_pipe"} or el.params.get("fitting_type") == "pipe":
+            layer = _pipe_layer(el)
+            nps = el.params.get("nps")
+            # vertical riser: plan symbol = concentric circles + R label
+            if el.params.get("vertical") or el.params.get("orientation") == "vertical":
+                o = el.params.get("origin_mm") or el.params.get("start_mm")
+                if not o:
+                    continue
+                ox, oy = float(o[0]), float(o[1])
+                r_out = 80.0
+                ents += _circle(ox, oy, r_out, layer)
+                ents += _circle(ox, oy, r_out * 0.4, layer)
+                tag = f'R{nps}"' if nps else "R"
+                ents += _text(ox + r_out, oy + r_out, 80.0, tag, "PIPE-TEXT")
+                continue
             try:
                 s = el.params["start_mm"]
                 e = el.params["end_mm"]
             except KeyError:
                 continue
-            layer = "PIPE-CU"
-            mid = str(el.params.get("material_id") or "")
-            if "black" in mid:
-                layer = "PIPE-FP"
-            if "ss316" in mid or "ss" in mid:
-                layer = "PIPE-SS"
-            ents += _line(float(s[0]), float(s[1]), float(e[0]), float(e[1]), layer)
-            nps = el.params.get("nps")
+            x0, y0 = float(s[0]), float(s[1])
+            x1, y1 = float(e[0]), float(e[1])
+            # degenerate plan length → treat as riser-like point symbol
+            if abs(x1 - x0) < 1 and abs(y1 - y0) < 1:
+                o = el.params.get("origin_mm") or s
+                ox, oy = float(o[0]), float(o[1])
+                ents += _circle(ox, oy, 60.0, layer)
+                tag = f'R{nps}"' if nps else "R"
+                ents += _text(ox + 70.0, oy + 70.0, 80.0, tag, "PIPE-TEXT")
+                continue
+            ents += _line(x0, y0, x1, y1, layer)
             if nps:
-                mx = (float(s[0]) + float(e[0])) / 2
-                my = (float(s[1]) + float(e[1])) / 2
+                mx = (x0 + x1) / 2
+                my = (y0 + y1) / 2
                 ents += _text(mx, my, 80.0, f'{nps}"', "PIPE-TEXT")
         elif el.category in {"fitting", "fittings", "fixture", "accessory"}:
             o = el.params.get("origin_mm")

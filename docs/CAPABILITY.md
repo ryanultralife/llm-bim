@@ -103,14 +103,18 @@ Every element can resolve a **real MasterFormat section** (e.g. `22 11 16` Domes
 
 ```text
 csi_code:     22 11 16
-csi_instance: 22 11 16 @ L1|X1200Y3400|Z900|NPS3/4
-level / x_mm / y_mm / z_mm / height_mm / nps
+csi_instance: 22 11 16 @ L1|RM:Restroom_A|X1200Y3400|Z900|NPS3/4
+level / room / x_mm / y_mm / z_mm / height_mm / nps / RISER
 ```
 
+Locator tokens (pipe-separated): `level` · `RM:RoomName` (point-in-polygon) · `X…Y…` · `Z…` · `Zabs…` · `H…` · `NPS…` · section · `RISER`.
+
 ```python
-p.csi_instances()   # one row per element
+p.csi_instances()   # one row per element (includes room + locator)
 p.csi_takeoff()     # rollup by section + instance list
-# pack writes materials/csi_instances.csv
+# pack writes materials/csi_instances.csv + schedules/csi.csv
+# CLI: llmbim takeoff PATH --kind csi_instances
+# CLI place: llmbim place PATH --kind riser --origin 1500,2000 --z0 0 --z1 3000 --nps 2
 ```
 
 ## What “complete” means here
