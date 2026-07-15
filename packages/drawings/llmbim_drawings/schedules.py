@@ -35,6 +35,30 @@ def _annotate_csi(model: ProjectModel, el, row: dict[str, Any]) -> dict[str, Any
 
 def schedule_rows(model: ProjectModel, kind: str) -> list[dict[str, Any]]:
     kind = kind.lower()
+    if kind in {"level", "levels", "storey", "storeys"}:
+        # Level / storey schedule with floor-to-floor heights
+        levels = sorted(model.levels, key=lambda lv: float(lv.elevation_mm))
+        rows = []
+        for i, lv in enumerate(levels):
+            elev = float(lv.elevation_mm)
+            next_elev = float(levels[i + 1].elevation_mm) if i + 1 < len(levels) else None
+            floor_to_floor = (next_elev - elev) if next_elev is not None else None
+            n_els = sum(1 for e in model.elements if e.level_id == lv.id)
+            rows.append(
+                {
+                    "id": lv.id,
+                    "name": lv.name,
+                    "elevation_mm": elev,
+                    "elevation_m": round(elev / 1000.0, 3),
+                    "floor_to_floor_mm": floor_to_floor,
+                    "floor_to_floor_m": round(floor_to_floor / 1000.0, 3)
+                    if floor_to_floor is not None
+                    else None,
+                    "element_count": n_els,
+                    "is_top": i == len(levels) - 1,
+                }
+            )
+        return rows
     if kind == "door":
         return [
             _annotate_csi(
@@ -359,3 +383,76 @@ def export_schedule_json(model: ProjectModel, kind: str, path: str | Path) -> No
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+
+
+def drawing_list(out_dir: str | Path) -> list[dict[str, Any]]:
+    """Inventory of drawing/view files in a deliverables pack."""
+    out = Path(out_dir)
+    rows: list[dict[str, Any]] = []
+    sheet_no = 1
+    # Prefer construction sheets, then views, then parts drawings
+    candidates: list[Path] = []
+    for sub in ("construction", "views", "parts/drawings", "parts"):
+        d = out / sub
+        if d.is_dir():
+            candidates.extend(sorted(d.glob("*.svg")))
+            candidates.extend(sorted(d.glob("*.dxf")))
+    seen: set[str] = set()
+    for p in candidates:
+        rel = p.relative_to(out).as_posix()
+        if rel in seen:
+            continue
+        seen.add(rel)
+        name = p.stem
+        kind = "sheet"
+        if "plan" in name.lower():
+            kind = "plan"
+        elif "elev" in name.lower():
+            kind = "elevation"
+        elif "section" in name.lower() or name.lower().startswith("sec"):
+            kind = "section"
+        elif p.suffix.lower() == ".dxf":
+            kind = "cad"
+        rows.append(
+            {
+                "sheet_no": sheet_no,
+                "name": name,
+                "path": rel,
+                "format": p.suffix.lstrip(".").upper(),
+                "kind": kind,
+                "size_bytes": p.stat().st_size if p.is_file() else 0,
+            }
+        )
+        sheet_no += 1
+    if (out / "PLOT_SET.pdf").is_file():
+        rows.append(
+            {
+                "sheet_no": sheet_no,
+                "name": "PLOT_SET",
+                "path": "PLOT_SET.pdf",
+                "format": "PDF",
+                "kind": "plot_set",
+                "size_bytes": (out / "PLOT_SET.pdf").stat().st_size,
+            }
+        )
+    return rows
+
+
+def export_drawing_list(out_dir: str | Path, path: str | Path | None = None) -> list[dict[str, Any]]:
+    """Write schedules/drawing_list.csv (+ json) for a pack."""
+    rows = drawing_list(out_dir)
+    out = Path(out_dir)
+    dest = Path(path) if path else out / "schedules" / "drawing_list.csv"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if rows:
+        keys = list(rows[0].keys())
+        with dest.open("w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=keys)
+            w.writeheader()
+            w.writerows(rows)
+    else:
+        dest.write_text("", encoding="utf-8")
+    (dest.with_suffix(".json") if dest.suffix else dest.parent / "drawing_list.json").write_text(
+        json.dumps(rows, indent=2) + "\n", encoding="utf-8"
+    )
+    return rows

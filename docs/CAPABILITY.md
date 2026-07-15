@@ -49,11 +49,13 @@ JSON · IFC · glTF · STEP · SVG sheets · DXF · PDF plot set · BOQ (CSI) ·
 | Assign catalog part | `p.assign_part(id, "PT-CU-ELB90-1_2")` |
 | Place fitting | `p.place_fitting(level=..., fitting_type="elbow_90", nps="1/2")` |
 | Place pipe | `p.place_pipe(level=..., nps="3/4", start=..., end=...)` |
+| Place duct / conduit / tray | `p.place_duct` · `place_conduit` · `place_cable_tray` |
 | Count 90° copper by size | `p.fitting_takeoff(fitting_type="elbow_90", material="copper")` |
+| MEP takeoffs | `p.duct_takeoff()` · `conduit_takeoff()` · `cable_tray_takeoff()` |
 | Full plumbing schedule | `p.plumbing_schedule()` |
 | Export lists | `p.export_material_lists()` / pack `materials/` |
 
-Ops: `assign_material`, `assign_part`, `place_fitting`, `place_pipe`, `place_part`, `fitting_takeoff`, `system_takeoff`, `csi_takeoff`, `auto_assign`, `materials`, `parts`.
+Ops: `assign_material`, `assign_part`, `place_fitting`, `place_pipe`, `place_duct`, `place_conduit`, `place_cable_tray`, `place_part`, `fitting_takeoff`, `system_takeoff`, `csi_takeoff`, `auto_assign`, `materials`, `parts`.
 
 ### Trade catalogs (~430 parts)
 

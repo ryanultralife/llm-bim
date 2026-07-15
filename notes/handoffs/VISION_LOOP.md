@@ -86,7 +86,9 @@
 | 60 | continue | HVAC device schedule | VAV/diffuser/panel not scheduled | hvac_device rows + pack CSV | 132 unit | (this) |
 | 61 | continue | IFC CSI property sets | IFC had no CSI props | Pset_CSIMasterFormat CSI_Code+Locator | 132 unit | 5167cd6 |
 | 62 | continue | cable tray place+takeoff | only conduit raceway | place_cable_tray CSI 26 05 36 + plan/DXF/BOQ | (this) | (this) |
-| 63 | continue | skill takeoff docs | skill lacked duct/tray takeoff | SKILL place+takeoff duct/conduit/tray | (this) | (this) |
+| 63 | continue | skill takeoff docs | skill lacked duct/tray takeoff | SKILL place+takeoff duct/conduit/tray | 135 unit | f1fb83f |
+| 64 | continue | level schedule | no storey floor-to-floor | schedule kind level + levels.csv | (this) | (this) |
+| 65 | continue | drawing list index | pack had no sheet inventory | schedules/drawing_list.csv + JSON | (this) | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -179,7 +181,9 @@
 86. ~~IFC Pset_CSIMasterFormat~~ (pass 61)
 87. ~~Cable tray place + takeoff~~ (pass 62)
 88. ~~Skill docs duct/conduit/tray takeoffs~~ (pass 63)
-89. Keep closing residual gaps until pass 120 / 10h
+89. ~~Level / storey schedule~~ (pass 64)
+90. ~~Drawing list sheet index~~ (pass 65)
+91. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
