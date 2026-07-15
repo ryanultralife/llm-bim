@@ -229,20 +229,28 @@ def export_plan_dxf(
     for g in model.grids:
         axis = g.params.get("axis", "U")
         positions = g.params.get("positions_mm") or []
-        # draw finite segments
+        labels = g.params.get("labels") or []
+        # draw finite segments + bubble labels
         span = 50000.0
-        for pos in positions:
+        for i, pos in enumerate(positions):
             p = float(pos)
             if axis == "U":
                 ents += _line(p, -span / 2, p, span / 2, "GRIDS")
+                lab = str(labels[i]) if i < len(labels) else str(i + 1)
+                ents += _text(p, -span / 2 + 200, 200.0, lab, "GRIDS")
+                ents += _circle(p, -span / 2 + 200, 150.0, "GRIDS")
             else:
                 ents += _line(-span / 2, p, span / 2, p, "GRIDS")
+                lab = str(labels[i]) if i < len(labels) else chr(ord("A") + (i % 26))
+                ents += _text(-span / 2 + 200, p, 200.0, lab, "GRIDS")
+                ents += _circle(-span / 2 + 200, p, 150.0, "GRIDS")
 
     lines = _header() + ents + _footer()
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return p
+
 
 def _level_elev(model: ProjectModel, level_id: str | None) -> float:
     if not level_id:

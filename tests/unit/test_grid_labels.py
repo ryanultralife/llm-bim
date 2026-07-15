@@ -23,3 +23,18 @@ def test_grid_bubbles_on_plan(tmp_path: Path):
     assert ">1</text>" in text
     assert ">B</text>" in text
     assert ">3</text>" in text
+
+
+def test_grid_labels_on_dxf(tmp_path: Path):
+    from llmbim_drawings.dxf_export import export_plan_dxf
+
+    p = Project.create("grids-dxf", vcs=False)
+    p.add_level("L1", 0)
+    p.add_grid("U", [0, 5000, 10000], labels=["1", "2", "3"])
+    p.add_grid("V", [0, 5000], labels=["A", "B"])
+    dxf = tmp_path / "g.dxf"
+    export_plan_dxf(p.model, "L1", dxf)
+    text = dxf.read_text(encoding="utf-8")
+    assert "GRIDS" in text
+    assert "CIRCLE" in text
+    assert "1" in text and "A" in text
