@@ -138,6 +138,45 @@ if HAS_MCP:
         store.save(pid)
         return _tool_result({"project_id": pid, "stats": p.stats()})
 
+    @mcp.tool()
+    def project_boq(project_id: str) -> str:
+        """Bill of quantities / cost estimate summary."""
+        p = store.get(project_id)
+        return _tool_result(p.boq()["summary"])
+
+    @mcp.tool()
+    def project_clash(project_id: str) -> str:
+        """AABB clash detection report."""
+        p = store.get(project_id)
+        c = p.clash()
+        return _tool_result({"count": len(c), "clashes": c[:30]})
+
+    @mcp.tool()
+    def project_rules(project_id: str) -> str:
+        """Design and constructability rules."""
+        p = store.get(project_id)
+        return _tool_result(p.design_rules())
+
+    @mcp.tool()
+    def template_create(template_id: str) -> str:
+        """Create project from template: office_bay|warehouse|hot_cell_bay|lab_bench."""
+        from llmbim import Project
+
+        p = Project.from_template(template_id)
+        pid, _ = store.create(p.name)
+        p.model.id = pid
+        store._sessions[pid] = p
+        store.save(pid)
+        return _tool_result({"project_id": pid, "stats": p.stats(), "template": template_id})
+
+    @mcp.tool()
+    def export_pack(project_id: str, out_dir: str = "") -> str:
+        """Full deliverables pack (IFC/STEP/glTF/drawings/BOQ)."""
+        p = store.get(project_id)
+        out = out_dir or str(store.artifacts_dir(project_id) / "pack")
+        man = p.export_deliverables(out)
+        return _tool_result({"out": out, "ok": man.get("ok"), "stats": man.get("stats")})
+
     def main() -> None:
         mcp.run(transport="stdio")
 

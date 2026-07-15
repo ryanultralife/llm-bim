@@ -91,6 +91,7 @@ def render_plan_view(
     windows = model.query(category="window", level=lvl.name)
     rooms = model.query(category="room", level=lvl.name)
     equipment = model.query(category="equipment", level=lvl.name)
+    notes = model.query(category="note", level=lvl.name)
 
     xs: list[float] = []
     ys: list[float] = []
@@ -256,8 +257,11 @@ def render_plan_view(
 
     if show_dimensions and walls:
         parts.append('  <g class="dimensions">')
-        # Longest walls first
-        ranked = sorted(walls, key=lambda t: math.hypot(t[1][2] - t[1][0], t[1][3] - t[1][1]), reverse=True)
+        ranked = sorted(
+            walls,
+            key=lambda t: math.hypot(t[1][2] - t[1][0], t[1][3] - t[1][1]),
+            reverse=True,
+        )
         for el, (x0, y0, x1, y1, _t) in ranked[:max_dimensions]:
             length = math.hypot(x1 - x0, y1 - y0)
             if length < 500:
@@ -268,6 +272,37 @@ def render_plan_view(
                 lab = f"{length:.0f} mm"
             parts.extend(_dim_line(x0, y0, x1, y1, project, scale, lab))
         parts.append("  </g>")
+
+    # Grid bubbles
+    parts.append('  <g class="grids" stroke="#888" stroke-width="0.6" fill="none">')
+    for g in model.grids:
+        axis = g.params.get("axis", "U")
+        for pos in g.params.get("positions_mm") or []:
+            p = float(pos)
+            if axis == "U":
+                px0, py0 = project(p, min_y)
+                px1, py1 = project(p, max_y)
+            else:
+                px0, py0 = project(min_x, p)
+                px1, py1 = project(max_x, p)
+            parts.append(
+                f'    <line x1="{fmt(px0)}" y1="{fmt(py0)}" x2="{fmt(px1)}" y2="{fmt(py1)}" '
+                f'stroke-dasharray="4 4"/>'
+            )
+    parts.append("  </g>")
+
+    # Notes
+    parts.append('  <g class="notes" fill="#a30" font-family="sans-serif" font-size="10">')
+    for note in notes:
+        try:
+            pos = note.params["position_mm"]
+            text = str(note.params.get("text", ""))
+            px, py = project(float(pos[0]), float(pos[1]))
+            parts.append(f'    <circle cx="{fmt(px)}" cy="{fmt(py)}" r="3" fill="#a30"/>')
+            parts.append(f'    <text x="{fmt(px + 6)}" y="{fmt(py)}">{esc(text[:80])}</text>')
+        except (KeyError, TypeError, ValueError):
+            continue
+    parts.append("  </g>")
 
     return DrawingView(width=width, height=height, body="\n".join(parts), title=label)
 

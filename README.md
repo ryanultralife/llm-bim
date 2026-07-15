@@ -15,9 +15,15 @@ pip install -e ".[dev,server]"
 llmbim demo --out examples/output   # model + plan/section/elevation SVG
 llmbim case intec                   # facility pack → examples/output/intec/
 llmbim case proto10                 # part pack → examples/output/proto10/
-llmbim pack path.json --out ./pack  # full BIM+IFC+STEP+glTF+sheets
-llmbim serve --port 8000            # API + review pages
+llmbim pack path.json --out ./pack  # full BIM+IFC+STEP+glTF+sheets+BOQ
+llmbim template office_bay --out ./out
+llmbim boq model.llmbim.json
+llmbim clash model.llmbim.json
+llmbim rules model.llmbim.json -v
+llmbim serve --port 8000            # API + 3D review pages
 ```
+
+Builder/designer guide: [`docs/BUILDER_DESIGNER.md`](docs/BUILDER_DESIGNER.md)
 
 ### Deliverables pack (what you get)
 

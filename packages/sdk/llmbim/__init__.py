@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from llmbim_core.annotations import CreateNote, SetElementPhase, SetElementType
 from llmbim_core.commands import (
     AddGrid,
     AddLevel,
@@ -231,6 +232,63 @@ class Project:
 
     def delete_element(self, element_id: str, *, cascade: bool = True) -> None:
         self._log.execute(self._model, DeleteElement(element_id=element_id, cascade=cascade))
+
+    def create_note(
+        self, *, level: str, text: str, position: tuple[float, float], name: str | None = None
+    ) -> str:
+        result = self._log.execute(
+            self._model,
+            CreateNote(level=level, text=text, position=position, name=name or ""),
+        )
+        return str(result["result"]["element_id"])
+
+    def set_type(self, element_id: str, type_id: str) -> None:
+        self._log.execute(self._model, SetElementType(element_id=element_id, type_id=type_id))
+
+    def set_phase(self, element_id: str, phase: str) -> None:
+        self._log.execute(self._model, SetElementPhase(element_id=element_id, phase=phase))
+
+    def boq(self) -> dict[str, Any]:
+        from llmbim_core.quantities import boq_summary, compute_boq
+
+        rows = compute_boq(self._model)
+        return {"summary": boq_summary(rows), "lines": rows}
+
+    def export_boq(self, path: str | Path, *, fmt: str = "json") -> None:
+        from llmbim_core.quantities import export_boq_csv, export_boq_json
+
+        if fmt == "csv":
+            export_boq_csv(self._model, path)
+        else:
+            export_boq_json(self._model, path)
+
+    def clash(self) -> list[dict[str, Any]]:
+        from llmbim_core.clash import find_clashes
+
+        return find_clashes(self._model)
+
+    def design_rules(self) -> dict[str, Any]:
+        from llmbim_core.rules import rules_summary, run_design_rules
+
+        findings = run_design_rules(self._model)
+        return {"summary": rules_summary(findings), "findings": findings}
+
+    def export_dxf(self, level: str, path: str | Path) -> None:
+        from llmbim_drawings.dxf_export import export_plan_dxf
+
+        export_plan_dxf(self._model, level, path)
+
+    def catalog(self) -> dict[str, Any]:
+        from llmbim_core.types_catalog import catalog_dict
+
+        return catalog_dict()
+
+    @classmethod
+    def from_template(cls, template_id: str, name: str | None = None, **kwargs: Any) -> Project:
+        from llmbim_templates import apply_template
+
+        p = cls.create(name or template_id)
+        return apply_template(template_id, p, **kwargs)
 
     def undo(self) -> dict[str, Any]:
         return self._log.undo(self._model)

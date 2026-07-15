@@ -116,6 +116,51 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return 0 if v.get("ok") else 1
 
 
+def cmd_boq(args: argparse.Namespace) -> int:
+    from llmbim import Project
+
+    p = Project.open(args.path)
+    data = p.boq()
+    if args.out:
+        p.export_boq(args.out, fmt="csv" if args.out.endswith(".csv") else "json")
+    print(json.dumps(data["summary"], indent=2))
+    return 0
+
+
+def cmd_clash(args: argparse.Namespace) -> int:
+    from llmbim import Project
+
+    p = Project.open(args.path)
+    c = p.clash()
+    print(json.dumps({"count": len(c), "clashes": c[:50]}, indent=2))
+    return 1 if any(x.get("severity") == "error" for x in c) else 0
+
+
+def cmd_rules(args: argparse.Namespace) -> int:
+    from llmbim import Project
+
+    p = Project.open(args.path)
+    r = p.design_rules()
+    print(json.dumps(r["summary"], indent=2))
+    if args.verbose:
+        print(json.dumps(r["findings"][:40], indent=2))
+    return 1 if r["summary"].get("error", 0) else 0
+
+
+def cmd_template(args: argparse.Namespace) -> int:
+    from llmbim import Project
+    from llmbim_templates import list_templates
+
+    if args.list:
+        print(json.dumps(list_templates(), indent=2))
+        return 0
+    p = Project.from_template(args.name)
+    out = Path(args.out or f"examples/output/template_{args.name}")
+    man = p.export_deliverables(out)
+    print(json.dumps({"template": args.name, "out": str(out), "ok": man.get("ok"), "stats": p.stats()}, indent=2))
+    return 0 if man.get("ok") else 1
+
+
 def cmd_case(args: argparse.Namespace) -> int:
     """Build named real-world test cases (INTEC site, Proto10 separator)."""
     root = Path(__file__).resolve().parents[3]  # repo root when installed editable
@@ -179,6 +224,26 @@ def main(argv: list[str] | None = None) -> int:
     p_ver.add_argument("path", help="Pack directory")
     p_ver.add_argument("--require-parts", action="store_true")
     p_ver.set_defaults(func=cmd_verify)
+
+    p_boq = sub.add_parser("boq", help="Bill of quantities for a project file")
+    p_boq.add_argument("path")
+    p_boq.add_argument("--out", default=None)
+    p_boq.set_defaults(func=cmd_boq)
+
+    p_clash = sub.add_parser("clash", help="AABB clash report")
+    p_clash.add_argument("path")
+    p_clash.set_defaults(func=cmd_clash)
+
+    p_rules = sub.add_parser("rules", help="Design/constructability rules")
+    p_rules.add_argument("path")
+    p_rules.add_argument("-v", "--verbose", action="store_true")
+    p_rules.set_defaults(func=cmd_rules)
+
+    p_tpl = sub.add_parser("template", help="Start from a design template")
+    p_tpl.add_argument("name", nargs="?", default=None)
+    p_tpl.add_argument("--list", action="store_true")
+    p_tpl.add_argument("--out", default=None)
+    p_tpl.set_defaults(func=cmd_template)
 
     args = parser.parse_args(argv)
     return int(args.func(args))

@@ -1,0 +1,129 @@
+"""AABB clash detection for coordination (builders + designers)."""
+
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+from typing import Any
+
+from llmbim_core.model import Element, ProjectModel
+
+
+@dataclass
+class AABB:
+    xmin: float
+    ymin: float
+    zmin: float
+    xmax: float
+    ymax: float
+    zmax: float
+
+    def intersects(self, other: AABB, tol: float = 1.0) -> bool:
+        return not (
+            self.xmax < other.xmin - tol
+            or self.xmin > other.xmax + tol
+            or self.ymax < other.ymin - tol
+            or self.ymin > other.ymax + tol
+            or self.zmax < other.zmin - tol
+            or self.zmin > other.zmax + tol
+        )
+
+    def volume(self) -> float:
+        return max(0.0, self.xmax - self.xmin) * max(0.0, self.ymax - self.ymin) * max(
+            0.0, self.zmax - self.zmin
+        )
+
+
+def _level_z(model: ProjectModel, level_id: str | None) -> float:
+    if not level_id:
+        return 0.0
+    for lv in model.levels:
+        if lv.id == level_id:
+            return float(lv.elevation_mm)
+    return 0.0
+
+
+def element_aabb(el: Element, model: ProjectModel) -> AABB | None:
+    z0 = _level_z(model, el.level_id)
+    if el.category == "wall":
+        try:
+            s = el.params["start_mm"]
+            e = el.params["end_mm"]
+            th = float(el.params.get("thickness_mm", 200))
+            ht = float(el.params.get("height_mm", 3000))
+        except (KeyError, TypeError, ValueError):
+            return None
+        xs = [float(s[0]), float(e[0])]
+        ys = [float(s[1]), float(e[1])]
+        # expand by half thickness roughly
+        pad = th / 2
+        return AABB(min(xs) - pad, min(ys) - pad, z0, max(xs) + pad, max(ys) + pad, z0 + ht)
+    if el.category == "equipment":
+        try:
+            o = el.params["origin_mm"]
+            s = el.params["size_mm"]
+            z_off = float(el.params.get("z0_mm", 0))
+            shape = el.params.get("shape", "box")
+        except (KeyError, TypeError, ValueError):
+            return None
+        x0, y0 = float(o[0]), float(o[1])
+        lx, ly, hz = float(s[0]), float(s[1]), float(s[2])
+        if shape == "cylinder":
+            r = ly / 2
+            return AABB(x0, y0 - r, z0 + z_off, x0 + lx, y0 + r, z0 + z_off + ly)
+        return AABB(x0, y0, z0 + z_off, x0 + lx, y0 + ly, z0 + z_off + hz)
+    if el.category == "slab":
+        try:
+            poly = el.params["polygon_mm"]
+            th = float(el.params.get("thickness_mm", 200))
+        except (KeyError, TypeError, ValueError):
+            return None
+        xs = [float(p[0]) for p in poly]
+        ys = [float(p[1]) for p in poly]
+        return AABB(min(xs), min(ys), z0 - th, max(xs), max(ys), z0)
+    return None
+
+
+def find_clashes(
+    model: ProjectModel,
+    *,
+    categories: tuple[str, ...] = ("wall", "equipment", "slab"),
+    ignore_same_host: bool = True,
+) -> list[dict[str, Any]]:
+    """Pairwise AABB clashes among selected categories."""
+    items: list[tuple[Element, AABB]] = []
+    for el in model.elements:
+        if el.category not in categories:
+            continue
+        box = element_aabb(el, model)
+        if box and box.volume() > 0:
+            items.append((el, box))
+
+    clashes: list[dict[str, Any]] = []
+    for i in range(len(items)):
+        for j in range(i + 1, len(items)):
+            a, ba = items[i]
+            b, bb = items[j]
+            if a.category == "slab" and b.category == "wall":
+                continue  # walls sit on slabs — skip slab/wall
+            if b.category == "slab" and a.category == "wall":
+                continue
+            if a.category == "slab" and b.category == "slab":
+                continue
+            if ignore_same_host and a.host_id and a.host_id == b.id:
+                continue
+            if ignore_same_host and b.host_id and b.host_id == a.id:
+                continue
+            if ba.intersects(bb):
+                clashes.append(
+                    {
+                        "a_id": a.id,
+                        "a_name": a.name,
+                        "a_category": a.category,
+                        "b_id": b.id,
+                        "b_name": b.name,
+                        "b_category": b.category,
+                        "severity": "warning" if {a.category, b.category} == {"wall", "equipment"} else "error",
+                        "message": f"AABB overlap: {a.name or a.id} × {b.name or b.id}",
+                    }
+                )
+    return clashes

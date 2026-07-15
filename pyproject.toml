@@ -53,6 +53,7 @@ packages = [
   "packages/mcp_server/llmbim_mcp",
   "packages/cli/llmbim_cli",
   "packages/server/llmbim_server",
+  "packages/templates/llmbim_templates",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -84,6 +85,7 @@ pythonpath = [
   "packages/mcp_server",
   "packages/cli",
   "packages/server",
+  "packages/templates",
 ]
 
 [tool.ruff]

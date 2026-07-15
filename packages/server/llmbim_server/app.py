@@ -192,20 +192,80 @@ def review_project(project_id: str) -> str:
         raise HTTPException(404, "project not found") from e
     stats = p.stats()
     levels = "".join(f"<li>{lv.name} @ {lv.elevation_mm} mm</li>" for lv in p.levels())
+    lvl = p.levels()[0].name if p.levels() else "L1"
+    boq = p.boq().get("summary", {})
+    rules = p.design_rules().get("summary", {})
+    clashes = len(p.clash())
     return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{p.name}</title>
+<script type="importmap">{{"imports":{{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}}}</script>
 <style>
-body{{font-family:system-ui,sans-serif;max-width:1000px;margin:2rem auto;padding:0 1rem;background:#0b0f14;color:#e6edf3}}
+body{{font-family:system-ui,sans-serif;margin:0;background:#0b0f14;color:#e6edf3}}
+header,main{{max-width:1200px;margin:0 auto;padding:1rem}}
 a{{color:#58a6ff}} code{{background:#21262d;padding:2px 6px;border-radius:4px}}
-img,object{{background:#fff;max-width:100%;border:1px solid #30363d;border-radius:8px}}
+.grid{{display:grid;grid-template-columns:1fr 1fr;gap:1rem}}
+@media(max-width:800px){{.grid{{grid-template-columns:1fr}}}}
+.card{{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:1rem}}
+#c3d{{width:100%;height:420px;background:#111;border-radius:8px}}
+object,iframe{{background:#fff;width:100%;height:360px;border:1px solid #30363d;border-radius:8px}}
+.badge{{display:inline-block;background:#238636;padding:2px 8px;border-radius:12px;font-size:12px}}
+.bad{{background:#da3633}}
 </style></head><body>
-<p><a href="/">← projects</a></p>
+<header>
+<p><a href="/">← projects</a> · <span class="badge">review only — no drafting</span></p>
 <h1>{p.name}</h1>
-<p><code>{project_id}</code> · stats: {stats}</p>
-<h2>Levels</h2><ul>{levels}</ul>
-<h2>Plan L1 (if present)</h2>
-<p><a href="/v1/projects/{project_id}/exports/plan/L1.svg">Download plan SVG</a></p>
-<object data="/v1/projects/{project_id}/exports/plan/L1.svg" type="image/svg+xml" width="100%" height="480"></object>
+<p><code>{project_id}</code> · stats {stats}</p>
+<p>BOQ est. cost: <strong>${boq.get("est_cost_total", 0):,.0f}</strong> ·
+Rules: {rules} · Clashes: <span class="{'badge bad' if clashes else 'badge'}">{clashes}</span></p>
+<p>
+<a href="/v1/projects/{project_id}/exports/plan/{lvl}.svg">Plan SVG</a> ·
+<a href="/v1/projects/{project_id}/exports/model.gltf">glTF</a> ·
+<a href="/v1/projects/{project_id}/exports/model.ifc">IFC</a> ·
+<a href="/v1/projects/{project_id}/exports/model.step">STEP</a> ·
+<a href="/v1/projects/{project_id}/boq">BOQ JSON</a> ·
+<a href="/v1/projects/{project_id}/clash">Clash</a> ·
+<a href="/v1/projects/{project_id}/rules">Rules</a>
+</p>
+</header>
+<main>
+<div class="grid">
+<div class="card"><h2>3D review</h2><canvas id="c3d"></canvas>
+<p style="font-size:12px;color:#8b949e">Orbit: drag · scroll zoom · glTF from model</p></div>
+<div class="card"><h2>Plan ({lvl})</h2>
+<object data="/v1/projects/{project_id}/exports/plan/{lvl}.svg" type="image/svg+xml"></object></div>
+</div>
+<div class="card" style="margin-top:1rem"><h2>Levels</h2><ul>{levels}</ul></div>
+</main>
+<script type="module">
+import * as THREE from 'three';
+import {{ OrbitControls }} from 'three/addons/controls/OrbitControls.js';
+import {{ GLTFLoader }} from 'three/addons/loaders/GLTFLoader.js';
+const canvas = document.getElementById('c3d');
+const renderer = new THREE.WebGLRenderer({{canvas, antialias:true}});
+const w = canvas.clientWidth, h = canvas.clientHeight;
+renderer.setSize(w,h,false);
+renderer.setPixelRatio(devicePixelRatio);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x111111);
+const camera = new THREE.PerspectiveCamera(50, w/h, 0.01, 5000);
+camera.position.set(20,15,20);
+const controls = new OrbitControls(camera, canvas);
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(10,20,5); scene.add(dir);
+scene.add(new THREE.GridHelper(50, 50, 0x333333, 0x222222));
+const loader = new GLTFLoader();
+loader.load('/v1/projects/{project_id}/exports/model.gltf', (g) => {{
+  scene.add(g.scene);
+  const box = new THREE.Box3().setFromObject(g.scene);
+  const c = box.getCenter(new THREE.Vector3());
+  const s = box.getSize(new THREE.Vector3());
+  controls.target.copy(c);
+  camera.position.copy(c).add(new THREE.Vector3(s.x||5, s.y||5, s.z||5).multiplyScalar(1.5));
+  controls.update();
+}}, undefined, (e) => console.warn(e));
+function tick(){{ renderer.render(scene, camera); requestAnimationFrame(tick); }}
+tick();
+</script>
 </body></html>"""
 
 
@@ -534,6 +594,57 @@ def download_project_json(project_id: str) -> Response:
         return FileResponse(out, media_type="application/json", filename=out.name)
     except KeyError as e:
         raise HTTPException(404, "project not found") from e
+
+
+@app.get("/v1/projects/{project_id}/boq", dependencies=[Depends(require_api_key)])
+def get_boq(project_id: str) -> Any:
+    try:
+        p = store.get(project_id)
+        return _ok(p.boq())
+    except Exception as e:
+        return _err(e)
+
+
+@app.get("/v1/projects/{project_id}/clash", dependencies=[Depends(require_api_key)])
+def get_clash(project_id: str) -> Any:
+    try:
+        p = store.get(project_id)
+        c = p.clash()
+        return _ok({"count": len(c), "clashes": c})
+    except Exception as e:
+        return _err(e)
+
+
+@app.get("/v1/projects/{project_id}/rules", dependencies=[Depends(require_api_key)])
+def get_rules(project_id: str) -> Any:
+    try:
+        p = store.get(project_id)
+        return _ok(p.design_rules())
+    except Exception as e:
+        return _err(e)
+
+
+@app.get("/v1/catalog", dependencies=[Depends(require_api_key)])
+def get_catalog() -> Any:
+    from llmbim import Project
+
+    return _ok(Project.create().catalog())
+
+
+@app.post("/v1/templates/{template_id}", dependencies=[Depends(require_api_key)])
+def create_from_template(template_id: str) -> Any:
+    try:
+        from llmbim import Project
+
+        p = Project.from_template(template_id)
+        pid, stored = store.create(p.name)
+        # replace empty with template model
+        store._sessions[pid] = p
+        p.model.id = pid
+        store.save(pid)
+        return _ok({"project_id": pid, "name": p.name, "stats": p.stats(), "template": template_id})
+    except Exception as e:
+        return _err(e)
 
 
 @app.post("/v1/projects/{project_id}/export/pack", dependencies=[Depends(require_api_key)])

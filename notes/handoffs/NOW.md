@@ -1,29 +1,29 @@
-# NOW — active lanes
+# NOW — evolution for builders & designers
 
-**Updated:** 2026-07-15 by **Grok** (post output-matrix audit)
+**Updated:** 2026-07-15 by Grok
 
-## Grok just finished
+## Shipped this evolution
 
-Full deliverables path audited and implemented:
-
-- `export_deliverables()` → JSON + **IFC** + **glTF** + **STEP** + construction set + part pack  
-- INTEC + Proto10 cases regenerate full packs  
-- **20 tests passed**  
-- Claude still owns deeper IFC/MVD polish if desired; pure IFC works without ifcopenshell  
+- Product **types** catalog (wall/door/window assemblies + costs)
+- **BOQ** quantities + est. cost (`boq.json` / CLI / API / MCP)
+- **Clash** AABB reports
+- **Design rules** (egress width, wall height, shield wall types, …)
+- **DXF** plan export for CAD handoff
+- **Templates**: office_bay, warehouse, hot_cell_bay, lab_bench
+- **Notes**, **phases**, **set_type**
+- Review UI: **Three.js glTF** + plan + BOQ/clash badges
+- Pack includes boq, clash, rules, dxf, zip, index.html
 
 ## Claude when free
 
-| Claim | Notes |
-|-------|--------|
-| Optional: IFC quality / ifcopenshell round-trip | `packages/ifc/**` — Grok left a working SPF writer; improve fidelity |
-| Optional: drawings quality | dimension strings, true wall joins |
-| **Do not** rewrite deliverables pack wiring |
+- Optional: IFC quality / MVD
+- Optional: deeper rules library
+- Do not rewrite BOQ/clash/deliverables without STATUS claim
 
-Fixtures: `examples/output/intec/`, `examples/output/proto10/`
+## Commands
 
-## Remaining honesty gaps (not claiming done)
-
-- STEP/IFC are **envelope solids**, not Fusion 118-body BREP  
-- Construction sheets are agent CD **frames**, not sealed A-E packages  
-- No true cylindrical BREP in STEP yet (AABB boxes)  
-- No PDF multi-page binder (SVG set only)  
+```
+llmbim template --list
+llmbim template hot_cell_bay
+python scripts/verify_all.py
+```

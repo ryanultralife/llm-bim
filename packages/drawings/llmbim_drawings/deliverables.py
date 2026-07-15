@@ -174,6 +174,34 @@ def export_deliverables(
         "schedules": "schedules/",
     }
 
+    # Builder / designer intelligence
+    from llmbim_core.clash import find_clashes
+    from llmbim_core.quantities import export_boq_csv, export_boq_json
+    from llmbim_core.rules import rules_summary, run_design_rules
+    from llmbim_drawings.dxf_export import export_plan_dxf
+
+    _try("boq_json", errors, lambda: export_boq_json(model, out / "boq.json"))
+    _try("boq_csv", errors, lambda: export_boq_csv(model, out / "boq.csv"))
+    clashes = _try("clash", errors, lambda: find_clashes(model)) or []
+    (out / "clash_report.json").write_text(
+        json.dumps({"count": len(clashes), "clashes": clashes}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    findings = _try("rules", errors, lambda: run_design_rules(model)) or []
+    (out / "design_rules.json").write_text(
+        json.dumps({"summary": rules_summary(findings), "findings": findings}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    _try(
+        "dxf",
+        errors,
+        lambda: export_plan_dxf(model, level, out / "views" / f"plan_{level}.dxf"),
+    )
+    result["boq"] = "boq.json"
+    result["clash_report"] = "clash_report.json"
+    result["design_rules"] = "design_rules.json"
+    result["dxf"] = f"views/plan_{level}.dxf"
+
     if mode in {"facility", "both"} or has_walls:
         cd = _try(
             "construction_set",
