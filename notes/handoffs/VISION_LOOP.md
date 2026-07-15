@@ -93,7 +93,8 @@
 | 67 | continue | glTF/STEP cable tray | tray missing 3D colors | cable_tray material + CABLE-TRAY STEP | (this) | (this) |
 | 68 | continue | HTML drawing list | index no sheet table | drawing list sample in index.html | 138 unit | 85a064f |
 | 69 | continue | structural columns | only place_part steel | place_column W-section + plan/BOQ/CSI | 139 unit | ef60bf4 |
-| 70 | continue | structural beams | no beam place API | place_beam start→end + plan/BOQ/CSI | 140 unit | (this) |
+| 70 | continue | structural beams | no beam place API | place_beam start→end + plan/BOQ/CSI | 140 unit | 6ab7036 |
+| 71 | continue | beam MCP/IFC/STEP + ops | agent surface incomplete | MCP place_beam; IFC/STEP; ops.schema 45 | 140 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -193,7 +194,8 @@
 93. ~~HTML drawing list sample~~ (pass 68)
 94. ~~Structural place_column~~ (pass 69)
 95. ~~Structural place_beam~~ (pass 70)
-96. Keep closing residual gaps until pass 120 / 10h
+96. ~~Beam MCP/IFC/STEP + ops schema~~ (pass 71)
+97. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 

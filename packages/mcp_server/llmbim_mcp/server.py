@@ -540,6 +540,31 @@ if HAS_MCP:
         return _tool_result({"element_id": eid})
 
     @mcp.tool()
+    def place_beam(
+        project_id: str,
+        level: str,
+        start_x: float,
+        start_y: float,
+        end_x: float,
+        end_y: float,
+        section: str = "W12x26",
+        z0_mm: float = 0,
+        name: str = "",
+    ) -> str:
+        """Structural steel beam start→end (CSI 05 12 00)."""
+        p = store.get(project_id)
+        eid = p.place_beam(
+            level=level,
+            start=(start_x, start_y),
+            end=(end_x, end_y),
+            section=section,
+            z0_mm=z0_mm if z0_mm else None,
+            name=name or None,
+        )
+        store.save(project_id)
+        return _tool_result({"element_id": eid})
+
+    @mcp.tool()
     def parts_catalog(
         category: str = "",
         system: str = "",
