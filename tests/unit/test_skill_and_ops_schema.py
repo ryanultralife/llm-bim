@@ -51,3 +51,61 @@ def test_design_option_clone() -> None:
     r = p.design_option("Option B", [w], clone=True)
     assert r["count"] == 1
     assert p.stats().get("wall") == 2
+
+
+def test_registry_create_wall_place_door_window() -> None:
+    """create_wall / place_door / place_window registered for project_op / bulk."""
+    from llmbim import Project
+    from llmbim_core.registry import dispatch, list_ops
+
+    names = {o["name"] for o in list_ops()}
+    assert "create_wall" in names
+    assert "place_door" in names
+    assert "place_window" in names
+
+    p = Project.create("reg-open", vcs=False)
+    p.add_level("L1", 0)
+    wr = dispatch(
+        p.model,
+        "create_wall",
+        {
+            "level": "L1",
+            "start": [0, 0],
+            "end": [8000, 0],
+            "thickness_mm": 200,
+            "height_mm": 3000,
+            "fire_rating": "2-hr",
+            "type_id": "W-2HR",
+        },
+    )
+    host = wr["element_id"]
+    assert wr.get("fire_rating") == "2-hr"
+    dr = dispatch(
+        p.model,
+        "place_door",
+        {
+            "host": host,
+            "offset_mm": 2000,
+            "width_mm": 900,
+            "height_mm": 2100,
+            "type_id": "D-HM-36",
+            "fire_rating": "90 min",
+        },
+    )
+    assert dr["category"] == "door"
+    assert dr.get("fire_rating") == "90 min"
+    win = dispatch(
+        p.model,
+        "place_window",
+        {
+            "host": host,
+            "offset_mm": 5000,
+            "width_mm": 1200,
+            "height_mm": 900,
+            "sill_mm": 900,
+            "type_id": "WIN-VIEW",
+        },
+    )
+    assert win["category"] == "window"
+    assert p.stats().get("door") == 1
+    assert p.stats().get("window") == 1

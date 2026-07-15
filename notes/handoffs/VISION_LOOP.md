@@ -123,6 +123,7 @@
 | 97 | continue | glTF doors/windows | 3D mesh no openings | door/window host boxes + materials | 166 unit | (this) |
 | 98 | continue | CLI wall/door/window | CLI place no openings | place wall/door/window + FR/type | 167 unit | (this) |
 | 99 | continue | STEP doors/windows | STEP no openings solids | DOOR/WINDOW LAYER products on host | 168 unit | (this) |
+| 100 | continue | registry wall/door/window | no create_wall/place_door ops | register create_wall/place_door/window | 169 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -251,7 +252,8 @@
 122. ~~glTF door/window host meshes~~ (pass 97)
 123. ~~CLI place wall/door/window~~ (pass 98)
 124. ~~STEP DOOR/WINDOW solids~~ (pass 99)
-125. Keep closing residual gaps until pass 120 / 10h
+125. ~~Registry create_wall/place_door/window~~ (pass 100)
+126. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
