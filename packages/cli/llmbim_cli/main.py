@@ -622,6 +622,19 @@ def cmd_place(args: argparse.Namespace) -> int:
             material=args.material or "steel_A36",
         )
         result = {"element_id": eid, "kind": "column"}
+    elif kind == "beam":
+        if not args.end:
+            raise SystemExit("place beam requires --end x,y")
+        end = _parse_xy(args.end)
+        eid = p.place_beam(
+            level=level,
+            start=origin,
+            end=end,
+            section=args.section or args.fitting_type or "W12x26",
+            name=args.name,
+            material=args.material or "steel_A36",
+        )
+        result = {"element_id": eid, "kind": "beam"}
     else:
         raise SystemExit(f"Unknown place kind: {kind}")
     # persist back to path
@@ -979,6 +992,7 @@ def main(argv: list[str] | None = None) -> int:
             "cable_tray",
             "tray",
             "column",
+            "beam",
         ],
         help="What to place",
     )

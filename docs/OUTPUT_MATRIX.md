@@ -57,6 +57,7 @@
 | Process SS piping | catalog + place | ✅ | material=`process` |
 | Structural steel W/HSS/bolts | takeoff | ✅ | `steel_takeoff` |
 | Structural columns | place + BOQ m + plan mark | ✅ | `place_column` CSI 05 12 00 |
+| Structural beams | place + BOQ m + plan centerline | ✅ | `place_beam` CSI 05 12 00 |
 | Rebar #3–#11 + WWF | takeoff | ✅ | `rebar_takeoff` |
 | Fixtures (toilet, hose, TP dispenser) | place + takeoff | ✅ | `place_part` kinds |
 | HVAC rectangular duct | place + BOQ m² + **duct_takeoff** + plan/DXF | ✅ | `place_duct` / `duct_takeoff` CSI 23 31 00 |

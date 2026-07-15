@@ -182,21 +182,26 @@ def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
         )
 
     for el in model.elements:
-        if el.category != "column" and el.params.get("fitting_type") != "column":
+        is_col = el.category == "column" or el.params.get("fitting_type") == "column"
+        is_beam = el.category == "beam" or el.params.get("fitting_type") == "beam"
+        if not is_col and not is_beam:
             continue
         length_m = float(el.params.get("length_m") or 0)
         if not length_m and el.params.get("height_mm"):
             length_m = float(el.params["height_mm"]) / 1000.0
+        if not length_m and el.params.get("length_mm"):
+            length_m = float(el.params["length_mm"]) / 1000.0
         pid = el.params.get("part_id") or el.type_id
         part = get_part(str(pid)) if pid else None
         unit_cost = part_unit_cost(part) if part else 45.0
+        cat = "column" if is_col else "beam"
         rows.append(
             {
-                "category": "column",
+                "category": cat,
                 "id": el.id,
                 "name": el.name,
-                "type_id": str(pid or el.params.get("section") or "COLUMN"),
-                "type_name": part.name if part else str(el.params.get("section") or "column"),
+                "type_id": str(pid or el.params.get("section") or cat.upper()),
+                "type_name": part.name if part else str(el.params.get("section") or cat),
                 "qty": round(length_m, 3),
                 "unit": "m",
                 "secondary_qty": el.params.get("section"),

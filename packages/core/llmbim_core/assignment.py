@@ -337,6 +337,78 @@ def place_column(
     }
 
 
+def place_beam(
+    model: ProjectModel,
+    *,
+    level: str,
+    start: tuple[float, float] | list[float],
+    end: tuple[float, float] | list[float],
+    section: str = "W12x26",
+    name: str | None = None,
+    material_id: str = "steel_A36",
+    z0_mm: float | None = None,
+) -> dict[str, Any]:
+    """Structural steel beam along plan start→end. CSI 05 12 00."""
+    import math
+
+    from llmbim_core.ids import new_id
+    from llmbim_core.parts_catalog import get_part, resolve_part_id
+
+    x0, y0 = float(start[0]), float(start[1])
+    x1, y1 = float(end[0]), float(end[1])
+    length_mm = math.hypot(x1 - x0, y1 - y0)
+    if length_mm < 1:
+        raise ValidationError("Beam length too small", start=start, end=end)
+    length_m = length_mm / 1000.0
+    pid = resolve_part_id(section=section) or f"PT-STL-{section.replace('×', 'x')}"
+    part = get_part(pid)
+    size = list(part.default_size_mm) if part and part.default_size_mm else [300.0, 150.0, 300.0]
+    depth = float(size[0]) if size and size[0] > 10 else 300.0
+    width = float(size[1]) if len(size) > 1 and size[1] > 10 else 150.0
+    # top of steel default near ceiling
+    z = float(z0_mm) if z0_mm is not None else 3000.0 - depth
+    level_id = model.get_level(level).id
+    el = Element(
+        id=new_id("bm"),
+        category="beam",
+        name=name or f"Beam {section} L={length_m:.2f}m",
+        level_id=level_id,
+        type_id=pid if part else "BEAM",
+        params={
+            "start_mm": [x0, y0],
+            "end_mm": [x1, y1],
+            "origin_mm": [x0, y0],
+            "section": section,
+            "length_mm": length_mm,
+            "length_m": length_m,
+            "width_mm": width,
+            "height_mm": depth,
+            "depth_mm": depth,
+            "size_mm": [length_mm, width, depth],
+            "shape": "box",
+            "z0_mm": z,
+            "material_id": material_id,
+            "part_id": pid if part else None,
+            "part_qty": length_m,
+            "fitting_type": "beam",
+            "csi_code": "05 12 00",
+            "system": "structural_steel",
+        },
+    )
+    model.add_element(el)
+    if part:
+        try:
+            assign_part(model, el.id, pid, qty=length_m)
+        except Exception:  # noqa: BLE001
+            pass
+    return {
+        "element_id": el.id,
+        "section": section,
+        "length_m": round(length_m, 3),
+        "part_id": pid if part else None,
+    }
+
+
 def place_fitting(
     model: ProjectModel,
     *,
