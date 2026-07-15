@@ -14,8 +14,10 @@ from pydantic import BaseModel, Field
 
 from llmbim import __version__ as sdk_version
 from llmbim_core.errors import BimError
+from llmbim_core.validate import validate_model
 from llmbim_drawings import export_elevation_svg, export_plan_svg, export_section_svg
 from llmbim_drawings.schedules import export_schedule_csv, schedule_rows
+from llmbim_geometry.mesh import export_gltf_walls
 from llmbim_server.store import ProjectStore
 
 API_KEY = os.environ.get("LLMBIM_API_KEY", "")
@@ -149,7 +151,13 @@ class ElevationBody(BaseModel):
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"status": "ok", "version": sdk_version, "service": "llm-bim"}
+    return {
+        "status": "ok",
+        "version": sdk_version,
+        "service": "llm-bim",
+        "projects": len(store.list_projects()),
+        "data_dir": str(store.root),
+    }
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -417,6 +425,95 @@ def export_elevation(project_id: str, body: ElevationBody) -> Any:
         return _err(e)
 
 
+@app.post("/v1/projects/{project_id}/validate", dependencies=[Depends(require_api_key)])
+def validate_project(project_id: str) -> Any:
+    try:
+        p = store.get(project_id)
+        issues = validate_model(p.model)
+        errors = sum(1 for i in issues if i.severity == "error")
+        return _ok(
+            {
+                "ok": errors == 0,
+                "error_count": errors,
+                "issue_count": len(issues),
+                "issues": [i.to_dict() for i in issues],
+            }
+        )
+    except Exception as e:
+        return _err(e)
+
+
+@app.post("/v1/projects/import", dependencies=[Depends(require_api_key)])
+def import_project(body: dict[str, Any]) -> Any:
+    """Import full model JSON (same shape as project save file).
+
+    Accepts either the raw ``ProjectModel`` dict, or
+    ``{"name": "...", "model": { ... project fields ... }}``.
+    """
+    try:
+        name: str | None = None
+        if isinstance(body.get("model"), dict) and "schema_version" not in body:
+            data = body["model"]
+            name = body.get("name")
+        else:
+            data = body
+            name = body.get("name") if "schema_version" not in body else None
+            if name and "schema_version" in body:
+                name = None  # name is a model field; don't treat specially
+        # Prefer explicit override only via top-level when wrapping
+        if isinstance(body.get("model"), dict):
+            name = body.get("name")
+        pid, p = store.import_model(data, name=name if isinstance(body.get("model"), dict) else None)
+        return _ok({"project_id": pid, "name": p.name, "stats": p.stats()})
+    except Exception as e:
+        return _err(e)
+
+
+@app.get("/v1/projects/{project_id}/exports/schedule/{kind}.csv")
+def export_schedule_file(project_id: str, kind: str) -> Response:
+    try:
+        p = store.get(project_id)
+        out = store.artifacts_dir(project_id) / f"{kind}.csv"
+        export_schedule_csv(p.model, kind, out)
+        return FileResponse(out, media_type="text/csv", filename=out.name)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.get("/v1/projects/{project_id}/exports/elevation/{direction}.svg")
+def export_elevation_get(project_id: str, direction: str) -> Response:
+    try:
+        p = store.get(project_id)
+        out = store.artifacts_dir(project_id) / f"elev_{direction}.svg"
+        export_elevation_svg(p.model, direction, out)
+        return FileResponse(out, media_type="image/svg+xml", filename=out.name)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.get("/v1/projects/{project_id}/exports/model.gltf")
+def export_gltf(project_id: str) -> Response:
+    """Simple wall-box glTF for review (not construction LOD)."""
+    try:
+        p = store.get(project_id)
+        out = store.artifacts_dir(project_id) / "model.gltf"
+        export_gltf_walls(p.model, out)
+        return FileResponse(out, media_type="model/gltf+json", filename=out.name)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.get("/v1/projects/{project_id}/download.json")
+def download_project_json(project_id: str) -> Response:
+    try:
+        p = store.get(project_id)
+        out = store.artifacts_dir(project_id) / "project.llmbim.json"
+        p.save(out)
+        return FileResponse(out, media_type="application/json", filename=out.name)
+    except KeyError as e:
+        raise HTTPException(404, "project not found") from e
+
+
 @app.post("/v1/demo/simple-house", dependencies=[Depends(require_api_key)])
 def demo_simple_house() -> Any:
     """Seed a complete demo project for launch smoke tests."""
@@ -458,12 +555,19 @@ def demo_simple_house() -> Any:
         # Pre-render plan
         out = store.artifacts_dir(pid) / "plan_L1.svg"
         export_plan_svg(p.model, "L1", out)
+        issues = validate_model(p.model)
         return _ok(
             {
                 "project_id": pid,
                 "stats": p.stats(),
+                "validation": {
+                    "ok": not any(i.severity == "error" for i in issues),
+                    "issues": [i.to_dict() for i in issues],
+                },
                 "review_url": f"/review/{pid}",
                 "plan_url": f"/v1/projects/{pid}/exports/plan/L1.svg",
+                "gltf_url": f"/v1/projects/{pid}/exports/model.gltf",
+                "json_url": f"/v1/projects/{pid}/download.json",
             }
         )
     except Exception as e:

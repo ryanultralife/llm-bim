@@ -41,3 +41,11 @@ def test_demo_and_plan(client: TestClient) -> None:
     assert plan.status_code == 200
     assert b"<svg" in plan.content.lower()
     assert len(plan.content) > 200
+
+    val = client.post(f"/v1/projects/{pid}/validate")
+    assert val.status_code == 200
+    assert val.json()["result"]["ok"] is True
+
+    gltf = client.get(f"/v1/projects/{pid}/exports/model.gltf")
+    assert gltf.status_code == 200
+    assert b"meshes" in gltf.content

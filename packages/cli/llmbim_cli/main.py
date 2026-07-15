@@ -50,7 +50,14 @@ def cmd_demo(args: argparse.Namespace) -> int:
     export_elevation_svg(p.model, "S", out / "elev_S.svg")
     export_schedule_csv(p.model, "door", out / "doors.csv")
     export_schedule_csv(p.model, "room", out / "rooms.csv")
-    print(json.dumps({"out": str(out), "stats": p.stats()}, indent=2))
+    p.export_gltf(out / "model.gltf")
+    issues = p.validate()
+    print(
+        json.dumps(
+            {"out": str(out), "stats": p.stats(), "validation": issues},
+            indent=2,
+        )
+    )
     return 0
 
 
@@ -76,6 +83,16 @@ def cmd_mcp(_: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_validate(args: argparse.Namespace) -> int:
+    from llmbim import Project
+
+    p = Project.open(args.path)
+    issues = p.validate()
+    errors = [i for i in issues if i.get("severity") == "error"]
+    print(json.dumps({"path": args.path, "ok": not errors, "issues": issues}, indent=2))
+    return 1 if errors else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="llmbim", description="LLM-native BIM CLI")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -95,6 +112,10 @@ def main(argv: list[str] | None = None) -> int:
 
     p_mcp = sub.add_parser("mcp", help="Start MCP stdio server")
     p_mcp.set_defaults(func=cmd_mcp)
+
+    p_val = sub.add_parser("validate", help="Validate a .llmbim.json project file")
+    p_val.add_argument("path", help="Path to project JSON")
+    p_val.set_defaults(func=cmd_validate)
 
     args = parser.parse_args(argv)
     return int(args.func(args))

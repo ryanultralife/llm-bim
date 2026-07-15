@@ -91,6 +91,27 @@ class ProjectStore:
             idx.get("projects", {}).pop(project_id, None)
             self._save_index(idx)
 
+    def import_model(self, data: dict[str, Any], *, name: str | None = None) -> tuple[str, Project]:
+        """Import a project document (llmbim JSON body). Assigns a new store id."""
+        from llmbim_core.model import ProjectModel
+
+        with self._lock:
+            pid = new_id("prj")
+            model = ProjectModel.from_dict(data)
+            model.id = pid
+            if name:
+                model.name = name
+            project = Project(model)
+            project.save(self._path(pid))
+            idx = self._load_index()
+            idx.setdefault("projects", {})[pid] = {
+                "name": project.name,
+                "stats": project.stats(),
+            }
+            self._save_index(idx)
+            self._sessions[pid] = project
+            return pid, project
+
     def artifacts_dir(self, project_id: str) -> Path:
         d = self.root / "artifacts" / project_id
         d.mkdir(parents=True, exist_ok=True)

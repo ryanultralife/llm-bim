@@ -1,104 +1,55 @@
 # NOW — active lanes (read every session)
 
 **Updated:** 2026-07-15 by **Grok**  
-**Rule:** If it is not in your lane, do not edit it. Collaborate via STATUS + this file, not by “helping” in the other agent’s tree.
+**Claude status:** may be rate-limited / AFK — will rejoin when free. **IFC still reserved for Claude.**
+
+**Rule:** If it is not in your lane, do not edit it.
 
 ---
 
-## Grok is doing next (my lane — do not parallel)
+## Grok continuing (Claude AFK)
 
-| # | Work | Paths I will touch | Status |
-|---|------|--------------------|--------|
-| G1 | Finish **launch stack** on `main` | `packages/server/**`, `packages/cli/**`, `packages/mcp_server/**`, `Dockerfile`, `railway.toml`, `.github/**`, `docs/LAUNCH.md`, `README.md`, `pyproject.toml`, `tests/unit/test_api.py` | **in progress → commit now** |
-| G2 | Keep API green / deploy docs | same as G1 + `docs/LAUNCH.md` | after G1 |
-| G3 | Optional thin SDK glue only if launch broken | `packages/sdk/llmbim/__init__.py` (export helpers only) | only if needed |
-| G4 | **Not** deepening drawings quality | — | stopped after MVP |
+| # | Work | Paths | Status |
+|---|------|-------|--------|
+| G1 | Launch stack | server, cli, mcp, docker, railway, CI | **done** on main |
+| G2 | Validate + glTF + import/export API polish | `packages/core/validate.py`, `packages/geometry/mesh.py`, `packages/server/**`, SDK, CLI | **done** (15 tests) |
+| G3 | Keep `main` green; deploy docs | tests, LAUNCH | ongoing |
+| G4 | **NOT** implementing IFC | `packages/ifc/**` | **reserved for Claude** |
 
-**Grok will NOT touch while Claude works:**
-
-- `packages/ifc/**` (Claude’s primary next package)
-- New golden drawing refactors under Claude’s claim (see below)
-- Claude’s feature branches
+When Claude returns: Grok will not have touched IFC. Claude claims WP-IFC as before.
 
 ---
 
-## Claude should do next (your lane — Grok will stay out)
+## Claude when free (unchanged assignment)
 
-### Primary claim: **WP-IFC** (recommended)
+### Claim **WP-IFC**
 
 | Field | Value |
 |-------|--------|
-| Package | WP-IFC |
 | Branch | `feature/wp-ifc` |
-| Freeze zone | `packages/ifc/**`, `tests/wp/test_wp_ifc_*.py`, `tests/golden/ifc/**` (if you add) |
-| DoD | `pip install -e ".[ifc]"` then `pytest -m wp_ifc` green; IFC opens in ifcopenshell |
-| Contract | `packages/ifc/llmbim_ifc/export.py` → `export_ifc(model, path)` — **keep signature** |
+| Freeze | `packages/ifc/**`, `tests/wp/test_wp_ifc_*.py` |
+| DoD | `pytest -m wp_ifc` green with ifcopenshell |
+| Contract | `export_ifc(model, path)` signature stay stable |
 
-### Optional later (only after IFC or if you prefer drawings polish)
-
-| Field | Value |
-|-------|--------|
-| Package | WP-DRAWINGS-V2 (quality pass) |
-| Branch | `feature/wp-drawings-v2` |
-| Freeze zone | `packages/drawings/**` **except** do not break public API in `api.py` |
-| Scope | Better door/window symbols, section accuracy, golden SVGs, docs in module |
-| Note | **MVP drawings already ship on main** (Grok). Do not rewrite from zero — improve. |
-
-### Claude must NOT touch (Grok owns)
+### Do not touch (Grok)
 
 ```
-packages/server/**
-packages/cli/**
-packages/mcp_server/**
-packages/core/**
-packages/geometry/**
-Dockerfile
-railway.toml
-.github/**
-docs/LAUNCH.md
+packages/server/**  packages/cli/**  packages/mcp_server/**
+packages/core/**    packages/geometry/**
+Dockerfile  railway.toml  .github/**
 ```
 
-If you need a server hook for IFC export, **write a handoff note** asking Grok to add one line of glue — do not rewrite the FastAPI app.
+### Re-entry checklist for Claude
+
+1. `git pull origin main`  
+2. Read this file + `TEAM_STATUS.md`  
+3. Claim WP-IFC if still open  
+4. Implement IFC only  
+5. If you need `POST /exports/ifc`, leave a handoff — Grok will wire the one-liner  
 
 ---
 
-## How to claim (Claude)
+## Collaboration shape while Claude is away
 
-1. `git pull origin main`
-2. Edit `TEAM_STATUS.md`: set WP-IFC Owner=`Claude`, Status=`claimed`, Branch=`feature/wp-ifc`
-3. Commit that STATUS change first on your branch
-4. Implement only freeze zone
-5. When done: PR + update STATUS + short note under `notes/handoffs/`
-
----
-
-## Collaboration shape
-
-```
-        ┌─────────────┐
-        │    main     │  always shippable modeling + API
-        └──────┬──────┘
-               │
-     ┌─────────┴─────────┐
-     │                   │
- Grok launch/API      Claude IFC
- (server, deploy)     (packages/ifc)
-     │                   │
-     └─────────┬─────────┘
-               │ merge when green
-```
-
-No overlapping PRs on the same files. If conflict risk appears, **STATUS wins** — the claimed freeze zone owner keeps the files.
-
----
-
-## Already on / landing with Grok (context for Claude)
-
-- Kernel: levels, grids, walls, slabs, doors, windows, rooms, undo/redo
-- Drawings MVP: plan / section / elevation SVG
-- Schedules CSV/JSON helpers
-- FastAPI agent API + read-only review pages
-- CLI: `llmbim demo | serve | mcp`
-- Docker + Railway + CI scaffolding
-
-Claude does **not** need to re-build any of that.
+Grok ships launch quality (validate, glTF review mesh, API).  
+Claude’s IFC package stays empty stubs so no merge conflict when they return.

@@ -206,5 +206,15 @@ class Project:
 
         export_elevation_svg(self._model, direction, path, **opts)
 
+    def export_gltf(self, path: str | Path) -> None:
+        from llmbim_geometry.mesh import export_gltf_walls
+
+        export_gltf_walls(self._model, path)
+
+    def validate(self) -> list[dict[str, Any]]:
+        from llmbim_core.validate import validate_model
+
+        return [i.to_dict() for i in validate_model(self._model)]
+
 
 __all__ = ["Project", "Element", "Level", "ProjectModel", "__version__"]

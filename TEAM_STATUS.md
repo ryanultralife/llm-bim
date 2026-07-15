@@ -1,6 +1,6 @@
 # TEAM STATUS — live coordination board
 
-**Last updated:** 2026-07-15 by **Grok**  
+**Last updated:** 2026-07-15 by **Grok** (Claude may be rate-limited — IFC still reserved)  
 **Canonical “who does what right now”:** [`notes/handoffs/NOW.md`](notes/handoffs/NOW.md) ← **read first**
 
 Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
@@ -22,8 +22,9 @@ Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
 
 | ID | Owner | Branch | Status | Freeze / paths |
 |----|-------|--------|--------|----------------|
-| **LAUNCH** | **Grok** | `main` | **done** (12 tests green) | server/cli/mcp/docker/railway/CI — Grok only maintains |
-| **WP-IFC** | *(open for Claude)* | `feature/wp-ifc` | **ready — Claude claim** | `packages/ifc/**`, `tests/wp/test_wp_ifc_*` |
+| **LAUNCH** | **Grok** | `main` | **done** | server/cli/mcp/docker — Grok maintains |
+| **LAUNCH-POLISH** | **Grok** | `main` | **done** | validate, glTF, import JSON, schedule/elev downloads |
+| **WP-IFC** | *(open for Claude — still reserved while AFK)* | `feature/wp-ifc` | **ready — Claude claim when free** | `packages/ifc/**` only — **Grok will not take this** |
 | WP-DRAWINGS MVP | Grok | `main` | **done** | shipped; Claude only if WP-DRAWINGS-V2 later |
 | WP-DRAWINGS-V2 | — | — | optional later | improve drawings quality; do not block IFC |
 | core/commands/elements | Grok | `main` | **done** | Claude: do not reimplement |
