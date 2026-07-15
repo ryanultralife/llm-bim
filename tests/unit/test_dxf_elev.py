@@ -58,3 +58,20 @@ def test_section_dxf_cut_and_mep(tmp_path: Path):
     assert "SECTION CUT" in text
     assert "PIPE-CU" in text or "PIPE-FP" in text or "DUCT" in text
     assert "LINE" in text
+
+
+def test_section_dxf_columns_and_beams(tmp_path: Path):
+    p = Project.create("sec-struct", vcs=False)
+    p.add_level("L1", 0)
+    p.create_wall(level="L1", start=(0, 0), end=(10000, 0), thickness_mm=200, height_mm=3500)
+    # column on cut line x=5000
+    p.place_column(level="L1", origin=(5000, 2000), section="W10x33", height_mm=3500)
+    # beam crossing cut
+    p.place_beam(level="L1", start=(0, 2000), end=(10000, 2000), section="W12x26", z0_mm=3000)
+    dxf = tmp_path / "section.dxf"
+    export_section_dxf(p.model, (5000, -1000), (5000, 5000), dxf)
+    text = dxf.read_text(encoding="utf-8")
+    assert "COLUMNS" in text
+    assert "BEAMS" in text
+    assert "W10x33" in text
+    assert "W12x26" in text
