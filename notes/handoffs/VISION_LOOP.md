@@ -63,6 +63,7 @@
 | 37 | continue | door/window type marks | plan only D1/W1 | type_id on place + opening-type on plan; matrix duct/conduit | 106 unit | d8b3d09 |
 | 38 | continue | glTF system colors | one gray mesh for all MEP | multi-material glTF copper/fire/duct/conduit | 107 unit | ed4e990 |
 | 39 | continue | VAV + fire damper | no HVAC device place/plan | kind=vav/fire_damper CSI 23 36/33; plan FD/VAV | 109 unit | 45fd538 |
+| 40 | continue | phase filter export | pack always all phases | filter_by_phase + export_deliverables(phases=) | 111 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -126,12 +127,13 @@
 57. ~~glTF materials by system color (pipe/duct/conduit)~~ (pass 38)
 58. ~~BOQ include duct area_m2 + conduit length~~ (pass 36)
 59. ~~MCP place_duct / place_conduit tools~~ (pass 36)
-60. Phase filters on export pack
+60. ~~Phase filters on export pack~~ (pass 40)
 61. Zone / area schedule with room heights
 62. ~~Fire damper / VAV place as fittings~~ (pass 39)
 63. ~~OUTPUT_MATRIX duct/conduit/MCP place~~ (pass 37)
-64. Phase filters on export pack
+64. ~~Phase filters on export pack~~ (pass 40)
 65. Zone schedule room heights + area
+66. CLI pack --phases new
 
 ## Rules for each scheduled pass
 

@@ -104,6 +104,64 @@ class ProjectModel(BaseModel):
             out.append(el)
         return out
 
+    def filter_by_phase(
+        self,
+        phases: str | list[str] | tuple[str, ...] | None,
+        *,
+        default_phase: str = "new",
+    ) -> ProjectModel:
+        """Return a shallow copy with only elements whose phase is in ``phases``.
+
+        Grids and levels are kept. Elements without a phase param default to
+        ``default_phase`` (usually ``new``). Pass ``None`` or empty → full copy.
+        Hosted doors/windows kept only if both they and their host pass the filter
+        (orphan hosts are dropped).
+        """
+        if not phases:
+            return self.model_copy(deep=True)
+        if isinstance(phases, str):
+            allowed = {p.strip().lower() for p in phases.split(",") if p.strip()}
+        else:
+            allowed = {str(p).strip().lower() for p in phases if str(p).strip()}
+        if not allowed:
+            return self.model_copy(deep=True)
+
+        def _phase(el: Element) -> str:
+            return str(el.params.get("phase") or default_phase).lower()
+
+        keep_ids = {el.id for el in self.elements if _phase(el) in allowed}
+        # drop hosted openings whose host was filtered out
+        filtered_els: list[Element] = []
+        for el in self.elements:
+            if el.id not in keep_ids:
+                continue
+            if el.host_id and el.host_id not in keep_ids:
+                continue
+            filtered_els.append(el.model_copy(deep=True))
+        # assemblies: keep ids that remain
+        filtered_asm: list[Assembly] = []
+        for a in self.assemblies:
+            ids = [i for i in a.element_ids if i in keep_ids]
+            if ids:
+                na = a.model_copy(deep=True)
+                na.element_ids = ids
+                filtered_asm.append(na)
+        return ProjectModel(
+            schema_version=self.schema_version,
+            id=self.id,
+            name=self.name,
+            units=self.units,
+            levels=[lv.model_copy(deep=True) for lv in self.levels],
+            grids=[g.model_copy(deep=True) for g in self.grids],
+            elements=filtered_els,
+            assemblies=filtered_asm,
+            meta={
+                **(self.meta or {}),
+                "phase_filter": sorted(allowed),
+                "phase_filter_source_elements": len(self.elements),
+            },
+        )
+
     # --- persistence ------------------------------------------------------------
 
     def to_dict(self) -> dict[str, Any]:
