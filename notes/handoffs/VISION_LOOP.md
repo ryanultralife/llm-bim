@@ -1,0 +1,48 @@
+# Vision ↔ codebase alignment loop
+
+**Started:** 2026-07-15 (session)  
+**Cadence:** every 5 minutes  
+**Duration:** 2 hours (~24 passes max)  
+**End:** stop after 24 passes or when wall-clock ≥ start + 2h  
+
+## Vision anchors (must match output)
+
+1. **LLM-only authoring** — no human drafting GUI (`docs/VISION.md`)
+2. **One model → full pack** — IFC/STEP/glTF/SVG/PDF/BOQ/clash/materials (`export_deliverables`)
+3. **Open domains** — generic elements + ops registry (`docs/CAPABILITY.md`)
+4. **True model VCS** — commits under `output/<slug>/.llmbim/`, not chat
+5. **Parts/materials/CSI takeoffs** — fire, process, steel, rebar, fixtures, plumbing
+6. **Honesty** — envelopes + coordination grade; not PE-stamped Revit replacement (`docs/HONESTY.md`)
+7. **Local-first** — `./output/`, skill + CLI + MCP
+
+## Pass log
+
+| # | Time | Focus | Gaps found | Changes | Tests | Commit |
+|---|------|-------|------------|---------|-------|--------|
+| 0 | setup | loop infrastructure | — | VISION_LOOP + scheduler 5m + stop 2h | — | setup |
+| 1 | T+0 | docs + MCP agent surface | matrix/vision stale; MCP lacked takeoff | OUTPUT_MATRIX, VISION roadmap, MCP place/takeoff/parts | unit green | pending |
+
+## Backlog (living — pull highest impact each pass)
+
+1. ~~OUTPUT_MATRIX incomplete~~ (pass 1)
+2. ~~VISION roadmap stale~~ (pass 1)
+3. BOQ unit for linear steel should be `m` not always `ea`
+4. Verify pack should optionally require materials/ when parts assigned
+5. ~~MCP tools for place_part / takeoff~~ (pass 1)
+6. IFC export of fittings/pipe categories
+7. glTF for pipe/fitting markers (optional)
+8. Skill SKILL.md section order (H2 awkward)
+9. chat_smoke covers multi-trade ops
+10. CSI division 00 on some process parts without csi_code
+11. part_summary unit field still shows `ea` for linear m parts
+12. Process separator parts missing csi_code on flanges/cartridge
+
+## Rules for each scheduled pass
+
+1. Read this file + `docs/VISION.md` + `docs/CAPABILITY.md` + `docs/OUTPUT_MATRIX.md`
+2. Pick **one** highest-impact gap from backlog or a new discovered gap
+3. Implement fix in repo `C:\Users\ryanv\llm-bim`
+4. Run focused tests (`pytest tests/unit -q` or subset)
+5. Commit if green: `[grok] vision-loop N: <summary>`
+6. Append pass row to this log; update backlog
+7. If pass_count ≥ 24 or past end time → stop, do not schedule more work, write FINAL summary
