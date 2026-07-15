@@ -40,3 +40,14 @@ Overseer loop installed 2026-07-15 — 30m scheduler + `scripts/vision_overseer_
   - Last vision-loop commit 0m ago (ok)
   - pytest unit ok: 114 passed
 
+## 2026-07-15T21:18:43Z — **HEALTHY**
+
+- pass_count: `49` / 120
+- last_vision_commit_age_min: `0.1834625`
+- branch: `## main...origin/main`
+- dirty: `False`
+- pytest: ok=`True` passed=`119` failed=`0`
+- notes:
+  - Last vision-loop commit 0m ago (ok)
+  - pytest unit ok: 119 passed
+
