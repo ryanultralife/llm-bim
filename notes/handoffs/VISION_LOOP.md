@@ -71,7 +71,7 @@
 | 45 | continue | connection schedule | HTML only raw ports; no names | connection_schedule locator; schedules/connections.csv | 115 unit | d776fea |
 | 46 | continue | STEP system layers | STEP products untagged | PRODUCT names PIPE-CU/FP/DUCT/CONDUIT:… | 116 unit | 838ca91 |
 | 47 | continue | CLI/MCP schedule | no schedule agent surface | llmbim schedule + project_schedule MCP | 117 unit | 8abcefd |
-| 48 | continue | duct/conduit design rules | only pipe-in-wall rules | DUCT_IN_WALL, CONDUIT_IN_WALL, DUCT_LOW_CLEARANCE | 118 unit | (this) |
+| 48 | continue | duct/conduit design rules | only pipe-in-wall rules | DUCT_IN_WALL, CONDUIT_IN_WALL, DUCT_LOW_CLEARANCE | 118 unit | bbe2c2a |
 
 ## Backlog (living — pull highest impact each pass)
 
