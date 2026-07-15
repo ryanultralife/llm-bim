@@ -483,4 +483,86 @@ def _material_lists(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     return {"out": out, "files": written}
 
 
+@register(
+    "import_module",
+    description="Import another project as block|native|linked module/machine",
+    mutates=True,
+)
+def _import_module(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.modules import import_module
+
+    origin = p.get("origin") or p.get("origin_mm") or [0, 0]
+    return import_module(
+        model,
+        p["path"] if "path" in p else p.get("source"),
+        level=p.get("level") or (model.levels[0].name if model.levels else "L1"),
+        origin=origin,
+        mode=p.get("mode") or "native",
+        name=p.get("name"),
+        rotation_deg=float(p.get("rotation_deg") or 0),
+        z0_mm=float(p.get("z0_mm") or 0),
+        kind=p.get("kind") or "fabrication",
+    )
+
+
+@register("export_module", description="Export project/selection as reusable module package", mutates=False)
+def _export_module(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.modules import export_as_module
+
+    return export_as_module(
+        model,
+        p["path"],
+        name=p.get("name"),
+        element_ids=p.get("element_ids"),
+        kind=p.get("kind") or "fabrication",
+        ports=p.get("ports"),
+    )
+
+
+@register("explode_block", description="Explode module_instance block to native elements", mutates=True)
+def _explode_block(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.modules import explode_block
+
+    return explode_block(model, p["instance_id"] if "instance_id" in p else p["id"])
+
+
+@register("define_port", description="Define connection port on element (machine nozzle)", mutates=True)
+def _define_port(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.modules import define_port
+
+    return define_port(
+        model,
+        p["element_id"],
+        p["name"],
+        role=p.get("role") or "process",
+        medium=p.get("medium") or "",
+        position_mm=p.get("position_mm") or p.get("position"),
+        direction=p.get("direction") or "",
+    )
+
+
+@register("connect", description="Connect two module/equipment ports", mutates=True)
+def _connect(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.modules import connect
+
+    return connect(
+        model,
+        p["from_id"],
+        p["from_port"],
+        p["to_id"],
+        p["to_port"],
+        medium=p.get("medium") or "process",
+        name=p.get("name") or "",
+    )
+
+
+@register("list_modules", description="List module library definitions and instances", mutates=False)
+def _list_modules(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.modules import list_connections, list_modules
+
+    data = list_modules(model)
+    data["connections"] = list_connections(model)
+    return data
+
+
 # Note: commit/checkout/diff require Project.vcs — use SDK methods, not bare registry

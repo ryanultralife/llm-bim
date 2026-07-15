@@ -302,6 +302,53 @@ def cmd_ops(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_import_module(args: argparse.Namespace) -> int:
+    """Import a project/module into a host as block|native|linked."""
+    from llmbim import Project
+
+    host = Project.open(args.host) if args.host else Project.create(args.name or "Host")
+    if not host.levels():
+        host.add_level(args.level or "L1", 0)
+    origin = (0.0, 0.0)
+    if args.origin:
+        parts = [float(x) for x in args.origin.split(",")]
+        origin = (parts[0], parts[1])
+    r = host.import_module(
+        args.source,
+        level=args.level or host.levels()[0].name,
+        origin=origin,
+        mode=args.mode,
+        name=args.module_name,
+        rotation_deg=args.rotation or 0,
+        kind=args.kind or "fabrication",
+    )
+    out = Path(args.out) if args.out else Path("output/module_host")
+    out.mkdir(parents=True, exist_ok=True)
+    host.save(out / "model.llmbim.json")
+    if args.pack:
+        man = host.export_deliverables(out)
+        r["pack_ok"] = man.get("ok")
+    print(json.dumps({"result": r, "stats": host.stats(), "out": str(out)}, indent=2, default=str))
+    return 0
+
+
+def cmd_export_module(args: argparse.Namespace) -> int:
+    from llmbim import Project
+
+    p = Project.open(args.path)
+    r = p.export_module(args.out, name=args.name, kind=args.kind or "fabrication")
+    print(json.dumps(r, indent=2))
+    return 0
+
+
+def cmd_modules(args: argparse.Namespace) -> int:
+    from llmbim import Project
+
+    p = Project.open(args.path)
+    print(json.dumps(p.modules(), indent=2, default=str))
+    return 0
+
+
 def cmd_materials(args: argparse.Namespace) -> int:
     """List materials catalog or export material lists for a project."""
     if args.path:
@@ -615,6 +662,31 @@ def main(argv: list[str] | None = None) -> int:
     p_jn.add_argument("path")
     p_jn.add_argument("-n", "--limit", type=int, default=50)
     p_jn.set_defaults(func=cmd_journal)
+
+    p_im = sub.add_parser("import-module", help="Import project as block|native|linked module")
+    p_im.add_argument("source", help="Source .llmbim.json or pack/module directory")
+    p_im.add_argument("--host", default=None, help="Host project path (create new if omitted)")
+    p_im.add_argument("--name", default=None, help="Host project name when creating")
+    p_im.add_argument("--module-name", default=None)
+    p_im.add_argument("--level", default=None)
+    p_im.add_argument("--mode", default="native", choices=["block", "native", "linked"])
+    p_im.add_argument("--kind", default="fabrication", help="block|fabrication|machine")
+    p_im.add_argument("--origin", default=None, help="x,y mm")
+    p_im.add_argument("--rotation", type=float, default=0)
+    p_im.add_argument("--out", default=None)
+    p_im.add_argument("--pack", action="store_true")
+    p_im.set_defaults(func=cmd_import_module)
+
+    p_em = sub.add_parser("export-module", help="Export project as reusable module package")
+    p_em.add_argument("path", help="Source project")
+    p_em.add_argument("--out", required=True, help="Output .llmbim.json or directory")
+    p_em.add_argument("--name", default=None)
+    p_em.add_argument("--kind", default="fabrication")
+    p_em.set_defaults(func=cmd_export_module)
+
+    p_mod = sub.add_parser("modules", help="List module library + connections on a project")
+    p_mod.add_argument("path")
+    p_mod.set_defaults(func=cmd_modules)
 
     p_mat = sub.add_parser("materials", help="Materials catalog or project material lists")
     p_mat.add_argument("path", nargs="?", default=None, help="Project path (omit = catalog only)")

@@ -296,6 +296,31 @@ def import_ifc_subset(model: ProjectModel, path: str | Path) -> dict[str, Any]:
 def auto_import(model: ProjectModel, path: str | Path, **kwargs: Any) -> dict[str, Any]:
     """Dispatch import by file extension."""
     p = Path(path)
+    # Directory pack / module package
+    if p.is_dir():
+        mode = kwargs.get("mode")
+        if mode in ("block", "native", "linked") or (p / "MODULE.json").is_file():
+            from llmbim_core.modules import import_module
+
+            level = kwargs.get("level") or (model.levels[0].name if model.levels else None)
+            if not level:
+                model.add_level("L1", 0)
+                level = "L1"
+            origin = kwargs.get("origin") or kwargs.get("origin_mm") or (0.0, 0.0)
+            return import_module(
+                model,
+                p,
+                level=level,
+                origin=origin,
+                mode=mode or "native",
+                name=kwargs.get("name"),
+                rotation_deg=float(kwargs.get("rotation_deg") or 0),
+                z0_mm=float(kwargs.get("z0_mm") or 0),
+                kind=kwargs.get("kind") or "fabrication",
+            )
+        other = ProjectModel.open(_resolve_dir_model(p))
+        return merge_project(model, other)
+
     ext = p.suffix.lower()
     if ext in {".json"}:
         # project file or batch
@@ -329,9 +354,39 @@ def auto_import(model: ProjectModel, path: str | Path, **kwargs: Any) -> dict[st
         el = import_step_as_equipment(model, p, level=level, name=kwargs.get("name"))
         return {"equipment_id": el.id, "name": el.name}
     if ext == ".llmbim.json" or p.name.endswith(".llmbim.json"):
+        mode = kwargs.get("mode")  # block | native | linked — optional
+        if mode in ("block", "native", "linked"):
+            from llmbim_core.modules import import_module
+
+            level = kwargs.get("level") or (model.levels[0].name if model.levels else None)
+            if not level:
+                model.add_level("L1", 0)
+                level = "L1"
+            origin = kwargs.get("origin") or kwargs.get("origin_mm") or (0.0, 0.0)
+            return import_module(
+                model,
+                p,
+                level=level,
+                origin=origin,
+                mode=mode,
+                name=kwargs.get("name"),
+                rotation_deg=float(kwargs.get("rotation_deg") or 0),
+                z0_mm=float(kwargs.get("z0_mm") or 0),
+                kind=kwargs.get("kind") or "fabrication",
+            )
         other = ProjectModel.open(p)
         return merge_project(model, other)
     raise ValueError(f"Unsupported import type: {ext}")
+
+
+def _resolve_dir_model(path: Path) -> Path:
+    cand = path / "model.llmbim.json"
+    if cand.is_file():
+        return cand
+    hits = list(path.glob("*.llmbim.json"))
+    if hits:
+        return hits[0]
+    raise FileNotFoundError(f"No model in {path}")
 
 
 def merge_project(target: ProjectModel, source: ProjectModel) -> dict[str, Any]:

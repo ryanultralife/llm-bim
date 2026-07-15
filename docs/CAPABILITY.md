@@ -76,6 +76,27 @@ p.place_fitting(level="L1", fitting_type="elbow_90", nps="2", material="fire")
 p.csi_takeoff()  # by MasterFormat
 ```
 
+## Modules / blocks / machines
+
+Import drawings and fabrications into one another:
+
+| Mode | Use |
+|------|-----|
+| `native` | Explode into host elements — editable fabrication design |
+| `block` | CAD-like instance + definition library |
+| `linked` | Block with `source_path` for re-sync |
+
+```python
+machine.export_module("output/modules/skid", kind="machine")
+host.import_module("output/modules/skid", level="L0", origin=(8000,6000), mode="native")
+host.import_module("output/modules/skid", level="L0", origin=(16000,6000), mode="block")
+host.define_port(id, "FEED", role="process", medium="slurry")
+host.connect(machine_id, "FEED", header_id, "DROP_A", medium="slurry")
+host.explode_block(block_instance_id)
+```
+
+Ops: `import_module`, `export_module`, `explode_block`, `define_port`, `connect`, `list_modules`.
+
 ## What “complete” means here
 
 | Layer | Completeness |
