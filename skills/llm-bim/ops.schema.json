@@ -201,6 +201,16 @@
       }
     },
     {
+      "name": "create_wall",
+      "description": "Create wall start\u2192end with optional fire_rating",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
       "name": "csi_takeoff",
       "description": "Cost rollup by CSI MasterFormat code",
       "mutates": false,
@@ -391,6 +401,16 @@
       }
     },
     {
+      "name": "place_door",
+      "description": "Place door on host wall (offset/width/height/fire_rating)",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
       "name": "place_duct",
       "description": "Place rectangular HVAC duct run start\u2192end",
       "mutates": true,
@@ -433,6 +453,16 @@
     {
       "name": "place_riser",
       "description": "Place vertical pipe riser at XY from z0\u2192z1 (optional to_level)",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "place_window",
+      "description": "Place window on host wall (offset/sill/width/height)",
       "mutates": true,
       "parameters": {
         "type": "object",
