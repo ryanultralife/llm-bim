@@ -220,6 +220,24 @@ python examples/multi_trade_catalog.py
 
 Systems: `plumbing` · `fire` · `process` · `structural_steel` · `rebar` · `framing` · `fixture` / accessories · `hvac` · `electrical`. CSI divisions 03–10, 21–23, 26, 40, 43.
 
+```python
+# HVAC duct + electrical conduit + multi-storey riser
+p.place_duct(level="L1", start=(0,0), end=(8000,0), width_mm=600, height_mm=350)  # CSI 23 31 00
+p.place_conduit(level="L1", start=(0,500), end=(8000,500), trade_size="1")        # CSI 26 05 33
+p.add_level("L2", 3500)
+p.place_riser(level="L1", nps="2", origin=(4000,0), to_level="L2")  # spans storeys
+p.place_part(level="L1", part_id="PT-ELEC-PANEL-42", origin=(500,500))
+# find items: room~Mech  csi~23_31  vertical=true
+print(p.clash()[:5])  # duct vs pipe AABB included
+```
+
+```bash
+llmbim place model --kind duct --origin 0,0 --end 8000,0 --width 600 --height 350
+llmbim place model --kind conduit --origin 0,500 --end 8000,500 --nps 1
+llmbim place model --kind riser --origin 4000,0 --to-level L2 --nps 2
+llmbim query model "csi~26_05"
+```
+
 ### J. Modules / blocks / machines (import into one another)
 
 Nest drawings and fabrications into a host model:
