@@ -330,6 +330,7 @@ class AddGrid(Command):
     axis: str
     positions_mm: list[float]
     name: str = ""
+    labels: list[str] | None = None
     op: str = "add_grid"
     _element_id: str | None = None
 
@@ -340,14 +341,17 @@ class AddGrid(Command):
         if len(self.positions_mm) < 2:
             raise ValidationError("Grid needs at least 2 positions")
         eid = self._element_id or new_id("grd")
+        params: dict[str, Any] = {
+            "axis": axis,
+            "positions_mm": [float(p) for p in self.positions_mm],
+        }
+        if self.labels:
+            params["labels"] = [str(x) for x in self.labels]
         el = Element(
             id=eid,
             category="grid",
             name=self.name or f"Grid-{axis}",
-            params={
-                "axis": axis,
-                "positions_mm": [float(p) for p in self.positions_mm],
-            },
+            params=params,
         )
         model.grids.append(el)
         self._element_id = el.id

@@ -51,7 +51,9 @@
 | 26 | continue | restroom CSI recipe | no end-to-end RM: demo | examples/restroom_csi + skill recipe | 95 unit | 0115b91 |
 | 27 | continue | MCP query CSI enrich | query returned id only | room/csi/locator on project_query | 96 unit | (this) |
 | 28 | continue | multi-storey to_level riser | risers single-storey only | place_riser(to_level=L2/L3) | 96 unit | 2bd3ec6 |
-| 29 | continue | HVAC place_duct | no duct authoring | place_duct + plan/DXF/CSI 23 31 00 | 98 unit | (this) |
+| 29 | continue | HVAC place_duct | no duct authoring | place_duct + plan/DXF/CSI 23 31 00 | 98 unit | 857c12c |
+| 30 | continue | electrical conduit | no conduit place | place_conduit CSI 26 05 33 + plan/DXF | 99 unit | 52c86e9 |
+| 31 | continue | grid bubble labels | grids were unlabeled lines | plan A/B + 1/2 bubbles; labels= | 100 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -96,11 +98,14 @@
 38. ~~IFC IfcFlowSegment for pipes (vs proxy)~~ (pass 25)
 39. ~~Agent recipe: restroom + CW loop + CSI takeoff~~ (pass 26)
 40. ~~HVAC duct place + takeoff (generic or catalog)~~ (pass 29)
-41. Electrical raceway / conduit place
-42. Grid intersection labels on plans
-43. Dimension strings on plan SVG
-44. CLI place --kind duct
+41. ~~Electrical raceway / conduit place~~ (pass 30)
+42. ~~Grid intersection labels on plans~~ (pass 31)
+43. Dimension strings on plan SVG (partial — show_dimensions exists)
+44. ~~CLI place duct/conduit~~ (pass 29–30)
 45. Elev draw ducts as rectangles
+46. Panelboard / lighting fixture place
+47. Connection schedule on HTML index
+48. Multi-trade smoke case for duct+conduit+riser
 
 ## Rules for each scheduled pass
 

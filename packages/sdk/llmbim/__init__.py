@@ -185,10 +185,22 @@ class Project:
         result = self._log.execute(self._model, AddLevel(name=name, elevation_mm=elevation_mm))
         return str(result["result"]["level_id"])
 
-    def add_grid(self, axis: str, positions_mm: list[float], name: str | None = None) -> str:
+    def add_grid(
+        self,
+        axis: str,
+        positions_mm: list[float],
+        name: str | None = None,
+        labels: list[str] | None = None,
+    ) -> str:
+        """Add structural grid. axis U → 1,2,3…; V → A,B,C… (or pass labels)."""
         result = self._log.execute(
             self._model,
-            AddGrid(axis=axis, positions_mm=positions_mm, name=name or ""),
+            AddGrid(
+                axis=axis,
+                positions_mm=positions_mm,
+                name=name or "",
+                labels=labels,
+            ),
         )
         return str(result["result"]["element_id"])
 
