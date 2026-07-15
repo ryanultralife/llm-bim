@@ -389,6 +389,62 @@ if HAS_MCP:
         return _tool_result({"element_id": eid})
 
     @mcp.tool()
+    def place_duct(
+        project_id: str,
+        level: str,
+        start_x: float,
+        start_y: float,
+        end_x: float,
+        end_y: float,
+        width_mm: float = 400,
+        height_mm: float = 250,
+        system: str = "SA",
+        z0_mm: float = 2700,
+        name: str = "",
+    ) -> str:
+        """Rectangular HVAC duct (CSI 23 31 00)."""
+        p = store.get(project_id)
+        eid = p.place_duct(
+            level=level,
+            start=(start_x, start_y),
+            end=(end_x, end_y),
+            width_mm=width_mm,
+            height_mm=height_mm,
+            system=system,
+            z0_mm=z0_mm,
+            name=name or None,
+        )
+        store.save(project_id)
+        return _tool_result({"element_id": eid})
+
+    @mcp.tool()
+    def place_conduit(
+        project_id: str,
+        level: str,
+        start_x: float,
+        start_y: float,
+        end_x: float,
+        end_y: float,
+        trade_size: str = "3/4",
+        system: str = "P",
+        z0_mm: float = 2800,
+        name: str = "",
+    ) -> str:
+        """Electrical conduit run (CSI 26 05 33). trade_size e.g. 3/4, 1, 2."""
+        p = store.get(project_id)
+        eid = p.place_conduit(
+            level=level,
+            start=(start_x, start_y),
+            end=(end_x, end_y),
+            trade_size=trade_size,
+            system=system,
+            z0_mm=z0_mm,
+            name=name or None,
+        )
+        store.save(project_id)
+        return _tool_result({"element_id": eid})
+
+    @mcp.tool()
     def parts_catalog(
         category: str = "",
         system: str = "",
