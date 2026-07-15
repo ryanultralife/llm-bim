@@ -21,7 +21,8 @@
 | 3D solid exchange | STEP AP203 | ✅ boxes/cylinders + MEP + **LAYER:name** PRODUCT tags (PIPE-CU/FP/DUCT/…) | `llmbim_geometry.step_export` |
 | Floor plan | SVG | ✅ walls + openings + equip + **pipes/fittings/fixtures + riser circles + ducts** | `llmbim_drawings.plan` |
 | Plan DXF | DXF R12 | ✅ walls/equip/rooms + **PIPE-CU/FP/SS + riser CIRCLE + DUCT** | `llmbim_drawings.dxf_export` |
-| Section / elevation | SVG | ✅ walls/equip + **pipe marks + vertical riser segs** | `llmbim_drawings.section` |
+| Elevation DXF | DXF R12 | ✅ walls + MEP (X=plan, Y=Z) + LEVELS | `export_elevation_dxf` |
+| Section / elevation | SVG | ✅ walls/equip + MEP + **storey height dims** | `llmbim_drawings.section` |
 | Construction sheet set | multi SVG + index | ✅ | `llmbim_drawings.construction` |
 | Plot set PDF | multi-page PDF | ✅ | `llmbim_drawings.pdf_binder` |
 | Schedules | CSV/JSON | ✅ rooms/**zone_areas** (area+height+volume)/doors/windows/walls/equip/MEP/CSI | `llmbim_drawings.schedules` |

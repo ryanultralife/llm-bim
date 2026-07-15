@@ -173,8 +173,11 @@ llmbim parts --fitting-type elbow_90 --material copper
 llmbim takeoff model.llmbim.json --kind plumbing
 llmbim takeoff model.llmbim.json --fitting-type elbow_90 --material copper
 llmbim takeoff model.llmbim.json --kind csi_instances   # MF code + room + XY locator
+llmbim schedule model.llmbim.json --kind zone --out zones.csv
+llmbim schedule model.llmbim.json --kind connection
 llmbim place model.llmbim.json --kind riser --origin 2500,1000 --nps 2 --z0 0 --z1 3500
 llmbim place model.llmbim.json --kind fitting --origin 0,0 --fitting-type elbow_90 --nps 3/4
+llmbim pack model.llmbim.json --out output/pack --phases new
 llmbim materials model.llmbim.json --out output/lists
 python examples/plumbing_loop.py   # demo → output/plumbing_loop/COPPER_90_ELBOWS.json
 ```

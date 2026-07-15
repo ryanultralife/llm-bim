@@ -439,6 +439,12 @@ class Project:
 
         export_plan_dxf(self._model, level, path)
 
+    def export_elevation_dxf(self, direction: str, path: str | Path) -> None:
+        """Elevation DXF (X=plan axis, Y=Z elev mm) for CAD handoff."""
+        from llmbim_drawings.dxf_export import export_elevation_dxf
+
+        export_elevation_dxf(self._model, direction, path)
+
     def export_pdf_binder(self, sheet_dir: str | Path, path: str | Path, **kw: Any) -> None:
         from llmbim_drawings.pdf_binder import export_pdf_binder
 
