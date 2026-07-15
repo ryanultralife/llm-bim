@@ -71,6 +71,21 @@ def test_plan_shows_wall_and_door_fire_rating(tmp_path: Path):
     assert "90m" in text or "90 min" in text or "90m" in text.replace(" ", "")
 
 
+def test_html_index_door_schedule_sample(tmp_path: Path):
+    pack = tmp_path / "pack"
+    (pack / "schedules").mkdir(parents=True)
+    (pack / "schedules" / "doors.csv").write_text(
+        "name,type_id,fire_rating,width_mm,height_mm,locator\n"
+        "Entry,D-HM-36,90 min,900,2100,L1|X2000|Y0|Z0\n",
+        encoding="utf-8",
+    )
+    write_pack_index(pack)
+    text = (pack / "index.html").read_text(encoding="utf-8")
+    assert "Door schedule" in text
+    assert "D-HM-36" in text
+    assert "90 min" in text
+
+
 def test_html_index_design_rules_sample(tmp_path: Path):
     pack = tmp_path / "pack"
     pack.mkdir()

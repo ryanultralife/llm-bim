@@ -196,6 +196,40 @@ def write_pack_index(out_dir: str | Path) -> Path:
         except Exception:  # noqa: BLE001
             draw_preview = ""
 
+    # door schedule sample (type + fire rating)
+    door_preview = ""
+    door_path = out / "schedules" / "doors.csv"
+    if door_path.is_file():
+        try:
+            import csv
+            from io import StringIO
+
+            rows = list(csv.DictReader(StringIO(door_path.read_text(encoding="utf-8"))))
+            lines = []
+            for r in rows[:15]:
+                lines.append(
+                    "<tr>"
+                    f"<td>{r.get('name') or r.get('id') or ''}</td>"
+                    f"<td>{r.get('type_id') or ''}</td>"
+                    f"<td>{r.get('fire_rating') or ''}</td>"
+                    f"<td>{r.get('width_mm') or r.get('width') or ''}</td>"
+                    f"<td>{r.get('height_mm') or r.get('height') or ''}</td>"
+                    f"<td><code>{(r.get('locator') or '')[:40]}</code></td>"
+                    "</tr>"
+                )
+            if lines:
+                door_preview = (
+                    "<h2>Door schedule (sample)</h2>"
+                    "<p>Type marks + fire rating. Full: "
+                    "<a href=\"schedules/doors.csv\">doors.csv</a></p>"
+                    "<table><tr><th>Name</th><th>Type</th><th>FR</th>"
+                    "<th>W</th><th>H</th><th>Locator</th></tr>"
+                    + "".join(lines)
+                    + "</table>"
+                )
+        except Exception:  # noqa: BLE001
+            door_preview = ""
+
     # design rules findings sample
     rules_preview = ""
     rules_path = out / "design_rules.json"
@@ -236,7 +270,8 @@ def write_pack_index(out_dir: str | Path) -> Path:
     legend = """
 <h2>MEP / layers legend</h2>
 <ul>
-<li><strong>Plan SVG</strong> — copper pipes orange; fire black steel dark; process SS gray; PVC yellow; risers = concentric circles; ducts green; conduit purple; cable tray dashed purple; columns X-marks; beams gray</li>
+<li><strong>Plan SVG</strong> — copper pipes orange; fire black steel dark; process SS gray; PVC yellow; risers = concentric circles; ducts green; conduit purple; cable tray dashed purple; columns X-marks; beams gray; doors/windows green/blue</li>
+<li><strong>Openings</strong> — plan/elev/section SVG+DXF show type/FR marks; IFC/glTF/STEP host placement; clash AABB vs MEP</li>
 <li><strong>DXF layers</strong> — WALLS, EQUIP, ROOMS, PIPE-CU/FP/SS, DUCT, CONDUIT, CABLE-TRAY, COLUMNS, BEAMS, FITTINGS (risers = CIRCLE)</li>
 <li><strong>CSI</strong> — e.g. <code>22 11 16</code> domestic water, <code>21 13 13</code> wet sprinkler, <code>05 12 00</code> structural steel, <code>23 31 00</code> duct, <code>26 05 33</code> conduit</li>
 <li><strong>Locator</strong> — <code>L1|RM:Restroom_A|X1200Y3400|Z900|NPS3/4|W10x33|SYS SA|FR2hr|COLUMN|RISER</code> (level · RM: · XY · Z · H · NPS · section · SYS · FR · category)</li>
@@ -265,6 +300,7 @@ th{{background:#161b22}}
 {zone_preview}
 {conn_preview}
 {draw_preview}
+{door_preview}
 {rules_preview}
 {legend}
 <h2>Drawings (SVG)</h2><ul>{"".join(links) or "<li>none</li>"}</ul>

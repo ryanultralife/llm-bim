@@ -825,18 +825,45 @@ if HAS_MCP:
 
     @mcp.tool()
     def demo_house() -> str:
-        """Create standard simple-house demo."""
+        """Create standard simple-house demo with entry door + window."""
         pid, p = store.create("Simple House (MCP demo)")
         p.add_level("L1", 0)
+        walls: dict[str, str] = {}
         for start, end, name in [
             ((0, 0), (10000, 0), "W-S"),
             ((10000, 0), (10000, 8000), "W-E"),
             ((10000, 8000), (0, 8000), "W-N"),
             ((0, 8000), (0, 0), "W-W"),
         ]:
-            p.create_wall(
-                level="L1", start=start, end=end, thickness_mm=200, height_mm=3000, name=name
-            )
+            kw: dict = {
+                "level": "L1",
+                "start": start,
+                "end": end,
+                "thickness_mm": 200,
+                "height_mm": 3000,
+                "name": name,
+            }
+            if name == "W-S":
+                kw["fire_rating"] = "1-hr"
+            walls[name] = p.create_wall(**kw)
+        p.place_door(
+            host=walls["W-S"],
+            offset_mm=2000,
+            width_mm=900,
+            height_mm=2100,
+            name="Entry",
+            type_id="D-HM-36",
+            fire_rating="90 min",
+        )
+        p.place_window(
+            host=walls["W-S"],
+            offset_mm=5000,
+            width_mm=1200,
+            height_mm=900,
+            sill_mm=900,
+            name="Front window",
+            type_id="WIN-VIEW",
+        )
         store.save(pid)
         return _tool_result({"project_id": pid, "stats": p.stats()})
 
