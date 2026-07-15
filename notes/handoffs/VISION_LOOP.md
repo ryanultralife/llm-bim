@@ -129,6 +129,7 @@
 | 103 | continue | ops schema + capability openings | schema/docs missing wall/door ops | regenerate ops.schema + CAPABILITY | 171 unit | (this) |
 | 104 | continue | query fire_rating | no FR query token | fire_rating= / ~ with 90_min normalize | 172 unit | (this) |
 | 105 | continue | HTML door sample + demo openings | index no door table; demo walls only | doors.csv sample + demo_house door/window | 173 unit | (this) |
+| 106 | continue | CLI demo FR openings | demo door without type/FR | Entry D-HM-36 90 min + W-S 1-hr | 174 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -263,7 +264,8 @@
 128. ~~ops.schema + CAPABILITY openings~~ (pass 103)
 129. ~~Query fire_rating token~~ (pass 104)
 130. ~~HTML door sample + demo openings~~ (pass 105)
-131. Keep closing residual gaps until pass 120 / 10h
+131. ~~CLI demo FR openings~~ (pass 106)
+132. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
