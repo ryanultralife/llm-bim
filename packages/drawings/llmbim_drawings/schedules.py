@@ -230,6 +230,66 @@ def schedule_rows(model: ProjectModel, kind: str) -> list[dict[str, Any]]:
         from llmbim_core.material_lists import connection_schedule
 
         return connection_schedule(model)
+    if kind in {"duct", "ducts", "hvac_duct"}:
+        rows = []
+        for el in model.elements:
+            if el.category not in {"duct", "hvac"} and el.params.get("fitting_type") != "duct":
+                continue
+            if el.params.get("fitting_type") in {
+                "vav",
+                "diffuser",
+                "grille",
+                "fire_damper",
+                "smoke_damper",
+            }:
+                continue
+            w = el.params.get("width_mm")
+            h = el.params.get("height_mm")
+            rows.append(
+                _annotate_csi(
+                    model,
+                    el,
+                    {
+                        "id": el.id,
+                        "name": el.name,
+                        "width_mm": w,
+                        "height_mm": h,
+                        "size": f"{float(w):.0f}x{float(h):.0f}" if w and h else None,
+                        "length_m": el.params.get("length_m"),
+                        "length_mm": el.params.get("length_mm"),
+                        "area_m2": el.params.get("area_m2"),
+                        "system": el.params.get("system"),
+                        "material_id": el.params.get("material_id"),
+                        "part_id": el.params.get("part_id") or el.type_id,
+                        "z0_mm": el.params.get("z0_mm"),
+                    },
+                )
+            )
+        return rows
+    if kind in {"conduit", "conduits", "electrical_conduit"}:
+        rows = []
+        for el in model.elements:
+            if el.category != "conduit" and el.params.get("fitting_type") != "conduit":
+                continue
+            rows.append(
+                _annotate_csi(
+                    model,
+                    el,
+                    {
+                        "id": el.id,
+                        "name": el.name,
+                        "trade_size": el.params.get("trade_size") or el.params.get("nps"),
+                        "nps": el.params.get("nps") or el.params.get("trade_size"),
+                        "length_m": el.params.get("length_m"),
+                        "length_mm": el.params.get("length_mm"),
+                        "system": el.params.get("system"),
+                        "material_id": el.params.get("material_id"),
+                        "part_id": el.params.get("part_id") or el.type_id,
+                        "z0_mm": el.params.get("z0_mm"),
+                    },
+                )
+            )
+        return rows
     raise ValueError(f"Unknown schedule kind: {kind}")
 
 

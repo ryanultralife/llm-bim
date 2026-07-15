@@ -78,7 +78,10 @@
 | 52 | continue | query phase= | phase query incomplete docs | phase=new\|existing filter tests | 122 unit | bcab845 |
 | 53 | continue | full multi-trade pack smoke | chat path thin | elev DXF+zone+CSI+IFC space+STEP layers | 123 unit | 77868eb |
 | 54 | continue | DXF grid bubbles | plan DXF grids unlabeled | CIRCLE + A/B/1 labels on GRIDS | 124 unit | c8b4ad4 |
-| 55 | continue | duct/conduit takeoff | only BOQ qty; no trade takeoff API | duct_takeoff/conduit_takeoff + CLI/MCP + pack | 126 unit | (this) |
+| 55 | continue | duct/conduit takeoff | only BOQ qty; no trade takeoff API | duct_takeoff/conduit_takeoff + CLI/MCP + pack | 126 unit | 2cfbdeb |
+| 56 | continue | duct/conduit schedules | no duct.csv/conduit.csv | schedule_rows + pack CSVs + HTML links | 129 unit | (this) |
+| 57 | continue | room area tags on plan | name-only room labels | area m² + clear height H#### | 129 unit | (this) |
+| 58 | continue | section DXF CAD handoff | only plan+elev DXF | export_section_dxf + pack views/section.dxf | 129 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -163,7 +166,10 @@
 78. ~~Example multi-trade full pack smoke~~ (pass 53)
 79. ~~Query filter by phase=~~ (pass 52)
 80. ~~Duct/conduit dedicated takeoff API~~ (pass 55)
-81. Keep closing residual gaps until pass 120 / 10h
+81. ~~Duct/conduit schedule CSVs in pack~~ (pass 56)
+82. ~~Room area + height tags on plan~~ (pass 57)
+83. ~~Section DXF export~~ (pass 58)
+84. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 

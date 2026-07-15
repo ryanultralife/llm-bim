@@ -445,6 +445,17 @@ class Project:
 
         export_elevation_dxf(self._model, direction, path)
 
+    def export_section_dxf(
+        self,
+        p0: tuple[float, float],
+        p1: tuple[float, float],
+        path: str | Path,
+    ) -> None:
+        """Section DXF along plan cut p0→p1 (X=distance along cut, Y=Z elev)."""
+        from llmbim_drawings.dxf_export import export_section_dxf
+
+        export_section_dxf(self._model, p0, p1, path)
+
     def export_pdf_binder(self, sheet_dir: str | Path, path: str | Path, **kw: Any) -> None:
         from llmbim_drawings.pdf_binder import export_pdf_binder
 

@@ -575,7 +575,26 @@ def render_plan_view(
         cx = sum(float(p[0]) for p in boundary) / len(boundary)
         cy = sum(float(p[1]) for p in boundary) / len(boundary)
         px, py = project(cx, cy)
-        parts.append(f'    <text x="{fmt(px)}" y="{fmt(py)}">{esc(room.name or "Room")}</text>')
+        name = room.name or "Room"
+        area_mm2 = room.params.get("area_mm2")
+        if area_mm2 is None and len(boundary) >= 3:
+            # shoelace fallback
+            a = 0.0
+            n = len(boundary)
+            for i in range(n):
+                x1, y1 = float(boundary[i][0]), float(boundary[i][1])
+                x2, y2 = float(boundary[(i + 1) % n][0]), float(boundary[(i + 1) % n][1])
+                a += x1 * y2 - x2 * y1
+            area_mm2 = abs(a) / 2.0
+        area_txt = ""
+        if area_mm2 is not None and float(area_mm2) > 0:
+            area_txt = f" {float(area_mm2) / 1e6:.1f}m²"
+        h_mm = room.params.get("height_mm") or room.params.get("ceiling_height_mm")
+        h_txt = f" H{float(h_mm):.0f}" if h_mm else ""
+        label = f"{name}{area_txt}{h_txt}"
+        parts.append(
+            f'    <text class="room-label" x="{fmt(px)}" y="{fmt(py)}">{esc(label)}</text>'
+        )
     for eq in equipment:
         poly = eq.params.get("polygon_mm") or []
         if not eq.name:

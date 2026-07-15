@@ -259,6 +259,8 @@ def export_deliverables(
         "equipment",
         "fitting",
         "pipe",
+        "duct",
+        "conduit",
         "part",
         "material",
         "csi",
@@ -321,7 +323,7 @@ def export_deliverables(
         json.dumps({"summary": rules_summary(findings), "findings": findings}, indent=2) + "\n",
         encoding="utf-8",
     )
-    from llmbim_drawings.dxf_export import export_elevation_dxf
+    from llmbim_drawings.dxf_export import export_elevation_dxf, export_section_dxf
 
     _try(
         "dxf",
@@ -338,11 +340,36 @@ def export_deliverables(
         errors,
         lambda: export_elevation_dxf(work, "E", out / "views" / "elev_E.dxf"),
     )
+
+    def _section_dxf() -> None:
+        walls = work.query(category="wall")
+        xs: list[float] = []
+        ys: list[float] = []
+        for w in walls:
+            try:
+                s, e = w.params["start_mm"], w.params["end_mm"]
+                xs.extend([float(s[0]), float(e[0])])
+                ys.extend([float(s[1]), float(e[1])])
+            except (KeyError, TypeError, ValueError):
+                continue
+        if xs and ys:
+            mid_x = (min(xs) + max(xs)) / 2
+            export_section_dxf(
+                work,
+                (mid_x, min(ys) - 1000),
+                (mid_x, max(ys) + 1000),
+                out / "views" / "section.dxf",
+            )
+        else:
+            export_section_dxf(work, (0, -5000), (0, 5000), out / "views" / "section.dxf")
+
+    _try("dxf_section", errors, _section_dxf)
     result["boq"] = "boq.json"
     result["clash_report"] = "clash_report.json"
     result["design_rules"] = "design_rules.json"
     result["dxf"] = f"views/plan_{level}.dxf"
     result["dxf_elev"] = ["views/elev_S.dxf", "views/elev_E.dxf"]
+    result["dxf_section"] = "views/section.dxf"
 
     # Bundle locked Fusion STEP references
     from llmbim_geometry.step_import import pack_step_references

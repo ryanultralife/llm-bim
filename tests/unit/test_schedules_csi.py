@@ -62,3 +62,23 @@ def test_schedule_includes_room_column():
     assert fits
     assert fits[0].get("room") == "Restroom A"
     assert "RM:Restroom" in str(fits[0].get("locator", ""))
+
+
+def test_duct_and_conduit_schedule_rows(tmp_path: Path):
+    p = Project.create("sched-mep", vcs=False)
+    p.add_level("L1", 0)
+    p.place_duct(level="L1", start=(0, 0), end=(5000, 0), width_mm=400, height_mm=250, system="SA")
+    p.place_conduit(level="L1", start=(0, 500), end=(8000, 500), trade_size="1")
+    ducts = schedule_rows(p.model, "duct")
+    assert len(ducts) == 1
+    assert ducts[0]["csi_code"] == "23 31 00"
+    assert ducts[0].get("size") == "400x250"
+    assert ducts[0].get("locator")
+    conds = schedule_rows(p.model, "conduit")
+    assert len(conds) == 1
+    assert conds[0]["csi_code"] == "26 05 33"
+    assert conds[0].get("trade_size") == "1"
+    export_schedule_csv(p.model, "duct", tmp_path / "duct.csv")
+    export_schedule_csv(p.model, "conduit", tmp_path / "conduit.csv")
+    assert "23 31 00" in (tmp_path / "duct.csv").read_text(encoding="utf-8")
+    assert "26 05 33" in (tmp_path / "conduit.csv").read_text(encoding="utf-8")
