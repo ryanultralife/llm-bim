@@ -430,6 +430,51 @@ def export_elevation_dxf(
         ents += _line(hi, z1, lo, z1, "WALLS")
         ents += _line(lo, z1, lo, z0, "WALLS")
 
+    # doors / windows as elev rectangles on host wall axis
+    wall_by_id = {el.id: el for el in model.elements if el.category == "wall"}
+    for el in model.elements:
+        if el.category not in {"door", "window"}:
+            continue
+        host = wall_by_id.get(el.host_id or "")
+        if not host:
+            continue
+        try:
+            s = host.params["start_mm"]
+            e = host.params["end_mm"]
+            x0, y0 = float(s[0]), float(s[1])
+            x1, y1 = float(e[0]), float(e[1])
+            length = math.hypot(x1 - x0, y1 - y0)
+            if length < 1:
+                continue
+            off = float(el.params.get("offset_mm") or 0)
+            width_o = float(el.params.get("width_mm") or 900)
+            oh = float(el.params.get("height_mm") or (2100 if el.category == "door" else 1200))
+            sill = float(el.params.get("sill_mm") or 0)
+            ux, uy = (x1 - x0) / length, (y1 - y0) / length
+            ax = x0 + ux * off
+            ay = y0 + uy * off
+            bx = x0 + ux * (off + width_o)
+            by = y0 + uy * (off + width_o)
+            h0, h1 = h_of(ax, ay), h_of(bx, by)
+            base = _level_elev(model, host.level_id)
+            z_bot = base + sill
+            z_top = z_bot + oh
+            layer = "DOORS" if el.category == "door" else "WINDOWS"
+            lo, hi = min(h0, h1), max(h0, h1)
+            ents += _line(lo, z_bot, hi, z_bot, layer)
+            ents += _line(hi, z_bot, hi, z_top, layer)
+            ents += _line(hi, z_top, lo, z_top, layer)
+            ents += _line(lo, z_top, lo, z_bot, layer)
+            tid = str(el.type_id or el.params.get("type_id") or el.category)[:16]
+            fr = el.params.get("fire_rating") or ""
+            label = tid
+            if fr:
+                fr_s = str(fr).replace(" min", "m").replace("-hr", "HR")
+                label = f"{tid} {fr_s}"
+            ents += _text((lo + hi) / 2, z_top + 80, 90.0, label[:24], layer)
+        except (KeyError, TypeError, ValueError, IndexError):
+            continue
+
     # horizontal pipes / ducts / conduits
     for el in model.elements:
         if el.category not in {
