@@ -58,6 +58,7 @@
 | 33 | continue | duct-pipe clash + skill | clash ignored duct; skill stale | AABB duct/conduit; SKILL place duct/conduit/to_level | 102 unit | c01d0e8 |
 | 34 | continue | wall types + HTML conn | plan no type marks | wall-types class; connections table in index | 103 unit | f0eaac0 |
 | 35 | continue | room ceiling height | rooms area-only | height_mm/ceiling_height_mm on room + schedule | 104 unit | d72f0c0 |
+| 36 | continue | BOQ+MCP duct/conduit | BOQ skipped MEP duct; MCP no place | BOQ m2/m; MCP place_duct/conduit; glTF | 105 unit | cfd2ae5 |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -118,10 +119,12 @@
 54. ~~HTML connections schedule~~ (pass 34)
 55. ~~Ceiling height / room height_mm~~ (pass 35)
 56. Door/window type marks on plan (beyond D1/W1)
-57. glTF materials by system color (pipe/duct/conduit)
-58. BOQ include duct area_m2 + conduit length
-59. MCP place_duct / place_conduit tools
+57. glTF materials by system color (pipe/duct/conduit) — geometry yes, color TBD
+58. ~~BOQ include duct area_m2 + conduit length~~ (pass 36)
+59. ~~MCP place_duct / place_conduit tools~~ (pass 36)
 60. Phase filters on export pack
+61. Zone / area schedule with room heights
+62. Fire damper / VAV place as fittings
 
 ## Rules for each scheduled pass
 
