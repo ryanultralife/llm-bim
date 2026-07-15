@@ -5,6 +5,7 @@
 **Duration:** **10 hours** (~120 passes max)  
 **End:** stop after 120 passes or wall-clock ≥ start + 10h  
 **Scheduler:** 5m recurring `019f673f9283` + 10h hard-stop  
+**Overseer:** every **30m** — see `notes/handoffs/OVERSEER_LOOP.md` + `scripts/vision_overseer_check.py` → log `OVERSEER_LOG.md`
 
 **CSI upgrade (user):** every takeoff line should carry a **real MasterFormat** `csi_code` (e.g. `22 11 16`) plus a **locator** (level | X | Y | Z/height | NPS) so agents can find the item in the model — not vague divisions alone.
 
