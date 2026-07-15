@@ -41,8 +41,17 @@ def _try(label: str, errors: list[dict], fn) -> Any:
         return None
 
 
-def verify_pack(out_dir: str | Path, *, require_parts: bool = False) -> dict[str, Any]:
-    """Check a deliverables directory for required artifacts."""
+def verify_pack(
+    out_dir: str | Path,
+    *,
+    require_parts: bool = False,
+    require_materials: bool = False,
+) -> dict[str, Any]:
+    """Check a deliverables directory for required artifacts.
+
+    ``require_materials`` enforces vision pack completeness: materials takeoff
+    package under ``materials/`` (assignments, fitting/pipe/CSI lists).
+    """
     out = Path(out_dir)
     # Core 3D/BIM artifacts (MANIFEST is written after verify during pack export)
     required = [
@@ -71,10 +80,47 @@ def verify_pack(out_dir: str | Path, *, require_parts: bool = False) -> dict[str
         checks["part_steps"] = len(list((out / "parts" / "step").glob("*.step"))) if (out / "parts" / "step").exists() else 0
     if require_parts and checks.get("part_steps", 0) < 1:
         missing.append("parts/step/*.step")
+
+    # Materials / multi-trade takeoff package (vision: full pack includes lists)
+    mat_pkg = out / "materials" / "MATERIALS_AND_PARTS.json"
+    mat_dir = out / "materials"
+    if mat_dir.is_dir():
+        checks["materials_json_count"] = len(list(mat_dir.glob("*.json")))
+        checks["materials_csv_count"] = len(list(mat_dir.glob("*.csv")))
+    if mat_pkg.is_file():
+        size = mat_pkg.stat().st_size
+        checks["files"]["materials/MATERIALS_AND_PARTS.json"] = {"size": size, "ok": size > 20}
+        checks["has_materials_package"] = True
+        # probe expected takeoff keys when package present
+        try:
+            import json as _json
+
+            payload = _json.loads(mat_pkg.read_text(encoding="utf-8"))
+            checks["materials_has_fitting_takeoff"] = "fitting_takeoff" in payload
+            checks["materials_has_csi"] = "csi" in payload or "csi_takeoff" in [
+                p.name for p in mat_dir.glob("csi*.json")
+            ]
+        except Exception:  # noqa: BLE001
+            checks["materials_package_parse_ok"] = False
+    else:
+        checks["has_materials_package"] = False
+        if require_materials:
+            missing.append("materials/MATERIALS_AND_PARTS.json")
+
+    # plumbing schedule sidecar (optional soft signal)
+    plumb = out / "schedules" / "plumbing_takeoff.json"
+    if plumb.is_file():
+        checks["files"]["schedules/plumbing_takeoff.json"] = {
+            "size": plumb.stat().st_size,
+            "ok": plumb.stat().st_size > 2,
+        }
+
     checks["ok"] = not missing and all(v.get("ok", True) for v in checks["files"].values())
     if (out / "model.ifc").is_file() and not checks.get("ifc_has_project"):
         checks["ok"] = False
     if (out / "model.step").is_file() and not checks.get("step_has_brep"):
+        checks["ok"] = False
+    if require_materials and not checks.get("has_materials_package"):
         checks["ok"] = False
     return checks
 
@@ -275,7 +321,16 @@ def export_deliverables(
             except OSError:
                 pass
 
-    verification = verify_pack(out, require_parts=has_equip)
+    # Modern packs always write materials/; require it for vision pack completeness
+    has_part_assign = any(el.params.get("part_id") for el in model.elements)
+    verification = verify_pack(
+        out,
+        require_parts=has_equip,
+        require_materials=True,  # export_lists always runs above
+    )
+    if has_part_assign and not verification.get("has_materials_package"):
+        verification["ok"] = False
+        verification.setdefault("missing", []).append("materials/MATERIALS_AND_PARTS.json")
     try:
         from llmbim_drawings.html_index import write_pack_index
 
