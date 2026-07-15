@@ -79,7 +79,7 @@ Project.export_deliverables(out_dir)
 → schedules/ (levels, zone_areas, csi, duct, conduit, column, beam, drawing_list, …)
 → materials/ (fitting/pipe/duct/conduit/cable_tray/steel/rebar/csi takeoffs + trade_schedule)
 → boq.json · clash_report.json · design_rules.json
-→ index.html (CSI/zone/connections/drawing list/**door schedule**/rules samples)
+→ index.html (CSI/zone/connections/drawing list/**door+window schedules**/rules samples)
 → deliverables.zip · MANIFEST.json · VERIFY.json
 ```
 

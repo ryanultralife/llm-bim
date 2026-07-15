@@ -135,6 +135,7 @@
 | 109 | continue | CLI place room + docs | room only SDK/MCP | place --kind room boundary/rect + matrix | 175 unit | (this) |
 | 110 | continue | create_slab agent wiring | slab SDK-only | registry/CLI/MCP create_slab + docs | 176 unit | (this) |
 | 111 | continue | equipment agent wiring | equip SDK-only | create_equipment_box registry/CLI/MCP | 177 unit | (this) |
+| 112 | continue | HTML window schedule | index doors only | windows.csv sample table in pack index | 178 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -275,7 +276,8 @@
 134. ~~CLI place room + agent surface docs~~ (pass 109)
 135. ~~create_slab registry/CLI/MCP~~ (pass 110)
 136. ~~create_equipment_box registry/CLI/MCP~~ (pass 111)
-137. Keep closing residual gaps until pass 120 / 10h
+137. ~~HTML window schedule sample~~ (pass 112)
+138. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
