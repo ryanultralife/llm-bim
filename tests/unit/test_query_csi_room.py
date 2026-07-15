@@ -76,3 +76,28 @@ def test_query_section_and_trade_size():
     assert len(beams) == 1
     cond = run_query(p.model, "category=conduit trade_size=1")
     assert len(cond) == 1
+
+
+def test_query_row_enrichment_fields_for_agents():
+    """Fields agents need on query hits (mirrors MCP project_query row shape)."""
+    from llmbim_core.csi import csi_for_element
+
+    p = Project.create("q-enrich", vcs=False)
+    p.add_level("L1", 0)
+    cid = p.place_column(level="L1", origin=(1000, 1000), section="W10x33", height_mm=3500)
+    el = p.model.get_element(cid)
+    info = csi_for_element(p.model, el)
+    row = {
+        "id": el.id,
+        "category": el.category,
+        "section": el.params.get("section"),
+        "csi_code": info.get("csi_code"),
+        "locator": info.get("locator"),
+        "length_m": el.params.get("length_m"),
+        "fire_rating": el.params.get("fire_rating"),
+        "phase": el.params.get("phase", "new"),
+    }
+    assert row["section"] == "W10x33"
+    assert row["csi_code"] == "05 12 00"
+    assert row["locator"]
+    assert abs(float(row["length_m"]) - 3.5) < 0.01
