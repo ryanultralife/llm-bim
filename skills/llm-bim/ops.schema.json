@@ -191,6 +191,16 @@
       }
     },
     {
+      "name": "create_equipment_box",
+      "description": "Place equipment envelope box/cylinder at origin with size_mm Lx,Ly,Hz",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
       "name": "create_generic",
       "description": "Create element of any category",
       "mutates": true,
