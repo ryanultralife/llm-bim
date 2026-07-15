@@ -143,6 +143,40 @@ def cmd_boq(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_schedule(args: argparse.Namespace) -> int:
+    """Export or print schedule rows: room|zone|door|csi|connection|pipe|…"""
+    from pathlib import Path
+
+    from llmbim import Project
+    from llmbim_drawings.schedules import export_schedule_csv, schedule_rows
+
+    p = Project.open(args.path)
+    kind = args.kind or "zone"
+    rows = schedule_rows(p.model, kind)
+    if args.out:
+        out = Path(args.out)
+        if out.suffix.lower() == ".csv" or not out.suffix:
+            if not out.suffix:
+                out = out.with_suffix(".csv") if out.name else out / f"{kind}.csv"
+            export_schedule_csv(p.model, kind, out)
+            print(json.dumps({"kind": kind, "count": len(rows), "wrote": str(out)}, indent=2))
+            return 0
+        out.write_text(
+            __import__("json").dumps(rows, indent=2, default=str) + "\n",
+            encoding="utf-8",
+        )
+        print(json.dumps({"kind": kind, "count": len(rows), "wrote": str(out)}, indent=2))
+        return 0
+    print(
+        __import__("json").dumps(
+            {"kind": kind, "count": len(rows), "rows": rows[: args.limit]},
+            indent=2,
+            default=str,
+        )
+    )
+    return 0
+
+
 def cmd_clash(args: argparse.Namespace) -> int:
     from llmbim import Project
 
@@ -693,6 +727,20 @@ def main(argv: list[str] | None = None) -> int:
     p_boq.add_argument("path")
     p_boq.add_argument("--out", default=None)
     p_boq.set_defaults(func=cmd_boq)
+
+    p_sch = sub.add_parser(
+        "schedule",
+        help="Schedule rows: zone|room|door|window|wall|csi|connection|pipe|fitting|…",
+    )
+    p_sch.add_argument("path", help="Project dir or model.llmbim.json")
+    p_sch.add_argument(
+        "--kind",
+        default="zone",
+        help="zone|room|door|window|wall|equipment|fitting|pipe|part|csi|connection",
+    )
+    p_sch.add_argument("--out", default=None, help="Write .csv or .json file")
+    p_sch.add_argument("--limit", type=int, default=50, help="Max rows when printing JSON")
+    p_sch.set_defaults(func=cmd_schedule)
 
     p_clash = sub.add_parser("clash", help="AABB clash report")
     p_clash.add_argument("path")

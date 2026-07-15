@@ -74,3 +74,29 @@ def test_cli_takeoff_csi_instances(tmp_path: Path, capsys):
     assert data["count"] >= 1
     assert "locator" in data["instances"][0]
     assert data["instances"][0]["csi_code"]
+
+
+def test_cli_schedule_zone(tmp_path: Path, capsys):
+    p = Project.create("cli-sched", vcs=False)
+    p.add_level("L1", 0)
+    p.create_room(
+        level="L1",
+        name="Lab",
+        boundary=[(0, 0), (4000, 0), (4000, 3000), (0, 3000)],
+        height_mm=3000,
+    )
+    model = tmp_path / "m.llmbim.json"
+    p.save(model)
+    out_csv = tmp_path / "zone.csv"
+    rc = main(["schedule", str(model), "--kind", "zone", "--out", str(out_csv)])
+    assert rc == 0
+    assert out_csv.is_file()
+    text = out_csv.read_text(encoding="utf-8")
+    assert "Lab" in text
+    assert "volume_m3" in text or "area_m2" in text
+    _ = capsys.readouterr()  # clear first command stdout
+    rc = main(["schedule", str(model), "--kind", "zone", "--limit", "5"])
+    assert rc == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["count"] >= 1
+    assert data["rows"][0]["name"] == "Lab"

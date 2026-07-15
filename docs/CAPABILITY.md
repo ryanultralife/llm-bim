@@ -115,6 +115,8 @@ p.csi_takeoff()     # rollup by section + instance list
 # pack writes materials/csi_instances.csv + schedules/csi.csv
 # CLI: llmbim takeoff PATH --kind csi_instances
 # CLI place: llmbim place PATH --kind riser --origin 1500,2000 --z0 0 --z1 3000 --nps 2
+# CLI schedule: llmbim schedule PATH --kind zone --out zones.csv
+#               llmbim schedule PATH --kind csi|connection|room|door
 p.set_phase(wall_id, "existing")
 p.export_deliverables(out, phases="new")  # IFC/BOQ/views = new only; full model still saved
 ```

@@ -240,6 +240,15 @@ if HAS_MCP:
         )
 
     @mcp.tool()
+    def project_schedule(project_id: str, kind: str = "zone", limit: int = 100) -> str:
+        """Schedule rows. kind: zone|room|door|window|wall|csi|connection|pipe|fitting|part."""
+        from llmbim_drawings.schedules import schedule_rows
+
+        p = store.get(project_id)
+        rows = schedule_rows(p.model, kind)
+        return _tool_result({"kind": kind, "count": len(rows), "rows": rows[: max(1, min(limit, 500))]})
+
+    @mcp.tool()
     def project_boq(project_id: str) -> str:
         """Bill of quantities / CSI cost summary"""
         p = store.get(project_id)
