@@ -34,6 +34,7 @@
 | 9 | continue | skill section order | H2/H3 awkward | SKILL sections H–K sequential | — | 4fda52f |
 | 10 | continue | STEP MEP + connections export | STEP walls/equip only | pipe/fitting STEP solids; materials/connections | 74 unit | 69e887b |
 | 11 | continue | plan SVG MEP | plans ignored pipes | pipes/fittings/fixtures on plan SVG | 75 unit | 3ce4ab0 |
+| 12 | continue | MEP design rules | no pipe/wall/fire checks | PIPE_IN_WALL, FIRE_PIPE_MATERIAL, NPS, connections | 79 unit | (pending) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -56,10 +57,11 @@
 17. ~~Connection schedule in materials pack export~~ (pass 10)
 
 18. ~~Plan SVG pipes/fittings~~ (pass 11)
-19. Design rules for MEP clearances / pipe in wall
+19. ~~Design rules for MEP clearances / pipe in wall~~ (pass 12)
 20. Elevation/section draw pipe risers
+21. Pipe-pipe clash in clash.py
 
-**Next suggested focus:** #19 design rules MEP or #20 elev/section pipes
+**Next suggested focus:** #20 elev/section pipes or #21 pipe clash
 
 ## Rules for each scheduled pass
 

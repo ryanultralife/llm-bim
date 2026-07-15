@@ -207,6 +207,206 @@ def run_design_rules(model: ProjectModel) -> list[dict[str, Any]]:
                 )
                 break
 
+    # --- MEP coordination rules ---
+    findings.extend(_mep_design_rules(model))
+
+    return findings
+
+
+def _mep_design_rules(model: ProjectModel) -> list[dict[str, Any]]:
+    """Pipes, fittings, fixtures, module ports — constructability heuristics."""
+    from llmbim_core.clash import element_aabb
+
+    findings: list[dict[str, Any]] = []
+    walls = [(el, element_aabb(el, model)) for el in model.query(category="wall")]
+    pipes = [
+        el
+        for el in model.elements
+        if el.category in {"pipe", "plumbing_pipe"} or el.params.get("fitting_type") == "pipe"
+    ]
+    fittings = [
+        el
+        for el in model.elements
+        if el.category in {"fitting", "fittings"}
+        or (
+            el.params.get("fitting_type")
+            and el.params.get("fitting_type") != "pipe"
+            and el.category not in {"pipe", "plumbing_pipe"}
+        )
+    ]
+
+    for el in pipes:
+        mid = str(el.params.get("material_id") or "")
+        sys = str(el.params.get("system") or "").upper()
+        nps = el.params.get("nps")
+        if not nps:
+            findings.append(
+                {
+                    "rule": "PIPE_MISSING_NPS",
+                    "severity": "warning",
+                    "message": f"Pipe {el.name or el.id} has no NPS size",
+                    "element_id": el.id,
+                    "domain": "mep",
+                }
+            )
+        if not mid:
+            findings.append(
+                {
+                    "rule": "PIPE_MISSING_MATERIAL",
+                    "severity": "warning",
+                    "message": f"Pipe {el.name or el.id} has no material_id",
+                    "element_id": el.id,
+                    "domain": "mep",
+                }
+            )
+        # fire system should be black steel (not copper)
+        if sys in ("FP", "FIRE") or "fire" in (el.name or "").lower():
+            if "copper" in mid.lower() or mid in ("copper_C12200", "copper_fitting"):
+                findings.append(
+                    {
+                        "rule": "FIRE_PIPE_MATERIAL",
+                        "severity": "error",
+                        "message": f"Fire pipe {el.name or el.id} uses copper — expect black steel (21 13 13)",
+                        "element_id": el.id,
+                        "domain": "mep",
+                    }
+                )
+        # very low domestic pipe may conflict with floor finishes
+        z0 = float(el.params.get("z0_mm") or 0)
+        if z0 < 50 and mid and "copper" in mid.lower():
+            findings.append(
+                {
+                    "rule": "PIPE_LOW_Z",
+                    "severity": "info",
+                    "message": f"Pipe {el.name or el.id} at z0={z0:.0f} mm — check floor slab embed vs hang",
+                    "element_id": el.id,
+                    "domain": "mep",
+                }
+            )
+        # pipe centerline inside wall band (embedding / conflict)
+        pb = element_aabb(el, model)
+        if not pb:
+            continue
+        for wall, wb in walls:
+            if not wb or el.level_id != wall.level_id:
+                continue
+            if pb.intersects(wb, tol=1.0):
+                findings.append(
+                    {
+                        "rule": "PIPE_IN_WALL",
+                        "severity": "warning",
+                        "message": (
+                            f"Pipe {el.name or el.id} intersects wall {wall.name or wall.id} "
+                            f"(sleeve/core or route conflict)"
+                        ),
+                        "element_id": el.id,
+                        "domain": "mep",
+                    }
+                )
+                break
+
+    for el in fittings:
+        ftype = str(el.params.get("fitting_type") or "")
+        if ftype and ftype != "sprinkler_head" and not el.params.get("nps"):
+            findings.append(
+                {
+                    "rule": "FITTING_MISSING_NPS",
+                    "severity": "warning",
+                    "message": f"Fitting {el.name or el.id} ({ftype}) has no NPS",
+                    "element_id": el.id,
+                    "domain": "mep",
+                }
+            )
+        # elbow near wall (clearance for wrench)
+        fb = element_aabb(el, model)
+        if not fb:
+            continue
+        for wall, wb in walls:
+            if not wb or el.level_id != wall.level_id:
+                continue
+            gap = 75.0  # mm fitting-to-wall finish clearance heuristic
+            near = not (
+                fb.xmax < wb.xmin - gap
+                or fb.xmin > wb.xmax + gap
+                or fb.ymax < wb.ymin - gap
+                or fb.ymin > wb.ymax + gap
+            )
+            if near and ftype in ("elbow_90", "elbow_45", "tee", "ball_valve", "gate_valve"):
+                findings.append(
+                    {
+                        "rule": "FITTING_WALL_CLEARANCE",
+                        "severity": "info",
+                        "message": (
+                            f"Fitting {el.name or el.id} within ~{gap:.0f} mm of wall "
+                            f"{wall.name or wall.id} — check wrench clearance"
+                        ),
+                        "element_id": el.id,
+                        "domain": "mep",
+                    }
+                )
+                break
+
+    # fixtures should have material or part assignment for takeoff
+    for el in model.elements:
+        if el.category not in {"fixture", "accessory"}:
+            continue
+        if not el.params.get("part_id") and not el.type_id:
+            findings.append(
+                {
+                    "rule": "FIXTURE_NO_PART",
+                    "severity": "info",
+                    "message": f"Fixture {el.name or el.id} has no catalog part_id",
+                    "element_id": el.id,
+                    "domain": "mep",
+                }
+            )
+
+    # broken connection graph
+    for conn in model.meta.get("connections") or []:
+        if not isinstance(conn, dict):
+            continue
+        for key in ("from_id", "to_id"):
+            rid = conn.get(key)
+            if not rid:
+                continue
+            try:
+                model.get_element(str(rid))
+            except Exception:  # noqa: BLE001
+                findings.append(
+                    {
+                        "rule": "BROKEN_CONNECTION",
+                        "severity": "error",
+                        "message": f"Connection {conn.get('id') or conn.get('name')} missing {key}={rid}",
+                        "element_id": None,
+                        "domain": "mep",
+                    }
+                )
+
+    # machines / module roots without ports
+    for el in model.elements:
+        if el.category not in {"module_root", "module_instance"} and el.params.get("kind") not in (
+            "machine",
+            "separator_skid",
+            "skid",
+        ):
+            continue
+        ports = el.params.get("ports") or []
+        if el.params.get("kind") in ("machine", "separator_skid", "skid") and not ports:
+            # check children for ports
+            child_ports = any(
+                (c.params.get("ports") for c in model.elements if c.parent_id == el.id)
+            )
+            if not child_ports and not ports:
+                findings.append(
+                    {
+                        "rule": "MACHINE_NO_PORTS",
+                        "severity": "info",
+                        "message": f"Machine/module {el.name or el.id} has no connection ports defined",
+                        "element_id": el.id,
+                        "domain": "mep",
+                    }
+                )
+
     return findings
 
 
