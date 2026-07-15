@@ -61,6 +61,42 @@ def test_cli_place_riser_and_fitting(tmp_path: Path):
     assert any(e.category == "fitting" for e in p3.model.elements)
 
 
+def test_cli_place_equipment_box(tmp_path: Path, capsys):
+    p = Project.create("cli-eq", vcs=False)
+    p.add_level("L1", 0)
+    model = tmp_path / "model.llmbim.json"
+    p.save(model)
+    rc = main(
+        [
+            "place",
+            str(model),
+            "--kind",
+            "equipment",
+            "--level",
+            "L1",
+            "--origin",
+            "2000,3000",
+            "--size",
+            "1200,800,1500",
+            "--name",
+            "Sep-Shell",
+            "--part-kind",
+            "shell",
+            "--shape",
+            "box",
+        ]
+    )
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["kind"] == "equipment"
+    assert out["size_mm"] == [1200.0, 800.0, 1500.0]
+    p2 = Project.open(model)
+    eqs = [e for e in p2.model.elements if e.category == "equipment"]
+    assert len(eqs) == 1
+    assert eqs[0].params.get("kind") == "shell"
+    assert eqs[0].params.get("size_mm") == [1200.0, 800.0, 1500.0]
+
+
 def test_cli_place_slab_rect(tmp_path: Path, capsys):
     p = Project.create("cli-slab", vcs=False)
     p.add_level("L1", 0)

@@ -861,6 +861,36 @@ if HAS_MCP:
         return _tool_result({"element_id": sid, "thickness_mm": thickness_mm})
 
     @mcp.tool()
+    def equipment_create(
+        project_id: str,
+        level: str,
+        origin_x: float = 0,
+        origin_y: float = 0,
+        size_x: float = 1000,
+        size_y: float = 1000,
+        size_z: float = 1000,
+        name: str = "",
+        kind: str = "equipment",
+        shape: str = "box",
+        z0_mm: float = 0,
+        centered: bool = False,
+    ) -> str:
+        """Place equipment envelope (box or cylinder). size is Lx,Ly,Hz mm; cylinder Ly=diameter."""
+        p = store.get(project_id)
+        eid = p.create_equipment_box(
+            level=level,
+            origin=(origin_x, origin_y),
+            size=(size_x, size_y, size_z),
+            name=name or None,
+            kind=kind or "equipment",
+            shape=shape or "box",
+            z0_mm=z0_mm,
+            centered=centered,
+        )
+        store.save(project_id)
+        return _tool_result({"element_id": eid, "kind": kind, "shape": shape})
+
+    @mcp.tool()
     def level_add(project_id: str, name: str, elevation_mm: float) -> str:
         p = store.get(project_id)
         lid = p.add_level(name, elevation_mm)

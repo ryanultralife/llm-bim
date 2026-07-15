@@ -783,6 +783,35 @@ def cmd_place(args: argparse.Namespace) -> int:
             "thickness_mm": th,
             "polygon_pts": len(polygon),
         }
+    elif kind in ("equipment", "equip"):
+        # size: Lx,Ly,Hz via --size "Lx,Ly,Hz" or width/height + depth default
+        size_arg = getattr(args, "size", None)
+        if size_arg:
+            parts = [float(x.strip()) for x in str(size_arg).replace(" ", "").split(",")]
+            if len(parts) < 3:
+                raise SystemExit("--size requires Lx,Ly,Hz mm")
+            size = (parts[0], parts[1], parts[2])
+        else:
+            lx = float(args.width if args.width is not None else 1000)
+            ly = float(getattr(args, "depth", None) if getattr(args, "depth", None) is not None else 1000)
+            hz = float(args.height if args.height is not None else 1000)
+            size = (lx, ly, hz)
+        eid = p.create_equipment_box(
+            level=level,
+            origin=origin,
+            size=size,
+            name=args.name,
+            kind=args.part_kind or args.fitting_type or "equipment",
+            shape=getattr(args, "shape", None) or "box",
+            z0_mm=float(args.z0 if args.z0 is not None else 0),
+            centered=bool(getattr(args, "centered", False)),
+        )
+        result = {
+            "element_id": eid,
+            "kind": "equipment",
+            "size_mm": list(size),
+            "shape": getattr(args, "shape", None) or "box",
+        }
     else:
         raise SystemExit(f"Unknown place kind: {kind}")
     # persist back to path
@@ -1127,7 +1156,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p_pl = sub.add_parser(
         "place",
-        help="Place fitting|pipe|riser|part|wall|door|window|room|slab|MEP|structure on a project and save",
+        help="Place fitting|pipe|riser|part|wall|door|window|room|slab|equipment|MEP|structure",
     )
     p_pl.add_argument("path", help="Project dir or model.llmbim.json")
     p_pl.add_argument(
@@ -1149,6 +1178,8 @@ def main(argv: list[str] | None = None) -> int:
             "window",
             "room",
             "slab",
+            "equipment",
+            "equip",
         ],
         help="What to place",
     )
@@ -1181,6 +1212,14 @@ def main(argv: list[str] | None = None) -> int:
     p_pl.add_argument("--sill", type=float, default=None, help="Window sill height mm from floor")
     p_pl.add_argument("--type-id", dest="type_id", default=None, help="Type mark e.g. D-HM-36 / W-2HR")
     p_pl.add_argument("--fire-rating", dest="fire_rating", default=None, help="e.g. 90 min or 2-hr")
+    p_pl.add_argument("--size", default=None, help="Equipment size Lx,Ly,Hz mm e.g. 1200,800,1500")
+    p_pl.add_argument("--depth", type=float, default=None, help="Equipment plan depth Ly mm (with --width/--height)")
+    p_pl.add_argument("--shape", default=None, help="Equipment shape: box | cylinder")
+    p_pl.add_argument(
+        "--centered",
+        action="store_true",
+        help="Equipment origin is plan center (not min-corner)",
+    )
     p_pl.add_argument("--nps", default=None, help='Nominal pipe size e.g. 3/4 or 2')
     p_pl.add_argument("--fitting-type", default=None, help="elbow_90 | tee | ...")
     p_pl.add_argument("--section", default=None, help="Steel section for column e.g. W10x33")

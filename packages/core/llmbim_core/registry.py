@@ -350,6 +350,31 @@ def _create_slab(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     return cmd.apply(model)
 
 
+@register(
+    "create_equipment_box",
+    description="Place equipment envelope box/cylinder at origin with size_mm Lx,Ly,Hz",
+    mutates=True,
+)
+def _create_equipment_box(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.commands import CreateEquipmentBox
+
+    origin = p.get("origin") or p.get("origin_mm") or [0, 0]
+    size = p.get("size") or p.get("size_mm") or [1000, 1000, 1000]
+    if len(size) < 3:
+        size = list(size) + [1000] * (3 - len(size))
+    cmd = CreateEquipmentBox(
+        level=p.get("level") or model.levels[0].name,
+        origin=(float(origin[0]), float(origin[1])),
+        size=(float(size[0]), float(size[1]), float(size[2])),
+        name=str(p.get("name") or ""),
+        kind=str(p.get("kind") or "equipment"),
+        centered=bool(p.get("centered") or False),
+        z0_mm=float(p.get("z0_mm") or 0),
+        shape=str(p.get("shape") or "box"),
+    )
+    return cmd.apply(model)
+
+
 @register("create_assembly", description="Group elements into named assembly", mutates=True)
 def _create_assembly(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.ids import new_id

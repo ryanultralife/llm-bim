@@ -71,6 +71,7 @@ def test_registry_create_wall_place_door_window() -> None:
     assert "place_window" in names
     assert "create_slab" in names
     assert "create_room" in names
+    assert "create_equipment_box" in names
 
     p = Project.create("reg-open", vcs=False)
     p.add_level("L1", 0)
@@ -144,3 +145,18 @@ def test_registry_create_wall_place_door_window() -> None:
     )
     assert slab.get("category") == "slab" or slab.get("element_id")
     assert p.stats().get("slab") == 1
+
+    eq = dispatch(
+        p.model,
+        "create_equipment_box",
+        {
+            "level": "L1",
+            "origin": [1000, 1000],
+            "size": [2000, 1000, 1800],
+            "name": "Skid",
+            "kind": "skid",
+            "shape": "box",
+        },
+    )
+    assert eq.get("category") == "equipment"
+    assert p.stats().get("equipment") == 1
