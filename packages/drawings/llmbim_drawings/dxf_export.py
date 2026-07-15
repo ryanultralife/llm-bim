@@ -427,6 +427,50 @@ def export_elevation_dxf(
             ents += _line(hx - r, z, hx + r, z, "FITTINGS")
             ents += _line(hx, z - r, hx, z + r, "FITTINGS")
 
+    # structural columns (vertical rectangle in elevation)
+    for el in model.elements:
+        if el.category != "column" and el.params.get("fitting_type") != "column":
+            continue
+        o = el.params.get("origin_mm")
+        if not o:
+            continue
+        base = _level_elev(model, el.level_id)
+        z0 = base + float(el.params.get("z0_mm") or 0)
+        ht = float(el.params.get("height_mm") or (el.params.get("size_mm") or [0, 0, 3000])[-1] or 3000)
+        sz = el.params.get("size_mm") or [250, 250, ht]
+        half = float(sz[0]) / 2
+        hx = h_of(float(o[0]), float(o[1]))
+        lo, hi = hx - half, hx + half
+        ents += _line(lo, z0, hi, z0, "COLUMNS")
+        ents += _line(hi, z0, hi, z0 + ht, "COLUMNS")
+        ents += _line(hi, z0 + ht, lo, z0 + ht, "COLUMNS")
+        ents += _line(lo, z0 + ht, lo, z0, "COLUMNS")
+        sec = el.params.get("section") or "COL"
+        ents += _text(hx, z0 + ht + 80, 100.0, str(sec)[:20], "COLUMNS")
+
+    # structural beams (horizontal band at z0)
+    for el in model.elements:
+        if el.category != "beam" and el.params.get("fitting_type") != "beam":
+            continue
+        if "start_mm" not in el.params or "end_mm" not in el.params:
+            continue
+        try:
+            s, e = el.params["start_mm"], el.params["end_mm"]
+            base = _level_elev(model, el.level_id)
+            z = base + float(el.params.get("z0_mm") or 0)
+            depth = float(el.params.get("height_mm") or el.params.get("depth_mm") or 300)
+            h0 = h_of(float(s[0]), float(s[1]))
+            h1 = h_of(float(e[0]), float(e[1]))
+            lo, hi = min(h0, h1), max(h0, h1)
+            ents += _line(lo, z, hi, z, "BEAMS")
+            ents += _line(hi, z, hi, z + depth, "BEAMS")
+            ents += _line(hi, z + depth, lo, z + depth, "BEAMS")
+            ents += _line(lo, z + depth, lo, z, "BEAMS")
+            sec = el.params.get("section") or "BM"
+            ents += _text((lo + hi) / 2, z + depth + 60, 90.0, str(sec)[:20], "BEAMS")
+        except (TypeError, ValueError, IndexError, KeyError):
+            continue
+
     # level markers
     for lv in model.levels:
         z = float(lv.elevation_mm)

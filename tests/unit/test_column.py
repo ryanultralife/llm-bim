@@ -101,3 +101,21 @@ def test_column_beam_clash():
     assert any(
         {c.get("a_category"), c.get("b_category")} == {"column", "beam"} for c in clashes
     ), clashes[:5]
+
+
+def test_steel_takeoff_includes_placed_columns_beams():
+    p = Project.create("steel-to", vcs=False)
+    p.add_level("L1", 0)
+    p.place_column(level="L1", origin=(0, 0), section="W10x33", height_mm=3500)
+    p.place_beam(level="L1", start=(0, 0), end=(10000, 0), section="W12x26")
+    steel = p.steel_takeoff() if hasattr(p, "steel_takeoff") else None
+    if steel is None:
+        from llmbim_core.material_lists import steel_takeoff
+
+        steel = steel_takeoff(p.model)
+    assert steel
+    # lengths present for column 3.5m and beam 10m
+    total = 0.0
+    for r in steel:
+        total += float(r.get("qty") or r.get("length_m") or 0)
+    assert total >= 13.0, steel
