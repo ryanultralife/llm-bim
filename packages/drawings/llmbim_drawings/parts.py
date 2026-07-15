@@ -12,12 +12,14 @@ from llmbim_geometry.step_export import export_step_part
 
 
 def _part_views_svg(el: Element, *, scale: float = 0.5) -> str:
-    """Orthographic plan + front + side for an equipment box."""
+    """Orthographic plan + front + side for an equipment box/cylinder."""
     try:
         size = el.params["size_mm"]
         lx, ly, hz = float(size[0]), float(size[1]), float(size[2])
+        shape = el.params.get("shape", "box")
     except (KeyError, TypeError, ValueError):
         lx = ly = hz = 100.0
+        shape = "box"
 
     def box(x: float, y: float, w: float, h: float, label: str) -> list[str]:
         return [
@@ -30,24 +32,48 @@ def _part_views_svg(el: Element, *, scale: float = 0.5) -> str:
             f"{fmt(w / scale)}×{fmt(h / scale)} mm</text>",
         ]
 
-    # plan = Lx × Ly
-    pw, ph = lx * scale, ly * scale
-    # front = Lx × Hz
-    fw, fh = lx * scale, hz * scale
-    # side = Ly × Hz
-    sw, sh = ly * scale, hz * scale
+    def cyl_side(x: float, y: float, length: float, diam: float, label: str) -> list[str]:
+        w, h = length * scale, diam * scale
+        return [
+            f'<rect x="{fmt(x)}" y="{fmt(y)}" width="{fmt(w)}" height="{fmt(h)}" '
+            f'rx="{fmt(h/2)}" fill="#dceaf7" stroke="#0b5cab" stroke-width="1.5"/>',
+            f'<text x="{fmt(x + w / 2)}" y="{fmt(y - 8)}" text-anchor="middle" '
+            f'font-size="12" font-family="sans-serif">{esc(label)}</text>',
+            f'<text x="{fmt(x + w / 2)}" y="{fmt(y + h / 2)}" text-anchor="middle" '
+            f'font-size="10" font-family="sans-serif" fill="#333">'
+            f"Ø{fmt(diam)} × {fmt(length)} mm</text>",
+        ]
 
-    parts = ['<g font-family="sans-serif">']
-    parts += box(40, 60, pw, ph, "PLAN")
-    parts += box(40 + pw + 40, 60, fw, fh, "FRONT")
-    parts += box(40 + pw + 40 + fw + 40, 60, sw, sh, "SIDE")
+    if shape == "cylinder":
+        # plan: rectangle L×D; front: L×D; side: circle
+        pw, ph = lx * scale, ly * scale
+        parts = ['<g font-family="sans-serif">']
+        parts += box(40, 60, pw, ph, "PLAN")
+        parts += cyl_side(40 + pw + 40, 60, lx, ly, "FRONT")
+        r = ly * scale / 2
+        cx, cy = 40 + pw + 40 + lx * scale + 40 + r, 60 + r
+        parts += [
+            f'<circle cx="{fmt(cx)}" cy="{fmt(cy)}" r="{fmt(r)}" fill="#dceaf7" stroke="#0b5cab" stroke-width="1.5"/>',
+            f'<text x="{fmt(cx)}" y="{fmt(60 - 8)}" text-anchor="middle" font-size="12">END</text>',
+        ]
+        max_h = max(ph, ly * scale, 2 * r)
+    else:
+        pw, ph = lx * scale, ly * scale
+        fw, fh = lx * scale, hz * scale
+        sw, sh = ly * scale, hz * scale
+        parts = ['<g font-family="sans-serif">']
+        parts += box(40, 60, pw, ph, "PLAN")
+        parts += box(40 + pw + 40, 60, fw, fh, "FRONT")
+        parts += box(40 + pw + 40 + fw + 40, 60, sw, sh, "SIDE")
+        max_h = max(ph, fh, sh)
+
     parts.append(
         f'<text x="40" y="40" font-size="14" font-weight="bold">{esc(el.name or el.id)}</text>'
     )
     kind = el.params.get("kind", "equipment")
     parts.append(
-        f'<text x="40" y="{fmt(60 + max(ph, fh, sh) + 40)}" font-size="11">'
-        f"kind={esc(str(kind))} · envelope solid (not Fusion BREP detail)</text>"
+        f'<text x="40" y="{fmt(60 + max_h + 40)}" font-size="11">'
+        f"kind={esc(str(kind))} shape={esc(str(shape))} · envelope (not Fusion BREP)</text>"
     )
     parts.append("</g>")
     return "\n".join(parts)

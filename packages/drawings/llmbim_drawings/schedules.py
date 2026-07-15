@@ -58,6 +58,18 @@ def schedule_rows(model: ProjectModel, kind: str) -> list[dict[str, Any]]:
             }
             for el in model.query(category="wall")
         ]
+    if kind in {"equipment", "equip"}:
+        return [
+            {
+                "id": el.id,
+                "name": el.name,
+                "kind": el.params.get("kind"),
+                "shape": el.params.get("shape", "box"),
+                "size_mm": el.params.get("size_mm"),
+                "z0_mm": el.params.get("z0_mm"),
+            }
+            for el in model.query(category="equipment")
+        ]
     raise ValueError(f"Unknown schedule kind: {kind}")
 
 
