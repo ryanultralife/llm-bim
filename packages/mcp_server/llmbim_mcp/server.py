@@ -747,8 +747,10 @@ if HAS_MCP:
         height_mm: float = 3000,
         name: str = "",
         unit: str = "mm",
+        type_id: str = "",
+        fire_rating: str = "",
     ) -> str:
-        """Create a wall. Coordinates in unit (default mm)."""
+        """Create a wall. Coordinates in unit (default mm). fire_rating e.g. 1-hr, 2-hr."""
         p = store.get(project_id)
         wid = p.create_wall(
             level=level,
@@ -758,6 +760,58 @@ if HAS_MCP:
             height_mm=height_mm,
             name=name or None,
             unit=unit,
+            type_id=type_id or None,
+            fire_rating=fire_rating or None,
+        )
+        store.save(project_id)
+        return _tool_result({"element_id": wid})
+
+    @mcp.tool()
+    def place_door(
+        project_id: str,
+        host: str,
+        offset_mm: float = 1000,
+        width_mm: float = 900,
+        height_mm: float = 2100,
+        type_id: str = "",
+        fire_rating: str = "",
+        name: str = "",
+    ) -> str:
+        """Place door on host wall (offset along wall baseline from start). FR e.g. 90 min."""
+        p = store.get(project_id)
+        did = p.place_door(
+            host=host,
+            offset_mm=offset_mm,
+            width_mm=width_mm,
+            height_mm=height_mm,
+            type_id=type_id or None,
+            fire_rating=fire_rating or None,
+            name=name or None,
+        )
+        store.save(project_id)
+        return _tool_result({"element_id": did})
+
+    @mcp.tool()
+    def place_window(
+        project_id: str,
+        host: str,
+        offset_mm: float = 1000,
+        width_mm: float = 1200,
+        height_mm: float = 1200,
+        sill_mm: float = 900,
+        type_id: str = "",
+        name: str = "",
+    ) -> str:
+        """Place window on host wall. sill_mm is height from level floor to sill."""
+        p = store.get(project_id)
+        wid = p.place_window(
+            host=host,
+            offset_mm=offset_mm,
+            width_mm=width_mm,
+            height_mm=height_mm,
+            sill_mm=sill_mm,
+            type_id=type_id or None,
+            name=name or None,
         )
         store.save(project_id)
         return _tool_result({"element_id": wid})
