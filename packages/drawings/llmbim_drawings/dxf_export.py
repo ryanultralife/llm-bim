@@ -119,7 +119,23 @@ def export_plan_dxf(
             e = el.params["end_mm"]
         except KeyError:
             continue
-        ents += _line(float(s[0]), float(s[1]), float(e[0]), float(e[1]), "WALLS")
+        x0, y0 = float(s[0]), float(s[1])
+        x1, y1 = float(e[0]), float(e[1])
+        ents += _line(x0, y0, x1, y1, "WALLS")
+        # type + fire_rating mark at midspan (CAD handoff)
+        tid = el.type_id or el.params.get("type_id") or ""
+        fr = el.params.get("fire_rating") or ""
+        if tid or fr:
+            short = str(tid)
+            if short.startswith("W-") and len(short) > 4:
+                short = short[2:]
+            if len(short) > 12:
+                short = short[:12]
+            if fr:
+                fr_s = str(fr).replace(" min", "m").replace("-hr", "HR").replace(" hr", "HR")
+                short = f"{short} {fr_s}".strip() if short else fr_s
+            mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+            ents += _text(mx, my, 100.0, str(short)[:24], "WALL-TYPES")
 
     for el in model.query(category="equipment", level=lvl.name):
         poly = el.params.get("polygon_mm") or []

@@ -104,7 +104,8 @@
 | 78 | continue | multi-trade pack smoke | smoke thin on structure/tray | column/beam/tray + takeoffs + pack DXF | 146 unit | 5d324e4 |
 | 79 | continue | query section + structure rules | no section=; no steel rules | section/trade_size query; COLUMN_IN_WALL | 148 unit | c80bfaa |
 | 80 | continue | MCP query enrichment | query rows thin on section/system | section/trade_size/fire/phase + docs | 149 unit | d8b6bad |
-| 81 | continue | plan FR tags + rules HTML | fire_rating not on plan; index no rules | wall/door FR marks; design_rules sample | 151 unit | (this) |
+| 81 | continue | plan FR tags + rules HTML | fire_rating not on plan; index no rules | wall/door FR marks; design_rules sample | 151 unit | 40cf5c3 |
+| 82 | continue | DXF wall FR + chat_smoke | plan DXF no WALL-TYPES; smoke thin | WALL-TYPES FR; multi-trade structure smoke | 152 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -215,7 +216,8 @@
 104. ~~Query section= + structure design rules~~ (pass 79)
 105. ~~MCP query enrichment section/system~~ (pass 80)
 106. ~~Plan fire_rating tags + design_rules HTML~~ (pass 81)
-107. Keep closing residual gaps until pass 120 / 10h
+107. ~~Plan DXF WALL-TYPES FR + chat_smoke multi-trade~~ (pass 82)
+108. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
