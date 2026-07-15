@@ -196,6 +196,28 @@ def render_plan_view(
         )
     parts.append("  </g>")
 
+    # Wall type marks (type_id) at midspan
+    parts.append(
+        '  <g class="wall-types" fill="#333" font-family="sans-serif" '
+        f'font-size="{fmt(max(6, 9))}">'
+    )
+    for el, (x0, y0, x1, y1, _t) in walls:
+        tid = el.type_id or el.params.get("type_id") or ""
+        if not tid:
+            continue
+        # short mark e.g. W-EXT-CMU → EXT or last token
+        short = str(tid)
+        if short.startswith("W-") and len(short) > 4:
+            short = short[2:]  # drop W-
+        if len(short) > 12:
+            short = short[:12]
+        mx, my = project((x0 + x1) / 2, (y0 + y1) / 2)
+        parts.append(
+            f'    <text x="{fmt(mx)}" y="{fmt(my - 4)}" text-anchor="middle" '
+            f'fill="#1a1a1a">{esc(short)}</text>'
+        )
+    parts.append("  </g>")
+
     parts.append(
         f'  <g class="openings" stroke="#0066aa" stroke-width="{fmt(max(0.4, 10 * scale))}">'
     )
