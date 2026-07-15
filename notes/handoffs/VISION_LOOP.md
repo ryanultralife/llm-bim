@@ -100,7 +100,8 @@
 | 74 | continue | DXF structure + clash | plan DXF no COLUMNS/BEAMS; clash skip | COLUMNS/BEAMS layers; AABB clash | 142 unit | 41bf481 |
 | 75 | continue | elev DXF structure + steel takeoff | elev no COLUMNS/BEAMS; steel missed place_* | elev COLUMNS/BEAMS; steel_takeoff merge | 144 unit | 2820a1c |
 | 76 | continue | elev/section SVG structure | elev SVG no columns | columns-elev tags; beam depth; section cut | 145 unit | 76fa760 |
-| 77 | continue | section DXF structure | section DXF no COLUMNS/BEAMS | COLUMNS/BEAMS on cut + cable tray | 146 unit | (this) |
+| 77 | continue | section DXF structure | section DXF no COLUMNS/BEAMS | COLUMNS/BEAMS on cut + cable tray | 146 unit | 9b95995 |
+| 78 | continue | multi-trade pack smoke | smoke thin on structure/tray | column/beam/tray + takeoffs + pack DXF | 146 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -207,7 +208,8 @@
 100. ~~Elev DXF columns/beams + steel_takeoff place_*~~ (pass 75)
 101. ~~Elev/section SVG columns + beam depth~~ (pass 76)
 102. ~~Section DXF columns/beams + tray~~ (pass 77)
-103. Keep closing residual gaps until pass 120 / 10h
+103. ~~Multi-trade pack smoke structure+tray~~ (pass 78)
+104. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
