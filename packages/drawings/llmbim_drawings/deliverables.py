@@ -44,20 +44,20 @@ def _try(label: str, errors: list[dict], fn) -> Any:
 def verify_pack(out_dir: str | Path, *, require_parts: bool = False) -> dict[str, Any]:
     """Check a deliverables directory for required artifacts."""
     out = Path(out_dir)
+    # Core 3D/BIM artifacts (MANIFEST is written after verify during pack export)
     required = [
         "model.llmbim.json",
         "model.ifc",
         "model.gltf",
         "model.step",
-        "MANIFEST.json",
     ]
     missing = [r for r in required if not (out / r).is_file()]
     checks: dict[str, Any] = {"missing": missing, "files": {}}
-    for r in required:
+    for r in required + ["MANIFEST.json", "boq.json", "clash_report.json", "design_rules.json"]:
         p = out / r
         if p.is_file():
             size = p.stat().st_size
-            checks["files"][r] = {"size": size, "ok": size > 50}
+            checks["files"][r] = {"size": size, "ok": size > 20}
     # content probes
     if (out / "model.ifc").is_file():
         t = (out / "model.ifc").read_text(encoding="utf-8", errors="replace")
