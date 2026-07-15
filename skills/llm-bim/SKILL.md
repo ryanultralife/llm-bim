@@ -211,6 +211,43 @@ python examples/multi_trade_catalog.py
 
 Systems: `plumbing` · `fire` · `process` · `structural_steel` · `rebar` · `framing` · `fixture` / accessories · `hvac` · `electrical`. CSI divisions 03–10, 21–23, 26, 40, 43.
 
+### H3. Modules / blocks / machines (import into one another)
+
+Nest drawings and fabrications into a host model:
+
+```python
+# Export a machine design as a reusable module package
+machine.export_module("output/modules/sep_skid", kind="machine")
+
+# Import into facility host
+host.import_module("output/modules/sep_skid", level="L0", origin=(8000, 6000),
+                   mode="native")   # editable elements in host
+host.import_module("output/modules/sep_skid", level="L0", origin=(16000, 6000),
+                   mode="block")    # CAD-like block instance
+host.import_module(path, level="L0", origin=(0,0), mode="linked")  # re-syncable
+
+# Ports + connections (process / power / drain)
+host.define_port(equip_id, "FEED", role="process", medium="slurry", position=(x,y))
+host.connect(machine_el, "FEED", header_id, "DROP_A", medium="slurry")
+host.explode_block(instance_id)   # block → native
+print(host.modules())             # library + instances + connections
+```
+
+```bash
+llmbim export-module model.llmbim.json --out output/modules/skid --kind machine
+llmbim import-module output/modules/skid --mode native --origin 8000,6000 --pack
+llmbim modules output/module_demo/host_pack
+python examples/module_machine_host.py
+```
+
+| mode | Behavior |
+|------|----------|
+| `native` | Copy elements into host (fabrication design, fully editable) |
+| `block` | Single instance + definition in `meta.module_library` |
+| `linked` | Block that stores `source_path` for `resync_module` |
+
+Exports expand blocks to solids for IFC/STEP/glTF; the saved host model keeps instances.
+
 ### I. Scripted generative design
 
 ```python

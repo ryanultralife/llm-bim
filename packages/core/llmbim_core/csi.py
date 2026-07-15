@@ -115,6 +115,8 @@ CATEGORY_CSI: dict[str, str] = {
     "plumbing": "22 11 16",
     "process": "40 05 00",
     "envelope": "04 20 00",
+    "module_instance": "11 00 00",
+    "module_root": "11 00 00",
 }
 
 TYPE_CSI: dict[str, str] = {

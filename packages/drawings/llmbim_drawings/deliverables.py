@@ -150,17 +150,28 @@ def export_deliverables(
     model_path = out / "model.llmbim.json"
     _try("save_model", errors, lambda: model.save(model_path))
 
+    # Expand CAD-like blocks for solid/mesh export (host model stays with instances)
+    export_model = model
+    if any(el.category == "module_instance" for el in model.elements):
+        try:
+            from llmbim_core.modules import expand_block_for_export
+
+            export_model = expand_block_for_export(model)
+        except Exception as exc:  # noqa: BLE001
+            errors.append({"step": "expand_blocks", "error": str(exc)})
+            export_model = model
+
     ifc_path = out / "model.ifc"
-    _try("export_ifc", errors, lambda: export_ifc(model, ifc_path))
+    _try("export_ifc", errors, lambda: export_ifc(export_model, ifc_path))
 
     gltf_path = out / "model.gltf"
-    _try("export_gltf", errors, lambda: export_gltf_walls(model, gltf_path))
+    _try("export_gltf", errors, lambda: export_gltf_walls(export_model, gltf_path))
 
     step_path = out / "model.step"
     _try(
         "export_step",
         errors,
-        lambda: export_step(model, step_path, include_walls=has_walls),
+        lambda: export_step(export_model, step_path, include_walls=has_walls),
     )
 
     views = out / "views"

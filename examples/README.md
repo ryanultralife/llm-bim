@@ -7,6 +7,7 @@
 | **`proto10_separator.py`** | equipment (mm) | Fusion MB-SEP-PROTO / RFQ | plan, section, parts assigned |
 | **`plumbing_loop.py`** | room MEP | synthetic CW loop | **90° copper elbows by size** |
 | **`multi_trade_catalog.py`** | all CSI trades | fire/process/steel/rebar/fixtures | `TRADE_ANSWERS.json` |
+| **`module_machine_host.py`** | modules | skid → facility host | block + native + ports/connect |
 
 ## Run
 

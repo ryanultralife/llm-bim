@@ -892,5 +892,136 @@ class Project:
         self.save(path)
         return path
 
+    # --- modules / blocks / machines -----------------------------------------
+
+    def import_module(
+        self,
+        source: str | Path | ProjectModel,
+        *,
+        level: str,
+        origin: tuple[float, float] = (0.0, 0.0),
+        mode: str = "native",
+        name: str | None = None,
+        rotation_deg: float = 0.0,
+        z0_mm: float = 0.0,
+        kind: str = "fabrication",
+    ) -> dict[str, Any]:
+        """Import another project as block | native (exploded) | linked module/machine.
+
+        - ``block``: single instance + definition in library (CAD-like block)
+        - ``native``: copy all elements into host (editable fabrication)
+        - ``linked``: block that can re-sync from source path
+        """
+        from llmbim_core.modules import import_module
+
+        result = import_module(
+            self._model,
+            source,
+            level=level,
+            origin=origin,
+            mode=mode,  # type: ignore[arg-type]
+            name=name,
+            rotation_deg=rotation_deg,
+            z0_mm=z0_mm,
+            kind=kind,
+        )
+        if self._vcs is not None:
+            self._vcs.append_journal(
+                "import_module",
+                {"mode": mode, "name": name, "result": result},
+                author=self._author,
+            )
+        return result
+
+    def export_module(
+        self,
+        path: str | Path,
+        *,
+        name: str | None = None,
+        element_ids: list[str] | None = None,
+        kind: str = "fabrication",
+    ) -> dict[str, Any]:
+        """Save this project (or selection) as a reusable module package."""
+        from llmbim_core.modules import export_as_module
+
+        return export_as_module(
+            self._model,
+            path,
+            name=name or self.name,
+            element_ids=element_ids,
+            kind=kind,
+        )
+
+    def explode_block(self, instance_id: str) -> dict[str, Any]:
+        """Turn a block instance into native host elements."""
+        from llmbim_core.modules import explode_block
+
+        result = explode_block(self._model, instance_id)
+        if self._vcs is not None:
+            self._vcs.append_journal("explode_block", result, author=self._author)
+        return result
+
+    def define_port(
+        self,
+        element_id: str,
+        name: str,
+        *,
+        role: str = "process",
+        medium: str = "",
+        position: tuple[float, float] | None = None,
+        direction: str = "",
+    ) -> dict[str, Any]:
+        """Define a connection port on equipment/module (process, power, drain, …)."""
+        from llmbim_core.modules import define_port
+
+        return define_port(
+            self._model,
+            element_id,
+            name,
+            role=role,
+            medium=medium,
+            position_mm=list(position) if position else None,
+            direction=direction,
+        )
+
+    def connect(
+        self,
+        from_id: str,
+        from_port: str,
+        to_id: str,
+        to_port: str,
+        *,
+        medium: str = "process",
+        name: str = "",
+    ) -> dict[str, Any]:
+        """Connect two ports (machine ↔ host, module ↔ module)."""
+        from llmbim_core.modules import connect
+
+        result = connect(
+            self._model,
+            from_id,
+            from_port,
+            to_id,
+            to_port,
+            medium=medium,
+            name=name,
+        )
+        if self._vcs is not None:
+            self._vcs.append_journal("connect", result, author=self._author)
+        return result
+
+    def modules(self) -> dict[str, Any]:
+        from llmbim_core.modules import list_connections, list_modules
+
+        data = list_modules(self._model)
+        data["connections"] = list_connections(self._model)
+        return data
+
+    def resync_module(self, instance_id: str) -> dict[str, Any]:
+        """Re-load a linked block definition from its source path."""
+        from llmbim_core.modules import resync_linked_module
+
+        return resync_linked_module(self._model, instance_id)
+
 
 __all__ = ["Project", "Element", "Level", "ProjectModel", "__version__"]
