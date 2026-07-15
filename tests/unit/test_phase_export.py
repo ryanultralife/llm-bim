@@ -70,3 +70,43 @@ def test_mcp_export_pack_and_set_phase_signatures():
     assert "phase_filter" in src
     assert "def project_verify_pack" in src
     assert "verify_pack" in src
+    assert "def place_door" in src
+    assert "def place_window" in src
+    assert "fire_rating" in src
+
+
+def test_mcp_place_door_window_api_parity():
+    """SDK place_door/window + wall fire_rating match what MCP tools wrap."""
+    from llmbim import Project
+
+    p = Project.create("mcp-open", vcs=False)
+    p.add_level("L1", 0)
+    wid = p.create_wall(
+        level="L1",
+        start=(0, 0),
+        end=(8000, 0),
+        thickness_mm=200,
+        height_mm=3000,
+        fire_rating="2-hr",
+        type_id="W-2HR",
+    )
+    did = p.place_door(
+        host=wid,
+        offset_mm=2000,
+        width_mm=900,
+        height_mm=2100,
+        type_id="D-HM-36",
+        fire_rating="90 min",
+    )
+    win = p.place_window(
+        host=wid,
+        offset_mm=5000,
+        width_mm=1200,
+        height_mm=900,
+        sill_mm=900,
+        type_id="WIN-VIEW",
+    )
+    assert p.model.get_element(did).params.get("fire_rating") == "90 min"
+    assert p.model.get_element(win).category == "window"
+    assert p.model.get_element(wid).params.get("fire_rating") == "2-hr"
+    assert len(p.query("category=door")) == 1
