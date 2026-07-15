@@ -132,34 +132,53 @@ def export_deliverables(
     mode: str = "auto",
     plan_level: str | None = None,
     plan_scale: float | None = None,
+    phases: str | list[str] | None = None,
 ) -> dict[str, Any]:
-    """Write a full output pack with per-step error isolation."""
+    """Write a full output pack with per-step error isolation.
+
+    ``phases``: optional filter e.g. ``\"new\"`` or ``[\"new\",\"existing\"]``.
+    Full unfiltered model is always saved as ``model.llmbim.json``; IFC/glTF/SVG/
+    BOQ/clash use the phase-filtered view when ``phases`` is set.
+    """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     errors: list[dict] = []
 
-    has_walls = any(el.category == "wall" for el in model.elements)
-    has_equip = any(el.category == "equipment" for el in model.elements)
+    # Source of truth: always full model
+    full_model = model
+    work = model.filter_by_phase(phases) if phases else model
+    phase_filter = None
+    if phases:
+        if isinstance(phases, str):
+            phase_filter = [p.strip() for p in phases.split(",") if p.strip()]
+        else:
+            phase_filter = [str(p) for p in phases]
+
+    has_walls = any(el.category == "wall" for el in work.elements)
+    has_equip = any(el.category == "equipment" for el in work.elements)
     if mode == "auto":
         mode = "facility" if has_walls else "part"
 
-    level = plan_level or (model.levels[0].name if model.levels else "L1")
+    level = plan_level or (work.levels[0].name if work.levels else "L1")
     if plan_scale is None:
         plan_scale = 0.01 if has_walls else 0.4
 
     model_path = out / "model.llmbim.json"
-    _try("save_model", errors, lambda: model.save(model_path))
+    _try("save_model", errors, lambda: full_model.save(model_path))
+    if phase_filter:
+        filtered_path = out / "model_phase_filtered.llmbim.json"
+        _try("save_phase_filtered", errors, lambda: work.save(filtered_path))
 
     # Expand CAD-like blocks for solid/mesh export (host model stays with instances)
-    export_model = model
-    if any(el.category == "module_instance" for el in model.elements):
+    export_model = work
+    if any(el.category == "module_instance" for el in work.elements):
         try:
             from llmbim_core.modules import expand_block_for_export
 
-            export_model = expand_block_for_export(model)
+            export_model = expand_block_for_export(work)
         except Exception as exc:  # noqa: BLE001
             errors.append({"step": "expand_blocks", "error": str(exc)})
-            export_model = model
+            export_model = work
 
     ifc_path = out / "model.ifc"
     _try("export_ifc", errors, lambda: export_ifc(export_model, ifc_path))
@@ -179,23 +198,23 @@ def export_deliverables(
     _try(
         "plan_view",
         errors,
-        lambda: write_plan_svg(model, level, views / f"plan_{level}.svg", scale=plan_scale),
+        lambda: write_plan_svg(work, level, views / f"plan_{level}.svg", scale=plan_scale),
     )
     _try(
         "elev_S",
         errors,
-        lambda: write_elevation_svg(model, "S", views / "elev_S.svg", scale=plan_scale),
+        lambda: write_elevation_svg(work, "S", views / "elev_S.svg", scale=plan_scale),
     )
     _try(
         "elev_E",
         errors,
-        lambda: write_elevation_svg(model, "E", views / "elev_E.svg", scale=plan_scale),
+        lambda: write_elevation_svg(work, "E", views / "elev_E.svg", scale=plan_scale),
     )
     # section mid
     def _section() -> None:
         xs = []
         ys = []
-        for el in model.elements:
+        for el in work.elements:
             if el.category == "wall" and "start_mm" in el.params:
                 xs += [float(el.params["start_mm"][0]), float(el.params["end_mm"][0])]
                 ys += [float(el.params["start_mm"][1]), float(el.params["end_mm"][1])]
@@ -203,7 +222,7 @@ def export_deliverables(
             xs, ys = [0.0, 1000.0], [-1000.0, 1000.0]
         mid = (min(xs) + max(xs)) / 2
         write_section_svg(
-            model,
+            work,
             (mid, min(ys) - 1000),
             (mid, max(ys) + 1000),
             views / "section.svg",
@@ -229,15 +248,15 @@ def export_deliverables(
         _try(
             f"schedule_{kind}",
             errors,
-            lambda k=kind: export_schedule_csv(model, k, schedules / f"{k}.csv"),
+            lambda k=kind: export_schedule_csv(work, k, schedules / f"{k}.csv"),
         )
 
     # Materials / parts / plumbing takeoff package
     from llmbim_core.material_lists import export_lists, plumbing_schedule
 
     mat_dir = out / "materials"
-    mat_written = _try("material_lists", errors, lambda: export_lists(model, mat_dir))
-    plumb = _try("plumbing_schedule", errors, lambda: plumbing_schedule(model))
+    mat_written = _try("material_lists", errors, lambda: export_lists(work, mat_dir))
+    plumb = _try("plumbing_schedule", errors, lambda: plumbing_schedule(work))
     if plumb is not None:
         (out / "schedules" / "plumbing_takeoff.json").write_text(
             json.dumps(plumb, indent=2) + "\n", encoding="utf-8"
@@ -251,6 +270,9 @@ def export_deliverables(
         "step": step_path.name if step_path.exists() else None,
         "views": "views/",
         "schedules": "schedules/",
+        "phase_filter": phase_filter,
+        "export_element_count": len(work.elements),
+        "full_element_count": len(full_model.elements),
     }
     if mat_written:
         result["materials"] = "materials/"
@@ -263,14 +285,14 @@ def export_deliverables(
     from llmbim_core.rules import rules_summary, run_design_rules
     from llmbim_drawings.dxf_export import export_plan_dxf
 
-    _try("boq_json", errors, lambda: export_boq_json(model, out / "boq.json"))
-    _try("boq_csv", errors, lambda: export_boq_csv(model, out / "boq.csv"))
-    clashes = _try("clash", errors, lambda: find_clashes(model)) or []
+    _try("boq_json", errors, lambda: export_boq_json(work, out / "boq.json"))
+    _try("boq_csv", errors, lambda: export_boq_csv(work, out / "boq.csv"))
+    clashes = _try("clash", errors, lambda: find_clashes(work)) or []
     (out / "clash_report.json").write_text(
         json.dumps({"count": len(clashes), "clashes": clashes}, indent=2) + "\n",
         encoding="utf-8",
     )
-    findings = _try("rules", errors, lambda: run_design_rules(model)) or []
+    findings = _try("rules", errors, lambda: run_design_rules(work)) or []
     (out / "design_rules.json").write_text(
         json.dumps({"summary": rules_summary(findings), "findings": findings}, indent=2) + "\n",
         encoding="utf-8",
@@ -278,7 +300,7 @@ def export_deliverables(
     _try(
         "dxf",
         errors,
-        lambda: export_plan_dxf(model, level, out / "views" / f"plan_{level}.dxf"),
+        lambda: export_plan_dxf(work, level, out / "views" / f"plan_{level}.dxf"),
     )
     result["boq"] = "boq.json"
     result["clash_report"] = "clash_report.json"
@@ -288,7 +310,7 @@ def export_deliverables(
     # Bundle locked Fusion STEP references
     from llmbim_geometry.step_import import pack_step_references
 
-    refs = _try("step_refs", errors, lambda: pack_step_references(model, out)) or []
+    refs = _try("step_refs", errors, lambda: pack_step_references(work, out)) or []
     if refs:
         result["step_refs"] = "step_refs/"
 
@@ -297,7 +319,7 @@ def export_deliverables(
             "construction_set",
             errors,
             lambda: export_construction_set(
-                model, out / "construction", plan_level=level, plan_scale=plan_scale
+                work, out / "construction", plan_level=level, plan_scale=plan_scale
             ),
         )
         if cd:
@@ -308,7 +330,7 @@ def export_deliverables(
         parts = _try(
             "part_pack",
             errors,
-            lambda: export_part_pack(model, out / "parts", scale=scale_parts),
+            lambda: export_part_pack(work, out / "parts", scale=scale_parts),
         )
         if parts:
             result["parts"] = parts
@@ -321,7 +343,7 @@ def export_deliverables(
         if not cand.is_dir() or not list(cand.glob("*.svg")):
             cand = out / "parts" / "drawings"
         if cand.is_dir() and list(cand.glob("*.svg")):
-            export_pdf_binder(cand, out / "PLOT_SET.pdf", title=model.name)
+            export_pdf_binder(cand, out / "PLOT_SET.pdf", title=work.name)
 
     _try("pdf_binder", errors, _pdf)
     if (out / "PLOT_SET.pdf").is_file():
@@ -344,7 +366,7 @@ def export_deliverables(
                 pass
 
     # Modern packs always write materials/; require it for vision pack completeness
-    has_part_assign = any(el.params.get("part_id") for el in model.elements)
+    has_part_assign = any(el.params.get("part_id") for el in work.elements)
     verification = verify_pack(
         out,
         require_parts=has_equip,
@@ -370,10 +392,14 @@ def export_deliverables(
         errors.append({"step": "zip_pack", "error": str(exc)})
 
     manifest = {
-        "project": model.name,
+        "project": full_model.name,
         "honesty": "ENGINEERING ESTIMATE — LLM-BIM agent deliverables pack",
         "outputs": result,
-        "stats": model.stats(),
+        "stats": full_model.stats(),
+        "export_stats": work.stats(),
+        "phase_filter": phase_filter,
+        "export_element_count": len(work.elements),
+        "full_element_count": len(full_model.elements),
         "errors": errors,
         "verification": verification,
         "checksums_sha256": checksums,

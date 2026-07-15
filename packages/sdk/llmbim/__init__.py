@@ -980,10 +980,13 @@ class Project:
         mode: str = "auto",
         plan_level: str | None = None,
         plan_scale: float | None = None,
+        phases: str | list[str] | None = None,
     ) -> dict[str, Any]:
         """Full pack: JSON + IFC + glTF + STEP + construction and/or part sheets.
 
         If ``out_dir`` is omitted, writes to ``output/<project_slug>/`` in the repo.
+        ``phases``: e.g. ``\"new\"`` or ``[\"new\",\"existing\"]`` — filters exports
+        (full model still saved as model.llmbim.json).
         """
         from llmbim_core.paths import project_output_dir
         from llmbim_drawings.deliverables import export_deliverables
@@ -995,6 +998,7 @@ class Project:
             mode=mode,
             plan_level=plan_level,
             plan_scale=plan_scale,
+            phases=phases,
         )
         result["output_dir"] = str(dest.resolve())
         return result
