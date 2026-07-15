@@ -451,6 +451,12 @@ def cmd_takeoff(args: argparse.Namespace) -> int:
     if kind == "pipe":
         print(json.dumps(p.pipe_takeoff(nps=args.nps, material=args.material), indent=2))
         return 0
+    if kind in ("duct", "hvac"):
+        print(json.dumps({"duct": p.duct_takeoff()}, indent=2, default=str))
+        return 0
+    if kind in ("conduit", "electrical"):
+        print(json.dumps({"conduit": p.conduit_takeoff()}, indent=2, default=str))
+        return 0
     if kind == "plumbing":
         print(json.dumps(p.plumbing_schedule(), indent=2))
         return 0
@@ -911,8 +917,12 @@ def main(argv: list[str] | None = None) -> int:
             "fixtures",
             "process",
             "framing",
+            "duct",
+            "hvac",
+            "conduit",
+            "electrical",
         ],
-        help="fittings|pipe|plumbing|fire|steel|rebar|csi|csi_instances|trades|fixture|process|framing",
+        help="fittings|pipe|plumbing|fire|steel|rebar|csi|duct|hvac|conduit|electrical|trades|fixture",
     )
     p_tk.add_argument("--fitting-type", default=None, help="elbow_90 | tee | sprinkler_head | ...")
     p_tk.add_argument("--nps", default=None)

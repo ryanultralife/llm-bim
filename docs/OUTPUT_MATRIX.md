@@ -56,8 +56,8 @@
 | Structural steel W/HSS/bolts | takeoff | ✅ | `steel_takeoff` |
 | Rebar #3–#11 + WWF | takeoff | ✅ | `rebar_takeoff` |
 | Fixtures (toilet, hose, TP dispenser) | place + takeoff | ✅ | `place_part` kinds |
-| HVAC rectangular duct | place + BOQ m² + plan/DXF | ✅ | `place_duct` CSI 23 31 00 |
-| Electrical conduit | place + BOQ m + plan/DXF | ✅ | `place_conduit` CSI 26 05 33 |
+| HVAC rectangular duct | place + BOQ m² + **duct_takeoff** + plan/DXF | ✅ | `place_duct` / `duct_takeoff` CSI 23 31 00 |
+| Electrical conduit | place + BOQ m + **conduit_takeoff** + plan/DXF | ✅ | `place_conduit` / `conduit_takeoff` CSI 26 05 33 |
 | Vertical multi-storey riser | place + IFC/glTF | ✅ | `place_riser(to_level=…)` |
 | CSI MasterFormat rollup | JSON/CSV | ✅ | `csi_takeoff` + room locators |
 | Pack `materials/` folder | export | ✅ | `export_lists` in deliverables |

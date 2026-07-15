@@ -78,6 +78,7 @@
 | 52 | continue | query phase= | phase query incomplete docs | phase=new\|existing filter tests | 122 unit | bcab845 |
 | 53 | continue | full multi-trade pack smoke | chat path thin | elev DXF+zone+CSI+IFC space+STEP layers | 123 unit | 77868eb |
 | 54 | continue | DXF grid bubbles | plan DXF grids unlabeled | CIRCLE + A/B/1 labels on GRIDS | 124 unit | c8b4ad4 |
+| 55 | continue | duct/conduit takeoff | only BOQ qty; no trade takeoff API | duct_takeoff/conduit_takeoff + CLI/MCP + pack | 126 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -161,7 +162,8 @@
 77. ~~DXF elevation export~~ (pass 51)
 78. ~~Example multi-trade full pack smoke~~ (pass 53)
 79. ~~Query filter by phase=~~ (pass 52)
-80. Keep closing residual gaps until pass 120 / 10h
+80. ~~Duct/conduit dedicated takeoff API~~ (pass 55)
+81. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
