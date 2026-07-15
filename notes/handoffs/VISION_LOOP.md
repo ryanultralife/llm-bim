@@ -33,6 +33,7 @@
 | 8 | continue | glTF MEP + chat_smoke | glTF walls/equip only; smoke no multi-trade | pipe/fitting/fixture mesh; smoke step 4 | 73 unit + smoke ok | 9889df7 |
 | 9 | continue | skill section order | H2/H3 awkward | SKILL sections H–K sequential | — | 4fda52f |
 | 10 | continue | STEP MEP + connections export | STEP walls/equip only | pipe/fitting STEP solids; materials/connections | 74 unit | 69e887b |
+| 11 | continue | plan SVG MEP | plans ignored pipes | pipes/fittings/fixtures on plan SVG | 75 unit | (pending) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -54,7 +55,11 @@
 16. ~~STEP export for pipe/fitting envelopes~~ (pass 10)
 17. ~~Connection schedule in materials pack export~~ (pass 10)
 
-**Next suggested focus:** design rules for MEP clearances, or plan SVG draw pipes
+18. ~~Plan SVG pipes/fittings~~ (pass 11)
+19. Design rules for MEP clearances / pipe in wall
+20. Elevation/section draw pipe risers
+
+**Next suggested focus:** #19 design rules MEP or #20 elev/section pipes
 
 ## Rules for each scheduled pass
 
