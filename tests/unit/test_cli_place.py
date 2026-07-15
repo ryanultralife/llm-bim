@@ -61,6 +61,59 @@ def test_cli_place_riser_and_fitting(tmp_path: Path):
     assert any(e.category == "fitting" for e in p3.model.elements)
 
 
+def test_cli_place_room_rect_and_boundary(tmp_path: Path, capsys):
+    p = Project.create("cli-room", vcs=False)
+    p.add_level("L1", 0)
+    model = tmp_path / "model.llmbim.json"
+    p.save(model)
+
+    rc = main(
+        [
+            "place",
+            str(model),
+            "--kind",
+            "room",
+            "--level",
+            "L1",
+            "--origin",
+            "0,0",
+            "--end",
+            "4000,3000",
+            "--height",
+            "2700",
+            "--name",
+            "Office",
+        ]
+    )
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["kind"] == "room"
+    assert out["boundary_pts"] == 4
+
+    rc = main(
+        [
+            "place",
+            str(model),
+            "--kind",
+            "room",
+            "--level",
+            "L1",
+            "--boundary",
+            "5000,0;8000,0;8000,2500;5000,2500",
+            "--name",
+            "Lab",
+            "--height",
+            "3000",
+        ]
+    )
+    assert rc == 0
+    p2 = Project.open(model)
+    rooms = [e for e in p2.model.elements if e.category == "room"]
+    assert len(rooms) == 2
+    names = {e.name for e in rooms}
+    assert "Office" in names and "Lab" in names
+
+
 def test_cli_demo_door_fire_rating(tmp_path: Path, capsys):
     out = tmp_path / "demo"
     rc = main(["demo", "--out", str(out)])

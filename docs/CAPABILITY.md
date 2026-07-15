@@ -52,6 +52,7 @@ JSON · IFC · glTF · STEP · SVG sheets · DXF · PDF plot set · BOQ (CSI) ·
 | Place duct / conduit / tray | `p.place_duct` · `place_conduit` · `place_cable_tray` |
 | Place steel | `p.place_column` · `place_beam` → IFCCOLUMN/IFCBEAM |
 | Place openings | `p.create_wall` · `place_door` · `place_window` (FR/type) → IFC/glTF/STEP/DXF/SVG |
+| Place room | `p.create_room` · op `create_room` · MCP `room_create` · CLI `place --kind room` |
 | Count 90° copper by size | `p.fitting_takeoff(fitting_type="elbow_90", material="copper")` |
 | MEP takeoffs | `p.duct_takeoff()` · `conduit_takeoff()` · `cable_tray_takeoff()` · ops |
 | Schedules | `p.schedule("column")` · zone · duct · cable_tray · csi · door |
@@ -59,7 +60,7 @@ JSON · IFC · glTF · STEP · SVG sheets · DXF · PDF plot set · BOQ (CSI) ·
 | Export lists | `p.export_material_lists()` / pack `materials/` |
 | Verify pack | `p.verify_pack(out)` / MCP `project_verify_pack` |
 
-Ops: `create_wall`/`place_door`/`place_window`, `place_duct/conduit/cable_tray/column/beam`, `duct_takeoff`/`conduit_takeoff`/`cable_tray_takeoff`/`steel_takeoff`, `fitting_takeoff`, `csi_takeoff`, `export_pack`, …
+Ops: `create_wall`/`place_door`/`place_window`/`create_room`, `place_duct/conduit/cable_tray/column/beam`, `duct_takeoff`/`conduit_takeoff`/`cable_tray_takeoff`/`steel_takeoff`, `fitting_takeoff`, `csi_takeoff`, `export_pack`, …
 
 ### Trade catalogs (~430 parts)
 

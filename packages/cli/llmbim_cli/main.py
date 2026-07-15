@@ -527,6 +527,25 @@ def _parse_xy(s: str) -> tuple[float, float]:
     return parts[0], parts[1]
 
 
+def _parse_boundary(s: str) -> list[tuple[float, float]]:
+    """Parse 'x1,y1;x2,y2;x3,y3' or 'x1,y1 x2,y2 x3,y3' into plan polygon points."""
+    raw = (s or "").strip()
+    if not raw:
+        raise SystemExit("place room requires --boundary or --origin + --end rect")
+    seps = ";" if ";" in raw else "|"
+    if seps in raw:
+        chunks = [c.strip() for c in raw.split(seps) if c.strip()]
+    else:
+        # space-separated points: "0,0 4000,0 4000,3000"
+        chunks = [c.strip() for c in raw.replace("  ", " ").split(" ") if c.strip()]
+    pts: list[tuple[float, float]] = []
+    for c in chunks:
+        pts.append(_parse_xy(c))
+    if len(pts) < 3:
+        raise SystemExit("room boundary needs ≥3 points (x,y;...)")
+    return pts
+
+
 def cmd_place(args: argparse.Namespace) -> int:
     """Place MEP part/fitting/pipe/riser on an open project and save."""
     from llmbim import Project
@@ -701,6 +720,36 @@ def cmd_place(args: argparse.Namespace) -> int:
             type_id=getattr(args, "type_id", None) or None,
         )
         result = {"element_id": eid, "kind": "window", "host": host}
+    elif kind == "room":
+        b_arg = getattr(args, "boundary", None)
+        if b_arg:
+            boundary = _parse_boundary(b_arg)
+        elif args.end:
+            # axis-aligned rect from origin (SW) to end (NE)
+            x0, y0 = origin
+            x1, y1 = _parse_xy(args.end)
+            boundary = [
+                (min(x0, x1), min(y0, y1)),
+                (max(x0, x1), min(y0, y1)),
+                (max(x0, x1), max(y0, y1)),
+                (min(x0, x1), max(y0, y1)),
+            ]
+        else:
+            raise SystemExit(
+                "place room requires --boundary 'x1,y1;x2,y2;...' or --origin + --end for a rectangle"
+            )
+        eid = p.create_room(
+            level=level,
+            name=args.name or "Room",
+            boundary=boundary,
+            height_mm=float(args.height) if args.height is not None else None,
+        )
+        result = {
+            "element_id": eid,
+            "kind": "room",
+            "name": args.name or "Room",
+            "boundary_pts": len(boundary),
+        }
     else:
         raise SystemExit(f"Unknown place kind: {kind}")
     # persist back to path
@@ -1045,7 +1094,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p_pl = sub.add_parser(
         "place",
-        help="Place fitting|pipe|riser|part|wall|door|window|MEP|structure on a project and save",
+        help="Place fitting|pipe|riser|part|wall|door|window|room|MEP|structure on a project and save",
     )
     p_pl.add_argument("path", help="Project dir or model.llmbim.json")
     p_pl.add_argument(
@@ -1065,14 +1114,20 @@ def main(argv: list[str] | None = None) -> int:
             "wall",
             "door",
             "window",
+            "room",
         ],
         help="What to place",
     )
     p_pl.add_argument("--width", type=float, default=None, help="Duct/door/window width mm; wall thickness")
-    p_pl.add_argument("--height", type=float, default=None, help="Duct/column/door/window/wall height mm")
+    p_pl.add_argument("--height", type=float, default=None, help="Duct/column/door/window/wall/room clear height mm")
     p_pl.add_argument("--level", default=None)
-    p_pl.add_argument("--origin", default="0,0", help="x,y mm plan origin / pipe start / wall start")
-    p_pl.add_argument("--end", default=None, help="x,y mm end (pipe/duct/wall/beam)")
+    p_pl.add_argument("--origin", default="0,0", help="x,y mm plan origin / pipe start / wall start / room SW")
+    p_pl.add_argument("--end", default=None, help="x,y mm end (pipe/duct/wall/beam/room NE rect)")
+    p_pl.add_argument(
+        "--boundary",
+        default=None,
+        help="Room polygon: x1,y1;x2,y2;x3,y3 (mm). Or use --origin + --end for rectangle",
+    )
     p_pl.add_argument("--host", default=None, help="Host wall element id (door/window)")
     p_pl.add_argument("--offset", type=float, default=None, help="Offset along host wall mm (door/window)")
     p_pl.add_argument("--sill", type=float, default=None, help="Window sill height mm from floor")
