@@ -2,8 +2,11 @@
 
 **Started:** 2026-07-15 (session)  
 **Cadence:** every 5 minutes  
-**Duration:** 2 hours (~24 passes max)  
-**End:** stop after 24 passes or when wall-clock ≥ start + 2h  
+**Duration:** **10 hours** (~120 passes max)  
+**End:** stop after 120 passes or wall-clock ≥ start + 10h  
+**Scheduler:** 5m recurring `019f673f9283` + 10h hard-stop  
+
+**CSI upgrade (user):** every takeoff line should carry a **real MasterFormat** `csi_code` (e.g. `22 11 16`) plus a **locator** (level | X | Y | Z/height | NPS) so agents can find the item in the model — not vague divisions alone.
 
 ## Vision anchors (must match output)
 
@@ -25,6 +28,7 @@
 | 3 | T+10m | verify materials pack | verify ignored materials/ | require_materials + CLI flag + tests | 62 unit pass | 6c683b1 |
 | 4 | T+15m | CSI process + matrix modules | sep parts CSI empty; modules undoc'd | flange/cartridge/magnet/pedestal CSI; OUTPUT_MATRIX M6 | 68 unit pass | b5143a5 |
 | 5 | T+20m | IFC pipe/fitting/fixture | IFC only walls/equip | BuildingElementProxy for pipe/fitting/fixture/module | 70 unit pass | 6af664a |
+| 6 | T+~30m | CSI real codes + locators | codes too coarse; no XY/Z | csi_instance L1\|X\|Y\|Z; MF 22 42 13 toilets etc | 72 unit pass | (this commit) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -42,6 +46,7 @@
 12. ~~Process separator CSI~~ (pass 4)
 13. MCP tools for import_module / connect (modules via project_op only)
 14. ~~OUTPUT_MATRIX modules~~ (pass 4)
+15. ~~CSI MasterFormat + level/XY/Z locators~~ (pass 6)
 
 **Next suggested focus:** #13 MCP module tools or #7 glTF pipe markers
 
@@ -53,4 +58,4 @@
 4. Run focused tests (`pytest tests/unit -q` or subset)
 5. Commit if green: `[grok] vision-loop N: <summary>`
 6. Append pass row to this log; update backlog
-7. If pass_count ≥ 24 or past end time → stop, do not schedule more work, write FINAL summary
+7. If pass_count ≥ **120** or past 10h end → stop, write FINAL summary

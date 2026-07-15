@@ -529,13 +529,25 @@ def system_takeoff(model: ProjectModel, system: str | None = None) -> list[dict[
 
 
 def csi_takeoff(model: ProjectModel, *, division: str | None = None) -> list[dict[str, Any]]:
-    """Aggregate assigned parts + BOQ-ish lines by CSI code."""
-    from llmbim_core.csi import CSI_DIVISIONS, CSI_SECTIONS
+    """Aggregate by real MasterFormat CSI code; include instance locators."""
+    from llmbim_core.csi import (
+        CSI_DIVISIONS,
+        CSI_SECTIONS,
+        csi_for_element,
+        csi_instance_schedule,
+        normalize_csi_code,
+        resolve_csi_code,
+    )
 
     buckets: dict[str, dict[str, Any]] = {}
     for r in part_assignment_list(model):
         part = get_part(str(r["part_id"]))
-        code = (part.csi_code if part else "") or "01 00 00"
+        code = resolve_csi_code(
+            csi_code=part.csi_code if part else None,
+            category=str(r.get("category") or ""),
+            part_id=str(r["part_id"]),
+        )
+        code = normalize_csi_code(code)
         if division and not code.startswith(division):
             continue
         qty = float(r.get("qty") or 1)
@@ -544,25 +556,68 @@ def csi_takeoff(model: ProjectModel, *, division: str | None = None) -> list[dic
             code,
             {
                 "csi_code": code,
+                "csi_number": code,
                 "csi_section_name": CSI_SECTIONS.get(code, ""),
                 "csi_division": code.split()[0],
                 "csi_division_name": CSI_DIVISIONS.get(code.split()[0], ""),
                 "qty_lines": 0,
                 "est_cost": 0.0,
                 "parts": {},
+                "instances": [],
             },
         )
         b["qty_lines"] += 1
         b["est_cost"] += cost
         pid = str(r["part_id"])
-        pb = b["parts"].setdefault(pid, {"part_id": pid, "part_name": r.get("part_name"), "qty": 0.0, "est_cost": 0.0})
+        pb = b["parts"].setdefault(
+            pid, {"part_id": pid, "part_name": r.get("part_name"), "qty": 0.0, "est_cost": 0.0}
+        )
         pb["qty"] += qty
         pb["est_cost"] += cost
+        # per-element locator if present
+        eid = r.get("element_id")
+        if eid:
+            try:
+                el = model.get_element(str(eid))
+                inst = csi_for_element(model, el)
+                b["instances"].append(
+                    {
+                        "element_id": eid,
+                        "csi_instance": inst.get("csi_instance"),
+                        "locator": inst.get("locator"),
+                        "level": inst.get("level"),
+                        "x_mm": inst.get("x_mm"),
+                        "y_mm": inst.get("y_mm"),
+                        "z_mm": inst.get("z_mm"),
+                        "height_mm": inst.get("height_mm"),
+                        "qty": qty,
+                    }
+                )
+            except Exception:  # noqa: BLE001
+                pass
     out = []
     for code, b in buckets.items():
         b["est_cost"] = round(b["est_cost"], 2)
         b["parts"] = sorted(b["parts"].values(), key=lambda x: -x["est_cost"])
         out.append(b)
+    # always useful: flat instance schedule attached when empty parts model still has geometry
+    if not out:
+        for row in csi_instance_schedule(model):
+            if division and not str(row.get("csi_code", "")).startswith(division):
+                continue
+            out.append(
+                {
+                    "csi_code": row["csi_code"],
+                    "csi_number": row["csi_code"],
+                    "csi_section_name": row.get("csi_section_name"),
+                    "csi_division": row.get("csi_division"),
+                    "csi_division_name": row.get("csi_division_name"),
+                    "qty_lines": 1,
+                    "est_cost": 0.0,
+                    "parts": [],
+                    "instances": [row],
+                }
+            )
     return sorted(out, key=lambda x: x["csi_code"])
 
 
@@ -659,6 +714,9 @@ def export_lists(model: ProjectModel, out_dir: str | Path) -> dict[str, str]:
     steel = steel_takeoff(model)
     rebar = rebar_takeoff(model)
     csi = csi_takeoff(model)
+    from llmbim_core.csi import csi_instance_schedule
+
+    csi_instances = csi_instance_schedule(model)
     trades = full_trade_schedule(model)
 
     files: dict[str, Any] = {
@@ -672,6 +730,7 @@ def export_lists(model: ProjectModel, out_dir: str | Path) -> dict[str, str]:
         "steel_takeoff": steel,
         "rebar_takeoff": rebar,
         "csi_takeoff": csi,
+        "csi_instances": csi_instances,
     }
     written: dict[str, str] = {}
     for name, rows in files.items():

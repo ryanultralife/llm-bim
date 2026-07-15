@@ -603,6 +603,12 @@ class Project:
 
         return csi_takeoff(self._model, division=division)
 
+    def csi_instances(self) -> list[dict[str, Any]]:
+        """Per-element MasterFormat CSI + level/XY/Z/height locator to find items."""
+        from llmbim_core.csi import csi_instance_schedule
+
+        return csi_instance_schedule(self._model)
+
     def fire_takeoff(self) -> dict[str, Any]:
         from llmbim_core.material_lists import fire_takeoff
 
