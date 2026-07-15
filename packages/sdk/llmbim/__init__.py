@@ -826,6 +826,12 @@ class Project:
 
         return steel_takeoff(self._model)
 
+    def schedule(self, kind: str = "zone") -> list[dict[str, Any]]:
+        """Schedule rows: level|zone|column|beam|duct|conduit|cable_tray|csi|…"""
+        from llmbim_drawings.schedules import schedule_rows
+
+        return schedule_rows(self._model, kind)
+
     def rebar_takeoff(self) -> list[dict[str, Any]]:
         from llmbim_core.material_lists import rebar_takeoff
 

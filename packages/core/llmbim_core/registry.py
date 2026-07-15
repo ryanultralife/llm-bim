@@ -568,6 +568,14 @@ def _csi_takeoff(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     return {"rows": rows, "count": len(rows)}
 
 
+@register("steel_takeoff", description="Structural steel by section (place_column/beam + catalog)", mutates=False)
+def _steel_takeoff(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.material_lists import steel_takeoff
+
+    rows = steel_takeoff(model)
+    return {"steel": rows, "count": len(rows)}
+
+
 @register("duct_takeoff", description="HVAC duct runs: length_m + area_m2 by size", mutates=False)
 def _duct_takeoff(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.material_lists import duct_takeoff
