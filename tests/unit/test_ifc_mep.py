@@ -91,6 +91,46 @@ def test_ifc_csi_property_sets(tmp_path: Path) -> None:
     assert "IFCRELDEFINESBYPROPERTIES" in text
 
 
+def test_ifc_door_window_host_placement(tmp_path: Path) -> None:
+    """Doors/windows placed on host wall baseline (not world origin) with FR tag."""
+    p = Project.create("Open IFC", vcs=False)
+    p.add_level("L1", 0)
+    wid = p.create_wall(
+        level="L1",
+        start=(2000, 3000),
+        end=(10000, 3000),
+        thickness_mm=200,
+        height_mm=3000,
+    )
+    p.place_door(
+        host=wid,
+        offset_mm=2500,
+        width_mm=900,
+        height_mm=2100,
+        type_id="D-HM-36",
+        fire_rating="90 min",
+        name="Entry",
+    )
+    p.place_window(
+        host=wid,
+        offset_mm=5000,
+        width_mm=1200,
+        height_mm=900,
+        sill_mm=900,
+        type_id="WIN-VIEW",
+        name="View",
+    )
+    out = tmp_path / "open.ifc"
+    export_ifc(p.model, out)
+    text = out.read_text(encoding="utf-8")
+    assert "IFCDOOR" in text
+    assert "IFCWINDOW" in text
+    # placement should reference host wall coords (2000+offset, 3000) not only 0,0,0
+    assert "4500" in text or "4500." in text  # 2000 + 2500 door start
+    assert "3000" in text or "3000." in text
+    assert "FR90" in text or "90min" in text or "D-HM" in text
+
+
 def test_ifc_column_and_beam_entities(tmp_path: Path) -> None:
     """Structure exports as IFCCOLUMN / IFCBEAM with CSI psets and section tags."""
     p = Project.create("Struct IFC", vcs=False)
