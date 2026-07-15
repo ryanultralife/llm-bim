@@ -92,6 +92,23 @@ def render_plan_view(
     rooms = model.query(category="room", level=lvl.name)
     equipment = model.query(category="equipment", level=lvl.name)
     notes = model.query(category="note", level=lvl.name)
+    # MEP + catalog proxies on this level
+    mep_els = [
+        el
+        for el in model.elements
+        if el.level_id == lvl.id
+        and el.category
+        in {
+            "pipe",
+            "plumbing_pipe",
+            "fitting",
+            "fittings",
+            "fixture",
+            "accessory",
+            "module_instance",
+            "module_root",
+        }
+    ]
 
     xs: list[float] = []
     ys: list[float] = []
@@ -118,6 +135,22 @@ def render_plan_view(
                 ys += [float(o[1]) - r, float(o[1]) + r]
             except (KeyError, TypeError, ValueError, IndexError):
                 pass
+    for el in mep_els:
+        if el.params.get("start_mm") and el.params.get("end_mm"):
+            s, e = el.params["start_mm"], el.params["end_mm"]
+            xs += [float(s[0]), float(e[0])]
+            ys += [float(s[1]), float(e[1])]
+        elif el.params.get("origin_mm"):
+            o = el.params["origin_mm"]
+            xs.append(float(o[0]))
+            ys.append(float(o[1]))
+            if el.params.get("size_mm"):
+                sz = el.params["size_mm"]
+                xs.append(float(o[0]) + float(sz[0]))
+                ys.append(float(o[1]) + float(sz[1] if len(sz) > 1 else 100))
+        for pt in el.params.get("polygon_mm") or []:
+            xs.append(float(pt[0]))
+            ys.append(float(pt[1]))
 
     if xs and ys:
         min_x, max_x = min(xs) - margin_mm, max(xs) + margin_mm
@@ -253,6 +286,127 @@ def render_plan_view(
             f"{fmt(px)},{fmt(py)}" for px, py in (project(float(p[0]), float(p[1])) for p in poly)
         )
         parts.append(f'    <polygon points="{pts}"/>')
+    parts.append("  </g>")
+
+    # MEP: pipes (lines) + fittings/fixtures (markers)
+    pipe_sw = max(1.2, 25 * scale)
+    parts.append(
+        f'  <g class="pipes" stroke="#c45c26" stroke-width="{fmt(pipe_sw)}" '
+        f'fill="none" stroke-linecap="round">'
+    )
+    for el in mep_els:
+        if el.category not in {"pipe", "plumbing_pipe"} and el.params.get("fitting_type") != "pipe":
+            continue
+        try:
+            if "start_mm" in el.params and "end_mm" in el.params:
+                s, e = el.params["start_mm"], el.params["end_mm"]
+                x0, y0 = float(s[0]), float(s[1])
+                x1, y1 = float(e[0]), float(e[1])
+            else:
+                continue
+            # color by system / material
+            mid = str(el.params.get("material_id") or "")
+            stroke = "#c45c26"  # copper-ish
+            if "black" in mid or el.params.get("system") in ("FP", "fire"):
+                stroke = "#333333"
+            if "ss316" in mid or el.params.get("system") in ("PROC", "process"):
+                stroke = "#6b7c8a"
+            if "pvc" in mid:
+                stroke = "#e6d84a"
+            pa, pb = project(x0, y0), project(x1, y1)
+            parts.append(
+                f'    <line x1="{fmt(pa[0])}" y1="{fmt(pa[1])}" '
+                f'x2="{fmt(pb[0])}" y2="{fmt(pb[1])}" stroke="{stroke}"/>'
+            )
+            # NPS tag mid-span
+            nps = el.params.get("nps")
+            if nps:
+                mx, my = (pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2
+                parts.append(
+                    f'    <text x="{fmt(mx)}" y="{fmt(my - 3)}" text-anchor="middle" '
+                    f'font-size="{fmt(max(6, 9))}" fill="{stroke}" font-family="sans-serif">'
+                    f"{esc(str(nps))}\"</text>"
+                )
+        except (KeyError, TypeError, ValueError, IndexError):
+            continue
+    parts.append("  </g>")
+
+    parts.append(
+        f'  <g class="fittings" fill="#fff3e0" stroke="#c45c26" '
+        f'stroke-width="{fmt(max(0.5, 8 * scale))}">'
+    )
+    for el in mep_els:
+        if el.category in {"pipe", "plumbing_pipe"}:
+            continue
+        if el.params.get("fitting_type") == "pipe":
+            continue
+        try:
+            o = el.params.get("origin_mm")
+            if not o:
+                continue
+            ox, oy = float(o[0]), float(o[1])
+            px, py = project(ox, oy)
+            ftype = str(el.params.get("fitting_type") or el.category)
+            nps = el.params.get("nps") or ""
+            mid = str(el.params.get("material_id") or "")
+            stroke = "#c45c26"
+            if "black" in mid or "fire" in str(el.params.get("system", "")):
+                stroke = "#222"
+            if el.category in {"fixture", "accessory"}:
+                stroke = "#5c4d7a"
+                fill = "#ede7f6"
+            else:
+                fill = "#fff3e0"
+            r = max(4.0, 55 * scale)
+            if ftype in ("elbow_90", "elbow_45"):
+                # L-shaped tick
+                parts.append(
+                    f'    <circle cx="{fmt(px)}" cy="{fmt(py)}" r="{fmt(r)}" '
+                    f'fill="{fill}" stroke="{stroke}"/>'
+                )
+                parts.append(
+                    f'    <text x="{fmt(px)}" y="{fmt(py + r * 0.35)}" text-anchor="middle" '
+                    f'font-size="{fmt(max(5, r * 0.9))}" fill="{stroke}" font-family="sans-serif">'
+                    f"{'90' if '90' in ftype else '45'}</text>"
+                )
+            elif ftype == "tee":
+                parts.append(
+                    f'    <rect x="{fmt(px - r)}" y="{fmt(py - r)}" width="{fmt(2 * r)}" '
+                    f'height="{fmt(2 * r)}" fill="{fill}" stroke="{stroke}"/>'
+                )
+                parts.append(
+                    f'    <text x="{fmt(px)}" y="{fmt(py + r * 0.35)}" text-anchor="middle" '
+                    f'font-size="{fmt(max(5, r * 0.85))}" fill="{stroke}" font-family="sans-serif">T</text>'
+                )
+            elif el.category in {"fixture", "accessory"} or ftype in (
+                "toilet",
+                "lavatory",
+                "tp_dispenser",
+                "urinal",
+            ):
+                parts.append(
+                    f'    <rect x="{fmt(px - r * 1.2)}" y="{fmt(py - r)}" width="{fmt(2.4 * r)}" '
+                    f'height="{fmt(2 * r)}" fill="{fill}" stroke="{stroke}" rx="2"/>'
+                )
+                tag = (el.name or ftype)[:6]
+                parts.append(
+                    f'    <text x="{fmt(px)}" y="{fmt(py + r * 0.3)}" text-anchor="middle" '
+                    f'font-size="{fmt(max(5, r * 0.7))}" fill="{stroke}" font-family="sans-serif">'
+                    f"{esc(tag)}</text>"
+                )
+            else:
+                parts.append(
+                    f'    <circle cx="{fmt(px)}" cy="{fmt(py)}" r="{fmt(r * 0.8)}" '
+                    f'fill="{fill}" stroke="{stroke}"/>'
+                )
+            if nps and ftype not in ("toilet", "lavatory"):
+                parts.append(
+                    f'    <text x="{fmt(px + r * 1.4)}" y="{fmt(py)}" '
+                    f'font-size="{fmt(max(5, 8))}" fill="{stroke}" font-family="sans-serif">'
+                    f"{esc(str(nps))}\"</text>"
+                )
+        except (KeyError, TypeError, ValueError, IndexError):
+            continue
     parts.append("  </g>")
 
     font = max(8.0, min(28.0, 350 * scale))

@@ -19,7 +19,7 @@
 | Industry BIM interchange | IFC4 `.ifc` | ✅ pure SPF: walls/slabs/doors/spaces + **proxy for equip/pipe/fitting/fixture/module** | `llmbim_ifc` |
 | 3D review mesh | glTF | ✅ walls + equipment + **pipe/fitting/fixture/module boxes** | `llmbim_geometry.mesh` |
 | 3D solid exchange | STEP AP203 | ✅ boxes/cylinders + **pipe/fitting/fixture envelopes** | `llmbim_geometry.step_export` |
-| Floor plan | SVG | ✅ | `llmbim_drawings.plan` |
+| Floor plan | SVG | ✅ walls + openings + equip + **pipes/fittings/fixtures** | `llmbim_drawings.plan` |
 | Section / elevation | SVG | 🟡 basic | `llmbim_drawings.section` |
 | Construction sheet set | multi SVG + index | ✅ | `llmbim_drawings.construction` |
 | Plot set PDF | multi-page PDF | ✅ | `llmbim_drawings.pdf_binder` |
