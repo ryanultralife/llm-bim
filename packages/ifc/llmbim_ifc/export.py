@@ -483,6 +483,14 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
                 _link_to_space(el, eid)
                 _attach_csi_pset(f, owner, eid, model, el)
 
+        elif el.category == "column" or el.params.get("fitting_type") == "column":
+            eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect)
+            if eid is not None:
+                # Prefer IfcColumn when possible
+                # rewrite last entity tag is hard; emit proxy then also named
+                contained[storey].append(eid)
+                _attach_csi_pset(f, owner, eid, model, el)
+
         elif el.category in {"pipe", "plumbing_pipe", "conduit"}:
             eid = _export_pipe_proxy(f, el, owner, axis_z, extrude_rect)
             if eid is not None:

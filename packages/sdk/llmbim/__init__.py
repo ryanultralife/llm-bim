@@ -677,6 +677,30 @@ class Project:
         )
         return str(r["element_id"])
 
+    def place_column(
+        self,
+        *,
+        level: str,
+        origin: tuple[float, float] = (0.0, 0.0),
+        section: str = "W10x33",
+        height_mm: float = 3000.0,
+        name: str | None = None,
+        material: str = "steel_A36",
+        rotation_deg: float = 0.0,
+    ) -> str:
+        """Structural steel column (vertical). CSI 05 12 00."""
+        r = self.op(
+            "place_column",
+            level=level,
+            origin=list(origin),
+            section=section,
+            height_mm=height_mm,
+            name=name,
+            material=material,
+            rotation_deg=rotation_deg,
+        )
+        return str(r["element_id"])
+
     def place_cable_tray(
         self,
         *,

@@ -78,6 +78,7 @@ _MATERIAL_RGBA: dict[str, list[float]] = {
     "duct": [0.18, 0.49, 0.2, 1.0],  # green
     "conduit": [0.42, 0.11, 0.6, 1.0],  # purple
     "cable_tray": [0.55, 0.15, 0.7, 1.0],  # deep purple
+    "column": [0.35, 0.4, 0.45, 1.0],  # steel gray
     "fitting": [0.95, 0.6, 0.2, 1.0],
     "fixture": [0.45, 0.35, 0.65, 1.0],
     "module": [0.55, 0.55, 0.7, 1.0],
@@ -176,6 +177,8 @@ def _gltf_material_key(el: Element) -> str:
         return "conduit"
     if cat == "cable_tray" or el.params.get("fitting_type") == "cable_tray":
         return "cable_tray"
+    if cat == "column" or el.params.get("fitting_type") == "column":
+        return "column"
     if cat in {"fixture", "accessory"}:
         return "fixture"
     if cat in {"module_instance", "module_root"}:
@@ -223,6 +226,8 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
                 float(s[0]), float(s[1]), float(e[0]), float(e[1]), th, z0, z1
             )
         elif el.category == "equipment":
+            pos = _box_from_origin_size(el, model)
+        elif el.category == "column" or el.params.get("fitting_type") == "column":
             pos = _box_from_origin_size(el, model)
         elif el.category in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac", "cable_tray"}:
             pos = _box_from_pipe(el, model)

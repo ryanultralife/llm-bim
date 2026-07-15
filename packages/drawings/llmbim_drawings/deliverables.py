@@ -257,6 +257,7 @@ def export_deliverables(
         "door",
         "window",
         "wall",
+        "column",
         "equipment",
         "fitting",
         "pipe",
