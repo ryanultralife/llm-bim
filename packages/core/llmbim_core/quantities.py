@@ -262,6 +262,8 @@ def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
             (part.specs or {}).get("fitting_type") if part else None
         )
         is_pipe = el.category in {"pipe", "plumbing_pipe"} or ftype == "pipe"
+        is_conduit = el.category == "conduit" or ftype == "conduit"
+        is_duct = el.category in {"duct", "hvac"} or ftype == "duct"
         is_pipe_fitting = el.category in {"fitting", "fittings"} or (
             ftype in _PIPE_FIT_TYPES
         )
@@ -275,7 +277,68 @@ def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
             "grid",
             "equipment",  # already emitted above
         }
-        if not is_pipe and not is_pipe_fitting and not is_catalog:
+        if not is_pipe and not is_pipe_fitting and not is_catalog and not is_duct and not is_conduit:
+            continue
+
+        if is_duct:
+            length_m = float(el.params.get("length_m") or 0)
+            area_m2 = float(el.params.get("area_m2") or el.params.get("part_qty") or 0)
+            unit_cost = part_unit_cost(part) if part else 55.0  # $/m2 galv default
+            rows.append(
+                {
+                    "category": "duct",
+                    "id": el.id,
+                    "name": el.name,
+                    "type_id": str(pid or "PT-HVAC-DUCT-RECT"),
+                    "type_name": part.name if part else "rect duct",
+                    "qty": round(area_m2 or length_m, 3),
+                    "unit": "m2" if area_m2 else "m",
+                    "secondary_qty": round(length_m, 3),
+                    "secondary_unit": "m",
+                    "est_cost": round((area_m2 or length_m) * unit_cost, 2),
+                    "phase": el.params.get("phase", "new"),
+                    "csi_code": el.params.get("csi_code") or (part.csi_code if part else "23 31 00"),
+                    "materials": [
+                        {
+                            "material": el.params.get("material_id") or "galv_steel",
+                            "width_mm": el.params.get("width_mm"),
+                            "height_mm": el.params.get("height_mm"),
+                        }
+                    ],
+                }
+            )
+            seen_ids.add(el.id)
+            continue
+
+        if is_conduit:
+            length_m = float(el.params.get("length_m") or 0)
+            if not length_m and el.params.get("length_mm"):
+                length_m = float(el.params["length_mm"]) / 1000.0
+            unit_cost = part_unit_cost(part) if part else 4.5
+            nps = el.params.get("nps") or el.params.get("trade_size") or ""
+            rows.append(
+                {
+                    "category": "conduit",
+                    "id": el.id,
+                    "name": el.name,
+                    "type_id": str(pid or "PT-ELEC-CONDUIT"),
+                    "type_name": part.name if part else "conduit",
+                    "qty": round(length_m, 3),
+                    "unit": "m",
+                    "secondary_qty": nps,
+                    "secondary_unit": "trade_size",
+                    "est_cost": round(length_m * unit_cost, 2),
+                    "phase": el.params.get("phase", "new"),
+                    "csi_code": el.params.get("csi_code") or (part.csi_code if part else "26 05 33"),
+                    "materials": [
+                        {
+                            "material": el.params.get("material_id"),
+                            "nps": nps,
+                        }
+                    ],
+                }
+            )
+            seen_ids.add(el.id)
             continue
 
         if is_pipe:

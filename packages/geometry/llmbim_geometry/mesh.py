@@ -159,7 +159,7 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
             )
         elif el.category == "equipment":
             pos = _box_from_origin_size(el, model)
-        elif el.category in {"pipe", "plumbing_pipe"}:
+        elif el.category in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac"}:
             pos = _box_from_pipe(el, model)
         elif el.category in _PROXY_CATS:
             if el.params.get("start_mm") and el.params.get("end_mm"):

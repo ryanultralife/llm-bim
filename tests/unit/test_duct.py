@@ -90,3 +90,23 @@ def test_duct_pipe_clash():
     assert any(
         {c.get("a_category"), c.get("b_category")} == {"pipe", "duct"} for c in clashes
     ), clashes[:3]
+
+
+def test_boq_includes_duct_and_conduit():
+    p = Project.create("boq-mep", vcs=False)
+    p.add_level("L1", 0)
+    p.place_duct(level="L1", start=(0, 0), end=(5000, 0), width_mm=400, height_mm=250)
+    p.place_conduit(level="L1", start=(0, 500), end=(8000, 500), trade_size="3/4")
+    rows = p.boq()["lines"] if isinstance(p.boq(), dict) and "lines" in p.boq() else None
+    if rows is None:
+        from llmbim_core.quantities import compute_boq
+
+        rows = compute_boq(p.model)
+    cats = {r["category"] for r in rows}
+    assert "duct" in cats
+    assert "conduit" in cats
+    duct = next(r for r in rows if r["category"] == "duct")
+    assert duct["unit"] in ("m2", "m")
+    assert float(duct["qty"]) > 0
+    cond = next(r for r in rows if r["category"] == "conduit")
+    assert abs(float(cond["qty"]) - 8.0) < 0.01
