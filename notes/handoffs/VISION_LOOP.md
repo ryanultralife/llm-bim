@@ -108,7 +108,8 @@
 | 82 | continue | DXF wall FR + chat_smoke | plan DXF no WALL-TYPES; smoke thin | WALL-TYPES FR; multi-trade structure smoke | 152 unit | 18ee017 |
 | 83 | continue | verify_pack vision signals | verify ignored drawing_list/DXF | levels/drawing_list/elev+section DXF flags | 153 unit | 6f4dd77 |
 | 84 | continue | CSI locator FR/section/SYS | locators missing FR/system/category | FR/SYS/COLUMN tokens; VISION M4 | 154 unit | c2505cf |
-| 85 | continue | MCP verify_pack + locator docs | agents lacked pack verify tool | project_verify_pack; legend FR/SYS | 154 unit | (this) |
+| 85 | continue | MCP verify_pack + locator docs | agents lacked pack verify tool | project_verify_pack; legend FR/SYS | 154 unit | 3c3c4b6 |
+| 86 | continue | cable tray design rules | only duct/conduit wall rules | TRAY_IN_WALL + TRAY_LOW_CLEARANCE | 155 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -223,7 +224,8 @@
 108. ~~verify_pack drawing_list/elev/section DXF signals~~ (pass 83)
 109. ~~CSI locator FR/SYS/section/category tokens~~ (pass 84)
 110. ~~MCP project_verify_pack + locator legend~~ (pass 85)
-111. Keep closing residual gaps until pass 120 / 10h
+111. ~~Cable tray TRAY_IN_WALL / TRAY_LOW_CLEARANCE rules~~ (pass 86)
+112. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 

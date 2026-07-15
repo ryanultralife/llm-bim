@@ -39,6 +39,7 @@ def write_pack_index(out_dir: str | Path) -> Path:
         "materials/trade_schedule.json",
         "materials/duct_takeoff.json",
         "materials/conduit_takeoff.json",
+        "materials/cable_tray_takeoff.json",
         "materials/MATERIALS_AND_PARTS.json",
         "schedules/plumbing_takeoff.json",
         "schedules/csi.csv",
