@@ -77,6 +77,8 @@ def schedule_rows(model: ProjectModel, kind: str) -> list[dict[str, Any]]:
                 "area_m2": (float(el.params["area_mm2"]) / 1e6)
                 if el.params.get("area_mm2") is not None
                 else None,
+                "height_mm": el.params.get("height_mm") or el.params.get("ceiling_height_mm"),
+                "ceiling_height_mm": el.params.get("ceiling_height_mm") or el.params.get("height_mm"),
                 "level_id": el.level_id,
             }
             for el in model.query(category="room")

@@ -292,6 +292,8 @@ class CreateRoom(Command):
     level: str
     name: str
     boundary: list[tuple[float, float]]
+    height_mm: float | None = None
+    ceiling_height_mm: float | None = None
     op: str = "create_room"
     _element_id: str | None = None
 
@@ -303,19 +305,25 @@ class CreateRoom(Command):
             raise ValidationError("Room boundary needs at least 3 points")
         area = polygon_area_mm2(self.boundary)
         eid = self._element_id or new_id("rom")
+        params: dict[str, Any] = {
+            "boundary_mm": [[float(x), float(y)] for x, y in self.boundary],
+            "area_mm2": float(area),
+        }
+        # ceiling / clear height for agents (defaults to typical 3000 if omitted)
+        h = self.height_mm if self.height_mm is not None else self.ceiling_height_mm
+        if h is not None:
+            params["height_mm"] = float(h)
+            params["ceiling_height_mm"] = float(h)
         el = Element(
             id=eid,
             category="room",
             name=self.name,
             level_id=lv.id,
-            params={
-                "boundary_mm": [[float(x), float(y)] for x, y in self.boundary],
-                "area_mm2": float(area),
-            },
+            params=params,
         )
         model.add_element(el)
         self._element_id = el.id
-        return {"element_id": el.id, "category": "room", "area_mm2": area}
+        return {"element_id": el.id, "category": "room", "area_mm2": area, "height_mm": params.get("height_mm")}
 
     def invert(self) -> Command:
         if not self._element_id:

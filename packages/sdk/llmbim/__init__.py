@@ -310,10 +310,19 @@ class Project:
         level: str,
         name: str,
         boundary: list[tuple[float, float]],
+        height_mm: float | None = None,
+        ceiling_height_mm: float | None = None,
     ) -> str:
+        """Create room space. Optional clear height (ceiling_height_mm alias)."""
         result = self._log.execute(
             self._model,
-            CreateRoom(level=level, name=name, boundary=boundary),
+            CreateRoom(
+                level=level,
+                name=name,
+                boundary=boundary,
+                height_mm=height_mm,
+                ceiling_height_mm=ceiling_height_mm,
+            ),
         )
         return str(result["result"]["element_id"])
 
