@@ -161,6 +161,58 @@ def cmd_import_step(args: argparse.Namespace) -> int:
     return 0 if man.get("ok") else 1
 
 
+def cmd_import(args: argparse.Namespace) -> int:
+    from llmbim import Project
+
+    p = Project.open(args.project) if args.project else Project.create(Path(args.path).stem)
+    if not p.levels():
+        p.add_level(args.level or "L1", 0)
+    result = p.import_file(args.path, level=args.level or (p.levels()[0].name if p.levels() else "L1"))
+    out = Path(args.out or "examples/output/import")
+    out.mkdir(parents=True, exist_ok=True)
+    p.save(out / "model.llmbim.json")
+    if args.pack:
+        man = p.export_deliverables(out)
+        result["pack_ok"] = man.get("ok")
+    print(json.dumps({"result": result, "stats": p.stats(), "out": str(out)}, indent=2, default=str))
+    return 0
+
+
+def cmd_script(args: argparse.Namespace) -> int:
+    from llmbim import Project
+
+    p = Project.create(args.name or "Script")
+    r = p.run_script(args.path, outfile=args.save)
+    print(json.dumps({k: r[k] for k in r if k != "project"}, indent=2))
+    if args.pack and r.get("ok"):
+        out = Path(args.pack)
+        man = p.export_deliverables(out)
+        print(json.dumps({"pack_ok": man.get("ok"), "out": str(out)}, indent=2))
+    return 0 if r.get("ok") else 1
+
+
+def cmd_query(args: argparse.Namespace) -> int:
+    from llmbim import Project
+
+    p = Project.open(args.path)
+    els = p.query(args.q)
+    print(json.dumps([{"id": e.id, "category": e.category, "name": e.name} for e in els], indent=2))
+    return 0
+
+
+def cmd_op(args: argparse.Namespace) -> int:
+    from llmbim import Project
+    import json as _json
+
+    p = Project.open(args.path) if args.path else Project.create("op")
+    params = _json.loads(args.params) if args.params else {}
+    r = p.op(args.name, **params)
+    if args.save:
+        p.save(args.save)
+    print(_json.dumps(r, indent=2, default=str))
+    return 0
+
+
 def cmd_pdf(args: argparse.Namespace) -> int:
     from llmbim_drawings.pdf_binder import export_pdf_binder
 
@@ -281,6 +333,33 @@ def main(argv: list[str] | None = None) -> int:
     p_pdf.add_argument("--out", required=True)
     p_pdf.add_argument("--title", default=None)
     p_pdf.set_defaults(func=cmd_pdf)
+
+    p_imp2 = sub.add_parser("import", help="Import any supported file into a project")
+    p_imp2.add_argument("path")
+    p_imp2.add_argument("--project", default=None)
+    p_imp2.add_argument("--level", default=None)
+    p_imp2.add_argument("--out", default=None)
+    p_imp2.add_argument("--pack", action="store_true")
+    p_imp2.set_defaults(func=cmd_import)
+
+    p_scr = sub.add_parser("script", help="Run a trusted Python build script")
+    p_scr.add_argument("path")
+    p_scr.add_argument("--name", default=None)
+    p_scr.add_argument("--save", default=None)
+    p_scr.add_argument("--pack", default=None)
+    p_scr.set_defaults(func=cmd_script)
+
+    p_q = sub.add_parser("query", help="Query language: category=wall level=L1")
+    p_q.add_argument("path")
+    p_q.add_argument("q")
+    p_q.set_defaults(func=cmd_query)
+
+    p_op = sub.add_parser("op", help="Dispatch registered op")
+    p_op.add_argument("name")
+    p_op.add_argument("--path", default=None)
+    p_op.add_argument("--params", default=None, help="JSON object")
+    p_op.add_argument("--save", default=None)
+    p_op.set_defaults(func=cmd_op)
 
     args = parser.parse_args(argv)
     return int(args.func(args))

@@ -76,22 +76,36 @@ class Project:
         level: str,
         start: tuple[float, float],
         end: tuple[float, float],
-        thickness_mm: float,
-        height_mm: float,
+        thickness_mm: float | None = None,
+        height_mm: float | None = None,
         name: str | None = None,
+        unit: str | None = None,
+        thickness: float | None = None,
+        height: float | None = None,
+        type_id: str | None = None,
     ) -> str:
+        from llmbim_core.units import parse_length, point_to_mm
+
+        u = unit or self._model.units or "mm"
+        s = point_to_mm(start, u)
+        e = point_to_mm(end, u)
+        th = parse_length(thickness_mm if thickness_mm is not None else (thickness if thickness is not None else 200), u)
+        ht = parse_length(height_mm if height_mm is not None else (height if height is not None else 3000), u)
         result = self._log.execute(
             self._model,
             CreateWall(
                 level=level,
-                start=start,
-                end=end,
-                thickness_mm=thickness_mm,
-                height_mm=height_mm,
+                start=s,
+                end=e,
+                thickness_mm=th,
+                height_mm=ht,
                 name=name or "",
             ),
         )
-        return str(result["result"]["element_id"])
+        eid = str(result["result"]["element_id"])
+        if type_id:
+            self.set_type(eid, type_id)
+        return eid
 
     def create_slab(
         self,
@@ -323,11 +337,83 @@ class Project:
     def redo(self) -> dict[str, Any]:
         return self._log.redo(self._model)
 
-    def query(self, **filters: str) -> list[Element]:
+    def query(self, q: str | None = None, **filters: str) -> list[Element]:
+        """Query by kwargs or query language string: ``category=wall level=L1``."""
+        if q:
+            from llmbim_core.query_lang import run_query
+
+            return run_query(self._model, q)
         return self._model.query(**filters)  # type: ignore[arg-type]
 
     def stats(self) -> dict[str, int]:
         return self._model.stats()
+
+    def op(self, op_name: str, **params: Any) -> dict[str, Any]:
+        """Dispatch a registered operation by name (extensible agent surface)."""
+        from llmbim_core.registry import dispatch
+
+        return dispatch(self._model, op_name, params)
+
+    def ops(self) -> list[dict[str, Any]]:
+        from llmbim_core.registry import list_ops
+
+        return list_ops()
+
+    def repair(self) -> dict[str, Any]:
+        from llmbim_core.repair import repair_model
+
+        return repair_model(self._model)
+
+    def create_generic(
+        self,
+        category: str,
+        *,
+        level: str | None = None,
+        name: str = "",
+        params: dict[str, Any] | None = None,
+        **kw: Any,
+    ) -> str:
+        """Create any category of element (open vocabulary for unknown domains)."""
+        r = self.op(
+            "create_generic",
+            category=category,
+            level=level,
+            name=name,
+            params={**(params or {}), **{k: v for k, v in kw.items() if k != "name"}},
+        )
+        # flatten kw into params for convenience
+        if kw:
+            el = self.model.get_element(str(r["id"]))
+            el.params.update(kw)
+        return str(r["id"])
+
+    def import_file(self, path: str | Path, **kwargs: Any) -> dict[str, Any]:
+        """Auto-import by extension: .json/.csv/.dxf/.ifc/.step/.llmbim.json."""
+        from llmbim_core.io_import import auto_import
+
+        return auto_import(self._model, path, **kwargs)
+
+    def run_script(self, source: str | Path, *, outfile: str | Path | None = None) -> dict[str, Any]:
+        from llmbim_core.script_runner import run_script
+
+        result = run_script(source, project=self, outfile=outfile)
+        return {k: v for k, v in result.items() if k != "project"}
+
+    def bulk(self, ops: list[dict[str, Any]]) -> dict[str, Any]:
+        """Apply a list of {op, ...} mutations/queries."""
+        import json
+        import tempfile
+        from pathlib import Path as P
+
+        from llmbim_core.io_import import import_json_batch
+
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
+            json.dump(ops, f)
+            tmp = f.name
+        try:
+            return import_json_batch(self._model, tmp)
+        finally:
+            P(tmp).unlink(missing_ok=True)
 
     def levels(self) -> list[Level]:
         return list(self._model.levels)

@@ -647,6 +647,67 @@ def create_from_template(template_id: str) -> Any:
         return _err(e)
 
 
+@app.post("/v1/projects/{project_id}/ops", dependencies=[Depends(require_api_key)])
+def run_ops(project_id: str, body: dict[str, Any]) -> Any:
+    """Bulk ops: {\"ops\": [{\"op\": \"create_wall\", ...}, ...]} or single op."""
+    try:
+        p = store.get(project_id)
+        if "ops" in body:
+            result = p.bulk(body["ops"])
+        else:
+            op = body.get("op")
+            if not op:
+                raise ValueError("Provide 'op' or 'ops'")
+            params = {k: v for k, v in body.items() if k != "op"}
+            result = {"results": [{"op": op, "result": p.op(op, **params)}]}
+        store.save(project_id)
+        return _ok(result)
+    except Exception as e:
+        return _err(e)
+
+
+@app.get("/v1/ops", dependencies=[Depends(require_api_key)])
+def list_registered_ops() -> Any:
+    from llmbim import Project
+
+    return _ok(Project.create().ops())
+
+
+@app.post("/v1/projects/{project_id}/import", dependencies=[Depends(require_api_key)])
+async def import_into_project(project_id: str, path: str | None = None) -> Any:
+    """Import from a server-local path (agent-provided)."""
+    try:
+        if not path:
+            raise ValueError("path query param required (server-local file)")
+        p = store.get(project_id)
+        result = p.import_file(path)
+        store.save(project_id)
+        return _ok(result)
+    except Exception as e:
+        return _err(e)
+
+
+@app.get("/v1/projects/{project_id}/q", dependencies=[Depends(require_api_key)])
+def query_lang(project_id: str, q: str = "") -> Any:
+    try:
+        p = store.get(project_id)
+        els = p.query(q) if q else p.query()
+        return _ok([{"id": e.id, "category": e.category, "name": e.name, "params": e.params} for e in els])
+    except Exception as e:
+        return _err(e)
+
+
+@app.post("/v1/projects/{project_id}/repair", dependencies=[Depends(require_api_key)])
+def repair_project(project_id: str) -> Any:
+    try:
+        p = store.get(project_id)
+        r = p.repair()
+        store.save(project_id)
+        return _ok(r)
+    except Exception as e:
+        return _err(e)
+
+
 @app.post("/v1/projects/{project_id}/export/pack", dependencies=[Depends(require_api_key)])
 def export_pack(project_id: str, mode: str = "auto") -> Any:
     """Write full deliverables pack under data/artifacts/{id}/pack/."""

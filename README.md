@@ -2,7 +2,9 @@
 
 **Building Information Modeling operated entirely by LLMs.**
 
-No drafting GUI. Agents create and edit a real 3D BIM model through **HTTP API**, **Python SDK**, **CLI**, and **MCP**. Drawings (SVG) and schedules are derived from the model. Humans only **review** exports.
+No drafting GUI. Agents create and edit a real 3D BIM model through **HTTP API**, **Python SDK**, **CLI**, and **MCP**. Import DXF/IFC/STEP/CSV/scripts; export IFC/STEP/glTF/DXF/SVG/PDF/BOQ. Humans **review** (including 3D). Built to handle **open-ended** building, site, and equipment work — not only demos.
+
+Capability: [`docs/CAPABILITY.md`](docs/CAPABILITY.md) · Honesty: [`docs/HONESTY.md`](docs/HONESTY.md)
 
 ## Launch (local)
 
