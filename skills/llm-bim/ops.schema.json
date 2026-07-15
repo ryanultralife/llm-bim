@@ -501,6 +501,16 @@
       }
     },
     {
+      "name": "steel_takeoff",
+      "description": "Structural steel by section (place_column/beam + catalog)",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
       "name": "system_takeoff",
       "description": "Takeoff by trade: fire|process|rebar|steel|duct|conduit|tray|framing|fixture",
       "mutates": false,

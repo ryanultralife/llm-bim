@@ -89,3 +89,20 @@ def test_ifc_csi_property_sets(tmp_path: Path) -> None:
     assert "22 11 16" in text
     assert "23 31 00" in text
     assert "IFCRELDEFINESBYPROPERTIES" in text
+
+
+def test_ifc_column_and_beam_entities(tmp_path: Path) -> None:
+    """Structure exports as IFCCOLUMN / IFCBEAM with CSI psets and section tags."""
+    p = Project.create("Struct IFC", vcs=False)
+    p.add_level("L1", 0)
+    p.place_column(level="L1", origin=(2000, 2000), section="W10x33", height_mm=3500)
+    p.place_beam(level="L1", start=(0, 2000), end=(6000, 2000), section="W12x26", z0_mm=3000)
+    out = tmp_path / "struct.ifc"
+    export_ifc(p.model, out)
+    text = out.read_text(encoding="utf-8")
+    assert "IFCCOLUMN" in text
+    assert "IFCBEAM" in text
+    assert "W10x33" in text
+    assert "W12x26" in text
+    assert "Pset_CSIMasterFormat" in text
+    assert "05 12 00" in text

@@ -80,7 +80,7 @@ def _export_box_proxy(
     body = extrude_rect(lx, ly, hz)
     prod = f.add(f"IFCPRODUCTDEFINITIONSHAPE($,$,(#{body}))")
     name, tag = _mep_name_tag(el)
-    # fittings / fixtures → FlowFitting / FlowTerminal when category matches
+    # Map categories to IFC entity classes for coordination browsers
     cat = (el.category or "").lower()
     ftype = str(el.params.get("fitting_type") or "").lower()
     if cat in {"fitting", "fittings"} or ftype in {
@@ -97,12 +97,22 @@ def _export_box_proxy(
         ent = "IFCFLOWFITTING"
     elif cat in {"fixture", "accessory"} or ftype in {"toilet", "sink", "urinal", "lavatory"}:
         ent = "IFCFLOWTERMINAL"
+    elif cat == "column" or ftype == "column":
+        ent = "IFCCOLUMN"
+    elif cat == "beam" or ftype == "beam":
+        ent = "IFCBEAM"
     else:
         ent = "IFCBUILDINGELEMENTPROXY"
     if ent == "IFCBUILDINGELEMENTPROXY":
         return f.add(
             f"IFCBUILDINGELEMENTPROXY('{f.guid()}',#{owner},"
             f"'{_esc(name)}','{_esc(tag)}',$,#{loc},#{prod},$,.ELEMENT.)"
+        )
+    # Column / Beam / FlowFitting / FlowTerminal
+    if ent in {"IFCCOLUMN", "IFCBEAM"}:
+        return f.add(
+            f"{ent}('{f.guid()}',#{owner},"
+            f"'{_esc(name)}','{_esc(tag)}',$,#{loc},#{prod},$)"
         )
     return f.add(
         f"{ent}('{f.guid()}',#{owner},"
@@ -111,17 +121,23 @@ def _export_box_proxy(
 
 
 def _mep_name_tag(el) -> tuple[str, str]:
-    """Human name + short tag (NPS / RISER / system) for IFC browsers."""
+    """Human name + short tag (NPS / section / RISER / system) for IFC browsers."""
     name = el.name or el.id
-    nps = el.params.get("nps") or ""
+    nps = el.params.get("nps") or el.params.get("trade_size") or ""
+    section = el.params.get("section") or ""
     ftype = el.params.get("fitting_type") or el.category or "MEP"
     tag_parts = [str(ftype).upper()[:12]]
+    if section:
+        tag_parts.append(str(section).replace(" ", "")[:16])
     if nps:
         tag_parts.append(f"NPS{nps}")
     if el.params.get("vertical") or el.params.get("orientation") == "vertical":
         tag_parts.append("RISER")
     if el.params.get("system"):
         tag_parts.append(str(el.params["system"])[:8])
+    if el.params.get("fire_rating"):
+        fr = str(el.params["fire_rating"]).replace(" ", "")[:10]
+        tag_parts.append(f"FR{fr}")
     return str(name), "-".join(tag_parts)[:40]
 
 
@@ -484,15 +500,17 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
                 _attach_csi_pset(f, owner, eid, model, el)
 
         elif el.category == "column" or el.params.get("fitting_type") == "column":
+            # IfcColumn envelope (coordination solid)
             eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect)
             if eid is not None:
                 contained[storey].append(eid)
                 _attach_csi_pset(f, owner, eid, model, el)
 
         elif el.category == "beam" or el.params.get("fitting_type") == "beam":
-            eid = _export_pipe_proxy(f, el, owner, axis_z, extrude_rect)
+            # Prefer box along start→end for IfcBeam; fallback pipe proxy
+            eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect)
             if eid is None:
-                eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect)
+                eid = _export_pipe_proxy(f, el, owner, axis_z, extrude_rect)
             if eid is not None:
                 contained[storey].append(eid)
                 _attach_csi_pset(f, owner, eid, model, el)
