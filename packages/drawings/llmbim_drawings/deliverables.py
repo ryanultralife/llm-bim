@@ -124,6 +124,7 @@ def verify_pack(
         "schedules/drawing_list.csv",
         "schedules/duct.csv",
         "schedules/conduit.csv",
+        "schedules/cable_tray.csv",
         "schedules/column.csv",
         "schedules/beam.csv",
         "index.html",
@@ -306,6 +307,7 @@ def export_deliverables(
         "pipe",
         "duct",
         "conduit",
+        "cable_tray",
         "hvac_device",
         "part",
         "material",
@@ -321,7 +323,11 @@ def export_deliverables(
                 else (
                     "hvac_devices.csv"
                     if kind == "hvac_device"
-                    else ("levels.csv" if kind == "level" else f"{kind}.csv")
+                    else (
+                        "cable_tray.csv"
+                        if kind == "cable_tray"
+                        else ("levels.csv" if kind == "level" else f"{kind}.csv")
+                    )
                 )
             )
         )

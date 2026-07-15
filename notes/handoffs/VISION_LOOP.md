@@ -109,7 +109,8 @@
 | 83 | continue | verify_pack vision signals | verify ignored drawing_list/DXF | levels/drawing_list/elev+section DXF flags | 153 unit | 6f4dd77 |
 | 84 | continue | CSI locator FR/section/SYS | locators missing FR/system/category | FR/SYS/COLUMN tokens; VISION M4 | 154 unit | c2505cf |
 | 85 | continue | MCP verify_pack + locator docs | agents lacked pack verify tool | project_verify_pack; legend FR/SYS | 154 unit | 3c3c4b6 |
-| 86 | continue | cable tray design rules | only duct/conduit wall rules | TRAY_IN_WALL + TRAY_LOW_CLEARANCE | 155 unit | (this) |
+| 86 | continue | cable tray design rules | only duct/conduit wall rules | TRAY_IN_WALL + TRAY_LOW_CLEARANCE | 155 unit | 668c3f5 |
+| 87 | continue | cable_tray schedule + SDK verify | no tray.csv; no Project.verify_pack | schedule kind tray; SDK verify | 156 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -225,7 +226,8 @@
 109. ~~CSI locator FR/SYS/section/category tokens~~ (pass 84)
 110. ~~MCP project_verify_pack + locator legend~~ (pass 85)
 111. ~~Cable tray TRAY_IN_WALL / TRAY_LOW_CLEARANCE rules~~ (pass 86)
-112. Keep closing residual gaps until pass 120 / 10h
+112. ~~cable_tray schedule CSV + Project.verify_pack~~ (pass 87)
+113. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 

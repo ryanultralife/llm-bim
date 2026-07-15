@@ -362,6 +362,34 @@ def schedule_rows(model: ProjectModel, kind: str) -> list[dict[str, Any]]:
                 )
             )
         return rows
+    if kind in {"cable_tray", "cable_trays", "tray", "trays"}:
+        rows = []
+        for el in model.elements:
+            if el.category != "cable_tray" and el.params.get("fitting_type") != "cable_tray":
+                continue
+            w = el.params.get("width_mm")
+            h = el.params.get("height_mm")
+            rows.append(
+                _annotate_csi(
+                    model,
+                    el,
+                    {
+                        "id": el.id,
+                        "name": el.name,
+                        "width_mm": w,
+                        "height_mm": h,
+                        "size": f"{float(w):.0f}x{float(h):.0f}" if w and h else None,
+                        "length_m": el.params.get("length_m"),
+                        "length_mm": el.params.get("length_mm"),
+                        "area_m2": el.params.get("area_m2"),
+                        "system": el.params.get("system"),
+                        "material_id": el.params.get("material_id"),
+                        "part_id": el.params.get("part_id") or el.type_id,
+                        "z0_mm": el.params.get("z0_mm"),
+                    },
+                )
+            )
+        return rows
     if kind in {"hvac_device", "hvac_devices", "device", "devices"}:
         device_types = {
             "vav",

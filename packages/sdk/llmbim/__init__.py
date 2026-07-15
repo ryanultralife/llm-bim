@@ -1118,6 +1118,27 @@ class Project:
         result["output_dir"] = str(dest.resolve())
         return result
 
+    def verify_pack(
+        self,
+        out_dir: str | Path | None = None,
+        *,
+        require_materials: bool = True,
+        require_parts: bool = False,
+    ) -> dict[str, Any]:
+        """Verify a deliverables pack (vision completeness signals).
+
+        If ``out_dir`` is omitted, uses ``output/<project_slug>/``.
+        """
+        from llmbim_core.paths import project_output_dir
+        from llmbim_drawings.deliverables import verify_pack
+
+        dest = Path(out_dir) if out_dir else project_output_dir(self.name)
+        return verify_pack(
+            dest,
+            require_materials=require_materials,
+            require_parts=require_parts,
+        )
+
     def save_local(self, name: str | None = None) -> Path:
         """Save project JSON under output/<slug>/model.llmbim.json."""
         from llmbim_core.paths import project_output_dir

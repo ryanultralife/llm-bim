@@ -786,7 +786,7 @@ def main(argv: list[str] | None = None) -> int:
     p_sch.add_argument(
         "--kind",
         default="zone",
-        help="level|zone|room|door|window|wall|column|beam|equipment|fitting|pipe|duct|conduit|hvac_device|part|csi|connection",
+        help="level|zone|room|door|wall|column|beam|pipe|duct|conduit|cable_tray|hvac_device|part|csi|connection",
     )
     p_sch.add_argument("--out", default=None, help="Write .csv or .json file")
     p_sch.add_argument("--limit", type=int, default=50, help="Max rows when printing JSON")

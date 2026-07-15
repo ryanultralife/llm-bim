@@ -268,7 +268,7 @@ if HAS_MCP:
 
     @mcp.tool()
     def project_schedule(project_id: str, kind: str = "zone", limit: int = 100) -> str:
-        """Schedule rows. kind: level|zone|room|door|window|wall|column|beam|pipe|duct|conduit|hvac_device|csi|connection|fitting|part."""
+        """Schedule rows. kind: level|zone|room|door|wall|column|beam|pipe|duct|conduit|cable_tray|hvac_device|csi|connection|fitting|part."""
         from llmbim_drawings.schedules import schedule_rows
 
         p = store.get(project_id)

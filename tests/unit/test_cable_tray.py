@@ -62,3 +62,24 @@ def test_boq_includes_cable_tray():
     tray = next(r for r in rows if r["category"] == "cable_tray")
     assert abs(float(tray["qty"]) - 5.0) < 0.01
     assert tray["csi_code"] == "26 05 36"
+
+
+def test_cable_tray_schedule_and_pack(tmp_path: Path):
+    from llmbim_drawings.schedules import schedule_rows
+
+    p = Project.create("tray-sched", vcs=False)
+    p.add_level("L1", 0)
+    p.create_wall(level="L1", start=(0, 0), end=(8000, 0), thickness_mm=200, height_mm=3000)
+    p.place_cable_tray(level="L1", start=(0, 1000), end=(6000, 1000), width_mm=450, height_mm=100)
+    rows = schedule_rows(p.model, "cable_tray")
+    assert len(rows) == 1
+    assert rows[0]["csi_code"] == "26 05 36"
+    assert rows[0].get("size") == "450x100"
+    assert rows[0].get("locator")
+    out = tmp_path / "pack"
+    man = p.export_deliverables(out)
+    assert man.get("ok") is True
+    assert (out / "schedules" / "cable_tray.csv").is_file()
+    v = p.verify_pack(out)
+    assert v.get("ok") is True
+    assert v.get("has_drawing_list") is True
