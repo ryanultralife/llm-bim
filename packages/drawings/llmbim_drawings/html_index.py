@@ -31,6 +31,12 @@ def write_pack_index(out_dir: str | Path) -> Path:
         "materials/material_summary.json",
         "materials/part_assignments.json",
         "materials/plumbing_schedule.json",
+        "materials/csi_takeoff.json",
+        "materials/csi_instances.json",
+        "materials/connections.json",
+        "materials/steel_takeoff.json",
+        "materials/rebar_takeoff.json",
+        "materials/trade_schedule.json",
         "materials/MATERIALS_AND_PARTS.json",
         "schedules/plumbing_takeoff.json",
         "clash_report.json",
@@ -38,6 +44,41 @@ def write_pack_index(out_dir: str | Path) -> Path:
     ):
         if (out / rel).is_file():
             data_links.append(f'<li><a href="{rel}">{rel}</a></li>')
+
+    # short CSI sample for agents scanning the pack
+    csi_preview = ""
+    csi_path = out / "materials" / "csi_instances.json"
+    if csi_path.is_file():
+        try:
+            rows = json.loads(csi_path.read_text(encoding="utf-8"))
+            sample = rows[:12] if isinstance(rows, list) else []
+            lines = []
+            for r in sample:
+                code = r.get("csi_code") or ""
+                loc = r.get("locator") or r.get("csi_instance") or ""
+                name = r.get("element_name") or r.get("part_id") or r.get("element_id") or ""
+                lines.append(f"<tr><td><code>{code}</code></td><td>{name}</td><td><code>{loc}</code></td></tr>")
+            if lines:
+                csi_preview = (
+                    "<h2>CSI locators (sample)</h2>"
+                    "<p>MasterFormat section + level/XY/Z to find items. Full list: "
+                    "<a href=\"materials/csi_instances.json\">csi_instances.json</a></p>"
+                    "<table><tr><th>CSI</th><th>Name</th><th>Locator</th></tr>"
+                    + "".join(lines)
+                    + "</table>"
+                )
+        except Exception:  # noqa: BLE001
+            csi_preview = ""
+
+    legend = """
+<h2>MEP / layers legend</h2>
+<ul>
+<li><strong>Plan SVG</strong> — copper pipes orange; fire black steel dark; process SS gray; PVC yellow</li>
+<li><strong>DXF layers</strong> — WALLS, EQUIP, ROOMS, PIPE-CU, PIPE-FP, PIPE-SS, FITTINGS, PIPE-TEXT</li>
+<li><strong>CSI</strong> — e.g. <code>22 11 16</code> domestic water, <code>21 13 13</code> wet sprinkler, <code>22 42 13</code> water closets</li>
+<li><strong>Honesty</strong> — ENGINEERING ESTIMATE envelopes/takeoff; not PE-sealed CDs</li>
+</ul>
+"""
 
     ok = manifest.get("ok", manifest.get("verification", {}).get("ok"))
     html = f"""<!DOCTYPE html>
@@ -47,12 +88,17 @@ body{{font-family:system-ui,sans-serif;max-width:960px;margin:2rem auto;padding:
 background:#0b0f14;color:#e6edf3}}
 a{{color:#58a6ff}} .ok{{color:#3fb950}} .bad{{color:#f85149}}
 code{{background:#21262d;padding:2px 6px;border-radius:4px}}
+table{{border-collapse:collapse;width:100%;font-size:0.9rem}}
+td,th{{border:1px solid #30363d;padding:6px 8px;text-align:left}}
+th{{background:#161b22}}
 </style></head><body>
 <h1>{manifest.get("project", "Deliverables pack")}</h1>
 <p>Status: <span class="{"ok" if ok else "bad"}">{"OK" if ok else "CHECK VERIFY.json"}</span></p>
 <p>{manifest.get("honesty", "")}</p>
 <h2>3D / BIM</h2><ul>{"".join(threes)}</ul>
-<h2>Materials / plumbing takeoff</h2><ul>{"".join(data_links) or "<li>none — place fittings/parts then re-export</li>"}</ul>
+<h2>Materials / takeoff / CSI</h2><ul>{"".join(data_links) or "<li>none — place fittings/parts then re-export</li>"}</ul>
+{csi_preview}
+{legend}
 <h2>Drawings (SVG)</h2><ul>{"".join(links) or "<li>none</li>"}</ul>
 <h2>Manifest</h2><pre>{json.dumps(manifest.get("verification", {}), indent=2)}</pre>
 </body></html>

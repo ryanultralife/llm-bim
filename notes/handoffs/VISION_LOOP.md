@@ -37,6 +37,7 @@
 | 12 | continue | MEP design rules | no pipe/wall/fire checks | PIPE_IN_WALL, FIRE_PIPE_MATERIAL, NPS, connections | 79 unit | d709e42 |
 | 13 | continue | elev/section pipes + clash | elev no MEP; clash no pipe | elev/section pipe draw; find_clashes includes MEP | 82 unit | 0804cf2 |
 | 14 | continue | DXF MEP layers | DXF walls/equip only | PIPE-CU/FP/SS + FITTINGS layers | 82 unit | d2242fa |
+| 15 | continue | HTML CSI/MEP index | index thin on takeoff | csi sample table + MEP legend | (pending) | (pending) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -63,7 +64,7 @@
 20. ~~Elevation/section draw pipe risers~~ (pass 13)
 21. ~~Pipe-pipe clash in clash.py~~ (pass 13)
 22. ~~DXF export pipes~~ (pass 14)
-23. HTML index legend for CSI/MEP
+23. ~~HTML index legend for CSI/MEP~~ (pass 15)
 
 ## Rules for each scheduled pass
 
