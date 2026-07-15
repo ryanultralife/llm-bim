@@ -239,6 +239,79 @@ def _add_level(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     return {"level_id": lv.id, "name": lv.name, "elevation_mm": lv.elevation_mm}
 
 
+@register("create_wall", description="Create wall start→end with optional fire_rating", mutates=True)
+def _create_wall(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.commands import CreateWall
+    from llmbim_core.units import parse_length, point_to_mm
+
+    unit = p.get("unit") or "mm"
+    start = p.get("start") or p.get("start_mm") or [0, 0]
+    end = p.get("end") or p.get("end_mm") or [3000, 0]
+    if unit != "mm":
+        start = point_to_mm(start, unit)
+        end = point_to_mm(end, unit)
+    th = p.get("thickness_mm", p.get("thickness", 200))
+    ht = p.get("height_mm", p.get("height", 3000))
+    if unit != "mm" and p.get("thickness_mm") is None and p.get("thickness") is not None:
+        th = parse_length(th, unit)
+    if unit != "mm" and p.get("height_mm") is None and p.get("height") is not None:
+        ht = parse_length(ht, unit)
+    cmd = CreateWall(
+        level=p.get("level") or model.levels[0].name,
+        start=(float(start[0]), float(start[1])),
+        end=(float(end[0]), float(end[1])),
+        thickness_mm=float(th),
+        height_mm=float(ht),
+        name=str(p.get("name") or ""),
+        fire_rating=str(p.get("fire_rating") or ""),
+    )
+    result = cmd.apply(model)
+    type_id = p.get("type_id")
+    if type_id:
+        el = model.get_element(result["element_id"])
+        el.type_id = str(type_id)
+        el.params["type_id"] = str(type_id)
+    return result
+
+
+@register("place_door", description="Place door on host wall (offset/width/height/fire_rating)", mutates=True)
+def _place_door(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.commands import PlaceDoor
+
+    host = p.get("host") or p.get("host_id") or p.get("wall")
+    if not host:
+        raise ValueError("place_door requires host wall element id")
+    cmd = PlaceDoor(
+        host=str(host),
+        offset_mm=float(p.get("offset_mm") if p.get("offset_mm") is not None else p.get("offset") or 1000),
+        width_mm=float(p.get("width_mm") if p.get("width_mm") is not None else p.get("width") or 900),
+        height_mm=float(p.get("height_mm") if p.get("height_mm") is not None else p.get("height") or 2100),
+        name=str(p.get("name") or ""),
+        type_id=str(p.get("type_id") or ""),
+        fire_rating=str(p.get("fire_rating") or ""),
+    )
+    return cmd.apply(model)
+
+
+@register("place_window", description="Place window on host wall (offset/sill/width/height)", mutates=True)
+def _place_window(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.commands import PlaceWindow
+
+    host = p.get("host") or p.get("host_id") or p.get("wall")
+    if not host:
+        raise ValueError("place_window requires host wall element id")
+    cmd = PlaceWindow(
+        host=str(host),
+        offset_mm=float(p.get("offset_mm") if p.get("offset_mm") is not None else p.get("offset") or 1000),
+        width_mm=float(p.get("width_mm") if p.get("width_mm") is not None else p.get("width") or 1200),
+        height_mm=float(p.get("height_mm") if p.get("height_mm") is not None else p.get("height") or 1200),
+        sill_mm=float(p.get("sill_mm") if p.get("sill_mm") is not None else p.get("sill") or 900),
+        name=str(p.get("name") or ""),
+        type_id=str(p.get("type_id") or ""),
+    )
+    return cmd.apply(model)
+
+
 @register("create_assembly", description="Group elements into named assembly", mutates=True)
 def _create_assembly(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.ids import new_id
