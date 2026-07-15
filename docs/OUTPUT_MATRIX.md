@@ -23,7 +23,7 @@
 | Plan DXF | DXF R12 | ✅ walls/**WALL-TYPES FR** + **DOORS/WINDOWS** + rooms + MEP + COLUMNS/BEAMS + grids | `llmbim_drawings.dxf_export` |
 | Elevation DXF | DXF R12 | ✅ walls + **DOORS/WINDOWS** + MEP + COLUMNS/BEAMS + LEVELS | `export_elevation_dxf` |
 | Section DXF | DXF R12 | ✅ cut plane + walls/MEP + **COLUMNS/BEAMS** + LEVELS | `export_section_dxf` |
-| Section / elevation | SVG | ✅ walls/equip + MEP + **columns/beams** + storey dims | `llmbim_drawings.section` |
+| Section / elevation | SVG | ✅ walls/equip + **doors/windows** + MEP + columns/beams + storey dims | `llmbim_drawings.section` |
 | Floor plan room tags | SVG | ✅ name + **area m² + clear height** | `plan` room-label |
 | Construction sheet set | multi SVG + index | ✅ | `llmbim_drawings.construction` |
 | Plot set PDF | multi-page PDF | ✅ | `llmbim_drawings.pdf_binder` |

@@ -114,7 +114,8 @@
 | 88 | continue | registry duct/tray takeoff ops | ops only fitting_takeoff | duct/conduit/cable_tray_takeoff ops | 157 unit | 40e5bf2 |
 | 89 | continue | IFC Column/Beam entities | structure was BuildingElementProxy | IFCCOLUMN/IFCBEAM + section tags | 158 unit | 904f879 |
 | 90 | continue | plan DXF doors/windows | DXF plan no openings | DOORS/WINDOWS layers + type/FR marks | 159 unit | 31528ab |
-| 91 | continue | elev DXF doors/windows | elev DXF walls only for openings | DOORS/WINDOWS elev rects + FR labels | 160 unit | (this) |
+| 91 | continue | elev DXF doors/windows | elev DXF walls only for openings | DOORS/WINDOWS elev rects + FR labels | 160 unit | 4e25a31 |
+| 92 | continue | elev SVG doors/windows | elev SVG no openings | openings-elev group + type/FR labels | 161 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -235,7 +236,8 @@
 114. ~~IFCCOLUMN / IFCBEAM + steel_takeoff op + schedule()~~ (pass 89)
 115. ~~Plan DXF DOORS/WINDOWS with type/FR marks~~ (pass 90)
 116. ~~Elev DXF DOORS/WINDOWS openings~~ (pass 91)
-117. Keep closing residual gaps until pass 120 / 10h
+117. ~~Elev SVG openings-elev doors/windows~~ (pass 92)
+118. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
