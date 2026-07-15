@@ -23,6 +23,7 @@
 | 1 | T+0 | docs + MCP agent surface | matrix/vision stale; MCP lacked takeoff | OUTPUT_MATRIX, VISION roadmap, MCP place/takeoff/parts | 60 unit pass | 3a3da9a |
 | 2 | T+5m | BOQ/takeoff units | steel/rebar listed as ea | quantities + part_assignment unit m/m2; test | 61 unit pass | 6463cca |
 | 3 | T+10m | verify materials pack | verify ignored materials/ | require_materials + CLI flag + tests | 62 unit pass | 6c683b1 |
+| 4 | T+15m | CSI process + matrix modules | sep parts CSI empty; modules undoc'd | flange/cartridge/magnet/pedestal CSI; OUTPUT_MATRIX M6 | 68 unit pass | (pending) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -35,11 +36,13 @@
 7. glTF for pipe/fitting markers (optional)
 8. Skill SKILL.md section order (H2 awkward)
 9. chat_smoke covers multi-trade ops
-10. CSI division 00 on some process parts without csi_code
+10. ~~CSI division 00 on process parts~~ (pass 4, related)
 11. ~~part_summary unit for linear m parts~~ (pass 2)
-12. Process separator parts missing csi_code on flanges/cartridge
+12. ~~Process separator CSI~~ (pass 4)
+13. MCP tools for import_module / connect (modules via project_op only)
+14. ~~OUTPUT_MATRIX modules~~ (pass 4)
 
-**Next suggested focus:** #12 CSI on process separator parts or #6 IFC fittings
+**Next suggested focus:** #6 IFC fittings/pipe or #13 MCP module tools
 
 ## Rules for each scheduled pass
 

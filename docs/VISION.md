@@ -52,6 +52,7 @@ We win on the axis GUI tools cannot easily follow:
 - **M3 — Interop** ✅: IFC4 export, STEP export/import (locked), DXF, glTF; IFC import subset.
 - **M4 — Discipline growth** 🟡: multi-trade catalogs (plumbing/fire/process/steel/rebar/fixtures), CSI takeoffs, BOQ, clash, rules; wall joins & full MEP routing still light.
 - **M5 — True model VCS** ✅: commit/log/checkout/diff/journal under `output/<project>/.llmbim/`.
+- **M6 — Nested modules** ✅: import drawings/machines as block|native|linked; ports + connect; explode/expand for export.
 - **M? — Optional human review UI**: view-only 3D/plan **if ever requested** — not authoring (parked).
 
 ## Alignment

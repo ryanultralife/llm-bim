@@ -105,6 +105,21 @@ def test_list_parts_filters():
     assert len(wwf) >= 1
 
 
+def test_process_separator_parts_have_csi():
+    """CSI takeoff must not drop Proto10 separator parts into division 00."""
+    for pid, prefix in (
+        ("PT-SEP-SHELL-320", "40"),
+        ("PT-SEP-FLANGE-380", "40"),
+        ("PT-SEP-CARTRIDGE-ULTEM", "43"),
+        ("PT-SEP-MAGNET-N42", "11"),
+        ("PT-SEP-PEDESTAL", "05"),
+        ("PT-VESSEL-SIZE-B", "43"),
+    ):
+        p = get_part(pid)
+        assert p is not None and p.csi_code, pid
+        assert p.csi_code.split()[0] == prefix, (pid, p.csi_code)
+
+
 def test_boq_linear_steel_and_rebar_units():
     """Vision: quantities derive from model with correct units (m not ea for WF)."""
     p = Project.create("boq-lin", vcs=False)
