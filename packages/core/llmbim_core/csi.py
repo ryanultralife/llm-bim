@@ -338,8 +338,40 @@ def element_height_mm(el: Element) -> float | None:
     return None
 
 
+def _point_in_polygon(x: float, y: float, poly: list) -> bool:
+    """Ray casting; poly is list of [x,y] or (x,y)."""
+    if len(poly) < 3:
+        return False
+    inside = False
+    n = len(poly)
+    try:
+        j = n - 1
+        for i in range(n):
+            xi, yi = float(poly[i][0]), float(poly[i][1])
+            xj, yj = float(poly[j][0]), float(poly[j][1])
+            if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi + 1e-30) + xi):
+                inside = not inside
+            j = i
+    except (TypeError, ValueError, IndexError):
+        return False
+    return inside
+
+
+def room_containing(model: ProjectModel, x: float, y: float, level_id: str | None = None) -> str | None:
+    """Return name of first room whose boundary contains (x,y) on the level."""
+    for el in model.elements:
+        if el.category != "room":
+            continue
+        if level_id and el.level_id and el.level_id != level_id:
+            continue
+        boundary = el.params.get("boundary_mm") or el.params.get("boundary") or []
+        if _point_in_polygon(x, y, boundary):
+            return el.name or el.id
+    return None
+
+
 def location_for_element(model: ProjectModel, el: Element) -> dict[str, Any]:
-    """Level + plan + height so agents can locate the instance."""
+    """Level + room + plan + height so agents can locate the instance."""
     level_name = ""
     level_elev = 0.0
     if el.level_id:
@@ -350,15 +382,20 @@ def location_for_element(model: ProjectModel, el: Element) -> dict[str, Any]:
                 break
     x, y, z = element_position_mm(el)
     h = element_height_mm(el)
-    # absolute Z of base = storey elev + z0
     z_abs = None
     if z is not None:
         z_abs = level_elev + float(z)
     nps = el.params.get("nps") or ""
     section = el.params.get("section") or el.params.get("bar_size") or ""
+    room = None
+    if x is not None and y is not None:
+        room = room_containing(model, x, y, el.level_id)
     parts = []
     if level_name:
         parts.append(level_name)
+    if room:
+        # sanitize for locator token
+        parts.append("RM:" + str(room).replace(" ", "_")[:40])
     if x is not None and y is not None:
         parts.append(f"X{x:.0f}Y{y:.0f}")
     if z is not None:
@@ -371,9 +408,12 @@ def location_for_element(model: ProjectModel, el: Element) -> dict[str, Any]:
         parts.append(f"NPS{nps}")
     if section:
         parts.append(str(section).replace(" ", ""))
+    if el.params.get("vertical"):
+        parts.append("RISER")
     locator = "|".join(parts) if parts else el.id
     return {
         "level": level_name or None,
+        "room": room,
         "level_elevation_mm": level_elev,
         "x_mm": round(x, 1) if x is not None else None,
         "y_mm": round(y, 1) if y is not None else None,

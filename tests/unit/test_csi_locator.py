@@ -53,3 +53,31 @@ def test_fire_fitting_csi_and_schedule():
     assert "22 42 13" in codes  # water closet
     # SDK
     assert any(r["csi_code"] == "21 13 13" for r in p.csi_instances())
+
+
+def test_locator_includes_room_name():
+    p = Project.create("csi-room", vcs=False)
+    p.add_level("L1", 0)
+    p.create_room(
+        level="L1",
+        name="Restroom A",
+        boundary=[(0, 0), (4000, 0), (4000, 3000), (0, 3000)],
+    )
+    p.place_part(level="L1", kind="toilet", origin=(2000, 1500))
+    p.place_fitting(
+        level="L1",
+        fitting_type="elbow_90",
+        nps="1/2",
+        origin=(1500, 1200),
+        material="copper",
+    )
+    rows = p.csi_instances()
+    toilet = next(r for r in rows if r.get("fitting_type") == "toilet" or "WC" in str(r.get("part_id", "")))
+    # part assignment uses toilet fitting_type from specs
+    toilet = next((r for r in rows if "toilet" in str(r.get("fitting_type", "")).lower() or "WC" in str(r.get("element_name", ""))), None)
+    if toilet is None:
+        toilet = next(r for r in rows if r.get("x_mm") == 2000)
+    assert toilet.get("room") == "Restroom A" or "Restroom" in str(toilet.get("locator", ""))
+    assert "RM:Restroom" in str(toilet.get("locator", "")) or toilet.get("room") == "Restroom A"
+    elbow = next(r for r in rows if r.get("fitting_type") == "elbow_90")
+    assert elbow.get("room") == "Restroom A"
