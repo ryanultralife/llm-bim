@@ -1,4 +1,4 @@
-"""Door fire_rating param on place + door schedule."""
+"""Door/wall fire_rating on place + schedules."""
 
 from __future__ import annotations
 
@@ -15,7 +15,12 @@ def test_place_door_fire_rating_schedule():
         end=(6000, 0),
         thickness_mm=200,
         height_mm=3000,
+        fire_rating="2-hr",
     )
+    assert p.model.get_element(wid).params.get("fire_rating") == "2-hr"
+    walls = schedule_rows(p.model, "wall")
+    assert any(r.get("fire_rating") == "2-hr" for r in walls)
+
     did = p.place_door(
         host=wid,
         offset_mm=1000,

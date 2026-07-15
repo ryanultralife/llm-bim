@@ -217,6 +217,7 @@ class Project:
         thickness: float | None = None,
         height: float | None = None,
         type_id: str | None = None,
+        fire_rating: str | None = None,
     ) -> str:
         from llmbim_core.units import parse_length, point_to_mm
 
@@ -234,6 +235,7 @@ class Project:
                 thickness_mm=th,
                 height_mm=ht,
                 name=name or "",
+                fire_rating=fire_rating or "",
             ),
         )
         eid = str(result["result"]["element_id"])

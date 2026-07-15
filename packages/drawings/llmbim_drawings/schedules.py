@@ -185,10 +185,33 @@ def schedule_rows(model: ProjectModel, kind: str) -> list[dict[str, Any]]:
                     "thickness_mm": el.params.get("thickness_mm"),
                     "height_mm": el.params.get("height_mm"),
                     "type_id": el.type_id,
+                    "fire_rating": el.params.get("fire_rating") or "",
                 },
             )
             for el in model.query(category="wall")
         ]
+    if kind in {"beam", "beams"}:
+        rows = []
+        for el in model.elements:
+            if el.category != "beam" and el.params.get("fitting_type") != "beam":
+                continue
+            rows.append(
+                _annotate_csi(
+                    model,
+                    el,
+                    {
+                        "id": el.id,
+                        "name": el.name,
+                        "section": el.params.get("section"),
+                        "length_m": el.params.get("length_m"),
+                        "length_mm": el.params.get("length_mm"),
+                        "part_id": el.params.get("part_id") or el.type_id,
+                        "material_id": el.params.get("material_id"),
+                        "z0_mm": el.params.get("z0_mm"),
+                    },
+                )
+            )
+        return rows
     if kind in {"equipment", "equip"}:
         return [
             _annotate_csi(
