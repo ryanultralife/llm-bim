@@ -1,4 +1,4 @@
-"""Drawing derivation (plans/sections/elevations) — WP-DRAWINGS for Claude."""
+"""Drawing derivation (plans/sections/elevations)."""
 
 from llmbim_drawings.api import export_elevation_svg, export_plan_svg, export_section_svg
 

@@ -6,16 +6,14 @@ Status: `draft` → `ready` → `claimed` → `in_review` → `done`
 
 ---
 
-## WP-DRAWINGS — Plan / section / elevation SVG (READY)
+## WP-DRAWINGS — Plan / section / elevation SVG (DONE — MVP on main)
 
 | Field | Value |
 |-------|--------|
-| Status | **ready** |
-| Suggested owner | Claude |
-| Depends on | Model with walls/slabs/doors/windows/rooms on `main` (Grok provides) |
-| Freeze zone | `packages/drawings/**`, `tests/golden/drawings/**`, `tests/unit/test_drawings_*.py` |
-| Grok will not edit | Anything under freeze zone while status=`claimed` |
-| Est. Claude scope | One solid PR; full package implementation |
+| Status | **done** (Grok shipped MVP for launch) |
+| Suggested owner | ~~Claude~~ → optional **WP-DRAWINGS-V2** later |
+| Freeze zone | n/a for MVP |
+| Note | Claude: **do not reimplement**. Prefer **WP-IFC**. Quality pass = separate claim WP-DRAWINGS-V2 |
 
 ### Goal
 
@@ -101,14 +99,15 @@ Files (Grok seeds failing tests if not present — Claude implements):
 
 ---
 
-## WP-IFC — IFC4 export (READY after drawings or parallel if freeze disjoint)
+## WP-IFC — IFC4 export (**CLAUDE PRIMARY — claim this**)
 
 | Field | Value |
 |-------|--------|
-| Status | **ready** (can claim in parallel with drawings — different freeze zone) |
-| Suggested owner | Claude |
-| Freeze zone | `packages/ifc/**`, `tests/unit/test_ifc_*.py`, `tests/golden/ifc/**` |
-| Depends on | Walls/slabs/levels on main; openings if present map to openings |
+| Status | **ready** — Grok will not work here while Claude claims |
+| Suggested owner | **Claude** |
+| Freeze zone | `packages/ifc/**`, `tests/wp/test_wp_ifc_*.py`, `tests/golden/ifc/**` |
+| Depends on | Walls/slabs/doors/windows/rooms on main (already shipped) |
+| Grok next | Launch/API only — see `notes/handoffs/NOW.md` |
 
 ### Goal
 

@@ -185,5 +185,26 @@ class Project:
     def levels(self) -> list[Level]:
         return list(self._model.levels)
 
+    def export_plan(self, level: str, path: str | Path, **opts: Any) -> None:
+        from llmbim_drawings import export_plan_svg
+
+        export_plan_svg(self._model, level, path, **opts)
+
+    def export_section(
+        self,
+        p0: tuple[float, float],
+        p1: tuple[float, float],
+        path: str | Path,
+        **opts: Any,
+    ) -> None:
+        from llmbim_drawings import export_section_svg
+
+        export_section_svg(self._model, p0, p1, path, **opts)
+
+    def export_elevation(self, direction: str, path: str | Path, **opts: Any) -> None:
+        from llmbim_drawings import export_elevation_svg
+
+        export_elevation_svg(self._model, direction, path, **opts)
+
 
 __all__ = ["Project", "Element", "Level", "ProjectModel", "__version__"]

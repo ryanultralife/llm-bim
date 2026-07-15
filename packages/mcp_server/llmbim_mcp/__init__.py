@@ -1,3 +1,5 @@
-"""MCP server exposing LLM-BIM tools — stub until PR-12."""
+"""MCP server package."""
 
-__all__: list[str] = []
+from llmbim_mcp.server import main
+
+__all__ = ["main"]

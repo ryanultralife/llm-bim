@@ -12,9 +12,11 @@ htmlcov/
 dist/
 build/
 
-# LLM-BIM caches
+# LLM-BIM runtime
 .llmbim/
 examples/output/
+data/
+*.llmbim.json
 
 # OS / IDE
 .DS_Store
@@ -23,7 +25,5 @@ Thumbs.db
 .vscode/
 *.swp
 
-# Agent local (keep worktree metadata out of remote if needed)
-# .claude/ is local tooling; do not commit secrets
 .env
 .env.*

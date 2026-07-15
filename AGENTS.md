@@ -56,23 +56,31 @@ Prefer merging Grok small PRs continuously; Claude lands larger isolated PRs.
 5. **IDs:** stable ULIDs/UUIDs on every element; never reuse deleted IDs.
 6. **Git-friendly project JSON** is primary editable store; IFC is interchange + validation target.
 
-## Code ownership (soft — reduce merge conflicts)
+## Code ownership (hard lanes while claimed — no overlap)
 
-| Package / path | Prefer owner | Notes |
-|----------------|--------------|-------|
-| `packages/core/` | Grok | Semantic model, transactions, commands |
-| `packages/geometry/` | Grok | Solids, extrusions, openings |
-| `packages/drawings/` | Claude | Plans/sections/elevations, SVG/PDF |
-| `packages/ifc/` | Claude | IFC import/export via ifcopenshell |
-| `packages/sdk/` | either | Thin public Python API over core |
-| `packages/mcp_server/` | either | MCP tools for Grok/Claude clients |
-| `packages/cli/` | either | `llmbim` CLI |
-| `tests/` | whoever owns code under test | Golden files need careful merges |
-| `examples/` | either | Scripted buildings |
-| `docs/` | either | Design changes: discuss in STATUS first |
-| `AGENTS.md`, `TEAM_STATUS.md` | either | Always update STATUS when claiming |
+**Live assignment:** always check [`notes/handoffs/NOW.md`](notes/handoffs/NOW.md) and [`TEAM_STATUS.md`](TEAM_STATUS.md) before editing.
 
-If you must edit outside your lane, claim it in STATUS and keep the diff minimal.
+| Package / path | Default owner | Notes |
+|----------------|---------------|-------|
+| `packages/core/` | **Grok** | Semantic model, commands — Claude does not rewrite |
+| `packages/geometry/` | **Grok** | Primitives — Claude does not rewrite |
+| `packages/server/` | **Grok** | FastAPI launch surface |
+| `packages/cli/` | **Grok** | `llmbim` CLI |
+| `packages/mcp_server/` | **Grok** | MCP stdio |
+| `Dockerfile`, `railway.toml`, `.github/` | **Grok** | Deploy / CI |
+| `packages/drawings/` | **Grok MVP done**; Claude only via **WP-DRAWINGS-V2** claim | Improve, don’t fork a second API |
+| `packages/ifc/` | **Claude (WP-IFC)** | Grok will not implement while Claude claimed |
+| `packages/sdk/` | **Grok** | Thin facade; Claude may ask for re-exports via handoff |
+| `docs/LAUNCH.md` | **Grok** | |
+| `AGENTS.md`, `TEAM_STATUS.md`, `notes/handoffs/NOW.md` | **either** | Always update when claiming / changing direction |
+
+### Before you change direction
+
+1. Update `notes/handoffs/NOW.md` with what you will do next and what you will **not** touch.  
+2. Update the claims table in `TEAM_STATUS.md`.  
+3. Only then write code.
+
+If you must edit outside your lane: **stop**, write a handoff asking the other agent, or claim a new freeze zone in STATUS first.
 
 ## Branch & PR conventions
 

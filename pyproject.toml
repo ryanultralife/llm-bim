@@ -13,12 +13,15 @@ authors = [{ name = "LLM-BIM contributors" }]
 keywords = ["bim", "ifc", "llm", "architecture", "mcp"]
 dependencies = [
   "pydantic>=2.6",
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0",
   "pytest-cov>=5.0",
+  "httpx>=0.27",
   "ruff>=0.6",
   "mypy>=1.11",
 ]
@@ -28,11 +31,13 @@ ifc = [
 mcp = [
   "mcp>=1.0.0",
 ]
-drawings = [
-  # SVG is stdlib/string-based in MVP; PDF optional later
+server = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "mcp>=1.0.0",
 ]
 all = [
-  "llmbim[dev,ifc,mcp]",
+  "llmbim[dev,ifc,mcp,server]",
 ]
 
 [project.scripts]
@@ -47,6 +52,7 @@ packages = [
   "packages/ifc/llmbim_ifc",
   "packages/mcp_server/llmbim_mcp",
   "packages/cli/llmbim_cli",
+  "packages/server/llmbim_server",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -62,12 +68,11 @@ include = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# Default: skip sealed Claude work-package acceptance tests (keep main green).
-# Claude runs: pytest -m wp_drawings   or   pytest -m wp_ifc
-addopts = "-m \"not wp_drawings and not wp_ifc\""
+# IFC stays optional; drawings acceptance now runs by default
+addopts = "-m \"not wp_ifc\""
 markers = [
-  "wp_drawings: sealed WP-DRAWINGS acceptance (Claude)",
-  "wp_ifc: sealed WP-IFC acceptance (Claude)",
+  "wp_drawings: drawings acceptance",
+  "wp_ifc: sealed WP-IFC acceptance (optional ifcopenshell)",
 ]
 pythonpath = [
   "packages/sdk",
@@ -77,6 +82,7 @@ pythonpath = [
   "packages/ifc",
   "packages/mcp_server",
   "packages/cli",
+  "packages/server",
 ]
 
 [tool.ruff]

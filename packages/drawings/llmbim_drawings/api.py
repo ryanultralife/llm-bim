@@ -1,19 +1,16 @@
-"""Drawing derivation API — contract frozen for WP-DRAWINGS (Claude).
+"""Drawing derivation API.
 
 Axes (plan): +X east, +Y north. Units: millimeters in the model.
-SVG: +x right, +y down (standard); exporter should flip Y for plan readability
-and document the transform in this module's docstring when implemented.
-
-Grok freezes signatures. Claude implements. Do not change signatures without
-updating docs/WORK_PACKAGES.md and STATUS.
+SVG: +x right, +y down; plan exporter flips Y for readable plans.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from llmbim_core.errors import NotImplementedBimError
 from llmbim_core.model import ProjectModel
+from llmbim_drawings.plan import write_plan_svg
+from llmbim_drawings.section import write_elevation_svg, write_section_svg
 
 
 def export_plan_svg(
@@ -25,10 +22,7 @@ def export_plan_svg(
     scale: float = 0.05,
 ) -> None:
     """Horizontal cut at level elevation → SVG file."""
-    raise NotImplementedBimError(
-        "export_plan_svg not implemented — claim WP-DRAWINGS",
-        package="drawings",
-    )
+    write_plan_svg(model, level, path, view_range_mm=view_range_mm, scale=scale)
 
 
 def export_section_svg(
@@ -41,10 +35,7 @@ def export_section_svg(
     scale: float = 0.05,
 ) -> None:
     """Vertical section along plan segment p0→p1 → SVG file."""
-    raise NotImplementedBimError(
-        "export_section_svg not implemented — claim WP-DRAWINGS",
-        package="drawings",
-    )
+    write_section_svg(model, p0, p1, path, depth_mm=depth_mm, scale=scale)
 
 
 def export_elevation_svg(
@@ -55,7 +46,4 @@ def export_elevation_svg(
     scale: float = 0.05,
 ) -> None:
     """Orthographic elevation. direction in {N,S,E,W}."""
-    raise NotImplementedBimError(
-        "export_elevation_svg not implemented — claim WP-DRAWINGS",
-        package="drawings",
-    )
+    write_elevation_svg(model, direction, path, scale=scale)
