@@ -29,6 +29,25 @@ def test_cylindrical_step_has_many_faces(tmp_path: Path) -> None:
     assert text.count("ADVANCED_FACE") >= 20
 
 
+def test_step_product_names_include_system_layer(tmp_path: Path) -> None:
+    from llmbim_geometry.step_export import export_step
+
+    p = Project.create("STEP-layer", vcs=False)
+    p.add_level("L1", 0)
+    p.place_pipe(level="L1", nps="2", start=(0, 0), end=(3000, 0), material="copper")
+    p.place_pipe(level="L1", nps="2", start=(0, 1000), end=(3000, 1000), material="fire")
+    p.place_duct(level="L1", start=(0, 2000), end=(3000, 2000), width_mm=400, height_mm=250)
+    p.place_conduit(level="L1", start=(0, 3000), end=(3000, 3000), trade_size="1")
+    out = tmp_path / "layers.step"
+    export_step(p.model, out, include_walls=False)
+    text = out.read_text(encoding="utf-8")
+    assert "PIPE-CU:" in text
+    assert "PIPE-FP:" in text
+    assert "DUCT:" in text
+    assert "CONDUIT:" in text
+    assert "PRODUCT(" in text
+
+
 def test_step_exports_pipe_and_fitting(tmp_path: Path) -> None:
     p = Project.create("STEP-MEP", vcs=False)
     p.add_level("L1", 0)
