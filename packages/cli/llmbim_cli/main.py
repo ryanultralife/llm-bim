@@ -420,6 +420,12 @@ def cmd_takeoff(args: argparse.Namespace) -> int:
     if kind == "csi":
         print(json.dumps(p.csi_takeoff(division=args.division), indent=2))
         return 0
+    if kind in ("csi_instances", "instances", "locator"):
+        rows = p.csi_instances()
+        if args.division:
+            rows = [r for r in rows if str(r.get("csi_division") or "").startswith(str(args.division))]
+        print(json.dumps({"count": len(rows), "instances": rows}, indent=2, default=str))
+        return 0
     if kind in ("trades", "all"):
         print(json.dumps(p.trade_schedule(), indent=2, default=str))
         return 0
@@ -433,6 +439,86 @@ def cmd_takeoff(args: argparse.Namespace) -> int:
         system=args.system,
     )
     print(json.dumps({"fittings": rows, "count_rows": len(rows)}, indent=2))
+    return 0
+
+
+def _parse_xy(s: str) -> tuple[float, float]:
+    parts = [float(x.strip()) for x in s.replace(" ", "").split(",")]
+    if len(parts) < 2:
+        raise SystemExit("--origin requires x,y mm")
+    return parts[0], parts[1]
+
+
+def cmd_place(args: argparse.Namespace) -> int:
+    """Place MEP part/fitting/pipe/riser on an open project and save."""
+    from llmbim import Project
+
+    p = Project.open(args.path)
+    if not p.levels():
+        p.add_level(args.level or "L1", 0)
+    level = args.level or p.levels()[0].name
+    origin = _parse_xy(args.origin) if args.origin else (0.0, 0.0)
+    kind = args.kind
+    result: dict = {}
+    if kind == "fitting":
+        eid = p.place_fitting(
+            level=level,
+            fitting_type=args.fitting_type or "elbow_90",
+            nps=args.nps or "3/4",
+            origin=origin,
+            material=args.material or "copper",
+            name=args.name,
+            system=args.system or "CW",
+        )
+        result = {"element_id": eid, "kind": "fitting"}
+    elif kind == "pipe":
+        if not args.end:
+            raise SystemExit("place pipe requires --end x,y")
+        end = _parse_xy(args.end)
+        eid = p.place_pipe(
+            level=level,
+            nps=args.nps or "3/4",
+            start=origin,
+            end=end,
+            material=args.material or "copper",
+            name=args.name,
+            system=args.system or "CW",
+        )
+        result = {"element_id": eid, "kind": "pipe"}
+    elif kind == "riser":
+        z0 = float(args.z0 if args.z0 is not None else 0)
+        z1 = float(args.z1 if args.z1 is not None else 3000)
+        eid = p.place_riser(
+            level=level,
+            nps=args.nps or "2",
+            origin=origin,
+            z0_mm=z0,
+            z1_mm=z1,
+            material=args.material or "copper",
+            name=args.name,
+            system=args.system or "CW",
+        )
+        result = {"element_id": eid, "kind": "riser", "z0_mm": z0, "z1_mm": z1}
+    elif kind == "part":
+        eid = p.place_part(
+            level=level,
+            kind=args.part_kind or args.fitting_type or "toilet",
+            origin=origin,
+            name=args.name,
+        )
+        result = {"element_id": eid, "kind": "part"}
+    else:
+        raise SystemExit(f"Unknown place kind: {kind}")
+    # persist back to path
+    path = Path(args.path)
+    if path.is_dir():
+        p.save(path / "model.llmbim.json")
+        result["saved"] = str(path / "model.llmbim.json")
+    else:
+        p.save(path)
+        result["saved"] = str(path)
+    result["stats"] = p.stats()
+    print(json.dumps(result, indent=2, default=str))
     return 0
 
 
@@ -716,6 +802,9 @@ def main(argv: list[str] | None = None) -> int:
             "structural_steel",
             "rebar",
             "csi",
+            "csi_instances",
+            "instances",
+            "locator",
             "trades",
             "all",
             "fixture",
@@ -723,7 +812,7 @@ def main(argv: list[str] | None = None) -> int:
             "process",
             "framing",
         ],
-        help="fittings|pipe|plumbing|fire|steel|rebar|csi|trades|fixture|process|framing",
+        help="fittings|pipe|plumbing|fire|steel|rebar|csi|csi_instances|trades|fixture|process|framing",
     )
     p_tk.add_argument("--fitting-type", default=None, help="elbow_90 | tee | sprinkler_head | ...")
     p_tk.add_argument("--nps", default=None)
@@ -731,6 +820,30 @@ def main(argv: list[str] | None = None) -> int:
     p_tk.add_argument("--system", default=None, help="plumbing | fire | process")
     p_tk.add_argument("--division", default=None, help="CSI division filter e.g. 21 or 05")
     p_tk.set_defaults(func=cmd_takeoff)
+
+    p_pl = sub.add_parser(
+        "place",
+        help="Place fitting|pipe|riser|part on a project and save",
+    )
+    p_pl.add_argument("path", help="Project dir or model.llmbim.json")
+    p_pl.add_argument(
+        "--kind",
+        required=True,
+        choices=["fitting", "pipe", "riser", "part"],
+        help="What to place",
+    )
+    p_pl.add_argument("--level", default=None)
+    p_pl.add_argument("--origin", default="0,0", help="x,y mm plan origin / pipe start")
+    p_pl.add_argument("--end", default=None, help="x,y mm pipe end (pipe only)")
+    p_pl.add_argument("--nps", default=None, help='Nominal pipe size e.g. 3/4 or 2')
+    p_pl.add_argument("--fitting-type", default=None, help="elbow_90 | tee | ...")
+    p_pl.add_argument("--part-kind", default=None, help="toilet | sink | ... for kind=part")
+    p_pl.add_argument("--material", default=None, help="copper | fire | process | pvc")
+    p_pl.add_argument("--system", default=None)
+    p_pl.add_argument("--name", default=None)
+    p_pl.add_argument("--z0", type=float, default=None, help="Riser base height mm")
+    p_pl.add_argument("--z1", type=float, default=None, help="Riser top height mm")
+    p_pl.set_defaults(func=cmd_place)
 
     args = parser.parse_args(argv)
     return int(args.func(args))

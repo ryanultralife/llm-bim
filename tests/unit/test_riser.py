@@ -65,3 +65,27 @@ def test_riser_step_and_gltf(tmp_path: Path):
 
     data = json.loads(gltf.read_text(encoding="utf-8"))
     assert data["accessors"][0]["count"] >= 8
+
+
+def test_riser_on_dxf_plan(tmp_path: Path):
+    from llmbim_drawings.dxf_export import export_plan_dxf
+
+    p = Project.create("riser-dxf", vcs=False)
+    p.add_level("L1", 0)
+    p.place_riser(
+        level="L1",
+        nps="2",
+        origin=(1500, 2500),
+        z0_mm=0,
+        z1_mm=3000,
+        material="copper",
+    )
+    dxf = tmp_path / "plan.dxf"
+    export_plan_dxf(p.model, "L1", dxf)
+    text = dxf.read_text(encoding="utf-8")
+    assert "CIRCLE" in text
+    assert "PIPE-CU" in text
+    assert 'R2"' in text or "R2" in text
+    # center near placement
+    assert "1500" in text
+    assert "2500" in text
