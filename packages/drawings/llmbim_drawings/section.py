@@ -22,8 +22,8 @@ def _wall_endpoints(el: Element) -> tuple[float, float, float, float, float, flo
     return float(start[0]), float(start[1]), float(end[0]), float(end[1]), thickness, height
 
 
-def _level_elev(model: ProjectModel, level_id: str | None) -> float:
-    if not level_id:
+def _level_elev(model: ProjectModel | None, level_id: str | None) -> float:
+    if not level_id or model is None:
         return 0.0
     for lv in model.levels:
         if lv.id == level_id:
@@ -67,29 +67,46 @@ def render_section_svg(
 
     # Collect wall hits as rectangles in (s, z) space
     rects: list[tuple[float, float, float, float]] = []  # s0, z0, s1, z1
+    pipe_marks: list[tuple[float, float, float, str]] = []  # s, z, r, stroke
     for el in model.elements:
-        if el.category != "wall":
-            continue
-        ep = _wall_endpoints(el)
-        if not ep:
-            continue
-        x0, y0, x1, y1, _t, height = ep
-        t = _segment_intersection_param(x0, y0, x1, y1, p0[0], p0[1], p1[0], p1[1])
-        if t is None:
-            # Also try if cut crosses wall: intersect wall with cut as infinite?
-            t2 = _segment_intersection_param(p0[0], p0[1], p1[0], p1[1], x0, y0, x1, y1)
-            if t2 is None:
+        if el.category == "wall":
+            ep = _wall_endpoints(el)
+            if not ep:
                 continue
-            s = t2 * cut_len
-        else:
-            # Wall param t — map wall point to s along cut
-            wx = x0 + t * (x1 - x0)
-            wy = y0 + t * (y1 - y0)
-            s = math.hypot(wx - p0[0], wy - p0[1])
-        z0 = _level_elev(model, el.level_id)
-        z1 = z0 + height
-        half = 100.0  # visual thickness of cut wall in section
-        rects.append((s - half, z0, s + half, z1))
+            x0, y0, x1, y1, _t, height = ep
+            t = _segment_intersection_param(x0, y0, x1, y1, p0[0], p0[1], p1[0], p1[1])
+            if t is None:
+                t2 = _segment_intersection_param(p0[0], p0[1], p1[0], p1[1], x0, y0, x1, y1)
+                if t2 is None:
+                    continue
+                s = t2 * cut_len
+            else:
+                wx = x0 + t * (x1 - x0)
+                wy = y0 + t * (y1 - y0)
+                s = math.hypot(wx - p0[0], wy - p0[1])
+            z0 = _level_elev(model, el.level_id)
+            z1 = z0 + height
+            half = 100.0
+            rects.append((s - half, z0, s + half, z1))
+        elif el.category in {"pipe", "plumbing_pipe", "fitting", "fittings", "fixture"}:
+            try:
+                hit = _project_point_to_cut(model, el, p0, p1, cut_len, depth_mm=depth_mm)
+                if hit is None:
+                    continue
+                s, z = hit
+                od = 40.0
+                if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
+                    od = max(float(el.params["size_mm"][1]), 20.0)
+                mid = str(el.params.get("material_id") or "")
+                stroke = "#c45c26"
+                if "black" in mid:
+                    stroke = "#222"
+                if "ss316" in mid:
+                    stroke = "#6b7c8a"
+                pipe_marks.append((s, z + od / 2, od / 2, stroke))
+                rects.append((s - od, z, s + od, z + od))
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
 
     # Ground line extent
     if rects:
@@ -115,10 +132,21 @@ def render_section_svg(
         '  <g class="cut-walls" fill="#aaa" stroke="#111" stroke-width="1">',
     ]
     for s0, z0, s1, z1 in rects:
+        # skip tiny mep bbox rects drawn as circles instead — only wall-sized
+        if (s1 - s0) < 80 and (z1 - z0) < 80:
+            continue
         x, y = project(s0, z1)
         w = (s1 - s0) * scale
         h = (z1 - z0) * scale
         parts.append(f'    <rect x="{fmt(x)}" y="{fmt(y)}" width="{fmt(w)}" height="{fmt(h)}"/>')
+    parts.append("  </g>")
+    parts.append('  <g class="pipes-section" fill="none" stroke-width="1.5">')
+    for s, z, r, stroke in pipe_marks:
+        cx, cy = project(s, z)
+        parts.append(
+            f'    <circle cx="{fmt(cx)}" cy="{fmt(cy)}" r="{fmt(max(2, r * scale))}" '
+            f'stroke="{stroke}" fill="#fff8f0"/>'
+        )
     parts.append("  </g>")
     # Ground line
     gx0, gy = project(min_s, 0)
@@ -129,6 +157,42 @@ def render_section_svg(
     )
     parts.append("</svg>")
     return "\n".join(parts) + "\n"
+
+
+def _project_point_to_cut(
+    model: ProjectModel,
+    el: Element,
+    p0: tuple[float, float],
+    p1: tuple[float, float],
+    cut_len: float,
+    *,
+    depth_mm: float = 500.0,
+) -> tuple[float, float] | None:
+    """Map element center to (s along cut, z elev) if within depth of cut plane."""
+    if el.params.get("origin_mm"):
+        ox, oy = float(el.params["origin_mm"][0]), float(el.params["origin_mm"][1])
+    elif el.params.get("start_mm") and el.params.get("end_mm"):
+        s, e = el.params["start_mm"], el.params["end_mm"]
+        ox = (float(s[0]) + float(e[0])) / 2
+        oy = (float(s[1]) + float(e[1])) / 2
+    else:
+        return None
+    ax, ay = p0
+    bx, by = p1
+    abx, aby = bx - ax, by - ay
+    L2 = abx * abx + aby * aby
+    if L2 < 1:
+        return None
+    t = ((ox - ax) * abx + (oy - ay) * aby) / L2
+    if t < -0.05 or t > 1.05:
+        return None
+    closest = (ax + t * abx, ay + t * aby)
+    dist = math.hypot(ox - closest[0], oy - closest[1])
+    if dist > depth_mm:
+        return None
+    s = t * cut_len
+    z = _level_elev(model, el.level_id) + float(el.params.get("z0_mm") or 0)
+    return s, z
 
 
 def render_elevation_svg(
@@ -144,8 +208,9 @@ def render_elevation_svg(
     if d not in {"N", "S", "E", "W"}:
         raise ValidationError("direction must be N|S|E|W", direction=direction)
 
-    # Project each wall endpoint to (horizontal, z_base, z_top)
+    # Project walls/equipment to (horizontal, z); pipes as horizontal lines at z0
     segs: list[tuple[float, float, float, float]] = []  # h0, h1, z0, z1
+    pipe_segs: list[tuple[float, float, float, str]] = []  # h0, h1, z, stroke
     for el in model.elements:
         if el.category == "wall":
             ep = _wall_endpoints(el)
@@ -184,6 +249,39 @@ def render_elevation_svg(
                 else:
                     h0, h1 = y0, y0 + ly
             segs.append((min(h0, h1), max(h0, h1), z0, z1))
+        elif el.category in {"pipe", "plumbing_pipe"} or el.params.get("fitting_type") == "pipe":
+            try:
+                if "start_mm" in el.params and "end_mm" in el.params:
+                    s, e = el.params["start_mm"], el.params["end_mm"]
+                    x0, y0 = float(s[0]), float(s[1])
+                    x1, y1 = float(e[0]), float(e[1])
+                else:
+                    continue
+                z = _level_elev(model, el.level_id) + float(el.params.get("z0_mm") or 0)
+                if d in {"N", "S"}:
+                    h0, h1 = x0, x1
+                else:
+                    h0, h1 = y0, y1
+                mid = str(el.params.get("material_id") or "")
+                stroke = "#c45c26"
+                if "black" in mid:
+                    stroke = "#222"
+                if "ss316" in mid:
+                    stroke = "#6b7c8a"
+                pipe_segs.append((min(h0, h1), max(h0, h1), z, stroke))
+                segs.append((min(h0, h1), max(h0, h1), z, z + 50))  # bbox
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
+        elif el.category in {"fitting", "fittings", "fixture"} and el.params.get("origin_mm"):
+            try:
+                o = el.params["origin_mm"]
+                ox, oy = float(o[0]), float(o[1])
+                z = _level_elev(model, el.level_id) + float(el.params.get("z0_mm") or 0)
+                h = ox if d in {"N", "S"} else oy
+                pipe_segs.append((h - 30, h + 30, z, "#c45c26"))
+                segs.append((h - 30, h + 30, z, z + 50))
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
 
     if segs:
         min_h = min(s[0] for s in segs) - margin_mm
@@ -208,12 +306,24 @@ def render_elevation_svg(
         '  <g class="walls" fill="#d0d0d0" stroke="#222" stroke-width="1">',
     ]
     for h0, h1, z0, z1 in segs:
+        if (z1 - z0) <= 60 and (h1 - h0) < 500:
+            continue  # skip tiny pipe bbox placeholders
         x, y = project(h0, z1)
         w = (h1 - h0) * scale
         h = (z1 - z0) * scale
         if w < 0.1:
             continue
         parts.append(f'    <rect x="{fmt(x)}" y="{fmt(y)}" width="{fmt(w)}" height="{fmt(h)}"/>')
+    parts.append("  </g>")
+    parts.append(
+        f'  <g class="pipes-elev" stroke-width="{fmt(max(1.2, 20 * scale))}" fill="none">'
+    )
+    for h0, h1, z, stroke in pipe_segs:
+        pa, pb = project(h0, z), project(h1, z)
+        parts.append(
+            f'    <line x1="{fmt(pa[0])}" y1="{fmt(pa[1])}" '
+            f'x2="{fmt(pb[0])}" y2="{fmt(pb[1])}" stroke="{stroke}"/>'
+        )
     parts.append("  </g></svg>")
     return "\n".join(parts) + "\n"
 

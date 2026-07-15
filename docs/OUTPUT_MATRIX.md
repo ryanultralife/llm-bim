@@ -20,7 +20,7 @@
 | 3D review mesh | glTF | ✅ walls + equipment + **pipe/fitting/fixture/module boxes** | `llmbim_geometry.mesh` |
 | 3D solid exchange | STEP AP203 | ✅ boxes/cylinders + **pipe/fitting/fixture envelopes** | `llmbim_geometry.step_export` |
 | Floor plan | SVG | ✅ walls + openings + equip + **pipes/fittings/fixtures** | `llmbim_drawings.plan` |
-| Section / elevation | SVG | 🟡 basic | `llmbim_drawings.section` |
+| Section / elevation | SVG | ✅ walls/equip + **pipe marks on elev/section** | `llmbim_drawings.section` |
 | Construction sheet set | multi SVG + index | ✅ | `llmbim_drawings.construction` |
 | Plot set PDF | multi-page PDF | ✅ | `llmbim_drawings.pdf_binder` |
 | Schedules | CSV/JSON | ✅ rooms/doors/windows/walls/equip/fitting/pipe/part/material | `llmbim_drawings.schedules` |
