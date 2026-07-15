@@ -534,22 +534,40 @@ def render_plan_view(
             parts.extend(_dim_line(x0, y0, x1, y1, project, scale, lab))
         parts.append("  </g>")
 
-    # Grid bubbles
+    # Grid lines + bubble labels (A,B,C… / 1,2,3…)
     parts.append('  <g class="grids" stroke="#888" stroke-width="0.6" fill="none">')
     for g in model.grids:
         axis = g.params.get("axis", "U")
-        for pos in g.params.get("positions_mm") or []:
+        labels = g.params.get("labels") or []
+        positions = g.params.get("positions_mm") or []
+        for i, pos in enumerate(positions):
             p = float(pos)
             if axis == "U":
                 px0, py0 = project(p, min_y)
                 px1, py1 = project(p, max_y)
+                # default U-axis labels: 1, 2, 3…
+                lab = str(labels[i]) if i < len(labels) else str(i + 1)
             else:
                 px0, py0 = project(min_x, p)
                 px1, py1 = project(max_x, p)
+                # default V-axis labels: A, B, C…
+                lab = str(labels[i]) if i < len(labels) else chr(ord("A") + (i % 26))
             parts.append(
                 f'    <line x1="{fmt(px0)}" y1="{fmt(py0)}" x2="{fmt(px1)}" y2="{fmt(py1)}" '
                 f'stroke-dasharray="4 4"/>'
             )
+            # bubble at both ends
+            br = max(8.0, 120 * scale)
+            for bx, by in ((px0, py0), (px1, py1)):
+                parts.append(
+                    f'    <circle cx="{fmt(bx)}" cy="{fmt(by)}" r="{fmt(br)}" '
+                    f'fill="#fff" stroke="#555" stroke-width="1"/>'
+                )
+                parts.append(
+                    f'    <text x="{fmt(bx)}" y="{fmt(by + br * 0.35)}" text-anchor="middle" '
+                    f'font-size="{fmt(max(7, br * 0.9))}" fill="#333" font-family="sans-serif">'
+                    f"{esc(lab)}</text>"
+                )
     parts.append("  </g>")
 
     # Notes
