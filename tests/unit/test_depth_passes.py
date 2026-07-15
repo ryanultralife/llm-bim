@@ -60,6 +60,27 @@ def test_step_exports_pipe_and_fitting(tmp_path: Path) -> None:
     assert text.count("MANIFOLD_SOLID_BREP") >= 2
 
 
+def test_step_exports_doors_and_windows(tmp_path: Path) -> None:
+    from llmbim_geometry.step_export import export_step
+
+    p = Project.create("STEP-open", vcs=False)
+    p.add_level("L1", 0)
+    wid = p.create_wall(
+        level="L1", start=(0, 0), end=(10000, 0), thickness_mm=200, height_mm=3000
+    )
+    p.place_door(host=wid, offset_mm=2000, width_mm=900, height_mm=2100, name="Entry")
+    p.place_window(
+        host=wid, offset_mm=5000, width_mm=1200, height_mm=900, sill_mm=900, name="View"
+    )
+    out = tmp_path / "open.step"
+    export_step(p.model, out, include_walls=True)
+    text = out.read_text(encoding="utf-8")
+    assert "DOOR:" in text
+    assert "WINDOW:" in text
+    assert "WALL:" in text
+    assert text.count("MANIFOLD_SOLID_BREP") >= 3
+
+
 def test_pdf_binder(tmp_path: Path) -> None:
     p = Project.from_template("office_bay")
     sheets = tmp_path / "sheets"

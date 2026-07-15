@@ -256,12 +256,52 @@ def _wall_solid(el: Element, model: ProjectModel) -> tuple[list, list] | None:
     return corners, _BOX_FACES
 
 
+def _opening_solid(
+    el: Element, model: ProjectModel, wall_by_id: dict
+) -> tuple[list, list] | None:
+    """Door/window solid along host wall at offset + sill (metres)."""
+    try:
+        host = wall_by_id.get(el.host_id or "")
+        if not host:
+            return None
+        s = host.params.get("start_mm")
+        e = host.params.get("end_mm")
+        if not s or not e:
+            return None
+        hx0, hy0 = float(s[0]) / 1000.0, float(s[1]) / 1000.0
+        hx1, hy1 = float(e[0]) / 1000.0, float(e[1]) / 1000.0
+        wlen = math.hypot(hx1 - hx0, hy1 - hy0)
+        if wlen < 1e-9:
+            return None
+        off = float(el.params.get("offset_mm") or 0) / 1000.0
+        width_o = float(el.params.get("width_mm") or 900) / 1000.0
+        oh = float(el.params.get("height_mm") or (2100 if el.category == "door" else 1200)) / 1000.0
+        sill = float(el.params.get("sill_mm") or 0) / 1000.0
+        th = float(host.params.get("thickness_mm") or 100) / 1000.0
+        ux, uy = (hx1 - hx0) / wlen, (hy1 - hy0) / wlen
+        ax, ay = hx0 + ux * off, hy0 + uy * off
+        bx, by = hx0 + ux * (off + width_o), hy0 + uy * (off + width_o)
+        nx, ny = -uy, ux
+        h = th / 2.0
+        xs = [ax + nx * h, ax - nx * h, bx + nx * h, bx - nx * h]
+        ys = [ay + ny * h, ay - ny * h, by + ny * h, by - ny * h]
+        z0 = _level_z(model, host.level_id) / 1000.0 + sill
+        corners = _box_corners(min(xs), min(ys), z0, max(xs), max(ys), z0 + oh)
+        return corners, _BOX_FACES
+    except (KeyError, TypeError, ValueError, IndexError):
+        return None
+
+
 def _step_layer(el: Element) -> str:
     """Logical layer / system token for STEP PRODUCT names (CAD tree grouping)."""
     cat = el.category or ""
     ftype = str(el.params.get("fitting_type") or "")
     if cat == "wall":
         return "WALL"
+    if cat == "door":
+        return "DOOR"
+    if cat == "window":
+        return "WINDOW"
     if cat == "slab":
         return "SLAB"
     if cat == "equipment":
@@ -349,6 +389,7 @@ def export_step(
     }
 
     solids: list[tuple[str, list, list]] = []
+    wall_by_id = {el.id: el for el in model.elements if el.category == "wall"}
     proxy_cats = {
         "fitting",
         "fittings",
@@ -399,6 +440,10 @@ def export_step(
                 solids.append((pname, solid[0], solid[1]))
         elif el.category == "wall" and include_walls:
             solid = _wall_solid(el, model)
+            if solid:
+                solids.append((pname, solid[0], solid[1]))
+        elif el.category in {"door", "window"} and include_walls:
+            solid = _opening_solid(el, model, wall_by_id)
             if solid:
                 solids.append((pname, solid[0], solid[1]))
         elif el.category == "slab":
