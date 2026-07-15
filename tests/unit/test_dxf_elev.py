@@ -106,3 +106,35 @@ def test_section_dxf_columns_and_beams(tmp_path: Path):
     assert "BEAMS" in text
     assert "W10x33" in text
     assert "W12x26" in text
+
+
+def test_section_dxf_doors_and_windows(tmp_path: Path):
+    p = Project.create("sec-open", vcs=False)
+    p.add_level("L1", 0)
+    # wall crosses NS cut at x=4000
+    w = p.create_wall(
+        level="L1", start=(0, 2000), end=(8000, 2000), thickness_mm=200, height_mm=3000
+    )
+    p.place_door(
+        host=w,
+        offset_mm=3500,
+        width_mm=900,
+        height_mm=2100,
+        type_id="D-HM-36",
+        fire_rating="90 min",
+    )
+    p.place_window(
+        host=w,
+        offset_mm=1000,
+        width_mm=1000,
+        height_mm=900,
+        sill_mm=900,
+        type_id="WIN-VIEW",
+    )
+    dxf = tmp_path / "section.dxf"
+    # cut along Y through wall mid
+    export_section_dxf(p.model, (4000, -1000), (4000, 5000), dxf)
+    text = dxf.read_text(encoding="utf-8")
+    assert "DOORS" in text
+    assert "WINDOWS" in text
+    assert "HM-36" in text or "D-HM" in text

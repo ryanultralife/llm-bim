@@ -655,6 +655,57 @@ def export_section_dxf(
         ents += _line(sc + half, zbase + ht, sc - half, zbase + ht, "WALLS")
         ents += _line(sc - half, zbase + ht, sc - half, zbase, "WALLS")
 
+    # doors / windows on walls that the cut intersects (or near cut)
+    wall_by_id = {el.id: el for el in model.elements if el.category == "wall"}
+    for el in model.elements:
+        if el.category not in {"door", "window"}:
+            continue
+        host = wall_by_id.get(el.host_id or "")
+        if not host:
+            continue
+        try:
+            s = host.params["start_mm"]
+            e = host.params["end_mm"]
+            hx0, hy0 = float(s[0]), float(s[1])
+            hx1, hy1 = float(e[0]), float(e[1])
+            wlen = math.hypot(hx1 - hx0, hy1 - hy0)
+            if wlen < 1:
+                continue
+            off = float(el.params.get("offset_mm") or 0)
+            width_o = float(el.params.get("width_mm") or 900)
+            wux, wuy = (hx1 - hx0) / wlen, (hy1 - hy0) / wlen
+            mx = hx0 + wux * (off + width_o / 2)
+            my = hy0 + wuy * (off + width_o / 2)
+            # host must be near or cross cut
+            t_host = _seg_intersection_param(hx0, hy0, hx1, hy1, x0, y0, x1, y1)
+            nx, ny = -uy, ux
+            dist = abs((mx - x0) * nx + (my - y0) * ny)
+            if t_host is None and dist > 800:
+                continue
+            sc = s_of(mx, my)
+            if sc < -500 or sc > cut_len + 500:
+                continue
+            base = _level_elev(model, host.level_id)
+            sill = float(el.params.get("sill_mm") or 0)
+            oh = float(el.params.get("height_mm") or (2100 if el.category == "door" else 1200))
+            z_bot = base + sill
+            z_top = z_bot + oh
+            half = max(width_o / 4, 100.0)  # section width symbol
+            layer = "DOORS" if el.category == "door" else "WINDOWS"
+            ents += _line(sc - half, z_bot, sc + half, z_bot, layer)
+            ents += _line(sc + half, z_bot, sc + half, z_top, layer)
+            ents += _line(sc + half, z_top, sc - half, z_top, layer)
+            ents += _line(sc - half, z_top, sc - half, z_bot, layer)
+            tid = str(el.type_id or el.params.get("type_id") or el.category)[:16]
+            fr = el.params.get("fire_rating") or ""
+            label = tid
+            if fr:
+                fr_s = str(fr).replace(" min", "m").replace("-hr", "HR")
+                label = f"{tid} {fr_s}"
+            ents += _text(sc, z_top + 80, 90.0, label[:24], layer)
+        except (KeyError, TypeError, ValueError, IndexError):
+            continue
+
     # structural columns near cut plane
     for el in model.elements:
         if el.category != "column" and el.params.get("fitting_type") != "column":
