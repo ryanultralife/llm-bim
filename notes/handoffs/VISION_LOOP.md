@@ -31,6 +31,7 @@
 | 6 | T+~30m | CSI real codes + locators | codes too coarse; no XY/Z | csi_instance L1\|X\|Y\|Z; MF 22 42 13 toilets etc | 72 unit pass | 62a9f96 |
 | 7 | T+~35m | MCP modules + CSI | modules only via project_op | import_module/connect/ports/csi_instances MCP tools | 72 unit pass | a6eda34 |
 | 8 | continue | glTF MEP + chat_smoke | glTF walls/equip only; smoke no multi-trade | pipe/fitting/fixture mesh; smoke step 4 | 73 unit + smoke ok | 9889df7 |
+| 9 | continue | skill section order | H2/H3 awkward | SKILL sections H–K sequential | — | 4fda52f |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -41,7 +42,7 @@
 5. ~~MCP tools for place_part / takeoff~~ (pass 1)
 6. ~~IFC export fittings/pipe~~ (pass 5)
 7. ~~glTF pipe/fitting markers~~ (pass 8)
-8. Skill SKILL.md section order (H2 awkward)
+8. ~~Skill SKILL.md section order~~ (pass 9)
 9. ~~chat_smoke multi-trade~~ (pass 8)
 10. ~~CSI division 00 on process parts~~ (pass 4, related)
 11. ~~part_summary unit for linear m parts~~ (pass 2)
@@ -49,8 +50,10 @@
 13. ~~MCP module import/connect~~ (pass 7)
 14. ~~OUTPUT_MATRIX modules~~ (pass 4)
 15. ~~CSI MasterFormat + level/XY/Z locators~~ (pass 6)
+16. STEP export for pipe/fitting envelopes
+17. Connection schedule in materials pack export
 
-**Next suggested focus:** #8 skill section order or STEP export MEP proxies
+**Next suggested focus:** #16 STEP MEP or #17 connections schedule
 
 ## Rules for each scheduled pass
 
