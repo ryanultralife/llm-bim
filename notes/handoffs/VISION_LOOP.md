@@ -54,7 +54,8 @@
 | 29 | continue | HVAC place_duct | no duct authoring | place_duct + plan/DXF/CSI 23 31 00 | 98 unit | 857c12c |
 | 30 | continue | electrical conduit | no conduit place | place_conduit CSI 26 05 33 + plan/DXF | 99 unit | 52c86e9 |
 | 31 | continue | grid bubble labels | grids were unlabeled lines | plan A/B + 1/2 bubbles; labels= | 100 unit | dcab713 |
-| 32 | continue | multi-MEP + elev duct | elev ignored duct/conduit; panel CSI wrong | elev MEP; smoke duct/riser/conduit/panel; part CSI fix | 101 unit | (this) |
+| 32 | continue | multi-MEP + elev duct | elev ignored duct/conduit; panel CSI wrong | elev MEP; smoke duct/riser/conduit/panel; part CSI fix | 101 unit | 26d56fa |
+| 33 | continue | duct-pipe clash + skill | clash ignored duct; skill stale | AABB duct/conduit; SKILL place duct/conduit/to_level | 102 unit | c01d0e8 |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -109,8 +110,11 @@
 48. ~~Multi-trade smoke case for duct+conduit+riser~~ (pass 32)
 49. Tag walls with type mark on plan
 50. Space height / ceiling height params
-51. Clash: duct vs pipe AABB
-52. Skill docs for duct/conduit/to_level
+51. ~~Clash: duct vs pipe AABB~~ (pass 33)
+52. ~~Skill docs for duct/conduit/to_level~~ (pass 33)
+53. Wall type marks on plan
+54. HTML connections schedule
+55. Ceiling height / room height_mm
 
 ## Rules for each scheduled pass
 

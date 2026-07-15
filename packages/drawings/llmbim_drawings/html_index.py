@@ -39,11 +39,35 @@ def write_pack_index(out_dir: str | Path) -> Path:
         "materials/trade_schedule.json",
         "materials/MATERIALS_AND_PARTS.json",
         "schedules/plumbing_takeoff.json",
+        "schedules/csi.csv",
         "clash_report.json",
         "design_rules.json",
     ):
         if (out / rel).is_file():
             data_links.append(f'<li><a href="{rel}">{rel}</a></li>')
+
+    # connection graph sample
+    conn_preview = ""
+    conn_path = out / "materials" / "connections.json"
+    if conn_path.is_file():
+        try:
+            cdata = json.loads(conn_path.read_text(encoding="utf-8"))
+            rows = cdata if isinstance(cdata, list) else cdata.get("connections") or []
+            lines = []
+            for r in rows[:12]:
+                a = r.get("from_port") or r.get("a_port") or r.get("from") or ""
+                b = r.get("to_port") or r.get("b_port") or r.get("to") or ""
+                med = r.get("medium") or ""
+                lines.append(f"<tr><td>{a}</td><td>{b}</td><td>{med}</td></tr>")
+            if lines:
+                conn_preview = (
+                    "<h2>Module connections (sample)</h2>"
+                    "<table><tr><th>From</th><th>To</th><th>Medium</th></tr>"
+                    + "".join(lines)
+                    + "</table>"
+                )
+        except Exception:  # noqa: BLE001
+            conn_preview = ""
 
     # short CSI sample for agents scanning the pack
     csi_preview = ""
@@ -78,8 +102,8 @@ def write_pack_index(out_dir: str | Path) -> Path:
     legend = """
 <h2>MEP / layers legend</h2>
 <ul>
-<li><strong>Plan SVG</strong> — copper pipes orange; fire black steel dark; process SS gray; PVC yellow; risers = concentric circles</li>
-<li><strong>DXF layers</strong> — WALLS, EQUIP, ROOMS, PIPE-CU, PIPE-FP, PIPE-SS, FITTINGS, PIPE-TEXT (risers = CIRCLE)</li>
+<li><strong>Plan SVG</strong> — copper pipes orange; fire black steel dark; process SS gray; PVC yellow; risers = concentric circles; ducts green; conduit purple</li>
+<li><strong>DXF layers</strong> — WALLS, EQUIP, ROOMS, PIPE-CU/FP/SS, DUCT, CONDUIT, FITTINGS (risers = CIRCLE)</li>
 <li><strong>CSI</strong> — e.g. <code>22 11 16</code> domestic water, <code>21 13 13</code> wet sprinkler, <code>22 42 13</code> water closets</li>
 <li><strong>Locator</strong> — <code>L1|RM:Restroom_A|X1200Y3400|Z900|NPS3/4|RISER</code></li>
 <li><strong>Honesty</strong> — ENGINEERING ESTIMATE envelopes/takeoff; not PE-sealed CDs</li>
@@ -104,6 +128,7 @@ th{{background:#161b22}}
 <h2>3D / BIM</h2><ul>{"".join(threes)}</ul>
 <h2>Materials / takeoff / CSI</h2><ul>{"".join(data_links) or "<li>none — place fittings/parts then re-export</li>"}</ul>
 {csi_preview}
+{conn_preview}
 {legend}
 <h2>Drawings (SVG)</h2><ul>{"".join(links) or "<li>none</li>"}</ul>
 <h2>Manifest</h2><pre>{json.dumps(manifest.get("verification", {}), indent=2)}</pre>
