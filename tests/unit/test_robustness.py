@@ -62,3 +62,37 @@ def test_verify_pack_requires_materials(tmp_path: Path) -> None:
     hard = verify_pack(pack, require_materials=True)
     assert hard["ok"] is False
     assert "materials/MATERIALS_AND_PARTS.json" in hard["missing"]
+
+
+def test_verify_pack_vision_schedule_and_view_signals(tmp_path: Path) -> None:
+    """Full facility pack reports drawing_list, levels, elev/section DXF, design rules."""
+    p = Project.create("verify-vision", vcs=False)
+    p.add_level("L1", 0)
+    p.add_level("L2", 3500)
+    p.create_wall(
+        level="L1",
+        start=(0, 0),
+        end=(8000, 0),
+        thickness_mm=200,
+        height_mm=3500,
+        type_id="W-EXT-CMU",
+        fire_rating="2-hr",
+    )
+    p.place_duct(level="L1", start=(0, 1000), end=(5000, 1000), width_mm=400, height_mm=250)
+    p.place_column(level="L1", origin=(2000, 2000), section="W10x33", height_mm=3500)
+    out = tmp_path / "pack"
+    man = p.export_deliverables(out)
+    assert man.get("ok") is True
+    v = verify_pack(out, require_materials=True)
+    assert v.get("ok") is True
+    assert v.get("has_materials_package") is True
+    assert v.get("has_drawing_list") is True
+    assert v.get("has_levels_schedule") is True
+    assert v.get("has_index_html") is True
+    assert v.get("has_elev_dxf") is True
+    assert v.get("has_section_dxf") is True
+    assert v.get("has_plan_dxf") is True
+    assert (out / "materials" / "duct_takeoff.json").is_file() or v["files"].get(
+        "materials/duct_takeoff.json"
+    )
+    assert "design_rules_findings" in v or (out / "design_rules.json").is_file()
