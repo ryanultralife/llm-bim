@@ -68,7 +68,7 @@
 | 42 | continue | IFC SpaceContents MEP | MEP not linked to IfcSpace | room pass + SpaceContents rel by point-in-poly | 113 unit | f097492 |
 | 43 | continue | MCP pack phases | MCP export lacked phase filter | project_export_pack phases + set_phase tool | 114 unit | e0a9cee |
 | 44 | continue | plan MEP dimensions | dims walls only | pipe/duct/conduit length dims on plan | 115 unit | 52807c1 |
-| 45 | continue | connection schedule | HTML only raw ports; no names | connection_schedule locator; schedules/connections.csv | 115 unit | (this) |
+| 45 | continue | connection schedule | HTML only raw ports; no names | connection_schedule locator; schedules/connections.csv | 115 unit | d776fea |
 
 ## Backlog (living — pull highest impact each pass)
 
