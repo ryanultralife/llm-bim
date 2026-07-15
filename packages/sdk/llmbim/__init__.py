@@ -552,24 +552,29 @@ class Project:
         level: str,
         nps: str,
         origin: tuple[float, float],
-        z0_mm: float,
-        z1_mm: float,
+        z0_mm: float | None = None,
+        z1_mm: float | None = None,
         name: str | None = None,
         material: str = "copper",
         system: str = "CW",
+        to_level: str | None = None,
     ) -> str:
-        """Vertical pipe riser at plan XY from z0_mm to z1_mm."""
-        r = self.op(
-            "place_riser",
-            level=level,
-            nps=nps,
-            origin=list(origin),
-            z0_mm=z0_mm,
-            z1_mm=z1_mm,
-            name=name,
-            material=material,
-            system=system,
-        )
+        """Vertical pipe riser at plan XY. Use to_level='L2' for multi-storey span."""
+        kwargs: dict[str, Any] = {
+            "level": level,
+            "nps": nps,
+            "origin": list(origin),
+            "name": name,
+            "material": material,
+            "system": system,
+        }
+        if z0_mm is not None:
+            kwargs["z0_mm"] = z0_mm
+        if z1_mm is not None:
+            kwargs["z1_mm"] = z1_mm
+        if to_level:
+            kwargs["to_level"] = to_level
+        r = self.op("place_riser", **kwargs)
         return str(r["element_id"])
 
     def place_part(

@@ -89,3 +89,31 @@ def test_riser_on_dxf_plan(tmp_path: Path):
     # center near placement
     assert "1500" in text
     assert "2500" in text
+
+
+def test_multi_storey_riser_to_level():
+    p = Project.create("riser-ms", vcs=False)
+    p.add_level("L1", 0)
+    p.add_level("L2", 3500)
+    p.add_level("L3", 7000)
+    eid = p.place_riser(
+        level="L1",
+        nps="2",
+        origin=(1000, 1000),
+        to_level="L3",
+        material="copper",
+    )
+    el = p.model.get_element(eid)
+    assert el.params.get("to_level") == "L3"
+    assert abs(float(el.params["length_m"]) - 7.0) < 0.01
+    assert abs(float(el.params["z1_mm"]) - 7000) < 1
+    # L1→L2 only
+    eid2 = p.place_riser(
+        level="L1",
+        nps="1",
+        origin=(2000, 2000),
+        to_level="L2",
+        material="fire",
+    )
+    el2 = p.model.get_element(eid2)
+    assert abs(float(el2.params["length_m"]) - 3.5) < 0.01
