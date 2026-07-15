@@ -76,6 +76,25 @@ def test_structure_column_in_wall_and_beam_low():
     assert "BEAM_LOW_CLEARANCE" in rules
 
 
+def test_cable_tray_in_wall_and_low_clearance():
+    p = Project.create("tray-rules", vcs=False)
+    p.add_level("L1", 0)
+    p.create_wall(level="L1", start=(0, 0), end=(6000, 0), thickness_mm=200, height_mm=3000)
+    # tray along wall centerline → TRAY_IN_WALL; low z → TRAY_LOW_CLEARANCE
+    p.place_cable_tray(
+        level="L1",
+        start=(500, 0),
+        end=(5000, 0),
+        width_mm=300,
+        height_mm=100,
+        z0_mm=1800,
+    )
+    findings = run_design_rules(p.model)
+    rules = {f["rule"] for f in findings}
+    assert "TRAY_IN_WALL" in rules
+    assert "TRAY_LOW_CLEARANCE" in rules
+
+
 def test_duct_in_wall_and_low_clearance():
     p = Project.create("duct-rules", vcs=False)
     p.add_level("L1", 0)
