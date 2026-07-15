@@ -60,7 +60,7 @@
 | 34 | continue | wall types + HTML conn | plan no type marks | wall-types class; connections table in index | 103 unit | f0eaac0 |
 | 35 | continue | room ceiling height | rooms area-only | height_mm/ceiling_height_mm on room + schedule | 104 unit | d72f0c0 |
 | 36 | continue | BOQ+MCP duct/conduit | BOQ skipped MEP duct; MCP no place | BOQ m2/m; MCP place_duct/conduit; glTF | 105 unit | cfd2ae5 |
-| 37 | continue | door/window type marks | plan only D1/W1 | type_id on place + opening-type on plan; matrix duct/conduit | 106 unit | (this) |
+| 37 | continue | door/window type marks | plan only D1/W1 | type_id on place + opening-type on plan; matrix duct/conduit | 106 unit | d8b3d09 |
 
 ## Backlog (living — pull highest impact each pass)
 
