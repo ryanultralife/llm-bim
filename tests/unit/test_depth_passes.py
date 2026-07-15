@@ -29,6 +29,18 @@ def test_cylindrical_step_has_many_faces(tmp_path: Path) -> None:
     assert text.count("ADVANCED_FACE") >= 20
 
 
+def test_step_exports_pipe_and_fitting(tmp_path: Path) -> None:
+    p = Project.create("STEP-MEP", vcs=False)
+    p.add_level("L1", 0)
+    p.place_pipe(level="L1", nps="1", start=(0, 0), end=(2000, 0), material="copper")
+    p.place_fitting(level="L1", fitting_type="elbow_90", nps="1", origin=(0, 0), material="copper")
+    out = tmp_path / "mep.step"
+    export_step(p.model, out, include_walls=False)
+    text = out.read_text(encoding="utf-8")
+    assert "MANIFOLD_SOLID_BREP" in text
+    assert text.count("MANIFOLD_SOLID_BREP") >= 2
+
+
 def test_pdf_binder(tmp_path: Path) -> None:
     p = Project.from_template("office_bay")
     sheets = tmp_path / "sheets"

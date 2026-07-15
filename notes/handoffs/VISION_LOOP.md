@@ -32,6 +32,7 @@
 | 7 | T+~35m | MCP modules + CSI | modules only via project_op | import_module/connect/ports/csi_instances MCP tools | 72 unit pass | a6eda34 |
 | 8 | continue | glTF MEP + chat_smoke | glTF walls/equip only; smoke no multi-trade | pipe/fitting/fixture mesh; smoke step 4 | 73 unit + smoke ok | 9889df7 |
 | 9 | continue | skill section order | H2/H3 awkward | SKILL sections H–K sequential | — | 4fda52f |
+| 10 | continue | STEP MEP + connections export | STEP walls/equip only | pipe/fitting STEP solids; materials/connections | 74 unit | (pending) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -50,10 +51,10 @@
 13. ~~MCP module import/connect~~ (pass 7)
 14. ~~OUTPUT_MATRIX modules~~ (pass 4)
 15. ~~CSI MasterFormat + level/XY/Z locators~~ (pass 6)
-16. STEP export for pipe/fitting envelopes
-17. Connection schedule in materials pack export
+16. ~~STEP export for pipe/fitting envelopes~~ (pass 10)
+17. ~~Connection schedule in materials pack export~~ (pass 10)
 
-**Next suggested focus:** #16 STEP MEP or #17 connections schedule
+**Next suggested focus:** design rules for MEP clearances, or plan SVG draw pipes
 
 ## Rules for each scheduled pass
 

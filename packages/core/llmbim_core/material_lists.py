@@ -718,6 +718,7 @@ def export_lists(model: ProjectModel, out_dir: str | Path) -> dict[str, str]:
 
     csi_instances = csi_instance_schedule(model)
     trades = full_trade_schedule(model)
+    connections = list(model.meta.get("connections") or [])
 
     files: dict[str, Any] = {
         "material_assignments": mat_assign,
@@ -731,6 +732,7 @@ def export_lists(model: ProjectModel, out_dir: str | Path) -> dict[str, str]:
         "rebar_takeoff": rebar,
         "csi_takeoff": csi,
         "csi_instances": csi_instances,
+        "connections": connections,
     }
     written: dict[str, str] = {}
     for name, rows in files.items():
