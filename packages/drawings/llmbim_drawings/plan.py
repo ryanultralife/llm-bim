@@ -592,21 +592,67 @@ def render_plan_view(
         )
     parts.append("  </g>")
 
-    if show_dimensions and walls:
+    if show_dimensions:
         parts.append('  <g class="dimensions">')
-        ranked = sorted(
-            walls,
-            key=lambda t: math.hypot(t[1][2] - t[1][0], t[1][3] - t[1][1]),
-            reverse=True,
-        )
-        for el, (x0, y0, x1, y1, _t) in ranked[:max_dimensions]:
-            length = math.hypot(x1 - x0, y1 - y0)
-            if length < 500:
+        dim_budget = max_dimensions
+        if walls:
+            ranked = sorted(
+                walls,
+                key=lambda t: math.hypot(t[1][2] - t[1][0], t[1][3] - t[1][1]),
+                reverse=True,
+            )
+            wall_budget = max(1, dim_budget * 2 // 3)
+            for el, (x0, y0, x1, y1, _t) in ranked[:wall_budget]:
+                length = math.hypot(x1 - x0, y1 - y0)
+                if length < 500:
+                    continue
+                if length >= 1000:
+                    lab = f"{length / 1000:.2f} m"
+                else:
+                    lab = f"{length:.0f} mm"
+                parts.extend(_dim_line(x0, y0, x1, y1, project, scale, lab))
+                dim_budget -= 1
+                if dim_budget <= 0:
+                    break
+        # MEP run lengths (pipe / duct / conduit) — longest first
+        mep_runs: list[tuple[float, float, float, float, float, str]] = []
+        for el in mep_els:
+            if el.params.get("vertical") or el.params.get("orientation") == "vertical":
                 continue
-            if length >= 1000:
-                lab = f"{length / 1000:.2f} m"
+            if "start_mm" not in el.params or "end_mm" not in el.params:
+                continue
+            if el.category not in {
+                "pipe",
+                "plumbing_pipe",
+                "duct",
+                "hvac",
+                "conduit",
+            } and el.params.get("fitting_type") not in {"pipe", "duct", "conduit"}:
+                continue
+            try:
+                s, e = el.params["start_mm"], el.params["end_mm"]
+                x0, y0 = float(s[0]), float(s[1])
+                x1, y1 = float(e[0]), float(e[1])
+            except (TypeError, ValueError, IndexError, KeyError):
+                continue
+            length = math.hypot(x1 - x0, y1 - y0)
+            if length < 800:
+                continue
+            prefix = ""
+            if el.category == "conduit" or el.params.get("fitting_type") == "conduit":
+                prefix = "C "
+            elif el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct":
+                prefix = "D "
             else:
-                lab = f"{length:.0f} mm"
+                nps = el.params.get("nps")
+                prefix = f'{nps}" ' if nps else "P "
+            mep_runs.append((length, x0, y0, x1, y1, prefix))
+        mep_runs.sort(key=lambda t: t[0], reverse=True)
+        for length, x0, y0, x1, y1, prefix in mep_runs[: max(0, dim_budget)]:
+            if length >= 1000:
+                lab = f"{prefix}{length / 1000:.2f} m"
+            else:
+                lab = f"{prefix}{length:.0f} mm"
             parts.extend(_dim_line(x0, y0, x1, y1, project, scale, lab))
         parts.append("  </g>")
 
