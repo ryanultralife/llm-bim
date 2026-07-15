@@ -20,13 +20,14 @@
 | # | Time | Focus | Gaps found | Changes | Tests | Commit |
 |---|------|-------|------------|---------|-------|--------|
 | 0 | setup | loop infrastructure | — | VISION_LOOP + scheduler 5m + stop 2h | — | setup |
-| 1 | T+0 | docs + MCP agent surface | matrix/vision stale; MCP lacked takeoff | OUTPUT_MATRIX, VISION roadmap, MCP place/takeoff/parts | unit green | pending |
+| 1 | T+0 | docs + MCP agent surface | matrix/vision stale; MCP lacked takeoff | OUTPUT_MATRIX, VISION roadmap, MCP place/takeoff/parts | 60 unit pass | 3a3da9a |
+| 2 | T+5m | BOQ/takeoff units | steel/rebar listed as ea | quantities + part_assignment unit m/m2; test | 61 unit pass | (this commit) |
 
 ## Backlog (living — pull highest impact each pass)
 
 1. ~~OUTPUT_MATRIX incomplete~~ (pass 1)
 2. ~~VISION roadmap stale~~ (pass 1)
-3. BOQ unit for linear steel should be `m` not always `ea`
+3. ~~BOQ unit for linear steel `m`~~ (pass 2)
 4. Verify pack should optionally require materials/ when parts assigned
 5. ~~MCP tools for place_part / takeoff~~ (pass 1)
 6. IFC export of fittings/pipe categories
@@ -34,8 +35,10 @@
 8. Skill SKILL.md section order (H2 awkward)
 9. chat_smoke covers multi-trade ops
 10. CSI division 00 on some process parts without csi_code
-11. part_summary unit field still shows `ea` for linear m parts
+11. ~~part_summary unit for linear m parts~~ (pass 2)
 12. Process separator parts missing csi_code on flanges/cartridge
+
+**Next suggested focus:** #4 verify_pack materials/ or #12 CSI on process parts
 
 ## Rules for each scheduled pass
 

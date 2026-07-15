@@ -208,21 +208,76 @@ def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
             }
         )
 
-    # Plumbing fittings (each) and pipe (meters)
-    from llmbim_core.parts_catalog import get_part, part_unit_cost
+    # Pipe, fittings, steel, rebar, framing, fixtures — any element with catalog part
+    from llmbim_core.parts_catalog import PARTS, get_part, part_unit_cost
+
+    _PIPE_FIT_TYPES = {
+        "elbow_90",
+        "elbow_45",
+        "tee",
+        "coupling",
+        "cap",
+        "union",
+        "ball_valve",
+        "gate_valve",
+        "check_valve",
+        "flange",
+        "reducer",
+        "grooved_coupling",
+        "sprinkler_head",
+        "diaphragm_valve",
+        "sample_valve",
+        "strainer",
+        "gasket",
+        "instrument",
+    }
+    seen_ids = {r["id"] for r in rows}
+
+    def _qty_and_unit(el, part) -> tuple[float, str]:
+        unit = "ea"
+        if part and (part.specs or {}).get("unit"):
+            unit = str(part.specs["unit"])
+        qty = float(el.params.get("part_qty") or 1)
+        if unit in ("m", "m2"):
+            if el.params.get("length_m") is not None:
+                lm = float(el.params["length_m"])
+                # prefer geometric length when part_qty was left at 1
+                if qty == 1.0 and lm != 1.0:
+                    qty = lm
+                elif el.params.get("length_m") is not None and unit == "m":
+                    # trust part_qty if it matches linear assignment
+                    pass
+            elif el.params.get("length_mm") is not None:
+                qty = float(el.params["length_mm"]) / 1000.0
+        return qty, unit
 
     for el in model.elements:
-        pid = el.params.get("part_id") or el.type_id
+        if el.id in seen_ids:
+            continue
+        pid = el.params.get("part_id") or (
+            el.type_id if el.type_id and el.type_id in PARTS else None
+        )
         part = get_part(str(pid)) if pid else None
         ftype = el.params.get("fitting_type") or (
             (part.specs or {}).get("fitting_type") if part else None
         )
         is_pipe = el.category in {"pipe", "plumbing_pipe"} or ftype == "pipe"
-        is_fitting = el.category in {"fitting", "fittings"} or (
-            ftype is not None and ftype != "pipe"
+        is_pipe_fitting = el.category in {"fitting", "fittings"} or (
+            ftype in _PIPE_FIT_TYPES
         )
-        if not is_pipe and not is_fitting:
+        is_catalog = part is not None and el.category not in {
+            "wall",
+            "slab",
+            "door",
+            "window",
+            "room",
+            "note",
+            "grid",
+            "equipment",  # already emitted above
+        }
+        if not is_pipe and not is_pipe_fitting and not is_catalog:
             continue
+
         if is_pipe:
             length_m = float(el.params.get("length_m") or 0)
             if not length_m and el.params.get("length_mm"):
@@ -244,6 +299,7 @@ def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
                     "secondary_unit": "nps_in",
                     "est_cost": round(length_m * unit_cost, 2),
                     "phase": el.params.get("phase", "new"),
+                    "csi_code": part.csi_code if part else "",
                     "materials": [
                         {
                             "material": (part.primary_material_id if part else el.params.get("material_id")),
@@ -252,32 +308,51 @@ def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
                     ],
                 }
             )
+            seen_ids.add(el.id)
+            continue
+
+        qty, unit = _qty_and_unit(el, part)
+        unit_cost = part_unit_cost(part) if part else 0.0
+        if is_pipe_fitting and unit == "ea":
+            cat = "fitting"
+            secondary = el.params.get("nps") or ((part.specs or {}).get("nps") if part else "")
+            secondary_unit = "nps_in"
         else:
-            qty = float(el.params.get("part_qty") or 1)
-            unit_cost = part_unit_cost(part) if part else 0.0
-            nps = el.params.get("nps") or ((part.specs or {}).get("nps") if part else "")
-            rows.append(
-                {
-                    "category": "fitting",
-                    "id": el.id,
-                    "name": el.name,
-                    "type_id": str(pid or ""),
-                    "type_name": part.name if part else str(ftype or "fitting"),
-                    "qty": qty,
-                    "unit": "ea",
-                    "secondary_qty": nps,
-                    "secondary_unit": "nps_in",
-                    "est_cost": round(qty * unit_cost, 2),
-                    "phase": el.params.get("phase", "new"),
-                    "materials": [
-                        {
-                            "material": (part.primary_material_id if part else el.params.get("material_id")),
-                            "fitting_type": ftype,
-                            "nps": nps,
-                        }
-                    ],
-                }
+            cat = (part.category if part else el.category) or "part"
+            secondary = (
+                el.params.get("section")
+                or (part.specs or {}).get("section")
+                or el.params.get("bar_size")
+                or (part.specs or {}).get("bar_size")
+                or el.params.get("nps")
+                or ""
             )
+            secondary_unit = "section" if secondary else ""
+        rows.append(
+            {
+                "category": cat,
+                "id": el.id,
+                "name": el.name,
+                "type_id": str(pid or ""),
+                "type_name": part.name if part else str(ftype or cat),
+                "qty": round(qty, 3) if unit in ("m", "m2") else qty,
+                "unit": unit,
+                "secondary_qty": secondary,
+                "secondary_unit": secondary_unit,
+                "est_cost": round(float(qty) * unit_cost, 2),
+                "phase": el.params.get("phase", "new"),
+                "csi_code": part.csi_code if part else "",
+                "materials": [
+                    {
+                        "material": (part.primary_material_id if part else el.params.get("material_id")),
+                        "fitting_type": ftype,
+                        "nps": el.params.get("nps"),
+                        "section": el.params.get("section") or ((part.specs or {}).get("section") if part else None),
+                    }
+                ],
+            }
+        )
+        seen_ids.add(el.id)
 
     return annotate_boq_with_csi(rows)
 

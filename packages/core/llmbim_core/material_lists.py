@@ -57,8 +57,8 @@ def part_assignment_list(model: ProjectModel) -> list[dict[str, Any]]:
             qty = float(el.params["length_m"])
         else:
             qty = 1.0
-        # if part sold per m and length set, use length even when part_qty was wiped to 1
-        unit = (part.specs or {}).get("unit") if part else "ea"
+        # catalog unit (m / m2 / ea); length-based takeoff for linear parts
+        unit = str((part.specs or {}).get("unit") if part else "ea") or "ea"
         if unit in ("m", "m2") and el.params.get("length_m") is not None:
             if float(el.params.get("part_qty") or 1) == 1.0 and float(el.params["length_m"]) != 1.0:
                 qty = float(el.params["length_m"])
@@ -70,7 +70,7 @@ def part_assignment_list(model: ProjectModel) -> list[dict[str, Any]]:
                 "part_id": pid,
                 "part_name": part.name if part else pid,
                 "qty": qty,
-                "unit": "ea",
+                "unit": unit,
                 "primary_material_id": part.primary_material_id if part else None,
                 "unit_cost": part_unit_cost(part) if part else 0,
                 "est_cost": (part_unit_cost(part) if part else 0) * qty,
@@ -445,7 +445,7 @@ def part_summary(model: ProjectModel) -> list[dict[str, Any]]:
                 "part_id": pid,
                 "part_name": row.get("part_name"),
                 "qty": 0.0,
-                "unit": "ea",
+                "unit": row.get("unit") or "ea",
                 "unit_cost": row.get("unit_cost") or 0,
                 "est_cost": 0.0,
                 "csi_code": row.get("csi_code") or "",
@@ -457,6 +457,8 @@ def part_summary(model: ProjectModel) -> list[dict[str, Any]]:
         b["qty"] += q
         b["instance_count"] += 1
         b["est_cost"] = round(b["qty"] * float(b["unit_cost"] or 0), 2)
+        if row.get("unit") and b["unit"] == "ea" and row["unit"] != "ea":
+            b["unit"] = row["unit"]
     return sorted(buckets.values(), key=lambda x: -float(x["est_cost"]))
 
 

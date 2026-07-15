@@ -103,3 +103,28 @@ def test_list_parts_filters():
     assert len(toilets) >= 2
     wwf = list_parts(category="rebar", fitting_type="wwf")
     assert len(wwf) >= 1
+
+
+def test_boq_linear_steel_and_rebar_units():
+    """Vision: quantities derive from model with correct units (m not ea for WF)."""
+    p = Project.create("boq-lin", vcs=False)
+    p.add_level("L1", 0)
+    p.place_part(level="L1", section="W10x33", length_m=3.5, name="COL-1")
+    p.place_part(level="L1", bar_size="5", length_m=50.0, name="R5")
+    p.place_part(level="L1", kind="toilet", origin=(0, 0))
+    boq = p.boq()["lines"]
+    steel = [r for r in boq if "W10" in str(r.get("type_name", "")) or "W10" in str(r.get("type_id", ""))]
+    assert steel, boq
+    assert steel[0]["unit"] == "m"
+    assert abs(float(steel[0]["qty"]) - 3.5) < 0.01
+    rebar = [r for r in boq if "rebar" in str(r.get("category", "")).lower() or "#5" in str(r.get("type_name", ""))]
+    assert rebar
+    assert rebar[0]["unit"] == "m"
+    assert abs(float(rebar[0]["qty"]) - 50.0) < 0.01
+    # part assignment list units
+    from llmbim_core.material_lists import part_assignment_list
+
+    assigns = part_assignment_list(p.model)
+    w = next(a for a in assigns if "W10" in str(a["part_id"]))
+    assert w["unit"] == "m"
+    assert abs(float(w["qty"]) - 3.5) < 0.01
