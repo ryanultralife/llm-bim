@@ -124,6 +124,7 @@
 | 98 | continue | CLI wall/door/window | CLI place no openings | place wall/door/window + FR/type | 167 unit | (this) |
 | 99 | continue | STEP doors/windows | STEP no openings solids | DOOR/WINDOW LAYER products on host | 168 unit | (this) |
 | 100 | continue | registry wall/door/window | no create_wall/place_door ops | register create_wall/place_door/window | 169 unit | (this) |
+| 101 | continue | section SVG duct/conduit/tray | cut section only pipes | multi-trade cut marks green/purple | 170 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -253,7 +254,8 @@
 123. ~~CLI place wall/door/window~~ (pass 98)
 124. ~~STEP DOOR/WINDOW solids~~ (pass 99)
 125. ~~Registry create_wall/place_door/window~~ (pass 100)
-126. Keep closing residual gaps until pass 120 / 10h
+126. ~~Section SVG duct/conduit/tray cuts~~ (pass 101)
+127. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
