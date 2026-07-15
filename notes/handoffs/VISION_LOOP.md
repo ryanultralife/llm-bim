@@ -70,6 +70,7 @@
 | 44 | continue | plan MEP dimensions | dims walls only | pipe/duct/conduit length dims on plan | 115 unit | 52807c1 |
 | 45 | continue | connection schedule | HTML only raw ports; no names | connection_schedule locator; schedules/connections.csv | 115 unit | d776fea |
 | 46 | continue | STEP system layers | STEP products untagged | PRODUCT names PIPE-CU/FP/DUCT/CONDUIT:… | 116 unit | 838ca91 |
+| 47 | continue | CLI/MCP schedule | no schedule agent surface | llmbim schedule + project_schedule MCP | 117 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -144,6 +145,9 @@
 68. ~~STEP layer by system (PRODUCT LAYER:name)~~ (pass 46)
 69. ~~MCP export_pack phases arg~~ (pass 43)
 70. ~~MCP set_phase tool~~ (pass 43)
+71. ~~CLI schedule + MCP project_schedule~~ (pass 47)
+72. Design rule: duct through wall clearance
+73. Elev dimension strings for storey heights
 
 ## Rules for each scheduled pass
 
