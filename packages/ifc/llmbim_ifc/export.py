@@ -486,8 +486,14 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
         elif el.category == "column" or el.params.get("fitting_type") == "column":
             eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect)
             if eid is not None:
-                # Prefer IfcColumn when possible
-                # rewrite last entity tag is hard; emit proxy then also named
+                contained[storey].append(eid)
+                _attach_csi_pset(f, owner, eid, model, el)
+
+        elif el.category == "beam" or el.params.get("fitting_type") == "beam":
+            eid = _export_pipe_proxy(f, el, owner, axis_z, extrude_rect)
+            if eid is None:
+                eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect)
+            if eid is not None:
                 contained[storey].append(eid)
                 _attach_csi_pset(f, owner, eid, model, el)
 

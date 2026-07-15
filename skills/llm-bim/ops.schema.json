@@ -321,6 +321,56 @@
       }
     },
     {
+      "name": "place_beam",
+      "description": "Place structural steel beam start\u2192end",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "place_cable_tray",
+      "description": "Place cable tray run start\u2192end (CSI 26 05 36)",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "place_column",
+      "description": "Place structural steel column (W/HSS section)",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "place_conduit",
+      "description": "Place electrical conduit run start\u2192end",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "place_duct",
+      "description": "Place rectangular HVAC duct run start\u2192end",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
       "name": "place_fitting",
       "description": "Place plumbing fitting by type+NPS (copper/pvc)",
       "mutates": true,
@@ -352,7 +402,7 @@
     },
     {
       "name": "place_riser",
-      "description": "Place vertical pipe riser at XY from z0\u2192z1",
+      "description": "Place vertical pipe riser at XY from z0\u2192z1 (optional to_level)",
       "mutates": true,
       "parameters": {
         "type": "object",
