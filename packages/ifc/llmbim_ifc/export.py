@@ -430,6 +430,8 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
         space_by_name[str(rname)] = space
         space_members.setdefault(space, [])
 
+    wall_by_id = {el.id: el for el in model.elements if el.category == "wall"}
+
     for el in model.elements:
         if el.category == "room":
             continue  # already exported
@@ -554,21 +556,65 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
                 _attach_csi_pset(f, owner, eid, model, el)
 
         elif el.category in {"door", "window"}:
-            # Place as opening proxy at host offset — simplified box at origin
+            # Place opening at host wall offset (along baseline) with sill height
             kind = "IFCDOOR" if el.category == "door" else "IFCWINDOW"
-            w = float(el.params.get("width_mm", 900))
-            h = float(el.params.get("height_mm", 2100))
-            pt = f.add("IFCCARTESIANPOINT((0.,0.,0.))")
-            a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{axis_x})")
-            loc = f.add(f"IFCLOCALPLACEMENT($,#{a3})")
-            body = extrude_rect(w, 100.0, h)
-            prod = f.add(f"IFCPRODUCTDEFINITIONSHAPE($,$,(#{body}))")
-            ent = f.add(
-                f"{kind}('{f.guid()}',#{owner},'{_esc(el.name or el.id)}',$,$,"
-                f"#{loc},#{prod},$,$)"
-            )
-            contained[storey].append(ent)
-            _attach_csi_pset(f, owner, ent, model, el)
+            try:
+                w = float(el.params.get("width_mm", 900))
+                h = float(el.params.get("height_mm", 2100 if el.category == "door" else 1200))
+                sill = float(el.params.get("sill_mm") or 0)
+                off = float(el.params.get("offset_mm") or 0)
+                host = wall_by_id.get(el.host_id or "")
+                th = 100.0
+                if host is not None:
+                    hs = host.params.get("start_mm")
+                    he = host.params.get("end_mm")
+                    th = float(host.params.get("thickness_mm") or 100)
+                    if hs and he:
+                        hx0, hy0 = float(hs[0]), float(hs[1])
+                        hx1, hy1 = float(he[0]), float(he[1])
+                        wlen = math.hypot(hx1 - hx0, hy1 - hy0)
+                        if wlen >= 1:
+                            ux, uy = (hx1 - hx0) / wlen, (hy1 - hy0) / wlen
+                            # place at opening start along host (not mid)
+                            ox = hx0 + ux * off
+                            oy = hy0 + uy * off
+                            ang = math.degrees(math.atan2(uy, ux))
+                            rad = math.radians(ang)
+                            dx_dir = f.add(
+                                f"IFCDIRECTION(({math.cos(rad)},{math.sin(rad)},0.))"
+                            )
+                            pt = f.add(f"IFCCARTESIANPOINT(({ox},{oy},{z_base + sill}))")
+                            a3 = f.add(
+                                f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{dx_dir})"
+                            )
+                        else:
+                            pt = f.add(f"IFCCARTESIANPOINT((0.,0.,{sill}))")
+                            a3 = f.add(
+                                f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{axis_x})"
+                            )
+                    else:
+                        pt = f.add(f"IFCCARTESIANPOINT((0.,0.,{sill}))")
+                        a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{axis_x})")
+                else:
+                    pt = f.add(f"IFCCARTESIANPOINT((0.,0.,{sill}))")
+                    a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{axis_x})")
+                loc = f.add(f"IFCLOCALPLACEMENT($,#{a3})")
+                body = extrude_rect(w, max(th, 50.0), h)
+                prod = f.add(f"IFCPRODUCTDEFINITIONSHAPE($,$,(#{body}))")
+                tag = ""
+                if el.type_id:
+                    tag = str(el.type_id)[:24]
+                if el.params.get("fire_rating"):
+                    fr = str(el.params["fire_rating"]).replace(" ", "")[:10]
+                    tag = f"{tag}-FR{fr}" if tag else f"FR{fr}"
+                ent = f.add(
+                    f"{kind}('{f.guid()}',#{owner},'{_esc(el.name or el.id)}',"
+                    f"'{_esc(tag)}',$,#{loc},#{prod},$,$)"
+                )
+                contained[storey].append(ent)
+                _attach_csi_pset(f, owner, ent, model, el)
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
 
     for storey, els in contained.items():
         if not els:

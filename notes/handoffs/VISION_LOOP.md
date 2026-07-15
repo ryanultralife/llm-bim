@@ -119,6 +119,7 @@
 | 93 | continue | section DXF doors/windows | section DXF walls only for openings | DOORS/WINDOWS cut-near rects + type/FR labels | 162 unit | (this) |
 | 94 | continue | section SVG doors/windows | cut section SVG no openings | openings-section group + type/FR labels | 163 unit | (this) |
 | 95 | continue | MCP place_door/window | MCP no openings tools | place_door/window + wall FR/type_id | 164 unit | (this) |
+| 96 | continue | IFC door/window host place | IFC doors at 0,0,0 | host baseline + sill + FR tag | 165 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -243,7 +244,8 @@
 118. ~~Section DXF DOORS/WINDOWS openings~~ (pass 93)
 119. ~~Section SVG openings-section doors/windows~~ (pass 94)
 120. ~~MCP place_door/window + wall FR~~ (pass 95)
-121. Keep closing residual gaps until pass 120 / 10h
+121. ~~IFC door/window host placement~~ (pass 96)
+122. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
