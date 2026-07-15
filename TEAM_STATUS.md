@@ -19,11 +19,11 @@ Grok + Claude work as a team **through this repo** (not chat-only).
 
 | Task | Owner | Branch | Status | Notes |
 |------|-------|--------|--------|-------|
-| PR-00 Bootstrap monorepo + coordination | **Grok** | `main` | `done` | DESIGN, PR plan, packages, 3 smoke tests green |
-| PR-01 Core semantic model (harden) | **Grok** | next | `queued` | Base model exists; next: commands package layout, migrate.py, grids type |
-| PR-02 Transaction / command bus | Grok (planned) | — | `queued` | Depends PR-01 |
-| PR-03 Geometry extrusions + openings | Grok (planned) | — | `queued` | Depends PR-01; primitives started |
-| PR-04 Levels, grids polish | **Claude** (suggested) | — | `available` | Levels work; claim grids + level API tests |
+| PR-00 Bootstrap monorepo + coordination | **Grok** | `main` | `done` | DESIGN, PR plan, packages, smoke tests |
+| PR-01 Core semantic model (harden) | **Grok** | `main` | `done` | ProjectModel + levels + elements + JSON |
+| PR-02 Transaction / command bus | **Grok** | `main` | `in_progress` | commands.py + SDK undo/redo landing now |
+| PR-03 Geometry extrusions + openings | Grok (planned) | — | `queued` | primitives started; openings next |
+| PR-04 Levels, grids polish | **Claude** (suggested) | — | `available` | Levels work; claim grids + richer tests |
 | PR-05 Walls + slabs | Claude (suggested) | — | `available` | Walls bootstrap exists; slabs + full validation needed |
 | PR-06 Doors + windows (hosted) | Claude (suggested) | — | `available` | Depends PR-05 |
 | PR-07 Rooms / spaces | either | — | `queued` | Depends PR-05 |
@@ -60,21 +60,15 @@ When done: Status `done`, link PR number.
 
 ## Handoff notes (short)
 
-### Grok → Claude (2026-07-15)
+### Grok → Claude (2026-07-15, update 2)
 
-- **Pull `main` immediately.** Coordination protocol is live.
-- Read order: `AGENTS.md` → `TEAM_STATUS.md` → `docs/DESIGN.md` → `docs/PR_PLAN.md`
-- Working code today:
-  - `Project.create/open/save`, `add_level`, `create_wall`, `query`, `stats`
-  - `examples/simple_house.py` builds a 10×8 m box
-  - Tests: `pytest` → 3 passed
-- **Your best first claims:**
-  1. Review DESIGN; leave notes in `notes/handoffs/2026-07-15-claude.md` if you disagree
-  2. **PR-04:** grids + richer level helpers/tests (don't rewrite wall model)
-  3. Or **slabs** on a branch after claiming PR-05 in this file
-- Soft ownership: Claude → **drawings + IFC**; Grok → **core commands + geometry**
-- **No human drafting GUI.** Exports only.
-- Communicate via: this file, `notes/handoffs/`, commits, PRs, GitHub issues.
+- **Pull `main`.** I aligned `docs/VISION.md` with human constraint: **no drafting UI**.
+  Your earlier VISION draft had web canvas M2 — parked; see note at bottom of VISION.md.
+- Command bus live: `packages/core/llmbim_core/commands.py` + `Project.undo()/redo()`.
+- Do **not** reimplement wall create outside the command bus.
+- **Claim freely:** PR-04 grids, PR-05 slabs, or start PR-08 drawing package stubs with tests.
+- Soft ownership: Claude → **drawings + IFC**; Grok → **core + geometry depth**.
+- Communicate via this file, `notes/handoffs/`, commits, PRs.
 
 ### Claude → Grok
 

@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
-from llmbim_core.ids import new_id
+from llmbim_core.commands import AddLevel, CreateWall, DeleteElement, TransactionLog
 from llmbim_core.model import Element, Level, ProjectModel
-from llmbim_geometry.primitives import wall_length_mm
 
 __version__ = "0.1.0a0"
 
@@ -14,17 +14,16 @@ __version__ = "0.1.0a0"
 class Project:
     """Agent-facing project facade.
 
-    Mutations grow with PR-02+ command bus. MVP bootstrap exposes levels +
-    simple walls and persistence so parallel work can land against a real API.
+    All mutations go through the command bus so undo/redo stays consistent.
     """
 
-    def __init__(self, model: ProjectModel) -> None:
+    def __init__(self, model: ProjectModel, log: TransactionLog | None = None) -> None:
         self._model = model
+        self._log = log or TransactionLog()
 
     @classmethod
     def create(cls, name: str = "Untitled", units: str = "mm") -> Project:
         if units != "mm":
-            # Imperial conversion lands later; keep agents on mm for MVP.
             raise ValueError("MVP only supports units='mm'")
         return cls(ProjectModel(name=name, units=units))
 
@@ -44,8 +43,13 @@ class Project:
         """Low-level model (prefer high-level methods in agent code)."""
         return self._model
 
+    def execute(self, command: Any) -> dict[str, Any]:
+        """Apply a low-level command (advanced agents / tests)."""
+        return self._log.execute(self._model, command)
+
     def add_level(self, name: str, elevation_mm: float) -> str:
-        return self._model.add_level(name, elevation_mm).id
+        result = self._log.execute(self._model, AddLevel(name=name, elevation_mm=elevation_mm))
+        return str(result["result"]["level_id"])
 
     def create_wall(
         self,
@@ -57,27 +61,27 @@ class Project:
         height_mm: float,
         name: str | None = None,
     ) -> str:
-        lv = self._model.get_level(level)
-        length = wall_length_mm(start, end)
-        if thickness_mm <= 0:
-            raise ValueError("thickness_mm must be positive")
-        if height_mm <= 0:
-            raise ValueError("height_mm must be positive")
-        el = Element(
-            id=new_id("wal"),
-            category="wall",
-            name=name or "",
-            level_id=lv.id,
-            params={
-                "start_mm": [float(start[0]), float(start[1])],
-                "end_mm": [float(end[0]), float(end[1])],
-                "thickness_mm": float(thickness_mm),
-                "height_mm": float(height_mm),
-                "length_mm": float(length),
-            },
+        result = self._log.execute(
+            self._model,
+            CreateWall(
+                level=level,
+                start=start,
+                end=end,
+                thickness_mm=thickness_mm,
+                height_mm=height_mm,
+                name=name or "",
+            ),
         )
-        self._model.add_element(el)
-        return el.id
+        return str(result["result"]["element_id"])
+
+    def delete_element(self, element_id: str) -> None:
+        self._log.execute(self._model, DeleteElement(element_id=element_id))
+
+    def undo(self) -> dict[str, Any]:
+        return self._log.undo(self._model)
+
+    def redo(self) -> dict[str, Any]:
+        return self._log.redo(self._model)
 
     def query(self, **filters: str) -> list[Element]:
         return self._model.query(**filters)  # type: ignore[arg-type]
