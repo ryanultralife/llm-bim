@@ -92,7 +92,7 @@ Project.export_deliverables(out_dir)
 | Python SDK `llmbim.Project` | ✅ |
 | CLI `llmbim` | ✅ pack, takeoff, parts, materials, import-module, VCS, … |
 | Registry ops + `ops.schema.json` | ✅ ~40 tools |
-| MCP stdio | 🟡 takeoff/parts tools; modules via `project_op` |
+| MCP stdio | ✅ takeoff/parts + import_module/connect/define_port/csi_instances |
 | Skill `skills/llm-bim/SKILL.md` | ✅ |
 | Templates | ✅ office_bay, warehouse, hot_cell_bay, lab_bench |
 | Cases | ✅ intec, proto10, plumbing_loop, multi_trade, module_machine_host |
