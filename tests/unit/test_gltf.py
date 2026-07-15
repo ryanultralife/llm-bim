@@ -35,6 +35,32 @@ def test_gltf_includes_pipe_and_fitting(tmp_path: Path) -> None:
     assert n_verts >= 24  # at least 3 boxes × 8 corners
 
 
+def test_gltf_doors_and_windows(tmp_path: Path) -> None:
+    """Hosted openings appear as door/window materials on host wall geometry."""
+    import json
+
+    p = Project.create("G-open", vcs=False)
+    p.add_level("L1", 0)
+    wid = p.create_wall(
+        level="L1", start=(0, 0), end=(10000, 0), thickness_mm=200, height_mm=3000
+    )
+    p.place_door(
+        host=wid, offset_mm=2000, width_mm=900, height_mm=2100, type_id="D-HM-36"
+    )
+    p.place_window(
+        host=wid, offset_mm=5000, width_mm=1200, height_mm=900, sill_mm=900, type_id="WIN"
+    )
+    out = tmp_path / "open.gltf"
+    p.export_gltf(out)
+    data = json.loads(out.read_text(encoding="utf-8"))
+    names = {m.get("name") for m in (data.get("materials") or [])}
+    assert "door" in names
+    assert "window" in names
+    assert "wall" in names
+    # wall + door + window → at least 3*8 verts
+    assert data["accessors"][0]["count"] >= 24
+
+
 def test_gltf_system_material_colors(tmp_path: Path) -> None:
     """Copper / fire / duct / conduit get distinct glTF materials (coordination colors)."""
     import json
