@@ -70,7 +70,7 @@ if HAS_MCP:
 
     @mcp.tool()
     def project_query(project_id: str, q: str) -> str:
-        """Query: category=column section=W10x33 | room~Mech csi~23_31 | vertical=true nps=2 | trade_size=1"""
+        """Query: category=door fire_rating=90_min | column section=W10x33 | room~Mech csi~23_31 | vertical=true"""
         p = store.get(project_id)
         els = p.query(q)
         rows = []
