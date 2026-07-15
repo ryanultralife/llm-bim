@@ -226,6 +226,10 @@ def schedule_rows(model: ProjectModel, kind: str) -> list[dict[str, Any]]:
         from llmbim_core.csi import csi_instance_schedule
 
         return csi_instance_schedule(model)
+    if kind in {"connection", "connections", "ports"}:
+        from llmbim_core.material_lists import connection_schedule
+
+        return connection_schedule(model)
     raise ValueError(f"Unknown schedule kind: {kind}")
 
 

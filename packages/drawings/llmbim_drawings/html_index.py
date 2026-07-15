@@ -46,23 +46,42 @@ def write_pack_index(out_dir: str | Path) -> Path:
         if (out / rel).is_file():
             data_links.append(f'<li><a href="{rel}">{rel}</a></li>')
 
-    # connection graph sample
+    # connection graph sample (enriched rows from connection_schedule)
     conn_preview = ""
     conn_path = out / "materials" / "connections.json"
+    if not conn_path.is_file():
+        conn_path = out / "schedules" / "connections.csv"
     if conn_path.is_file():
         try:
-            cdata = json.loads(conn_path.read_text(encoding="utf-8"))
-            rows = cdata if isinstance(cdata, list) else cdata.get("connections") or []
+            if conn_path.suffix.lower() == ".json":
+                cdata = json.loads(conn_path.read_text(encoding="utf-8"))
+                rows = cdata if isinstance(cdata, list) else cdata.get("connections") or []
+            else:
+                import csv
+                from io import StringIO
+
+                rows = list(csv.DictReader(StringIO(conn_path.read_text(encoding="utf-8"))))
             lines = []
             for r in rows[:12]:
-                a = r.get("from_port") or r.get("a_port") or r.get("from") or ""
-                b = r.get("to_port") or r.get("b_port") or r.get("to") or ""
+                loc = r.get("locator") or ""
+                if not loc:
+                    fn = r.get("from_name") or r.get("from_id") or ""
+                    tn = r.get("to_name") or r.get("to_id") or ""
+                    fp = r.get("from_port") or ""
+                    tp = r.get("to_port") or ""
+                    loc = f"{fn}.{fp} → {tn}.{tp}"
                 med = r.get("medium") or ""
-                lines.append(f"<tr><td>{a}</td><td>{b}</td><td>{med}</td></tr>")
+                name = r.get("name") or ""
+                lines.append(
+                    f"<tr><td>{name}</td><td><code>{loc}</code></td><td>{med}</td></tr>"
+                )
             if lines:
                 conn_preview = (
                     "<h2>Module connections (sample)</h2>"
-                    "<table><tr><th>From</th><th>To</th><th>Medium</th></tr>"
+                    "<p>Port graph for machines/host. Full list: "
+                    "<a href=\"materials/connections.json\">connections.json</a> · "
+                    "<a href=\"schedules/connections.csv\">schedules/connections.csv</a></p>"
+                    "<table><tr><th>Name</th><th>Locator</th><th>Medium</th></tr>"
                     + "".join(lines)
                     + "</table>"
                 )
