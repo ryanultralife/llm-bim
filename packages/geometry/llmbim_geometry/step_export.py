@@ -256,6 +256,52 @@ def _wall_solid(el: Element, model: ProjectModel) -> tuple[list, list] | None:
     return corners, _BOX_FACES
 
 
+def _step_layer(el: Element) -> str:
+    """Logical layer / system token for STEP PRODUCT names (CAD tree grouping)."""
+    cat = el.category or ""
+    ftype = str(el.params.get("fitting_type") or "")
+    if cat == "wall":
+        return "WALL"
+    if cat == "slab":
+        return "SLAB"
+    if cat == "equipment":
+        return "EQUIP"
+    if cat == "conduit" or ftype == "conduit":
+        return "CONDUIT"
+    if cat in {"duct", "hvac"} or ftype == "duct":
+        return "DUCT"
+    if cat in {"pipe", "plumbing_pipe"} or ftype == "pipe":
+        mid = str(el.params.get("material_id") or "").lower()
+        sys = str(el.params.get("system") or "").lower()
+        if "black" in mid or sys in ("fp", "fire", "fire_protection"):
+            return "PIPE-FP"
+        if "ss316" in mid or sys in ("proc", "process"):
+            return "PIPE-SS"
+        if "pvc" in mid:
+            return "PIPE-PVC"
+        return "PIPE-CU"
+    if cat in {"fitting", "fittings"}:
+        return "FITTING"
+    if cat in {"fixture", "accessory"}:
+        return "FIXTURE"
+    if cat in {"module_instance", "module_root"}:
+        return "MODULE"
+    if cat in {"steel", "rebar", "framing"}:
+        return "STRUCT"
+    return "MEP"
+
+
+def _step_product_name(el: Element) -> str:
+    """PRODUCT id = LAYER:element_name so FreeCAD/etc. group by system."""
+    base = (el.name or el.id or "part").replace("'", "").replace('"', "")[:60]
+    layer = _step_layer(el)
+    nps = el.params.get("nps") or el.params.get("trade_size") or ""
+    if nps and (layer.startswith("PIPE") or layer == "CONDUIT"):
+        if "NPS" not in base.upper():
+            base = f"NPS{nps}_{base}"
+    return f"{layer}:{base}"[:80]
+
+
 def export_step(
     model: ProjectModel,
     path: str | Path,
@@ -263,7 +309,7 @@ def export_step(
     include_walls: bool = True,
     cyl_sides: int = 24,
 ) -> Path:
-    """Write assembly STEP file."""
+    """Write assembly STEP file with LAYER:name product tags for MEP systems."""
     w = _StepWriter(lines=[])
     app_ctx = w.add(
         "APPLICATION_CONTEXT('configuration controlled 3d designs of mechanical parts and assemblies')"
@@ -309,27 +355,31 @@ def export_step(
         "framing",
         "fire_protection",
         "process_piping",
+        "duct",
+        "hvac",
+        "conduit",
     }
     for el in model.elements:
+        pname = _step_product_name(el)
         if el.category == "equipment":
             solid = _equipment_solid(el, model, cyl_sides=cyl_sides)
             if solid:
-                solids.append((el.name or el.id, solid[0], solid[1]))
-        elif el.category in {"pipe", "plumbing_pipe"}:
+                solids.append((pname, solid[0], solid[1]))
+        elif el.category in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac"}:
             solid = _pipe_solid(el, model, cyl_sides=max(8, cyl_sides // 2))
             if solid:
-                solids.append((el.name or el.id, solid[0], solid[1]))
+                solids.append((pname, solid[0], solid[1]))
         elif el.category in proxy_cats:
             if el.params.get("start_mm") and el.params.get("end_mm"):
                 solid = _pipe_solid(el, model)
             else:
                 solid = _equipment_solid(el, model, cyl_sides=cyl_sides)
             if solid:
-                solids.append((el.name or el.id, solid[0], solid[1]))
+                solids.append((pname, solid[0], solid[1]))
         elif el.category == "wall" and include_walls:
             solid = _wall_solid(el, model)
             if solid:
-                solids.append((el.name or el.id, solid[0], solid[1]))
+                solids.append((pname, solid[0], solid[1]))
         elif el.category == "slab":
             try:
                 poly = el.params["polygon_mm"]
@@ -340,11 +390,11 @@ def export_step(
             ys = [float(p[1]) / 1000.0 for p in poly]
             z0 = _level_z(model, el.level_id) / 1000.0 - th
             corners = _box_corners(min(xs), min(ys), z0, max(xs), max(ys), z0 + th)
-            solids.append((el.name or el.id, corners, _BOX_FACES))
+            solids.append((pname, corners, _BOX_FACES))
 
     if not solids:
         c = _box_corners(0, 0, 0, 0.1, 0.1, 0.1)
-        solids.append(("empty", c, _BOX_FACES))
+        solids.append(("MEP:empty", c, _BOX_FACES))
 
     for name, verts, faces in solids:
         _emit_solid(w, verts, faces, name, ctx)

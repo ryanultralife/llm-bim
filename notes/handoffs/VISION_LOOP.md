@@ -69,6 +69,7 @@
 | 43 | continue | MCP pack phases | MCP export lacked phase filter | project_export_pack phases + set_phase tool | 114 unit | e0a9cee |
 | 44 | continue | plan MEP dimensions | dims walls only | pipe/duct/conduit length dims on plan | 115 unit | 52807c1 |
 | 45 | continue | connection schedule | HTML only raw ports; no names | connection_schedule locator; schedules/connections.csv | 115 unit | d776fea |
+| 46 | continue | STEP system layers | STEP products untagged | PRODUCT names PIPE-CU/FP/DUCT/CONDUIT:… | 116 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -140,7 +141,7 @@
 65. ~~Zone schedule room heights + area~~ (pass 41)
 66. ~~CLI pack --phases new~~ (pass 41)
 67. ~~IFC IfcSpace room linkage for placed MEP~~ (pass 42)
-68. STEP color/layer by system (optional)
+68. ~~STEP layer by system (PRODUCT LAYER:name)~~ (pass 46)
 69. ~~MCP export_pack phases arg~~ (pass 43)
 70. ~~MCP set_phase tool~~ (pass 43)
 
