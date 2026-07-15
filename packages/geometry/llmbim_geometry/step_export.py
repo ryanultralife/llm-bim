@@ -173,20 +173,58 @@ def _equipment_solid(
     el: Element, model: ProjectModel, *, cyl_sides: int = 24
 ) -> tuple[list[tuple[float, float, float]], list[tuple[int, ...]]] | None:
     try:
-        o = el.params["origin_mm"]
-        s = el.params["size_mm"]
+        o = el.params.get("origin_mm")
+        s = el.params.get("size_mm") or [100.0, 100.0, 100.0]
+        if not o:
+            return None
         z0 = float(el.params.get("z0_mm", 0)) + _level_z(model, el.level_id)
         shape = el.params.get("shape", "box")
     except (KeyError, TypeError, ValueError):
         return None
     x0, y0 = float(o[0]) / 1000.0, float(o[1]) / 1000.0
-    lx, ly, hz = float(s[0]) / 1000.0, float(s[1]) / 1000.0, float(s[2]) / 1000.0
+    lx = float(s[0]) / 1000.0 if len(s) > 0 else 0.1
+    ly = float(s[1]) / 1000.0 if len(s) > 1 else 0.1
+    hz = float(s[2]) / 1000.0 if len(s) > 2 else ly
     z0m = z0 / 1000.0
-    if shape == "cylinder":
-        r = ly / 2.0
-        return _cylinder_corners(x0, y0, z0m, lx, r, n=cyl_sides)
-    corners = _box_corners(x0, y0, z0m, x0 + lx, y0 + ly, z0m + hz)
+    if shape == "cylinder" or el.params.get("fitting_type") == "pipe":
+        r = max(ly / 2.0, 0.01)
+        return _cylinder_corners(x0, y0, z0m, max(lx, 0.05), r, n=cyl_sides)
+    corners = _box_corners(x0, y0, z0m, x0 + max(lx, 0.05), y0 + max(ly, 0.05), z0m + max(hz, 0.05))
     return corners, _BOX_FACES
+
+
+def _pipe_solid(el: Element, model: ProjectModel, *, cyl_sides: int = 16) -> tuple[list, list] | None:
+    """Horizontal pipe run as short cylinder / box along start→end (meters)."""
+    try:
+        if "start_mm" in el.params and "end_mm" in el.params:
+            s, e = el.params["start_mm"], el.params["end_mm"]
+            x0, y0 = float(s[0]) / 1000.0, float(s[1]) / 1000.0
+            x1, y1 = float(e[0]) / 1000.0, float(e[1]) / 1000.0
+            length = math.hypot(x1 - x0, y1 - y0)
+            if length < 1e-6:
+                return None
+            # place cylinder along local +X by rotating via box AABB for simplicity
+            od = 0.05
+            if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
+                od = max(float(el.params["size_mm"][1]) / 1000.0, 0.02)
+            z0 = (_level_z(model, el.level_id) + float(el.params.get("z0_mm", 0))) / 1000.0
+            # axis-aligned box along segment (AABB) — coordination grade
+            xmin, xmax = min(x0, x1), max(x0, x1)
+            ymin, ymax = min(y0, y1), max(y0, y1)
+            # thicken perpendicular in plan
+            if abs(xmax - xmin) < 1e-6:
+                xmin -= od / 2
+                xmax += od / 2
+            else:
+                ymin -= od / 2
+                ymax += od / 2
+            if abs(ymax - ymin) < 1e-6:
+                ymin -= od / 2
+                ymax += od / 2
+            return _box_corners(xmin, ymin, z0, xmax, ymax, z0 + od), _BOX_FACES
+        return _equipment_solid(el, model, cyl_sides=cyl_sides)
+    except (KeyError, TypeError, ValueError, IndexError):
+        return None
 
 
 def _wall_solid(el: Element, model: ProjectModel) -> tuple[list, list] | None:
@@ -253,9 +291,33 @@ def export_step(
     }
 
     solids: list[tuple[str, list, list]] = []
+    proxy_cats = {
+        "fitting",
+        "fittings",
+        "fixture",
+        "accessory",
+        "module_instance",
+        "module_root",
+        "steel",
+        "rebar",
+        "framing",
+        "fire_protection",
+        "process_piping",
+    }
     for el in model.elements:
         if el.category == "equipment":
             solid = _equipment_solid(el, model, cyl_sides=cyl_sides)
+            if solid:
+                solids.append((el.name or el.id, solid[0], solid[1]))
+        elif el.category in {"pipe", "plumbing_pipe"}:
+            solid = _pipe_solid(el, model, cyl_sides=max(8, cyl_sides // 2))
+            if solid:
+                solids.append((el.name or el.id, solid[0], solid[1]))
+        elif el.category in proxy_cats:
+            if el.params.get("start_mm") and el.params.get("end_mm"):
+                solid = _pipe_solid(el, model)
+            else:
+                solid = _equipment_solid(el, model, cyl_sides=cyl_sides)
             if solid:
                 solids.append((el.name or el.id, solid[0], solid[1]))
         elif el.category == "wall" and include_walls:
