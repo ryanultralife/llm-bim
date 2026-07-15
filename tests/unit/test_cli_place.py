@@ -61,6 +61,91 @@ def test_cli_place_riser_and_fitting(tmp_path: Path):
     assert any(e.category == "fitting" for e in p3.model.elements)
 
 
+def test_cli_place_wall_door_window(tmp_path: Path, capsys):
+    p = Project.create("cli-open", vcs=False)
+    p.add_level("L1", 0)
+    model = tmp_path / "model.llmbim.json"
+    p.save(model)
+
+    rc = main(
+        [
+            "place",
+            str(model),
+            "--kind",
+            "wall",
+            "--level",
+            "L1",
+            "--origin",
+            "0,0",
+            "--end",
+            "8000,0",
+            "--width",
+            "200",
+            "--height",
+            "3000",
+            "--fire-rating",
+            "2-hr",
+            "--type-id",
+            "W-2HR",
+            "--name",
+            "W-S",
+        ]
+    )
+    assert rc == 0
+    wall_out = json.loads(capsys.readouterr().out)
+    host = wall_out["element_id"]
+
+    rc = main(
+        [
+            "place",
+            str(model),
+            "--kind",
+            "door",
+            "--host",
+            host,
+            "--offset",
+            "2000",
+            "--width",
+            "900",
+            "--height",
+            "2100",
+            "--type-id",
+            "D-HM-36",
+            "--fire-rating",
+            "90 min",
+        ]
+    )
+    assert rc == 0
+    _ = capsys.readouterr()
+
+    rc = main(
+        [
+            "place",
+            str(model),
+            "--kind",
+            "window",
+            "--host",
+            host,
+            "--offset",
+            "5000",
+            "--width",
+            "1200",
+            "--height",
+            "900",
+            "--sill",
+            "900",
+            "--type-id",
+            "WIN-VIEW",
+        ]
+    )
+    assert rc == 0
+    p2 = Project.open(model)
+    assert any(e.category == "door" for e in p2.model.elements)
+    assert any(e.category == "window" for e in p2.model.elements)
+    walls = [e for e in p2.model.elements if e.category == "wall"]
+    assert walls and walls[0].params.get("fire_rating") == "2-hr"
+
+
 def test_cli_takeoff_csi_instances(tmp_path: Path, capsys):
     p = Project.create("cli-csi", vcs=False)
     p.add_level("L1", 0)

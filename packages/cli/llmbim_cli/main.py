@@ -635,6 +635,49 @@ def cmd_place(args: argparse.Namespace) -> int:
             material=args.material or "steel_A36",
         )
         result = {"element_id": eid, "kind": "beam"}
+    elif kind == "wall":
+        if not args.end:
+            raise SystemExit("place wall requires --end x,y")
+        end = _parse_xy(args.end)
+        eid = p.create_wall(
+            level=level,
+            start=origin,
+            end=end,
+            thickness_mm=float(args.width if args.width is not None else 200),
+            height_mm=float(args.height if args.height is not None else 3000),
+            name=args.name,
+            type_id=getattr(args, "type_id", None) or None,
+            fire_rating=getattr(args, "fire_rating", None) or None,
+        )
+        result = {"element_id": eid, "kind": "wall"}
+    elif kind == "door":
+        host = getattr(args, "host", None)
+        if not host:
+            raise SystemExit("place door requires --host <wall_element_id>")
+        eid = p.place_door(
+            host=host,
+            offset_mm=float(getattr(args, "offset", None) if getattr(args, "offset", None) is not None else 1000),
+            width_mm=float(args.width if args.width is not None else 900),
+            height_mm=float(args.height if args.height is not None else 2100),
+            name=args.name,
+            type_id=getattr(args, "type_id", None) or None,
+            fire_rating=getattr(args, "fire_rating", None) or None,
+        )
+        result = {"element_id": eid, "kind": "door", "host": host}
+    elif kind == "window":
+        host = getattr(args, "host", None)
+        if not host:
+            raise SystemExit("place window requires --host <wall_element_id>")
+        eid = p.place_window(
+            host=host,
+            offset_mm=float(getattr(args, "offset", None) if getattr(args, "offset", None) is not None else 1000),
+            width_mm=float(args.width if args.width is not None else 1200),
+            height_mm=float(args.height if args.height is not None else 1200),
+            sill_mm=float(getattr(args, "sill", None) if getattr(args, "sill", None) is not None else 900),
+            name=args.name,
+            type_id=getattr(args, "type_id", None) or None,
+        )
+        result = {"element_id": eid, "kind": "window", "host": host}
     else:
         raise SystemExit(f"Unknown place kind: {kind}")
     # persist back to path
@@ -979,7 +1022,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p_pl = sub.add_parser(
         "place",
-        help="Place fitting|pipe|riser|part on a project and save",
+        help="Place fitting|pipe|riser|part|wall|door|window|MEP|structure on a project and save",
     )
     p_pl.add_argument("path", help="Project dir or model.llmbim.json")
     p_pl.add_argument(
@@ -996,14 +1039,22 @@ def main(argv: list[str] | None = None) -> int:
             "tray",
             "column",
             "beam",
+            "wall",
+            "door",
+            "window",
         ],
         help="What to place",
     )
-    p_pl.add_argument("--width", type=float, default=None, help="Duct width mm")
-    p_pl.add_argument("--height", type=float, default=None, help="Duct height mm / column height mm")
+    p_pl.add_argument("--width", type=float, default=None, help="Duct/door/window width mm; wall thickness")
+    p_pl.add_argument("--height", type=float, default=None, help="Duct/column/door/window/wall height mm")
     p_pl.add_argument("--level", default=None)
-    p_pl.add_argument("--origin", default="0,0", help="x,y mm plan origin / pipe start")
-    p_pl.add_argument("--end", default=None, help="x,y mm pipe end (pipe only)")
+    p_pl.add_argument("--origin", default="0,0", help="x,y mm plan origin / pipe start / wall start")
+    p_pl.add_argument("--end", default=None, help="x,y mm end (pipe/duct/wall/beam)")
+    p_pl.add_argument("--host", default=None, help="Host wall element id (door/window)")
+    p_pl.add_argument("--offset", type=float, default=None, help="Offset along host wall mm (door/window)")
+    p_pl.add_argument("--sill", type=float, default=None, help="Window sill height mm from floor")
+    p_pl.add_argument("--type-id", dest="type_id", default=None, help="Type mark e.g. D-HM-36 / W-2HR")
+    p_pl.add_argument("--fire-rating", dest="fire_rating", default=None, help="e.g. 90 min or 2-hr")
     p_pl.add_argument("--nps", default=None, help='Nominal pipe size e.g. 3/4 or 2')
     p_pl.add_argument("--fitting-type", default=None, help="elbow_90 | tee | ...")
     p_pl.add_argument("--section", default=None, help="Steel section for column e.g. W10x33")
