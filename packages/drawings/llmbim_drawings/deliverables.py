@@ -214,7 +214,18 @@ def export_deliverables(
 
     schedules = out / "schedules"
     schedules.mkdir(exist_ok=True)
-    for kind in ("room", "door", "window", "wall", "equipment", "fitting", "pipe", "part", "material"):
+    for kind in (
+        "room",
+        "door",
+        "window",
+        "wall",
+        "equipment",
+        "fitting",
+        "pipe",
+        "part",
+        "material",
+        "csi",
+    ):
         _try(
             f"schedule_{kind}",
             errors,
