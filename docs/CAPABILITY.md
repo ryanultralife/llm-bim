@@ -50,12 +50,15 @@ JSON · IFC · glTF · STEP · SVG sheets · DXF · PDF plot set · BOQ (CSI) ·
 | Place fitting | `p.place_fitting(level=..., fitting_type="elbow_90", nps="1/2")` |
 | Place pipe | `p.place_pipe(level=..., nps="3/4", start=..., end=...)` |
 | Place duct / conduit / tray | `p.place_duct` · `place_conduit` · `place_cable_tray` |
+| Place steel | `p.place_column` · `place_beam` → IFCCOLUMN/IFCBEAM |
 | Count 90° copper by size | `p.fitting_takeoff(fitting_type="elbow_90", material="copper")` |
-| MEP takeoffs | `p.duct_takeoff()` · `conduit_takeoff()` · `cable_tray_takeoff()` |
+| MEP takeoffs | `p.duct_takeoff()` · `conduit_takeoff()` · `cable_tray_takeoff()` · ops |
+| Schedules | `p.schedule("column")` · zone · duct · cable_tray · csi |
 | Full plumbing schedule | `p.plumbing_schedule()` |
 | Export lists | `p.export_material_lists()` / pack `materials/` |
+| Verify pack | `p.verify_pack(out)` / MCP `project_verify_pack` |
 
-Ops: `assign_material`, `assign_part`, `place_fitting`, `place_pipe`, `place_duct`, `place_conduit`, `place_cable_tray`, `place_part`, `fitting_takeoff`, `system_takeoff`, `csi_takeoff`, `auto_assign`, `materials`, `parts`.
+Ops: `place_duct/conduit/cable_tray/column/beam`, `duct_takeoff`/`conduit_takeoff`/`cable_tray_takeoff`/`steel_takeoff`, `fitting_takeoff`, `csi_takeoff`, `export_pack`, …
 
 ### Trade catalogs (~430 parts)
 

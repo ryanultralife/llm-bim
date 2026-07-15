@@ -20,7 +20,7 @@
 | 3D review mesh | glTF | ✅ walls + equipment + MEP + **system materials** (copper/fire/duct/conduit colors) | `llmbim_geometry.mesh` |
 | 3D solid exchange | STEP AP203 | ✅ boxes/cylinders + MEP + **LAYER:name** PRODUCT tags (PIPE-CU/FP/DUCT/…) | `llmbim_geometry.step_export` |
 | Floor plan | SVG | ✅ walls + openings + equip + **pipes/fittings/fixtures + riser circles + ducts** | `llmbim_drawings.plan` |
-| Plan DXF | DXF R12 | ✅ walls/equip/rooms + MEP + **COLUMNS/BEAMS** + grids | `llmbim_drawings.dxf_export` |
+| Plan DXF | DXF R12 | ✅ walls/**WALL-TYPES FR** + **DOORS/WINDOWS** + rooms + MEP + COLUMNS/BEAMS + grids | `llmbim_drawings.dxf_export` |
 | Elevation DXF | DXF R12 | ✅ walls + MEP + **COLUMNS/BEAMS** + LEVELS | `export_elevation_dxf` |
 | Section DXF | DXF R12 | ✅ cut plane + walls/MEP + **COLUMNS/BEAMS** + LEVELS | `export_section_dxf` |
 | Section / elevation | SVG | ✅ walls/equip + MEP + **columns/beams** + storey dims | `llmbim_drawings.section` |

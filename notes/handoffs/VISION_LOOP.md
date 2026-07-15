@@ -112,7 +112,8 @@
 | 86 | continue | cable tray design rules | only duct/conduit wall rules | TRAY_IN_WALL + TRAY_LOW_CLEARANCE | 155 unit | 668c3f5 |
 | 87 | continue | cable_tray schedule + SDK verify | no tray.csv; no Project.verify_pack | schedule kind tray; SDK verify | 156 unit | abbf7b8 |
 | 88 | continue | registry duct/tray takeoff ops | ops only fitting_takeoff | duct/conduit/cable_tray_takeoff ops | 157 unit | 40e5bf2 |
-| 89 | continue | IFC Column/Beam entities | structure was BuildingElementProxy | IFCCOLUMN/IFCBEAM + section tags | 158 unit | (this) |
+| 89 | continue | IFC Column/Beam entities | structure was BuildingElementProxy | IFCCOLUMN/IFCBEAM + section tags | 158 unit | 904f879 |
+| 90 | continue | plan DXF doors/windows | DXF plan no openings | DOORS/WINDOWS layers + type/FR marks | 159 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -231,7 +232,8 @@
 112. ~~cable_tray schedule CSV + Project.verify_pack~~ (pass 87)
 113. ~~Registry duct/conduit/cable_tray_takeoff ops~~ (pass 88)
 114. ~~IFCCOLUMN / IFCBEAM + steel_takeoff op + schedule()~~ (pass 89)
-115. Keep closing residual gaps until pass 120 / 10h
+115. ~~Plan DXF DOORS/WINDOWS with type/FR marks~~ (pass 90)
+116. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
