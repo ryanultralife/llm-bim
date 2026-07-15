@@ -86,6 +86,21 @@ def test_html_index_door_schedule_sample(tmp_path: Path):
     assert "90 min" in text
 
 
+def test_html_index_window_schedule_sample(tmp_path: Path):
+    pack = tmp_path / "pack"
+    (pack / "schedules").mkdir(parents=True)
+    (pack / "schedules" / "windows.csv").write_text(
+        "name,type_id,width_mm,height_mm,sill_mm,locator\n"
+        "View,WIN-VIEW,1200,900,900,L1|X5000|Y0|Z900\n",
+        encoding="utf-8",
+    )
+    write_pack_index(pack)
+    text = (pack / "index.html").read_text(encoding="utf-8")
+    assert "Window schedule" in text
+    assert "WIN-VIEW" in text
+    assert "900" in text
+
+
 def test_html_index_design_rules_sample(tmp_path: Path):
     pack = tmp_path / "pack"
     pack.mkdir()

@@ -230,6 +230,40 @@ def write_pack_index(out_dir: str | Path) -> Path:
         except Exception:  # noqa: BLE001
             door_preview = ""
 
+    # window schedule sample (type + sill)
+    window_preview = ""
+    window_path = out / "schedules" / "windows.csv"
+    if window_path.is_file():
+        try:
+            import csv
+            from io import StringIO
+
+            rows = list(csv.DictReader(StringIO(window_path.read_text(encoding="utf-8"))))
+            lines = []
+            for r in rows[:15]:
+                lines.append(
+                    "<tr>"
+                    f"<td>{r.get('name') or r.get('id') or ''}</td>"
+                    f"<td>{r.get('type_id') or ''}</td>"
+                    f"<td>{r.get('width_mm') or r.get('width') or ''}</td>"
+                    f"<td>{r.get('height_mm') or r.get('height') or ''}</td>"
+                    f"<td>{r.get('sill_mm') or r.get('sill') or ''}</td>"
+                    f"<td><code>{(r.get('locator') or '')[:40]}</code></td>"
+                    "</tr>"
+                )
+            if lines:
+                window_preview = (
+                    "<h2>Window schedule (sample)</h2>"
+                    "<p>Type marks + sill height. Full: "
+                    "<a href=\"schedules/windows.csv\">windows.csv</a></p>"
+                    "<table><tr><th>Name</th><th>Type</th>"
+                    "<th>W</th><th>H</th><th>Sill</th><th>Locator</th></tr>"
+                    + "".join(lines)
+                    + "</table>"
+                )
+        except Exception:  # noqa: BLE001
+            window_preview = ""
+
     # design rules findings sample
     rules_preview = ""
     rules_path = out / "design_rules.json"
@@ -301,6 +335,7 @@ th{{background:#161b22}}
 {conn_preview}
 {draw_preview}
 {door_preview}
+{window_preview}
 {rules_preview}
 {legend}
 <h2>Drawings (SVG)</h2><ul>{"".join(links) or "<li>none</li>"}</ul>
