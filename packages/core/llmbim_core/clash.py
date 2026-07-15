@@ -142,10 +142,20 @@ def element_aabb(el: Element, model: ProjectModel) -> AABB | None:
 def find_clashes(
     model: ProjectModel,
     *,
-    categories: tuple[str, ...] = ("wall", "equipment", "slab"),
+    categories: tuple[str, ...] = (
+        "wall",
+        "equipment",
+        "slab",
+        "pipe",
+        "plumbing_pipe",
+        "fitting",
+        "fixture",
+        "module_instance",
+        "module_root",
+    ),
     ignore_same_host: bool = True,
 ) -> list[dict[str, Any]]:
-    """Pairwise AABB clashes among selected categories."""
+    """Pairwise AABB clashes among selected categories (includes MEP)."""
     items: list[tuple[Element, AABB]] = []
     for el in model.elements:
         if el.category not in categories:
@@ -154,6 +164,7 @@ def find_clashes(
         if box and box.volume() > 0:
             items.append((el, box))
 
+    mep = {"pipe", "plumbing_pipe", "fitting", "fittings", "fixture"}
     clashes: list[dict[str, Any]] = []
     for i in range(len(items)):
         for j in range(i + 1, len(items)):
@@ -165,11 +176,25 @@ def find_clashes(
                 continue
             if a.category == "slab" and b.category == "slab":
                 continue
+            # skip fittings sitting on their own pipes (same import module parent)
+            if a.parent_id and a.parent_id == b.parent_id and a.parent_id:
+                if a.category in mep and b.category in mep:
+                    continue
             if ignore_same_host and a.host_id and a.host_id == b.id:
                 continue
             if ignore_same_host and b.host_id and b.host_id == a.id:
                 continue
             if ba.intersects(bb):
+                cats = {a.category, b.category}
+                sev = "warning"
+                if cats & mep and cats & {"wall", "equipment"}:
+                    sev = "error"
+                elif cats <= mep:
+                    sev = "warning"  # pipe-pipe / pipe-fitting
+                elif cats == {"wall", "equipment"}:
+                    sev = "warning"
+                else:
+                    sev = "error"
                 clashes.append(
                     {
                         "a_id": a.id,
@@ -178,7 +203,7 @@ def find_clashes(
                         "b_id": b.id,
                         "b_name": b.name,
                         "b_category": b.category,
-                        "severity": "warning" if {a.category, b.category} == {"wall", "equipment"} else "error",
+                        "severity": sev,
                         "message": f"AABB overlap: {a.name or a.id} × {b.name or b.id}",
                     }
                 )
