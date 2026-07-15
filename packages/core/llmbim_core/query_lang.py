@@ -14,6 +14,8 @@ Examples:
   csi~22 11
   vertical=true
   nps=3/4
+  section=W10x33
+  trade_size=1
   phase=new
   phase=existing
 """
@@ -114,8 +116,22 @@ def match_element(el: Element, filters: list[tuple[str, str, Any]], model: Proje
                 left = str(left).replace("_", " ").replace("+", " ")
             if isinstance(val, str):
                 val = val.replace("_", " ").replace("+", " ")
-        elif field in ("nps", "system", "material_id", "fitting_type", "part_id"):
+        elif field in (
+            "nps",
+            "system",
+            "material_id",
+            "fitting_type",
+            "part_id",
+            "section",
+            "trade_size",
+            "bar_size",
+        ):
             left = el.params.get(field)
+            # trade_size aliases nps on conduit; section may live on type_id for steel parts
+            if left is None and field == "trade_size":
+                left = el.params.get("nps")
+            if left is None and field == "section":
+                left = el.params.get("section") or el.type_id
         elif field in ("vertical", "riser"):
             left = bool(el.params.get("vertical") or el.params.get("orientation") == "vertical")
             if isinstance(val, str):

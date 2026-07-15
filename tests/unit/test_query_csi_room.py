@@ -62,3 +62,17 @@ def test_query_phase_filter():
     ex_walls = run_query(p.model, "category=wall phase=existing")
     assert len(new_walls) == 1 and new_walls[0].id == w1
     assert len(ex_walls) == 1 and ex_walls[0].id == w2
+
+
+def test_query_section_and_trade_size():
+    p = Project.create("q-struct", vcs=False)
+    p.add_level("L1", 0)
+    p.place_column(level="L1", origin=(0, 0), section="W10x33", height_mm=3500)
+    p.place_beam(level="L1", start=(0, 0), end=(5000, 0), section="W12x26")
+    p.place_conduit(level="L1", start=(0, 1000), end=(3000, 1000), trade_size="1")
+    cols = run_query(p.model, "category=column section=W10x33")
+    assert len(cols) == 1
+    beams = run_query(p.model, "category=beam section=W12x26")
+    assert len(beams) == 1
+    cond = run_query(p.model, "category=conduit trade_size=1")
+    assert len(cond) == 1
