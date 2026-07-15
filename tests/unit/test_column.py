@@ -65,3 +65,39 @@ def test_place_beam_csi_and_plan(tmp_path: Path):
     text = plan.read_text(encoding="utf-8")
     assert 'class="beams"' in text
     assert "W12x26" in text
+
+
+def test_structure_on_plan_dxf(tmp_path: Path):
+    from llmbim_drawings.dxf_export import export_plan_dxf
+
+    p = Project.create("struct-dxf", vcs=False)
+    p.add_level("L1", 0)
+    p.place_column(level="L1", origin=(2000, 2000), section="W10x33", height_mm=3500)
+    p.place_beam(level="L1", start=(0, 2000), end=(6000, 2000), section="W12x26")
+    dxf = tmp_path / "s.dxf"
+    export_plan_dxf(p.model, "L1", dxf)
+    text = dxf.read_text(encoding="utf-8")
+    assert "COLUMNS" in text
+    assert "BEAMS" in text
+    assert "W10x33" in text
+    assert "W12x26" in text
+
+
+def test_column_beam_clash():
+    from llmbim_core.clash import find_clashes
+
+    p = Project.create("struct-clash", vcs=False)
+    p.add_level("L1", 0)
+    # beam through column center at same Z band
+    p.place_column(level="L1", origin=(4000, 2000), section="W10x33", height_mm=3500)
+    p.place_beam(
+        level="L1",
+        start=(0, 2000),
+        end=(8000, 2000),
+        section="W12x26",
+        z0_mm=3000,
+    )
+    clashes = find_clashes(p.model)
+    assert any(
+        {c.get("a_category"), c.get("b_category")} == {"column", "beam"} for c in clashes
+    ), clashes[:5]

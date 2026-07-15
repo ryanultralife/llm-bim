@@ -57,7 +57,7 @@ def element_aabb(el: Element, model: ProjectModel) -> AABB | None:
         # expand by half thickness roughly
         pad = th / 2
         return AABB(min(xs) - pad, min(ys) - pad, z0, max(xs) + pad, max(ys) + pad, z0 + ht)
-    if el.category == "equipment":
+    if el.category == "equipment" or el.category == "column" or el.params.get("fitting_type") == "column":
         try:
             o = el.params["origin_mm"]
             s = el.params["size_mm"]
@@ -67,6 +67,18 @@ def element_aabb(el: Element, model: ProjectModel) -> AABB | None:
             return None
         x0, y0 = float(o[0]), float(o[1])
         lx, ly, hz = float(s[0]), float(s[1]), float(s[2])
+        if el.category == "column" or el.params.get("fitting_type") == "column":
+            # origin is column center
+            half_x, half_y = lx / 2, ly / 2
+            ht = float(el.params.get("height_mm") or hz or 3000)
+            return AABB(
+                x0 - half_x,
+                y0 - half_y,
+                z0 + z_off,
+                x0 + half_x,
+                y0 + half_y,
+                z0 + z_off + ht,
+            )
         if shape == "cylinder":
             r = ly / 2
             return AABB(x0, y0 - r, z0 + z_off, x0 + lx, y0 + r, z0 + z_off + ly)
@@ -81,21 +93,28 @@ def element_aabb(el: Element, model: ProjectModel) -> AABB | None:
         ys = [float(p[1]) for p in poly]
         return AABB(min(xs), min(ys), z0 - th, max(xs), max(ys), z0)
     if (
-        el.category in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac", "cable_tray"}
-        or el.params.get("fitting_type") in {"pipe", "conduit", "duct", "cable_tray"}
+        el.category
+        in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac", "cable_tray", "beam"}
+        or el.params.get("fitting_type")
+        in {"pipe", "conduit", "duct", "cable_tray", "beam"}
     ):
         try:
             is_duct = el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct"
             is_tray = el.category == "cable_tray" or el.params.get("fitting_type") == "cable_tray"
+            is_beam = el.category == "beam" or el.params.get("fitting_type") == "beam"
             od = 50.0
             if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
                 od = max(float(el.params["size_mm"][1]), 20.0)
             if is_duct or is_tray:
                 od = float(el.params.get("width_mm") or od)
+            if is_beam:
+                od = float(el.params.get("width_mm") or el.params.get("depth_mm") or od or 150)
             z_off = float(el.params.get("z0_mm", 0))
             elev_h = od
             if is_duct or is_tray:
                 elev_h = float(el.params.get("height_mm") or (100 if is_tray else 250))
+            if is_beam:
+                elev_h = float(el.params.get("height_mm") or el.params.get("depth_mm") or 300)
             # vertical riser
             if el.params.get("vertical") or el.params.get("orientation") == "vertical":
                 o = el.params.get("origin_mm") or el.params.get("start_mm") or [0, 0]
@@ -174,10 +193,12 @@ def find_clashes(
         "hvac",
         "conduit",
         "cable_tray",
+        "column",
+        "beam",
     ),
     ignore_same_host: bool = True,
 ) -> list[dict[str, Any]]:
-    """Pairwise AABB clashes among selected categories (includes MEP)."""
+    """Pairwise AABB clashes among selected categories (includes MEP + structure)."""
     items: list[tuple[Element, AABB]] = []
     for el in model.elements:
         if el.category not in categories:
@@ -196,6 +217,8 @@ def find_clashes(
         "hvac",
         "conduit",
         "cable_tray",
+        "column",
+        "beam",
     }
     clashes: list[dict[str, Any]] = []
     for i in range(len(items)):
