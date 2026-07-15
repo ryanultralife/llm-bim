@@ -41,3 +41,24 @@ def test_csi_schedule_kind_and_csv(tmp_path: Path):
     text = (tmp_path / "csi.csv").read_text(encoding="utf-8")
     assert "csi_code" in text
     assert "locator" in text
+
+
+def test_schedule_includes_room_column():
+    p = Project.create("sched-room", vcs=False)
+    p.add_level("L1", 0)
+    p.create_room(
+        level="L1",
+        name="Restroom A",
+        boundary=[(0, 0), (5000, 0), (5000, 4000), (0, 4000)],
+    )
+    p.place_fitting(
+        level="L1",
+        fitting_type="elbow_90",
+        nps="1/2",
+        origin=(2000, 2000),
+        material="copper",
+    )
+    fits = schedule_rows(p.model, "fitting")
+    assert fits
+    assert fits[0].get("room") == "Restroom A"
+    assert "RM:Restroom" in str(fits[0].get("locator", ""))

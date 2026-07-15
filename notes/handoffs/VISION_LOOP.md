@@ -42,8 +42,11 @@
 | 17 | continue | riser 3D + MCP | STEP/glTF/MCP missing risers | STEP/glTF vertical solids; MCP place_pipe/riser | 85 unit | 95025a7 |
 | 18 | continue | schedules CSI+locator | schedules no MF codes | door/pipe/fitting/equip CSI+locator; schedules/csi.csv | 87 unit | 190cda6 |
 | 19 | continue | CSI room in locator | locator lacked room | room_containing PIP + RM:RoomName; RISER token | 88 unit | d715459 |
-| 20 | continue | DXF vertical risers | DXF zero-length pipe line | CIRCLE riser plan symbol + PIPE layer | 89+ unit | (next) |
-| 21 | continue | CLI place + csi_instances | no CLI place_riser/fitting | `llmbim place` + takeoff --kind csi_instances | 91+ unit | (next) |
+| 20 | continue | DXF vertical risers | DXF zero-length pipe line | CIRCLE riser plan symbol + PIPE layer | 91 unit | d528f75 |
+| 21 | continue | CLI place + csi_instances | no CLI place_riser/fitting | `llmbim place` + takeoff --kind csi_instances | 91 unit | d528f75 |
+| 22 | continue | schedule room column | schedules lacked room | `_annotate_csi` room field | 94 unit | (this) |
+| 23 | continue | query room/csi/vertical | query only wall attrs | room~, csi~, nps, vertical=true | 94 unit | (this) |
+| 24 | continue | skill + HTML RM: docs | skill stale locators | SKILL place/csi_instances; HTML room col | 94 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -77,11 +80,16 @@
 27. ~~CSI locator room name (RM:)~~ (pass 19)
 28. ~~DXF plan riser CIRCLE symbols~~ (pass 20)
 29. ~~CLI place fitting/pipe/riser/part + csi_instances~~ (pass 21)
-30. Room column in schedules CSV
+30. ~~Room column in schedules CSV~~ (pass 22)
 31. IFC IfcSpace room linkage for placed MEP
-32. HTML index room+CSI locator sample
-33. Query language filter by CSI / room / locator
-34. Skill SKILL.md place_riser + RM: locators
+32. ~~HTML index room+CSI locator sample~~ (pass 24)
+33. ~~Query language filter by CSI / room / locator~~ (pass 23)
+34. ~~Skill SKILL.md place_riser + RM: locators~~ (pass 24)
+35. MCP query tool with room/csi filters
+36. Multi-level riser spanning storeys
+37. Connection schedule in HTML index
+38. IFC IfcFlowSegment for pipes (vs proxy)
+39. Agent recipe: restroom + CW loop + CSI takeoff
 
 ## Rules for each scheduled pass
 

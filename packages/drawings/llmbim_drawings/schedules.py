@@ -22,10 +22,12 @@ def _annotate_csi(model: ProjectModel, el, row: dict[str, Any]) -> dict[str, Any
         row["csi_instance"] = info.get("csi_instance")
         row["locator"] = info.get("locator")
         row["level"] = info.get("level")
+        row["room"] = info.get("room")
         row["x_mm"] = info.get("x_mm")
         row["y_mm"] = info.get("y_mm")
         row["z_mm"] = info.get("z_mm")
         row["height_mm"] = info.get("height_mm") or row.get("height_mm")
+        row["nps"] = info.get("nps") or row.get("nps")
     except Exception:  # noqa: BLE001
         pass
     return row

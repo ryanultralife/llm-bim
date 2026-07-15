@@ -57,13 +57,18 @@ def write_pack_index(out_dir: str | Path) -> Path:
                 code = r.get("csi_code") or ""
                 loc = r.get("locator") or r.get("csi_instance") or ""
                 name = r.get("element_name") or r.get("part_id") or r.get("element_id") or ""
-                lines.append(f"<tr><td><code>{code}</code></td><td>{name}</td><td><code>{loc}</code></td></tr>")
+                room = r.get("room") or ""
+                lines.append(
+                    f"<tr><td><code>{code}</code></td><td>{name}</td>"
+                    f"<td>{room}</td><td><code>{loc}</code></td></tr>"
+                )
             if lines:
                 csi_preview = (
                     "<h2>CSI locators (sample)</h2>"
-                    "<p>MasterFormat section + level/XY/Z to find items. Full list: "
-                    "<a href=\"materials/csi_instances.json\">csi_instances.json</a></p>"
-                    "<table><tr><th>CSI</th><th>Name</th><th>Locator</th></tr>"
+                    "<p>MasterFormat section + level|RM:room|XY|Z|NPS|RISER to find items. Full list: "
+                    "<a href=\"materials/csi_instances.json\">csi_instances.json</a> · "
+                    "<a href=\"schedules/csi.csv\">schedules/csi.csv</a></p>"
+                    "<table><tr><th>CSI</th><th>Name</th><th>Room</th><th>Locator</th></tr>"
                     + "".join(lines)
                     + "</table>"
                 )
@@ -73,9 +78,10 @@ def write_pack_index(out_dir: str | Path) -> Path:
     legend = """
 <h2>MEP / layers legend</h2>
 <ul>
-<li><strong>Plan SVG</strong> — copper pipes orange; fire black steel dark; process SS gray; PVC yellow</li>
-<li><strong>DXF layers</strong> — WALLS, EQUIP, ROOMS, PIPE-CU, PIPE-FP, PIPE-SS, FITTINGS, PIPE-TEXT</li>
+<li><strong>Plan SVG</strong> — copper pipes orange; fire black steel dark; process SS gray; PVC yellow; risers = concentric circles</li>
+<li><strong>DXF layers</strong> — WALLS, EQUIP, ROOMS, PIPE-CU, PIPE-FP, PIPE-SS, FITTINGS, PIPE-TEXT (risers = CIRCLE)</li>
 <li><strong>CSI</strong> — e.g. <code>22 11 16</code> domestic water, <code>21 13 13</code> wet sprinkler, <code>22 42 13</code> water closets</li>
+<li><strong>Locator</strong> — <code>L1|RM:Restroom_A|X1200Y3400|Z900|NPS3/4|RISER</code></li>
 <li><strong>Honesty</strong> — ENGINEERING ESTIMATE envelopes/takeoff; not PE-sealed CDs</li>
 </ul>
 """
