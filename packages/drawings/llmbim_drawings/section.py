@@ -355,7 +355,57 @@ def render_elevation_svg(
             f'    <line x1="{fmt(pa[0])}" y1="{fmt(pa[1])}" '
             f'x2="{fmt(pb[0])}" y2="{fmt(pb[1])}" stroke="{stroke}"/>'
         )
-    parts.append("  </g></svg>")
+    parts.append("  </g>")
+
+    # Level lines + storey height dimensions (left edge)
+    levels = sorted(model.levels, key=lambda lv: float(lv.elevation_mm))
+    if levels:
+        parts.append('  <g class="level-dims" stroke="#555" fill="#333" font-family="sans-serif">')
+        # dashed level reference lines across elev
+        for lv in levels:
+            z = float(lv.elevation_mm)
+            pa, pb = project(min_h, z), project(max_h, z)
+            parts.append(
+                f'    <line x1="{fmt(pa[0])}" y1="{fmt(pa[1])}" '
+                f'x2="{fmt(pb[0])}" y2="{fmt(pb[1])}" stroke-dasharray="4 3" '
+                f'stroke-width="0.7" opacity="0.7"/>'
+            )
+            parts.append(
+                f'    <text x="{fmt(pa[0] + 2)}" y="{fmt(pa[1] - 2)}" '
+                f'font-size="{fmt(max(7, 9))}" fill="#444">{esc(lv.name)} '
+                f"EL {z / 1000:.2f}m</text>"
+            )
+        # vertical dim between consecutive levels (and to top of highest wall if only one)
+        dim_x = min_h - margin_mm * 0.35
+        for i, lv in enumerate(levels):
+            z0 = float(lv.elevation_mm)
+            if i + 1 < len(levels):
+                z1 = float(levels[i + 1].elevation_mm)
+            else:
+                # single storey: dim to max wall top on elev
+                z1 = max_z - margin_mm * 0.1 if max_z > z0 + 500 else z0 + 3000
+            if z1 - z0 < 100:
+                continue
+            p0, p1 = project(dim_x, z0), project(dim_x, z1)
+            parts.append(
+                f'    <line x1="{fmt(p0[0])}" y1="{fmt(p0[1])}" '
+                f'x2="{fmt(p1[0])}" y2="{fmt(p1[1])}" stroke-width="1"/>'
+            )
+            # ticks
+            for pt in (p0, p1):
+                parts.append(
+                    f'    <line x1="{fmt(pt[0] - 4)}" y1="{fmt(pt[1])}" '
+                    f'x2="{fmt(pt[0] + 4)}" y2="{fmt(pt[1])}" stroke-width="1"/>'
+                )
+            mid_y = (p0[1] + p1[1]) / 2
+            lab = f"{(z1 - z0) / 1000:.2f} m"
+            parts.append(
+                f'    <text x="{fmt(p0[0] - 6)}" y="{fmt(mid_y)}" text-anchor="end" '
+                f'font-size="{fmt(max(7, 9))}" class="storey-height">{esc(lab)}</text>'
+            )
+        parts.append("  </g>")
+
+    parts.append("</svg>")
     return "\n".join(parts) + "\n"
 
 

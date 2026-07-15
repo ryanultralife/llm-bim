@@ -40,6 +40,8 @@ def write_pack_index(out_dir: str | Path) -> Path:
         "materials/MATERIALS_AND_PARTS.json",
         "schedules/plumbing_takeoff.json",
         "schedules/csi.csv",
+        "schedules/zone_areas.csv",
+        "schedules/connections.csv",
         "clash_report.json",
         "design_rules.json",
     ):
@@ -118,6 +120,39 @@ def write_pack_index(out_dir: str | Path) -> Path:
         except Exception:  # noqa: BLE001
             csi_preview = ""
 
+    # zone / area schedule sample
+    zone_preview = ""
+    zone_path = out / "schedules" / "zone_areas.csv"
+    if zone_path.is_file():
+        try:
+            import csv
+            from io import StringIO
+
+            rows = list(csv.DictReader(StringIO(zone_path.read_text(encoding="utf-8"))))
+            lines = []
+            for r in rows[:12]:
+                lines.append(
+                    "<tr>"
+                    f"<td>{r.get('name') or ''}</td>"
+                    f"<td>{r.get('level') or ''}</td>"
+                    f"<td>{r.get('area_m2') or ''}</td>"
+                    f"<td>{r.get('height_mm') or ''}</td>"
+                    f"<td>{r.get('volume_m3') or ''}</td>"
+                    "</tr>"
+                )
+            if lines:
+                zone_preview = (
+                    "<h2>Zone / area schedule (sample)</h2>"
+                    "<p>Room areas + clear height. Full: "
+                    "<a href=\"schedules/zone_areas.csv\">zone_areas.csv</a></p>"
+                    "<table><tr><th>Name</th><th>Level</th><th>Area m²</th>"
+                    "<th>Height mm</th><th>Vol m³</th></tr>"
+                    + "".join(lines)
+                    + "</table>"
+                )
+        except Exception:  # noqa: BLE001
+            zone_preview = ""
+
     legend = """
 <h2>MEP / layers legend</h2>
 <ul>
@@ -147,6 +182,7 @@ th{{background:#161b22}}
 <h2>3D / BIM</h2><ul>{"".join(threes)}</ul>
 <h2>Materials / takeoff / CSI</h2><ul>{"".join(data_links) or "<li>none — place fittings/parts then re-export</li>"}</ul>
 {csi_preview}
+{zone_preview}
 {conn_preview}
 {legend}
 <h2>Drawings (SVG)</h2><ul>{"".join(links) or "<li>none</li>"}</ul>
