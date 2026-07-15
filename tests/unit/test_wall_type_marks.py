@@ -18,6 +18,7 @@ def test_wall_type_on_plan(tmp_path: Path):
         thickness_mm=200,
         height_mm=3000,
         type_id="W-EXT-CMU",
+        fire_rating="2-hr",
     )
     assert wid
     plan = tmp_path / "p.svg"
@@ -25,6 +26,29 @@ def test_wall_type_on_plan(tmp_path: Path):
     text = plan.read_text(encoding="utf-8")
     assert 'class="wall-types"' in text
     assert "EXT-CMU" in text
+    assert "2HR" in text
+
+
+def test_wall_type_and_fire_on_plan_dxf(tmp_path: Path):
+    from llmbim_drawings.dxf_export import export_plan_dxf
+
+    p = Project.create("wall-dxf", vcs=False)
+    p.add_level("L1", 0)
+    p.create_wall(
+        level="L1",
+        start=(0, 0),
+        end=(8000, 0),
+        thickness_mm=200,
+        height_mm=3000,
+        type_id="W-EXT-CMU",
+        fire_rating="2-hr",
+    )
+    dxf = tmp_path / "p.dxf"
+    export_plan_dxf(p.model, "L1", dxf)
+    text = dxf.read_text(encoding="utf-8")
+    assert "WALL-TYPES" in text
+    assert "EXT-CMU" in text
+    assert "2HR" in text
 
 
 def test_room_ceiling_height_schedule():
