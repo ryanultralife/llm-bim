@@ -41,6 +41,37 @@ def test_elevation_dxf_columns_and_beams(tmp_path: Path):
     assert "W12x26" in text
 
 
+def test_elevation_dxf_doors_and_windows(tmp_path: Path):
+    p = Project.create("elev-open", vcs=False)
+    p.add_level("L1", 0)
+    w = p.create_wall(
+        level="L1", start=(0, 0), end=(10000, 0), thickness_mm=200, height_mm=3000
+    )
+    p.place_door(
+        host=w,
+        offset_mm=2000,
+        width_mm=900,
+        height_mm=2100,
+        type_id="D-HM-36",
+        fire_rating="90 min",
+    )
+    p.place_window(
+        host=w,
+        offset_mm=5000,
+        width_mm=1200,
+        height_mm=900,
+        sill_mm=900,
+        type_id="WIN-VIEW",
+    )
+    dxf = tmp_path / "elev_S.dxf"
+    export_elevation_dxf(p.model, "S", dxf)
+    text = dxf.read_text(encoding="utf-8")
+    assert "DOORS" in text
+    assert "WINDOWS" in text
+    assert "HM-36" in text or "D-HM" in text
+    assert "90m" in text or "90" in text
+
+
 def test_section_dxf_cut_and_mep(tmp_path: Path):
     p = Project.create("sec-dxf", vcs=False)
     p.add_level("L1", 0)
