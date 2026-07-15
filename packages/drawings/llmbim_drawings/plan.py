@@ -246,10 +246,22 @@ def render_plan_view(
             f'    <line x1="{fmt(pa[0])}" y1="{fmt(pa[1])}" '
             f'x2="{fmt(pb[0])}" y2="{fmt(pb[1])}" stroke="{color}"/>'
         )
-        # door / window tags
+        # door / window tags: mark (D1/W1) + type_id short mark when present
+        def _opening_type_short(el) -> str:
+            tid = str(el.type_id or el.params.get("type_id") or "")
+            if not tid:
+                return ""
+            # D-HM-36 → HM-36; keep WIN-VIEW… readable
+            if tid.startswith("D-"):
+                return tid[2:][:14]
+            if tid.startswith("W-") and not tid.startswith("WIN"):
+                return tid[2:][:14]
+            return tid[:14]
+
         if opening.category == "door":
             door_num += 1
             tag = f"D{door_num}"
+            tshort = _opening_type_short(opening)
             r = max(6.0, 80 * scale)
             parts.append(
                 f'    <circle cx="{fmt(pm[0])}" cy="{fmt(pm[1])}" r="{fmt(r)}" '
@@ -259,9 +271,16 @@ def render_plan_view(
                 f'    <text x="{fmt(pm[0])}" y="{fmt(pm[1] + r * 0.35)}" text-anchor="middle" '
                 f'font-size="{fmt(max(7, r))}" fill="#145214" font-family="sans-serif">{tag}</text>'
             )
+            if tshort:
+                parts.append(
+                    f'    <text class="opening-type" x="{fmt(pm[0])}" y="{fmt(pm[1] + r * 1.55)}" '
+                    f'text-anchor="middle" font-size="{fmt(max(5, r * 0.65))}" '
+                    f'fill="#145214" font-family="sans-serif">{esc(tshort)}</text>'
+                )
         else:
             win_num += 1
             tag = f"W{win_num}"
+            tshort = _opening_type_short(opening)
             r = max(5.0, 70 * scale)
             parts.append(
                 f'    <rect x="{fmt(pm[0] - r)}" y="{fmt(pm[1] - r * 0.6)}" '
@@ -271,6 +290,12 @@ def render_plan_view(
                 f'    <text x="{fmt(pm[0])}" y="{fmt(pm[1] + r * 0.25)}" text-anchor="middle" '
                 f'font-size="{fmt(max(6, r * 0.9))}" fill="#003366" font-family="sans-serif">{tag}</text>'
             )
+            if tshort:
+                parts.append(
+                    f'    <text class="opening-type" x="{fmt(pm[0])}" y="{fmt(pm[1] + r * 1.4)}" '
+                    f'text-anchor="middle" font-size="{fmt(max(5, r * 0.65))}" '
+                    f'fill="#003366" font-family="sans-serif">{esc(tshort)}</text>'
+                )
     parts.append("  </g>")
 
     # Equipment

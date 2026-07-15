@@ -43,3 +43,29 @@ def test_room_ceiling_height_schedule():
     assert rows[0]["ceiling_height_mm"] == 2700
     el = next(e for e in p.model.elements if e.category == "room")
     assert el.params.get("ceiling_height_mm") == 2700
+
+
+def test_door_window_type_marks_on_plan(tmp_path: Path):
+    from llmbim_drawings.plan import write_plan_svg
+
+    p = Project.create("open-types", vcs=False)
+    p.add_level("L1", 0)
+    w = p.create_wall(
+        level="L1", start=(0, 0), end=(10000, 0), thickness_mm=200, height_mm=3000
+    )
+    p.place_door(host=w, offset_mm=1000, width_mm=900, height_mm=2100, type_id="D-HM-36")
+    p.place_window(
+        host=w,
+        offset_mm=4000,
+        width_mm=600,
+        height_mm=600,
+        sill_mm=900,
+        type_id="WIN-VIEW-24x24",
+    )
+    plan = tmp_path / "p.svg"
+    write_plan_svg(p.model, "L1", plan, scale=0.02)
+    text = plan.read_text(encoding="utf-8")
+    assert "D1" in text
+    assert "HM-36" in text
+    assert "opening-type" in text
+    assert "WIN-VIEW" in text or "VIEW-24" in text

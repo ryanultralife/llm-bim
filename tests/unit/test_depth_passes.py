@@ -91,3 +91,5 @@ def test_door_tags_in_plan(tmp_path: Path) -> None:
     p.export_plan("L1", tmp_path / "plan.svg", scale=0.05)
     text = (tmp_path / "plan.svg").read_text(encoding="utf-8")
     assert "D1" in text  # door tag
+    # type mark under bubble (default D-HM-36 → HM-36)
+    assert "opening-type" in text or "HM-36" in text
