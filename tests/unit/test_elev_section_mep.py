@@ -73,6 +73,30 @@ def test_section_draws_duct_conduit_tray(tmp_path: Path) -> None:
     assert "#2e7d32" in text or "#6a1b9a" in text
 
 
+def test_door_pipe_clash_not_host_wall():
+    """Door AABB vs pipe clashes; door vs host wall is ignored."""
+    p = Project.create("ClashOpen", vcs=False)
+    p.add_level("L1", 0)
+    wid = p.create_wall(
+        level="L1", start=(0, 0), end=(8000, 0), thickness_mm=200, height_mm=3000
+    )
+    p.place_door(host=wid, offset_mm=2000, width_mm=900, height_mm=2100)
+    # pipe through door free area
+    p.place_pipe(
+        level="L1", nps="2", start=(2200, -100), end=(2200, 100), material="copper"
+    )
+    p.model.elements[-1].params["z0_mm"] = 1000  # mid door height
+    clashes = find_clashes(p.model)
+    # should not report door×host wall
+    assert not any(
+        {c["a_category"], c["b_category"]} == {"door", "wall"} for c in clashes
+    )
+    # door×pipe should appear
+    assert any(
+        {c["a_category"], c["b_category"]} == {"door", "pipe"} for c in clashes
+    )
+
+
 def test_pipe_pipe_clash():
     p = Project.create("ClashPipe", vcs=False)
     p.add_level("L1", 0)
