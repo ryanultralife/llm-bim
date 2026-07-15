@@ -98,13 +98,25 @@ def cmd_pack(args: argparse.Namespace) -> int:
     from llmbim import Project
 
     p = Project.open(args.path)
+    phases = getattr(args, "phases", None)
     manifest = p.export_deliverables(
         args.out,
         mode=args.mode,
         plan_level=args.level,
         plan_scale=args.scale,
+        phases=phases,
     )
-    print(json.dumps({k: manifest[k] for k in ("project", "ok", "stats", "errors", "verification") if k in manifest}, indent=2))
+    keys = (
+        "project",
+        "ok",
+        "stats",
+        "errors",
+        "verification",
+        "phase_filter",
+        "export_element_count",
+        "full_element_count",
+    )
+    print(json.dumps({k: manifest[k] for k in keys if k in manifest}, indent=2))
     return 0 if manifest.get("ok") else 1
 
 
@@ -660,6 +672,11 @@ def main(argv: list[str] | None = None) -> int:
     p_pack.add_argument("--mode", default="auto", choices=["auto", "facility", "part", "both"])
     p_pack.add_argument("--level", default=None)
     p_pack.add_argument("--scale", type=float, default=None)
+    p_pack.add_argument(
+        "--phases",
+        default=None,
+        help="Phase filter for exports e.g. new or new,existing (full model still saved)",
+    )
     p_pack.set_defaults(func=cmd_pack)
 
     p_ver = sub.add_parser("verify", help="Verify a deliverables pack directory")

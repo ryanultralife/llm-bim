@@ -24,7 +24,7 @@
 | Section / elevation | SVG | ✅ walls/equip + **pipe marks + vertical riser segs** | `llmbim_drawings.section` |
 | Construction sheet set | multi SVG + index | ✅ | `llmbim_drawings.construction` |
 | Plot set PDF | multi-page PDF | ✅ | `llmbim_drawings.pdf_binder` |
-| Schedules | CSV/JSON | ✅ rooms/doors/windows/walls/equip/fitting/pipe/part/material | `llmbim_drawings.schedules` |
+| Schedules | CSV/JSON | ✅ rooms/**zone_areas** (area+height+volume)/doors/windows/walls/equip/MEP/CSI | `llmbim_drawings.schedules` |
 | Dimensions / tags / title block | | 🟡 title block + sheet frames | construction sheets |
 | True wall joins / layered walls | | ❌ | future |
 | Design rules + clash AABB | JSON | ✅ | `llmbim_core.rules` / `clash` |

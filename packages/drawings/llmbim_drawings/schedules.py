@@ -68,21 +68,62 @@ def schedule_rows(model: ProjectModel, kind: str) -> list[dict[str, Any]]:
             )
             for el in model.query(category="window")
         ]
-    if kind == "room":
-        return [
-            {
-                "id": el.id,
-                "name": el.name,
-                "area_mm2": el.params.get("area_mm2"),
-                "area_m2": (float(el.params["area_mm2"]) / 1e6)
-                if el.params.get("area_mm2") is not None
-                else None,
-                "height_mm": el.params.get("height_mm") or el.params.get("ceiling_height_mm"),
-                "ceiling_height_mm": el.params.get("ceiling_height_mm") or el.params.get("height_mm"),
-                "level_id": el.level_id,
-            }
-            for el in model.query(category="room")
-        ]
+    if kind in {"room", "zone", "area", "areas"}:
+        # Zone / area schedule: rooms with level name, clear height, volume estimate
+        level_names = {lv.id: lv.name for lv in model.levels}
+        rows = []
+        for el in model.query(category="room"):
+            area_mm2 = el.params.get("area_mm2")
+            area_m2 = (float(area_mm2) / 1e6) if area_mm2 is not None else None
+            h = el.params.get("height_mm") or el.params.get("ceiling_height_mm")
+            vol = None
+            if area_m2 is not None and h is not None:
+                vol = round(area_m2 * (float(h) / 1000.0), 3)
+            rows.append(
+                {
+                    "id": el.id,
+                    "name": el.name,
+                    "level": level_names.get(el.level_id or "", el.level_id),
+                    "level_id": el.level_id,
+                    "area_mm2": area_mm2,
+                    "area_m2": round(area_m2, 3) if area_m2 is not None else None,
+                    "height_mm": h,
+                    "ceiling_height_mm": el.params.get("ceiling_height_mm")
+                    or el.params.get("height_mm"),
+                    "volume_m3": vol,
+                    "phase": el.params.get("phase", "new"),
+                }
+            )
+        # optional assembly zones (kind=zone)
+        if kind in {"zone", "area", "areas"}:
+            for a in model.assemblies:
+                if (a.kind or "").lower() not in {"zone", "area", "group"}:
+                    continue
+                # sum room areas linked to assembly if any
+                room_ids = set(a.element_ids)
+                linked = [r for r in rows if r["id"] in room_ids]
+                if not linked and a.kind != "zone":
+                    continue
+                if linked:
+                    rows.append(
+                        {
+                            "id": a.id,
+                            "name": a.name,
+                            "level": linked[0].get("level"),
+                            "level_id": linked[0].get("level_id"),
+                            "area_mm2": sum(float(x["area_mm2"] or 0) for x in linked) or None,
+                            "area_m2": round(sum(float(x["area_m2"] or 0) for x in linked), 3),
+                            "height_mm": linked[0].get("height_mm"),
+                            "ceiling_height_mm": linked[0].get("ceiling_height_mm"),
+                            "volume_m3": round(sum(float(x["volume_m3"] or 0) for x in linked), 3)
+                            if any(x.get("volume_m3") is not None for x in linked)
+                            else None,
+                            "phase": "new",
+                            "assembly_kind": a.kind,
+                            "room_count": len(linked),
+                        }
+                    )
+        return rows
     if kind == "wall":
         return [
             _annotate_csi(

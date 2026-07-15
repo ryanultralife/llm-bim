@@ -64,6 +64,7 @@
 | 38 | continue | glTF system colors | one gray mesh for all MEP | multi-material glTF copper/fire/duct/conduit | 107 unit | ed4e990 |
 | 39 | continue | VAV + fire damper | no HVAC device place/plan | kind=vav/fire_damper CSI 23 36/33; plan FD/VAV | 109 unit | 45fd538 |
 | 40 | continue | phase filter export | pack always all phases | filter_by_phase + export_deliverables(phases=) | 111 unit | 57c9f35 |
+| 41 | continue | zone schedule + pack phases | no area/volume sched; CLI no --phases | zone_areas.csv; pack --phases | 112 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -128,12 +129,14 @@
 58. ~~BOQ include duct area_m2 + conduit length~~ (pass 36)
 59. ~~MCP place_duct / place_conduit tools~~ (pass 36)
 60. ~~Phase filters on export pack~~ (pass 40)
-61. Zone / area schedule with room heights
+61. ~~Zone / area schedule with room heights~~ (pass 41)
 62. ~~Fire damper / VAV place as fittings~~ (pass 39)
 63. ~~OUTPUT_MATRIX duct/conduit/MCP place~~ (pass 37)
 64. ~~Phase filters on export pack~~ (pass 40)
-65. Zone schedule room heights + area
-66. CLI pack --phases new
+65. ~~Zone schedule room heights + area~~ (pass 41)
+66. ~~CLI pack --phases new~~ (pass 41)
+67. IFC IfcSpace room linkage for placed MEP
+68. STEP color/layer by system (optional)
 
 ## Rules for each scheduled pass
 
