@@ -36,12 +36,35 @@ def cmd_demo(args: argparse.Namespace) -> int:
         ((10000, 8000), (0, 8000), "W-N"),
         ((0, 8000), (0, 0), "W-W"),
     ]:
-        ids[name] = p.create_wall(
-            level="L1", start=start, end=end, thickness_mm=200, height_mm=3000, name=name
-        )
-    p.place_door(host=ids["W-S"], offset_mm=2000, width_mm=900, height_mm=2100, name="Entry")
+        kw: dict = {
+            "level": "L1",
+            "start": start,
+            "end": end,
+            "thickness_mm": 200,
+            "height_mm": 3000,
+            "name": name,
+        }
+        if name == "W-S":
+            kw["fire_rating"] = "1-hr"
+            kw["type_id"] = "W-EXT-CMU"
+        ids[name] = p.create_wall(**kw)
+    p.place_door(
+        host=ids["W-S"],
+        offset_mm=2000,
+        width_mm=900,
+        height_mm=2100,
+        name="Entry",
+        type_id="D-HM-36",
+        fire_rating="90 min",
+    )
     p.place_window(
-        host=ids["W-N"], offset_mm=3000, width_mm=1500, height_mm=1200, sill_mm=900, name="NWin"
+        host=ids["W-N"],
+        offset_mm=3000,
+        width_mm=1500,
+        height_mm=1200,
+        sill_mm=900,
+        name="NWin",
+        type_id="WIN-VIEW",
     )
     p.create_room(level="L1", name="Living", boundary=footprint)
     p.save(out / "simple_house.llmbim.json")

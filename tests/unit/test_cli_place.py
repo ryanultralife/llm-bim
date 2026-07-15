@@ -61,6 +61,20 @@ def test_cli_place_riser_and_fitting(tmp_path: Path):
     assert any(e.category == "fitting" for e in p3.model.elements)
 
 
+def test_cli_demo_door_fire_rating(tmp_path: Path, capsys):
+    out = tmp_path / "demo"
+    rc = main(["demo", "--out", str(out)])
+    assert rc == 0
+    p = Project.open(out / "simple_house.llmbim.json")
+    doors = [e for e in p.model.elements if e.category == "door"]
+    assert doors
+    assert doors[0].params.get("fire_rating") == "90 min"
+    assert doors[0].type_id == "D-HM-36" or doors[0].params.get("type_id") == "D-HM-36"
+    walls = [e for e in p.model.elements if e.name == "W-S"]
+    assert walls and walls[0].params.get("fire_rating") == "1-hr"
+    assert (out / "doors.csv").is_file()
+
+
 def test_cli_place_wall_door_window(tmp_path: Path, capsys):
     p = Project.create("cli-open", vcs=False)
     p.add_level("L1", 0)
