@@ -143,6 +143,8 @@ CATEGORY_CSI: dict[str, str] = {
     "structural_steel": "05 12 00",
     "rebar": "03 21 00",
     "hvac": "23 31 00",
+    "duct": "23 31 00",
+    "conduit": "26 05 33",
     "electrical": "26 05 00",
     "structural": "05 12 00",
     "plumbing": "22 11 16",

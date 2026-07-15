@@ -385,6 +385,26 @@ def _place_riser(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+@register("place_duct", description="Place rectangular HVAC duct run start→end", mutates=True)
+def _place_duct(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import place_duct
+
+    start = p.get("start") or p.get("start_mm") or [0, 0]
+    end = p.get("end") or p.get("end_mm") or [1000, 0]
+    return place_duct(
+        model,
+        level=p.get("level") or model.levels[0].name,
+        start=start,
+        end=end,
+        width_mm=float(p.get("width_mm") or p.get("width") or 400),
+        height_mm=float(p.get("height_mm") or p.get("height") or 250),
+        name=p.get("name"),
+        system_tag=p.get("system") or "SA",
+        z0_mm=float(p.get("z0_mm") or 2700),
+        material_id=p.get("material_id") or p.get("material") or "galv_steel",
+    )
+
+
 @register("materials", description="Materials catalog", mutates=False)
 def _materials(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.materials import materials_catalog

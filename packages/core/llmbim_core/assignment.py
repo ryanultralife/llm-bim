@@ -470,3 +470,72 @@ def place_riser(
         "to_level": to_level_name,
         "base_level": base.name,
     }
+
+def place_duct(
+    model: ProjectModel,
+    *,
+    level: str,
+    start: tuple[float, float] | list[float],
+    end: tuple[float, float] | list[float],
+    width_mm: float = 400.0,
+    height_mm: float = 250.0,
+    name: str | None = None,
+    system_tag: str = "SA",
+    z0_mm: float = 2700.0,
+    material_id: str = "galv_steel",
+) -> dict[str, Any]:
+    """Rectangular HVAC duct run (coordination envelope). CSI 23 31 00."""
+    import math
+
+    from llmbim_core.ids import new_id
+
+    x0, y0 = float(start[0]), float(start[1])
+    x1, y1 = float(end[0]), float(end[1])
+    length_mm = math.hypot(x1 - x0, y1 - y0)
+    if length_mm < 1:
+        raise ValidationError("Duct length too small", start=start, end=end)
+    length_m = length_mm / 1000.0
+    w, h = float(width_mm), float(height_mm)
+    # surface area m2 for takeoff (4 sides, open ends)
+    area_m2 = 2.0 * (w + h) * length_mm / 1_000_000.0
+    level_id = model.get_level(level).id
+    pid = "PT-HVAC-DUCT-RECT"
+    el = Element(
+        id=new_id("duct"),
+        category="duct",
+        name=name or f"Duct {w:.0f}x{h:.0f} L={length_m:.2f}m",
+        level_id=level_id,
+        type_id=pid,
+        params={
+            "start_mm": [x0, y0],
+            "end_mm": [x1, y1],
+            "origin_mm": [x0, y0],
+            "length_mm": length_mm,
+            "length_m": length_m,
+            "width_mm": w,
+            "height_mm": h,
+            "system": system_tag,
+            "material_id": material_id,
+            "part_id": pid,
+            "part_qty": round(area_m2, 3),
+            "area_m2": round(area_m2, 3),
+            "size_mm": [length_mm, w, h],
+            "shape": "box",
+            "z0_mm": float(z0_mm),
+            "fitting_type": "duct",
+            "csi_code": "23 31 00",
+        },
+    )
+    model.add_element(el)
+    try:
+        assign_part(model, el.id, pid, qty=area_m2)
+    except Exception:  # noqa: BLE001
+        pass
+    return {
+        "element_id": el.id,
+        "part_id": pid,
+        "length_m": round(length_m, 3),
+        "area_m2": round(area_m2, 3),
+        "width_mm": w,
+        "height_mm": h,
+    }

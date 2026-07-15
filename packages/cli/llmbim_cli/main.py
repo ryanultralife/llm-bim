@@ -513,6 +513,21 @@ def cmd_place(args: argparse.Namespace) -> int:
             name=args.name,
         )
         result = {"element_id": eid, "kind": "part"}
+    elif kind == "duct":
+        if not args.end:
+            raise SystemExit("place duct requires --end x,y")
+        end = _parse_xy(args.end)
+        eid = p.place_duct(
+            level=level,
+            start=origin,
+            end=end,
+            width_mm=float(args.width if args.width is not None else 400),
+            height_mm=float(args.height if args.height is not None else 250),
+            name=args.name,
+            system=args.system or "SA",
+            material=args.material or "galv_steel",
+        )
+        result = {"element_id": eid, "kind": "duct"}
     else:
         raise SystemExit(f"Unknown place kind: {kind}")
     # persist back to path
@@ -835,9 +850,11 @@ def main(argv: list[str] | None = None) -> int:
     p_pl.add_argument(
         "--kind",
         required=True,
-        choices=["fitting", "pipe", "riser", "part"],
+        choices=["fitting", "pipe", "riser", "part", "duct"],
         help="What to place",
     )
+    p_pl.add_argument("--width", type=float, default=None, help="Duct width mm")
+    p_pl.add_argument("--height", type=float, default=None, help="Duct height mm")
     p_pl.add_argument("--level", default=None)
     p_pl.add_argument("--origin", default="0,0", help="x,y mm plan origin / pipe start")
     p_pl.add_argument("--end", default=None, help="x,y mm pipe end (pipe only)")

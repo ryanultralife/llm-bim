@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 from llmbim_core.model import ProjectModel
@@ -185,6 +186,30 @@ def export_plan_dxf(
                 mx = (x0 + x1) / 2
                 my = (y0 + y1) / 2
                 ents += _text(mx, my, 80.0, f'{nps}"', "PIPE-TEXT")
+        elif el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct":
+            try:
+                s = el.params["start_mm"]
+                e = el.params["end_mm"]
+                x0, y0 = float(s[0]), float(s[1])
+                x1, y1 = float(e[0]), float(e[1])
+                w = float(el.params.get("width_mm") or 400)
+                length = math.hypot(x1 - x0, y1 - y0)
+                if length < 1:
+                    continue
+                nx, ny = -(y1 - y0) / length, (x1 - x0) / length
+                half = w / 2
+                for sign in (-1, 1):
+                    ents += _line(
+                        x0 + sign * half * nx,
+                        y0 + sign * half * ny,
+                        x1 + sign * half * nx,
+                        y1 + sign * half * ny,
+                        "DUCT",
+                    )
+                label = f"{w:.0f}x{float(el.params.get('height_mm') or 0):.0f}"
+                ents += _text((x0 + x1) / 2, (y0 + y1) / 2, 90.0, label, "DUCT-TEXT")
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
         elif el.category in {"fitting", "fittings", "fixture", "accessory"}:
             o = el.params.get("origin_mm")
             if not o:

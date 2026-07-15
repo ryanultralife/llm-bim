@@ -605,6 +605,34 @@ class Project:
         )
         return str(r["element_id"])
 
+    def place_duct(
+        self,
+        *,
+        level: str,
+        start: tuple[float, float],
+        end: tuple[float, float],
+        width_mm: float = 400.0,
+        height_mm: float = 250.0,
+        name: str | None = None,
+        system: str = "SA",
+        z0_mm: float = 2700.0,
+        material: str = "galv_steel",
+    ) -> str:
+        """Rectangular HVAC duct (CSI 23 31 00). Takeoff includes length_m + area_m2."""
+        r = self.op(
+            "place_duct",
+            level=level,
+            start=list(start),
+            end=list(end),
+            width_mm=width_mm,
+            height_mm=height_mm,
+            name=name,
+            system=system,
+            z0_mm=z0_mm,
+            material=material,
+        )
+        return str(r["element_id"])
+
     def fitting_takeoff(
         self,
         *,
