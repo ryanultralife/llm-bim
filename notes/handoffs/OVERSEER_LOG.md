@@ -1,0 +1,20 @@
+# Overseer health log
+
+Append-only. Written by `scripts/vision_overseer_check.py` and the 30m OVERSEER agent.
+
+## Bootstrap
+
+Overseer loop installed 2026-07-15 — 30m scheduler + `scripts/vision_overseer_check.py`.
+
+## 2026-07-15T20:18:17Z — **HEALTHY**
+
+- pass_count: `36` / 120
+- last_vision_commit_age_min: `1.1070214999999999`
+- branch: `## main...origin/main`
+- dirty: `True`
+- pytest: ok=`True` passed=`105` failed=`0`
+- notes:
+  - Last vision-loop commit 1m ago (ok)
+  - Working tree has uncommitted changes
+  - pytest unit ok: 105 passed
+
