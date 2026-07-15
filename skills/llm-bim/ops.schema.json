@@ -151,6 +151,16 @@
       }
     },
     {
+      "name": "connect",
+      "description": "Connect two module/equipment ports",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
       "name": "create_assembly",
       "description": "Group elements into named assembly",
       "mutates": true,
@@ -181,6 +191,16 @@
       }
     },
     {
+      "name": "define_port",
+      "description": "Define connection port on element (machine nozzle)",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
       "name": "delete",
       "description": "Delete element (cascade hosted)",
       "mutates": true,
@@ -194,6 +214,26 @@
       "name": "design_option",
       "description": "Clone elements into a design option assembly",
       "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "explode_block",
+      "description": "Explode module_instance block to native elements",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "export_module",
+      "description": "Export project/selection as reusable module package",
+      "mutates": false,
       "parameters": {
         "type": "object",
         "additionalProperties": true,
@@ -221,8 +261,28 @@
       }
     },
     {
+      "name": "import_module",
+      "description": "Import another project as block|native|linked module/machine",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
       "name": "list_assemblies",
       "description": "List assemblies",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "list_modules",
+      "description": "List module library definitions and instances",
       "mutates": false,
       "parameters": {
         "type": "object",
@@ -283,6 +343,16 @@
     {
       "name": "place_pipe",
       "description": "Place pipe run start\u2192end with NPS",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "place_riser",
+      "description": "Place vertical pipe riser at XY from z0\u2192z1",
       "mutates": true,
       "parameters": {
         "type": "object",

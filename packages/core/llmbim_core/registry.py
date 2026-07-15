@@ -364,6 +364,24 @@ def _place_pipe(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+@register("place_riser", description="Place vertical pipe riser at XY from z0→z1", mutates=True)
+def _place_riser(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import place_riser
+
+    origin = p.get("origin") or p.get("origin_mm") or [0, 0]
+    return place_riser(
+        model,
+        level=p.get("level") or model.levels[0].name,
+        nps=p["nps"],
+        origin=origin,
+        z0_mm=float(p["z0_mm"] if p.get("z0_mm") is not None else p.get("z0", 0)),
+        z1_mm=float(p["z1_mm"] if p.get("z1_mm") is not None else p.get("z1", 3000)),
+        name=p.get("name"),
+        material=p.get("material") or "copper",
+        system_tag=p.get("system") or "CW",
+    )
+
+
 @register("materials", description="Materials catalog", mutates=False)
 def _materials(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.materials import materials_catalog
