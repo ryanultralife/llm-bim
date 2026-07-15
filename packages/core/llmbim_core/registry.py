@@ -405,6 +405,25 @@ def _place_duct(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+@register("place_conduit", description="Place electrical conduit run start→end", mutates=True)
+def _place_conduit(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import place_conduit
+
+    start = p.get("start") or p.get("start_mm") or [0, 0]
+    end = p.get("end") or p.get("end_mm") or [1000, 0]
+    return place_conduit(
+        model,
+        level=p.get("level") or model.levels[0].name,
+        start=start,
+        end=end,
+        trade_size=str(p.get("trade_size") or p.get("nps") or "3/4"),
+        name=p.get("name"),
+        system_tag=p.get("system") or "P",
+        z0_mm=float(p.get("z0_mm") or 2800),
+        material_id=p.get("material_id") or p.get("material") or "steel_A36",
+    )
+
+
 @register("materials", description="Materials catalog", mutates=False)
 def _materials(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.materials import materials_catalog

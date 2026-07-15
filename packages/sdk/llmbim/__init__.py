@@ -633,6 +633,32 @@ class Project:
         )
         return str(r["element_id"])
 
+    def place_conduit(
+        self,
+        *,
+        level: str,
+        start: tuple[float, float],
+        end: tuple[float, float],
+        trade_size: str = "3/4",
+        name: str | None = None,
+        system: str = "P",
+        z0_mm: float = 2800.0,
+        material: str = "steel_A36",
+    ) -> str:
+        """Electrical conduit run (CSI 26 05 33). trade_size e.g. 3/4, 1, 2."""
+        r = self.op(
+            "place_conduit",
+            level=level,
+            start=list(start),
+            end=list(end),
+            trade_size=trade_size,
+            name=name,
+            system=system,
+            z0_mm=z0_mm,
+            material=material,
+        )
+        return str(r["element_id"])
+
     def fitting_takeoff(
         self,
         *,

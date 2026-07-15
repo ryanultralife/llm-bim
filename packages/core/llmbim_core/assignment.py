@@ -539,3 +539,66 @@ def place_duct(
         "width_mm": w,
         "height_mm": h,
     }
+
+def place_conduit(
+    model: ProjectModel,
+    *,
+    level: str,
+    start: tuple[float, float] | list[float],
+    end: tuple[float, float] | list[float],
+    trade_size: str = "3/4",
+    name: str | None = None,
+    system_tag: str = "P",
+    z0_mm: float = 2800.0,
+    material_id: str = "steel_A36",
+) -> dict[str, Any]:
+    """Electrical conduit run (EMT/RMC coordination). CSI 26 05 33."""
+    import math
+
+    from llmbim_core.ids import new_id
+
+    x0, y0 = float(start[0]), float(start[1])
+    x1, y1 = float(end[0]), float(end[1])
+    length_mm = math.hypot(x1 - x0, y1 - y0)
+    if length_mm < 1:
+        raise ValidationError("Conduit length too small", start=start, end=end)
+    length_m = length_mm / 1000.0
+    # nominal OD mm from trade size (approx EMT)
+    od_map = {
+        "1/2": 17.9, "3/4": 23.4, "1": 29.5, "1-1/4": 38.4,
+        "1-1/2": 44.5, "2": 55.8, "2-1/2": 73.0, "3": 88.9, "4": 114.3,
+    }
+    od = float(od_map.get(str(trade_size), 23.4))
+    level_id = model.get_level(level).id
+    el = Element(
+        id=new_id("cnd"),
+        category="conduit",
+        name=name or f"Conduit {trade_size}\" L={length_m:.2f}m",
+        level_id=level_id,
+        type_id="PT-ELEC-CONDUIT",
+        params={
+            "start_mm": [x0, y0],
+            "end_mm": [x1, y1],
+            "origin_mm": [x0, y0],
+            "length_mm": length_mm,
+            "length_m": length_m,
+            "nps": trade_size,
+            "trade_size": trade_size,
+            "system": system_tag,
+            "material_id": material_id,
+            "part_id": "PT-ELEC-CONDUIT",
+            "part_qty": length_m,
+            "size_mm": [length_mm, od, od],
+            "shape": "cylinder",
+            "z0_mm": float(z0_mm),
+            "fitting_type": "conduit",
+            "csi_code": "26 05 33",
+        },
+    )
+    model.add_element(el)
+    return {
+        "element_id": el.id,
+        "length_m": round(length_m, 3),
+        "trade_size": trade_size,
+        "nps": trade_size,
+    }

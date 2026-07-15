@@ -378,7 +378,7 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
             if eid is not None:
                 contained[storey].append(eid)
 
-        elif el.category in {"pipe", "plumbing_pipe"}:
+        elif el.category in {"pipe", "plumbing_pipe", "conduit"}:
             eid = _export_pipe_proxy(f, el, owner, axis_z, extrude_rect)
             if eid is not None:
                 contained[storey].append(eid)

@@ -528,6 +528,20 @@ def cmd_place(args: argparse.Namespace) -> int:
             material=args.material or "galv_steel",
         )
         result = {"element_id": eid, "kind": "duct"}
+    elif kind == "conduit":
+        if not args.end:
+            raise SystemExit("place conduit requires --end x,y")
+        end = _parse_xy(args.end)
+        eid = p.place_conduit(
+            level=level,
+            start=origin,
+            end=end,
+            trade_size=args.nps or "3/4",
+            name=args.name,
+            system=args.system or "P",
+            material=args.material or "steel_A36",
+        )
+        result = {"element_id": eid, "kind": "conduit"}
     else:
         raise SystemExit(f"Unknown place kind: {kind}")
     # persist back to path
@@ -850,7 +864,7 @@ def main(argv: list[str] | None = None) -> int:
     p_pl.add_argument(
         "--kind",
         required=True,
-        choices=["fitting", "pipe", "riser", "part", "duct"],
+        choices=["fitting", "pipe", "riser", "part", "duct", "conduit"],
         help="What to place",
     )
     p_pl.add_argument("--width", type=float, default=None, help="Duct width mm")
