@@ -104,8 +104,22 @@ def _box_from_origin_size(el: Element, model: ProjectModel) -> list[float]:
 
 
 def _box_from_pipe(el: Element, model: ProjectModel) -> list[float]:
-    """Pipe run start→end as a thin box at z0 (coordination marker)."""
+    """Pipe run start→end or vertical riser as coordination box."""
     try:
+        od = 50.0
+        if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
+            od = max(float(el.params["size_mm"][1]), 20.0)
+        # vertical riser: box at XY spanning z0→z1
+        if el.params.get("vertical") or el.params.get("orientation") == "vertical":
+            o = el.params.get("origin_mm") or el.params.get("start_mm") or [0, 0]
+            x, y = float(o[0]), float(o[1])
+            z_lo = _level_z(model, el.level_id) + float(el.params.get("z0_mm") or 0)
+            z_hi = _level_z(model, el.level_id) + float(
+                el.params.get("z1_mm") or (float(el.params.get("z0_mm") or 0) + 1000)
+            )
+            r = od / 2
+            # short plan segment so box has thickness, height is z
+            return _wall_box_positions(x - r, y, x + r, y, od, min(z_lo, z_hi), max(z_lo, z_hi))
         if "start_mm" in el.params and "end_mm" in el.params:
             s, e = el.params["start_mm"], el.params["end_mm"]
             x0, y0 = float(s[0]), float(s[1])
@@ -116,12 +130,8 @@ def _box_from_pipe(el: Element, model: ProjectModel) -> list[float]:
             x1, y1 = x0 + float(sz[0]), y0
         else:
             return []
-        od = 50.0
-        if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
-            od = max(float(el.params["size_mm"][1]), 20.0)
         z0_off = float(el.params.get("z0_mm", 0))
         z0 = _level_z(model, el.level_id) + z0_off
-        # centerline height ≈ z0 + od/2; box from z0 to z0+od
         return _wall_box_positions(x0, y0, x1, y1, od, z0, z0 + od)
     except (KeyError, TypeError, ValueError, IndexError):
         return []

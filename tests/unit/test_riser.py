@@ -47,3 +47,21 @@ def test_riser_on_plan_and_elev(tmp_path: Path):
     write_elevation_svg(p.model, "S", elev, scale=0.02)
     et = elev.read_text(encoding="utf-8")
     assert 'class="pipes-elev"' in et
+
+
+def test_riser_step_and_gltf(tmp_path: Path):
+    from llmbim_geometry.mesh import export_gltf_walls
+    from llmbim_geometry.step_export import export_step
+
+    p = Project.create("riser-3d", vcs=False)
+    p.add_level("L1", 0)
+    p.place_riser(level="L1", nps="2", origin=(0, 0), z0_mm=0, z1_mm=3000, material="copper")
+    step = tmp_path / "r.step"
+    export_step(p.model, step, include_walls=False)
+    assert "MANIFOLD_SOLID_BREP" in step.read_text(encoding="utf-8")
+    gltf = tmp_path / "r.gltf"
+    export_gltf_walls(p.model, gltf)
+    import json
+
+    data = json.loads(gltf.read_text(encoding="utf-8"))
+    assert data["accessors"][0]["count"] >= 8

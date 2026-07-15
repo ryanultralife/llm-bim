@@ -152,10 +152,13 @@ Full BIM lists — answer *“how many 90° copper fittings of what size?”*:
 p = Project.create("Plumb")
 p.add_level("L1", 0)
 p.place_pipe(level="L1", nps="3/4", start=(0,0), end=(5000,0), material="copper")
+p.place_riser(level="L1", nps="2", origin=(2500,1000), z0_mm=0, z1_mm=3500, material="copper")  # vertical
 p.place_fitting(level="L1", fitting_type="elbow_90", nps="3/4", origin=(0,0), material="copper")
 p.place_fitting(level="L1", fitting_type="elbow_90", nps="1/2", origin=(100,0), material="copper")
 print(p.fitting_takeoff(fitting_type="elbow_90", material="copper"))
+print(p.pipe_takeoff())  # includes riser length_m
 print(p.plumbing_schedule()["copper_90_elbows_by_size"])
+print(p.csi_instances()[:3])  # MasterFormat + L1|X|Y|Z locators
 p.assign_part(equip_id, "PT-SEP-SHELL-320")
 p.assign_material(wall_id, "CMU")
 p.auto_assign()  # equipment kind → part; wall type → materials

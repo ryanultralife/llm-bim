@@ -301,6 +301,63 @@ if HAS_MCP:
         return _tool_result({"element_id": eid})
 
     @mcp.tool()
+    def place_pipe(
+        project_id: str,
+        level: str,
+        nps: str,
+        start_x: float,
+        start_y: float,
+        end_x: float,
+        end_y: float,
+        material: str = "copper",
+        system: str = "CW",
+        z0_mm: float = 0,
+        name: str = "",
+    ) -> str:
+        """Horizontal pipe run start→end. material: copper|fire|process|pvc."""
+        p = store.get(project_id)
+        eid = p.place_pipe(
+            level=level,
+            nps=nps,
+            start=(start_x, start_y),
+            end=(end_x, end_y),
+            material=material,
+            system=system,
+            z0_mm=z0_mm,
+            name=name or None,
+        )
+        store.save(project_id)
+        return _tool_result({"element_id": eid})
+
+    @mcp.tool()
+    def place_riser(
+        project_id: str,
+        level: str,
+        nps: str,
+        origin_x: float,
+        origin_y: float,
+        z0_mm: float,
+        z1_mm: float,
+        material: str = "copper",
+        system: str = "CW",
+        name: str = "",
+    ) -> str:
+        """Vertical pipe riser at plan XY from z0_mm to z1_mm (takeoff in meters)."""
+        p = store.get(project_id)
+        eid = p.place_riser(
+            level=level,
+            nps=nps,
+            origin=(origin_x, origin_y),
+            z0_mm=z0_mm,
+            z1_mm=z1_mm,
+            material=material,
+            system=system,
+            name=name or None,
+        )
+        store.save(project_id)
+        return _tool_result({"element_id": eid})
+
+    @mcp.tool()
     def parts_catalog(
         category: str = "",
         system: str = "",
