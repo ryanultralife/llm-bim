@@ -14,6 +14,8 @@ Examples:
   csi~22 11
   vertical=true
   nps=3/4
+  phase=new
+  phase=existing
 """
 
 from __future__ import annotations

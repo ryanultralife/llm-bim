@@ -115,6 +115,23 @@ def verify_pack(
             "ok": plumb.stat().st_size > 2,
         }
 
+    # vision schedules / views completeness signals
+    for rel in (
+        "schedules/csi.csv",
+        "schedules/zone_areas.csv",
+        "schedules/connections.csv",
+    ):
+        p = out / rel
+        if p.is_file():
+            checks["files"][rel] = {"size": p.stat().st_size, "ok": True}
+    views = out / "views"
+    if views.is_dir():
+        checks["view_svg_count"] = len(list(views.glob("*.svg")))
+        checks["view_dxf_count"] = len(list(views.glob("*.dxf")))
+        checks["has_elev_dxf"] = (views / "elev_S.dxf").is_file() or any(
+            p.name.startswith("elev_") and p.suffix.lower() == ".dxf" for p in views.iterdir()
+        )
+
     checks["ok"] = not missing and all(v.get("ok", True) for v in checks["files"].values())
     if (out / "model.ifc").is_file() and not checks.get("ifc_has_project"):
         checks["ok"] = False
@@ -304,15 +321,28 @@ def export_deliverables(
         json.dumps({"summary": rules_summary(findings), "findings": findings}, indent=2) + "\n",
         encoding="utf-8",
     )
+    from llmbim_drawings.dxf_export import export_elevation_dxf
+
     _try(
         "dxf",
         errors,
         lambda: export_plan_dxf(work, level, out / "views" / f"plan_{level}.dxf"),
     )
+    _try(
+        "dxf_elev_S",
+        errors,
+        lambda: export_elevation_dxf(work, "S", out / "views" / "elev_S.dxf"),
+    )
+    _try(
+        "dxf_elev_E",
+        errors,
+        lambda: export_elevation_dxf(work, "E", out / "views" / "elev_E.dxf"),
+    )
     result["boq"] = "boq.json"
     result["clash_report"] = "clash_report.json"
     result["design_rules"] = "design_rules.json"
     result["dxf"] = f"views/plan_{level}.dxf"
+    result["dxf_elev"] = ["views/elev_S.dxf", "views/elev_E.dxf"]
 
     # Bundle locked Fusion STEP references
     from llmbim_geometry.step_import import pack_step_references

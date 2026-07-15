@@ -50,3 +50,15 @@ def test_query_vertical_riser():
     assert risers[0].params.get("vertical") is True
     nps2 = run_query(p.model, "nps=2 vertical=true")
     assert len(nps2) == 1
+
+
+def test_query_phase_filter():
+    p = Project.create("q-phase", vcs=False)
+    p.add_level("L1", 0)
+    w1 = p.create_wall(level="L1", start=(0, 0), end=(3000, 0), thickness_mm=200, height_mm=3000)
+    w2 = p.create_wall(level="L1", start=(0, 1000), end=(3000, 1000), thickness_mm=200, height_mm=3000)
+    p.set_phase(w2, "existing")
+    new_walls = run_query(p.model, "category=wall phase=new")
+    ex_walls = run_query(p.model, "category=wall phase=existing")
+    assert len(new_walls) == 1 and new_walls[0].id == w1
+    assert len(ex_walls) == 1 and ex_walls[0].id == w2
