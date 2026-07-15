@@ -119,6 +119,40 @@ def export_plan_dxf(
             cy = sum(float(p[1]) for p in poly) / len(poly)
             ents += _text(cx, cy, 150.0, el.name, "TEXT")
 
+    # MEP pipes / fittings (same level)
+    for el in model.elements:
+        if el.level_id != lvl.id:
+            continue
+        if el.category in {"pipe", "plumbing_pipe"} or el.params.get("fitting_type") == "pipe":
+            try:
+                s = el.params["start_mm"]
+                e = el.params["end_mm"]
+            except KeyError:
+                continue
+            layer = "PIPE-CU"
+            mid = str(el.params.get("material_id") or "")
+            if "black" in mid:
+                layer = "PIPE-FP"
+            if "ss316" in mid or "ss" in mid:
+                layer = "PIPE-SS"
+            ents += _line(float(s[0]), float(s[1]), float(e[0]), float(e[1]), layer)
+            nps = el.params.get("nps")
+            if nps:
+                mx = (float(s[0]) + float(e[0])) / 2
+                my = (float(s[1]) + float(e[1])) / 2
+                ents += _text(mx, my, 80.0, f'{nps}"', "PIPE-TEXT")
+        elif el.category in {"fitting", "fittings", "fixture", "accessory"}:
+            o = el.params.get("origin_mm")
+            if not o:
+                continue
+            ox, oy = float(o[0]), float(o[1])
+            # small cross mark
+            r = 50.0
+            ents += _line(ox - r, oy, ox + r, oy, "FITTINGS")
+            ents += _line(ox, oy - r, ox, oy + r, "FITTINGS")
+            label = el.params.get("nps") or el.params.get("fitting_type") or el.name or "FIT"
+            ents += _text(ox + r, oy + r, 70.0, str(label)[:20], "PIPE-TEXT")
+
     for g in model.grids:
         axis = g.params.get("axis", "U")
         positions = g.params.get("positions_mm") or []
