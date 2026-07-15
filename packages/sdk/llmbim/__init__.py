@@ -178,8 +178,9 @@ class Project:
         kind: str = "equipment",
         centered: bool = False,
         z0_mm: float = 0.0,
+        shape: str = "box",
     ) -> str:
-        """Place an axis-aligned equipment envelope (vessel, yoke, skid, etc.)."""
+        """Place equipment envelope: shape ``box`` or ``cylinder`` (along +X)."""
         result = self._log.execute(
             self._model,
             CreateEquipmentBox(
@@ -190,6 +191,7 @@ class Project:
                 kind=kind,
                 centered=centered,
                 z0_mm=z0_mm,
+                shape=shape,
             ),
         )
         return str(result["result"]["element_id"])
@@ -227,8 +229,8 @@ class Project:
             )
         return ids
 
-    def delete_element(self, element_id: str) -> None:
-        self._log.execute(self._model, DeleteElement(element_id=element_id))
+    def delete_element(self, element_id: str, *, cascade: bool = True) -> None:
+        self._log.execute(self._model, DeleteElement(element_id=element_id, cascade=cascade))
 
     def undo(self) -> dict[str, Any]:
         return self._log.undo(self._model)

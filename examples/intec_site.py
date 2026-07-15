@@ -151,6 +151,7 @@ def build_intec(out_dir: Path) -> Project:
                 size=(VESSEL_LEN_MM, VESSEL_OD_MM, VESSEL_OD_MM),
                 name=f"{pl['id']}-SizeB-vessel",
                 kind="separator_vessel_size_b",
+                shape="cylinder",
                 centered=True,
                 z0_mm=VESSEL_CL_Z_MM - VESSEL_OD_MM / 2,
             )

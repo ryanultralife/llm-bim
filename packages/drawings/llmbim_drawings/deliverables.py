@@ -1,8 +1,10 @@
-"""One-shot deliverables pack: BIM + 3D + 2D + STEP + sheets."""
+"""One-shot deliverables pack: BIM + 3D + 2D + STEP + sheets + verification."""
 
 from __future__ import annotations
 
+import hashlib
 import json
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +19,66 @@ from llmbim_geometry.step_export import export_step
 from llmbim_ifc.export import export_ifc
 
 
+def _sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _try(label: str, errors: list[dict], fn) -> Any:
+    try:
+        return fn()
+    except Exception as exc:  # noqa: BLE001
+        errors.append(
+            {
+                "step": label,
+                "error": str(exc),
+                "trace": traceback.format_exc()[-1500:],
+            }
+        )
+        return None
+
+
+def verify_pack(out_dir: str | Path, *, require_parts: bool = False) -> dict[str, Any]:
+    """Check a deliverables directory for required artifacts."""
+    out = Path(out_dir)
+    required = [
+        "model.llmbim.json",
+        "model.ifc",
+        "model.gltf",
+        "model.step",
+        "MANIFEST.json",
+    ]
+    missing = [r for r in required if not (out / r).is_file()]
+    checks: dict[str, Any] = {"missing": missing, "files": {}}
+    for r in required:
+        p = out / r
+        if p.is_file():
+            size = p.stat().st_size
+            checks["files"][r] = {"size": size, "ok": size > 50}
+    # content probes
+    if (out / "model.ifc").is_file():
+        t = (out / "model.ifc").read_text(encoding="utf-8", errors="replace")
+        checks["ifc_has_project"] = "IFCPROJECT" in t
+    if (out / "model.step").is_file():
+        t = (out / "model.step").read_text(encoding="utf-8", errors="replace")
+        checks["step_has_brep"] = "MANIFOLD_SOLID_BREP" in t
+    if (out / "construction").is_dir():
+        checks["construction_sheets"] = len(list((out / "construction").glob("*.svg")))
+    if (out / "parts").is_dir():
+        checks["part_steps"] = len(list((out / "parts" / "step").glob("*.step"))) if (out / "parts" / "step").exists() else 0
+    if require_parts and checks.get("part_steps", 0) < 1:
+        missing.append("parts/step/*.step")
+    checks["ok"] = not missing and all(v.get("ok", True) for v in checks["files"].values())
+    if (out / "model.ifc").is_file() and not checks.get("ifc_has_project"):
+        checks["ok"] = False
+    if (out / "model.step").is_file() and not checks.get("step_has_brep"):
+        checks["ok"] = False
+    return checks
+
+
 def export_deliverables(
     model: ProjectModel,
     out_dir: str | Path,
@@ -25,15 +87,10 @@ def export_deliverables(
     plan_level: str | None = None,
     plan_scale: float | None = None,
 ) -> dict[str, Any]:
-    """Write a full output pack.
-
-    mode:
-      - ``facility`` — construction sheets + facility STEP/IFC/glTF
-      - ``part`` — part drawing pack + assembly STEP
-      - ``auto`` — facility if any walls, else part pack; always both 3D formats
-    """
+    """Write a full output pack with per-step error isolation."""
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
+    errors: list[dict] = []
 
     has_walls = any(el.category == "wall" for el in model.elements)
     has_equip = any(el.category == "equipment" for el in model.elements)
@@ -42,74 +99,147 @@ def export_deliverables(
 
     level = plan_level or (model.levels[0].name if model.levels else "L1")
     if plan_scale is None:
-        # crude auto scale from bbox
         plan_scale = 0.01 if has_walls else 0.4
 
-    # Always: model, IFC, glTF, STEP assembly
     model_path = out / "model.llmbim.json"
-    # ProjectModel.save expects ProjectModel — use model.save
-    model.save(model_path)
+    _try("save_model", errors, lambda: model.save(model_path))
 
     ifc_path = out / "model.ifc"
-    export_ifc(model, ifc_path)
+    _try("export_ifc", errors, lambda: export_ifc(model, ifc_path))
 
     gltf_path = out / "model.gltf"
-    export_gltf_walls(model, gltf_path)
+    _try("export_gltf", errors, lambda: export_gltf_walls(model, gltf_path))
 
     step_path = out / "model.step"
-    export_step(model, step_path, include_walls=has_walls)
+    _try(
+        "export_step",
+        errors,
+        lambda: export_step(model, step_path, include_walls=has_walls),
+    )
 
-    # Quick single views
     views = out / "views"
     views.mkdir(exist_ok=True)
-    try:
-        write_plan_svg(model, level, views / f"plan_{level}.svg", scale=plan_scale)
-    except Exception as exc:  # noqa: BLE001
-        (views / "plan_error.txt").write_text(str(exc), encoding="utf-8")
-    try:
-        write_elevation_svg(model, "S", views / "elev_S.svg", scale=plan_scale)
-        write_elevation_svg(model, "E", views / "elev_E.svg", scale=plan_scale)
-    except Exception:
-        pass
+    _try(
+        "plan_view",
+        errors,
+        lambda: write_plan_svg(model, level, views / f"plan_{level}.svg", scale=plan_scale),
+    )
+    _try(
+        "elev_S",
+        errors,
+        lambda: write_elevation_svg(model, "S", views / "elev_S.svg", scale=plan_scale),
+    )
+    _try(
+        "elev_E",
+        errors,
+        lambda: write_elevation_svg(model, "E", views / "elev_E.svg", scale=plan_scale),
+    )
+    # section mid
+    def _section() -> None:
+        xs = []
+        ys = []
+        for el in model.elements:
+            if el.category == "wall" and "start_mm" in el.params:
+                xs += [float(el.params["start_mm"][0]), float(el.params["end_mm"][0])]
+                ys += [float(el.params["start_mm"][1]), float(el.params["end_mm"][1])]
+        if not xs:
+            xs, ys = [0.0, 1000.0], [-1000.0, 1000.0]
+        mid = (min(xs) + max(xs)) / 2
+        write_section_svg(
+            model,
+            (mid, min(ys) - 1000),
+            (mid, max(ys) + 1000),
+            views / "section.svg",
+            scale=plan_scale,
+        )
+
+    _try("section", errors, _section)
 
     schedules = out / "schedules"
     schedules.mkdir(exist_ok=True)
     for kind in ("room", "door", "window", "wall"):
-        try:
-            export_schedule_csv(model, kind, schedules / f"{kind}.csv")
-        except Exception:
-            pass
+        _try(
+            f"schedule_{kind}",
+            errors,
+            lambda k=kind: export_schedule_csv(model, k, schedules / f"{k}.csv"),
+        )
 
     result: dict[str, Any] = {
         "mode": mode,
-        "model": str(model_path.name),
-        "ifc": str(ifc_path.name),
-        "gltf": str(gltf_path.name),
-        "step": str(step_path.name),
+        "model": model_path.name if model_path.exists() else None,
+        "ifc": ifc_path.name if ifc_path.exists() else None,
+        "gltf": gltf_path.name if gltf_path.exists() else None,
+        "step": step_path.name if step_path.exists() else None,
         "views": "views/",
         "schedules": "schedules/",
     }
 
     if mode in {"facility", "both"} or has_walls:
-        cd = export_construction_set(
-            model, out / "construction", plan_level=level, plan_scale=plan_scale
+        cd = _try(
+            "construction_set",
+            errors,
+            lambda: export_construction_set(
+                model, out / "construction", plan_level=level, plan_scale=plan_scale
+            ),
         )
-        result["construction"] = cd
+        if cd:
+            result["construction"] = cd
 
     if mode in {"part", "both"} or has_equip:
-        parts = export_part_pack(model, out / "parts", scale=max(plan_scale, 0.2))
-        result["parts"] = parts
+        scale_parts = 0.15 if has_walls else max(plan_scale, 0.2)
+        parts = _try(
+            "part_pack",
+            errors,
+            lambda: export_part_pack(model, out / "parts", scale=scale_parts),
+        )
+        if parts:
+            result["parts"] = parts
 
-    # dual mode for hybrid models (INTEC has both)
-    if has_walls and has_equip and mode == "auto":
-        parts = export_part_pack(model, out / "parts", scale=0.15)
-        result["parts"] = parts
+    # checksums
+    checksums: dict[str, str] = {}
+    for p in out.rglob("*"):
+        if p.is_file() and p.suffix.lower() in {
+            ".json",
+            ".ifc",
+            ".gltf",
+            ".step",
+            ".svg",
+            ".csv",
+        }:
+            try:
+                checksums[str(p.relative_to(out)).replace("\\", "/")] = _sha256(p)
+            except OSError:
+                pass
+
+    verification = verify_pack(out, require_parts=has_equip)
+    try:
+        from llmbim_drawings.html_index import write_pack_index
+
+        write_pack_index(out)
+        result["index_html"] = "index.html"
+    except Exception as exc:  # noqa: BLE001
+        errors.append({"step": "html_index", "error": str(exc)})
+
+    try:
+        from llmbim_drawings.zip_pack import zip_pack
+
+        zpath = zip_pack(out)
+        result["zip"] = zpath.name
+    except Exception as exc:  # noqa: BLE001
+        errors.append({"step": "zip_pack", "error": str(exc)})
 
     manifest = {
         "project": model.name,
         "honesty": "ENGINEERING ESTIMATE — LLM-BIM agent deliverables pack",
         "outputs": result,
         "stats": model.stats(),
+        "errors": errors,
+        "verification": verification,
+        "checksums_sha256": checksums,
+        "ok": verification.get("ok", False) and len(errors) == 0,
     }
     (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    (out / "VERIFY.json").write_text(json.dumps(verification, indent=2) + "\n", encoding="utf-8")
+    if errors:
+        (out / "ERRORS.json").write_text(json.dumps(errors, indent=2) + "\n", encoding="utf-8")
     return manifest

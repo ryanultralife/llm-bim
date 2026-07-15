@@ -104,8 +104,16 @@ def cmd_pack(args: argparse.Namespace) -> int:
         plan_level=args.level,
         plan_scale=args.scale,
     )
-    print(json.dumps(manifest, indent=2))
-    return 0
+    print(json.dumps({k: manifest[k] for k in ("project", "ok", "stats", "errors", "verification") if k in manifest}, indent=2))
+    return 0 if manifest.get("ok") else 1
+
+
+def cmd_verify(args: argparse.Namespace) -> int:
+    from llmbim_drawings.deliverables import verify_pack
+
+    v = verify_pack(args.path, require_parts=args.require_parts)
+    print(json.dumps(v, indent=2))
+    return 0 if v.get("ok") else 1
 
 
 def cmd_case(args: argparse.Namespace) -> int:
@@ -166,6 +174,11 @@ def main(argv: list[str] | None = None) -> int:
     p_pack.add_argument("--level", default=None)
     p_pack.add_argument("--scale", type=float, default=None)
     p_pack.set_defaults(func=cmd_pack)
+
+    p_ver = sub.add_parser("verify", help="Verify a deliverables pack directory")
+    p_ver.add_argument("path", help="Pack directory")
+    p_ver.add_argument("--require-parts", action="store_true")
+    p_ver.set_defaults(func=cmd_verify)
 
     args = parser.parse_args(argv)
     return int(args.func(args))

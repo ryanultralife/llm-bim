@@ -147,19 +147,43 @@ def render_elevation_svg(
     # Project each wall endpoint to (horizontal, z_base, z_top)
     segs: list[tuple[float, float, float, float]] = []  # h0, h1, z0, z1
     for el in model.elements:
-        if el.category != "wall":
-            continue
-        ep = _wall_endpoints(el)
-        if not ep:
-            continue
-        x0, y0, x1, y1, _t, height = ep
-        z0 = _level_elev(model, el.level_id)
-        z1 = z0 + height
-        if d in {"N", "S"}:
-            h0, h1 = x0, x1
-        else:
-            h0, h1 = y0, y1
-        segs.append((min(h0, h1), max(h0, h1), z0, z1))
+        if el.category == "wall":
+            ep = _wall_endpoints(el)
+            if not ep:
+                continue
+            x0, y0, x1, y1, _t, height = ep
+            z0 = _level_elev(model, el.level_id)
+            z1 = z0 + height
+            if d in {"N", "S"}:
+                h0, h1 = x0, x1
+            else:
+                h0, h1 = y0, y1
+            segs.append((min(h0, h1), max(h0, h1), z0, z1))
+        elif el.category == "equipment":
+            try:
+                o = el.params["origin_mm"]
+                s = el.params["size_mm"]
+                z0_off = float(el.params.get("z0_mm", 0))
+                shape = el.params.get("shape", "box")
+            except (KeyError, TypeError, ValueError):
+                continue
+            x0, y0 = float(o[0]), float(o[1])
+            lx, ly, hz = float(s[0]), float(s[1]), float(s[2])
+            z0 = _level_elev(model, el.level_id) + z0_off
+            if shape == "cylinder":
+                z1 = z0 + ly
+                if d in {"N", "S"}:
+                    h0, h1 = x0, x0 + lx
+                else:
+                    r = ly / 2
+                    h0, h1 = y0 - r, y0 + r
+            else:
+                z1 = z0 + hz
+                if d in {"N", "S"}:
+                    h0, h1 = x0, x0 + lx
+                else:
+                    h0, h1 = y0, y0 + ly
+            segs.append((min(h0, h1), max(h0, h1), z0, z1))
 
     if segs:
         min_h = min(s[0] for s in segs) - margin_mm

@@ -503,6 +503,28 @@ def export_gltf(project_id: str) -> Response:
         raise HTTPException(400, str(e)) from e
 
 
+@app.get("/v1/projects/{project_id}/exports/model.ifc")
+def export_ifc_file(project_id: str) -> Response:
+    try:
+        p = store.get(project_id)
+        out = store.artifacts_dir(project_id) / "model.ifc"
+        p.export_ifc(out)
+        return FileResponse(out, media_type="application/x-step", filename=out.name)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.get("/v1/projects/{project_id}/exports/model.step")
+def export_step_file(project_id: str) -> Response:
+    try:
+        p = store.get(project_id)
+        out = store.artifacts_dir(project_id) / "model.step"
+        p.export_step(out)
+        return FileResponse(out, media_type="application/step", filename=out.name)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+
+
 @app.get("/v1/projects/{project_id}/download.json")
 def download_project_json(project_id: str) -> Response:
     try:

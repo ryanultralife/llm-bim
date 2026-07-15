@@ -395,29 +395,58 @@ class RestoreGrid(Command):
 
 @dataclass
 class CreateEquipmentBox(Command):
-    """Axis-aligned equipment envelope (for process kit / vessel placeholders)."""
+    """Axis-aligned equipment envelope (box or cylinder along +X)."""
 
     level: str
     origin: tuple[float, float]  # plan mm, min-corner or center if centered=True
-    size: tuple[float, float, float]  # Lx, Ly, Hz in mm
+    size: tuple[float, float, float]  # box: Lx,Ly,Hz; cylinder: length, diameter, diameter
     name: str = ""
     kind: str = "equipment"
     centered: bool = False
     z0_mm: float = 0.0
+    shape: str = "box"  # box | cylinder
     op: str = "create_equipment_box"
     _element_id: str | None = None
 
     def apply(self, model: ProjectModel) -> dict[str, Any]:
         lv = model.get_level(self.level)
+        shape = (self.shape or "box").lower()
+        if shape not in {"box", "cylinder"}:
+            raise ValidationError("shape must be box or cylinder", shape=shape)
         lx, ly, hz = (float(self.size[0]), float(self.size[1]), float(self.size[2]))
         if lx <= 0 or ly <= 0 or hz <= 0:
             raise ValidationError("Equipment size must be positive")
+        if shape == "cylinder" and abs(ly - hz) > 1e-3:
+            # normalize diameter
+            d = max(ly, hz)
+            ly = hz = d
         ox, oy = float(self.origin[0]), float(self.origin[1])
         if self.centered:
-            x0, y0 = ox - lx / 2, oy - ly / 2
+            if shape == "cylinder":
+                x0, y0 = ox - lx / 2, oy  # y is centerline
+            else:
+                x0, y0 = ox - lx / 2, oy - ly / 2
         else:
             x0, y0 = ox, oy
         eid = self._element_id or new_id("eqp")
+        if shape == "cylinder":
+            r = ly / 2
+            # plan footprint rectangle for queries
+            poly = [
+                [x0, y0 - r],
+                [x0 + lx, y0 - r],
+                [x0 + lx, y0 + r],
+                [x0, y0 + r],
+            ]
+            origin_store = [x0, y0]  # y = centerline for cylinder
+        else:
+            poly = [
+                [x0, y0],
+                [x0 + lx, y0],
+                [x0 + lx, y0 + ly],
+                [x0, y0 + ly],
+            ]
+            origin_store = [x0, y0]
         el = Element(
             id=eid,
             category="equipment",
@@ -425,20 +454,16 @@ class CreateEquipmentBox(Command):
             level_id=lv.id,
             params={
                 "kind": self.kind,
-                "origin_mm": [x0, y0],
+                "shape": shape,
+                "origin_mm": origin_store,
                 "size_mm": [lx, ly, hz],
                 "z0_mm": float(self.z0_mm),
-                "polygon_mm": [
-                    [x0, y0],
-                    [x0 + lx, y0],
-                    [x0 + lx, y0 + ly],
-                    [x0, y0 + ly],
-                ],
+                "polygon_mm": poly,
             },
         )
         model.add_element(el)
         self._element_id = el.id
-        return {"element_id": el.id, "category": "equipment", "kind": self.kind}
+        return {"element_id": el.id, "category": "equipment", "kind": self.kind, "shape": shape}
 
     def invert(self) -> Command:
         if not self._element_id:
@@ -449,40 +474,54 @@ class CreateEquipmentBox(Command):
 @dataclass
 class DeleteElement(Command):
     element_id: str
+    cascade: bool = True  # also remove hosted doors/windows
     op: str = "delete_element"
     _snapshot: dict[str, Any] | None = None
+    _hosted_snapshots: list[dict[str, Any]] | None = None
 
     def apply(self, model: ProjectModel) -> dict[str, Any]:
         el = model.get_element(self.element_id)
-        hosted = [h.id for h in model.elements if h.host_id == el.id]
-        if hosted:
+        hosted = [h for h in model.elements if h.host_id == el.id]
+        if hosted and not self.cascade:
             raise ValidationError(
-                "Cannot delete element with hosted children; delete children first",
+                "Cannot delete element with hosted children; delete children first or cascade=True",
                 element_id=el.id,
-                hosted_ids=hosted,
+                hosted_ids=[h.id for h in hosted],
             )
+        self._hosted_snapshots = [h.model_dump() for h in hosted]
         self._snapshot = el.model_dump()
-        model.elements = [e for e in model.elements if e.id != el.id]
-        return {"deleted_id": el.id, "category": el.category}
+        drop = {el.id} | {h.id for h in hosted}
+        model.elements = [e for e in model.elements if e.id not in drop]
+        return {
+            "deleted_id": el.id,
+            "category": el.category,
+            "cascaded": [h.id for h in hosted],
+        }
 
     def invert(self) -> Command:
         if not self._snapshot:
             raise ValidationError("Cannot invert DeleteElement before apply")
-        return RestoreElement(snapshot=self._snapshot)
+        return RestoreElement(
+            snapshot=self._snapshot,
+            hosted_snapshots=list(self._hosted_snapshots or []),
+        )
 
 
 @dataclass
 class RestoreElement(Command):
     snapshot: dict[str, Any]
+    hosted_snapshots: list[dict[str, Any]] | None = None
     op: str = "restore_element"
 
     def apply(self, model: ProjectModel) -> dict[str, Any]:
         el = Element.model_validate(self.snapshot)
         model.add_element(el)
+        for hs in self.hosted_snapshots or []:
+            model.add_element(Element.model_validate(hs))
         return {"element_id": el.id}
 
     def invert(self) -> Command:
-        return DeleteElement(element_id=self.snapshot["id"])
+        return DeleteElement(element_id=self.snapshot["id"], cascade=True)
 
 
 @dataclass

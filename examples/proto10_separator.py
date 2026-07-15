@@ -81,18 +81,19 @@ def build_proto10(out_dir: Path) -> Project:
         z0_mm=PEDESTAL[2],
     )
 
-    # Shell as box footprint of OD × L (true solid is cylinder — envelope for BIM)
+    # Shell — cylinder along +X (Fusion parity OD×L)
     p.create_equipment_box(
         level="Bench",
         origin=(cx, cy),
         size=(SHELL_L, SHELL_OD, SHELL_OD),
         name="Al6061 shell 320OD×500",
         kind="shell",
+        shape="cylinder",
         centered=True,
         z0_mm=PEDESTAL[2] + (YOKE_D - SHELL_OD) / 2,
     )
 
-    # End flanges
+    # End flanges (disk-like cylinders short along X)
     for side, xoff in (("A", -SHELL_L / 2 - FLANGE_THK / 2), ("B", SHELL_L / 2 + FLANGE_THK / 2)):
         p.create_equipment_box(
             level="Bench",
@@ -100,22 +101,24 @@ def build_proto10(out_dir: Path) -> Project:
             size=(FLANGE_THK, FLANGE_OD, FLANGE_OD),
             name=f"End flange {side} 380×25",
             kind="flange",
+            shape="cylinder",
             centered=True,
             z0_mm=PEDESTAL[2] + (YOKE_D - FLANGE_OD) / 2,
         )
 
-    # Cartridge
+    # Cartridge cylinder
     p.create_equipment_box(
         level="Bench",
         origin=(cx, cy),
         size=(CARTRIDGE_L, CARTRIDGE_OD, CARTRIDGE_OD),
         name="Ultem cartridge 298×450",
         kind="cartridge",
+        shape="cylinder",
         centered=True,
         z0_mm=PEDESTAL[2] + (YOKE_D - CARTRIDGE_OD) / 2,
     )
 
-    # Magnet rings stacked along bore (4 × 50 mm)
+    # Magnet rings
     span = N_MAGNETS * MAGNET_THK
     x0 = -span / 2 + MAGNET_THK / 2
     for i in range(N_MAGNETS):
@@ -125,6 +128,7 @@ def build_proto10(out_dir: Path) -> Project:
             size=(MAGNET_THK, MAGNET_OD, MAGNET_OD),
             name=f"N42 ring {i + 1}",
             kind="magnet",
+            shape="cylinder",
             centered=True,
             z0_mm=PEDESTAL[2] + (YOKE_D - MAGNET_OD) / 2,
         )

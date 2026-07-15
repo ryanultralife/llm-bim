@@ -7,6 +7,7 @@ from pathlib import Path
 
 from llmbim_core.model import Element, ProjectModel
 from llmbim_drawings.svg_util import esc, fmt
+from llmbim_drawings.view import DrawingView
 from llmbim_geometry.primitives import point_along_segment
 
 
@@ -39,23 +40,50 @@ def _wall_band(
     ]
 
 
-def render_plan_svg(
+def _dim_line(
+    x0: float,
+    y0: float,
+    x1: float,
+    y1: float,
+    project,
+    scale: float,
+    label: str,
+) -> list[str]:
+    """Simple dimension annotation between two plan points."""
+    px0, py0 = project(x0, y0)
+    px1, py1 = project(x1, y1)
+    mx, my = (px0 + px1) / 2, (py0 + py1) / 2
+    # offset perpendicular in screen space
+    dx, dy = px1 - px0, py1 - py0
+    L = math.hypot(dx, dy) or 1.0
+    ox, oy = -dy / L * 12, dx / L * 12
+    return [
+        f'<line x1="{fmt(px0 + ox)}" y1="{fmt(py0 + oy)}" x2="{fmt(px1 + ox)}" '
+        f'y2="{fmt(py1 + oy)}" stroke="#666" stroke-width="0.8"/>',
+        f'<line x1="{fmt(px0)}" y1="{fmt(py0)}" x2="{fmt(px0 + ox)}" y2="{fmt(py0 + oy)}" '
+        f'stroke="#666" stroke-width="0.6"/>',
+        f'<line x1="{fmt(px1)}" y1="{fmt(py1)}" x2="{fmt(px1 + ox)}" y2="{fmt(py1 + oy)}" '
+        f'stroke="#666" stroke-width="0.6"/>',
+        f'<text x="{fmt(mx + ox)}" y="{fmt(my + oy - 2)}" text-anchor="middle" '
+        f'font-size="{fmt(max(8, 10))}" fill="#444" font-family="sans-serif">{esc(label)}</text>',
+    ]
+
+
+def render_plan_view(
     model: ProjectModel,
     level: str,
     *,
     margin_mm: float = 500.0,
     scale: float = 0.05,
-    view_range_mm: float = 1200.0,  # noqa: ARG001 — reserved for future cut filter
+    view_range_mm: float = 1200.0,  # noqa: ARG001
     title: str | None = None,
-) -> str:
-    """Render a plan of one level to an SVG string.
-
-    Model space is Y-up (mm). SVG is Y-down; Y is flipped in the bbox.
-    ``scale`` multiplies mm → SVG user units (default 0.05 → 20m fits ~1000 units).
-    """
+    show_dimensions: bool = True,
+    max_dimensions: int = 24,
+) -> DrawingView:
+    """Build a plan DrawingView (inner body + size)."""
     lvl = model.get_level(level)
     walls = [
-        wp
+        (el, wp)
         for el in model.query(category="wall", level=lvl.name)
         if (wp := _wall_endpoints(el)) is not None
     ]
@@ -66,7 +94,7 @@ def render_plan_svg(
 
     xs: list[float] = []
     ys: list[float] = []
-    for x0, y0, x1, y1, t in walls:
+    for _el, (x0, y0, x1, y1, t) in walls:
         for px, py in _wall_band(x0, y0, x1, y1, t) or [(x0, y0), (x1, y1)]:
             xs.append(px)
             ys.append(py)
@@ -78,33 +106,39 @@ def render_plan_svg(
         for pt in eq.params.get("polygon_mm", []):
             xs.append(float(pt[0]))
             ys.append(float(pt[1]))
+        # cylinders: include radius circle
+        if eq.params.get("shape") == "cylinder":
+            try:
+                o = eq.params["origin_mm"]
+                s = eq.params["size_mm"]
+                # size L along axis, D, D for cylinder along X stored as Lx,D,D
+                r = max(float(s[1]), float(s[2])) / 2
+                xs += [float(o[0]) - r, float(o[0]) + float(s[0]) + r]
+                ys += [float(o[1]) - r, float(o[1]) + r]
+            except (KeyError, TypeError, ValueError, IndexError):
+                pass
+
     if xs and ys:
         min_x, max_x = min(xs) - margin_mm, max(xs) + margin_mm
         min_y, max_y = min(ys) - margin_mm, max(ys) + margin_mm
     else:
         min_x, min_y, max_x, max_y = 0.0, 0.0, 1000.0, 1000.0
 
-    width_mm = max_x - min_x
-    height_mm = max_y - min_y
-    width = width_mm * scale
-    height = height_mm * scale
+    width = (max_x - min_x) * scale
+    height = (max_y - min_y) * scale
 
     def project(x: float, y: float) -> tuple[float, float]:
         return (x - min_x) * scale, (max_y - y) * scale
 
     label = title if title is not None else f"{model.name} — Plan {lvl.name}"
     sw = max(0.5, 15 * scale)
-
     parts: list[str] = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" '
-        f'viewBox="0 0 {fmt(width)} {fmt(height)}" '
-        f'width="{fmt(width)}" height="{fmt(height)}">',
-        f"  <title>{esc(label)}</title>",
+        f'  <title>{esc(label)}</title>',
         f'  <rect x="0" y="0" width="{fmt(width)}" height="{fmt(height)}" fill="#ffffff"/>',
         f'  <g class="walls" fill="#c8c8c8" stroke="#1a1a1a" stroke-width="{fmt(sw)}" '
         f'stroke-linejoin="round">',
     ]
-    for x0, y0, x1, y1, t in walls:
+    for _el, (x0, y0, x1, y1, t) in walls:
         band = _wall_band(x0, y0, x1, y1, t)
         if not band:
             continue
@@ -116,8 +150,8 @@ def render_plan_svg(
         f'  <g class="centerlines" stroke="#8a1a1a" stroke-width="{fmt(max(0.3, 8 * scale))}" '
         f'stroke-dasharray="{fmt(60 * scale)} {fmt(40 * scale)}" fill="none">'
     )
-    wall_by_id = {el.id: el for el in model.query(category="wall", level=lvl.name)}
-    for x0, y0, x1, y1, _t in walls:
+    wall_by_id = {el.id: el for el, _ in walls}
+    for _el, (x0, y0, x1, y1, _t) in walls:
         px0, py0 = project(x0, y0)
         px1, py1 = project(x1, y1)
         parts.append(
@@ -125,8 +159,9 @@ def render_plan_svg(
         )
     parts.append("  </g>")
 
-    # Doors / windows as ticks on host walls
-    parts.append(f'  <g class="openings" stroke="#0066aa" stroke-width="{fmt(max(0.4, 10 * scale))}">')
+    parts.append(
+        f'  <g class="openings" stroke="#0066aa" stroke-width="{fmt(max(0.4, 10 * scale))}">'
+    )
     for opening in list(doors) + list(windows):
         host = wall_by_id.get(opening.host_id or "")
         if not host:
@@ -150,12 +185,37 @@ def render_plan_svg(
         )
     parts.append("  </g>")
 
-    # Equipment envelopes
+    # Equipment
     parts.append(
         f'  <g class="equipment" fill="#cfe8ff" fill-opacity="0.55" '
         f'stroke="#0b5cab" stroke-width="{fmt(max(0.4, 8 * scale))}">'
     )
     for eq in equipment:
+        if eq.params.get("shape") == "cylinder":
+            try:
+                o = eq.params["origin_mm"]
+                s = eq.params["size_mm"]
+                # along X: length s[0], diameter s[1]
+                x0, y0 = float(o[0]), float(o[1])
+                L, D = float(s[0]), float(s[1])
+                # rectangle envelope + centerline
+                r = D / 2
+                poly = [(x0, y0 - r), (x0 + L, y0 - r), (x0 + L, y0 + r), (x0, y0 + r)]
+                pts = " ".join(
+                    f"{fmt(px)},{fmt(py)}"
+                    for px, py in (project(float(p[0]), float(p[1])) for p in poly)
+                )
+                parts.append(f'    <polygon points="{pts}" fill="#b8d4f0"/>')
+                # end circles
+                for cx in (x0, x0 + L):
+                    pcx, pcy = project(cx, y0)
+                    parts.append(
+                        f'    <circle cx="{fmt(pcx)}" cy="{fmt(pcy)}" r="{fmt(r * scale)}" '
+                        f'fill="none" stroke="#0b5cab"/>'
+                    )
+            except (KeyError, TypeError, ValueError, IndexError):
+                pass
+            continue
         poly = eq.params.get("polygon_mm") or []
         if len(poly) < 3:
             continue
@@ -165,10 +225,9 @@ def render_plan_svg(
         parts.append(f'    <polygon points="{pts}"/>')
     parts.append("  </g>")
 
-    # Room labels at centroid
     font = max(8.0, min(28.0, 350 * scale))
     parts.append(
-        f'  <g class="rooms" fill="#333" font-size="{fmt(font)}" '
+        f'  <g class="labels" fill="#333" font-size="{fmt(font)}" '
         f'font-family="sans-serif" text-anchor="middle">'
     )
     for room in rooms:
@@ -181,18 +240,58 @@ def render_plan_svg(
         parts.append(f'    <text x="{fmt(px)}" y="{fmt(py)}">{esc(room.name or "Room")}</text>')
     for eq in equipment:
         poly = eq.params.get("polygon_mm") or []
-        if len(poly) < 3 or not eq.name:
+        if not eq.name:
             continue
-        cx = sum(float(p[0]) for p in poly) / len(poly)
-        cy = sum(float(p[1]) for p in poly) / len(poly)
+        if poly:
+            cx = sum(float(p[0]) for p in poly) / len(poly)
+            cy = sum(float(p[1]) for p in poly) / len(poly)
+        else:
+            continue
         px, py = project(cx, cy)
         parts.append(
             f'    <text x="{fmt(px)}" y="{fmt(py)}" fill="#0b5cab" font-size="{fmt(font * 0.75)}">'
             f"{esc(eq.name)}</text>"
         )
     parts.append("  </g>")
-    parts.append("</svg>")
-    return "\n".join(parts) + "\n"
+
+    if show_dimensions and walls:
+        parts.append('  <g class="dimensions">')
+        # Longest walls first
+        ranked = sorted(walls, key=lambda t: math.hypot(t[1][2] - t[1][0], t[1][3] - t[1][1]), reverse=True)
+        for el, (x0, y0, x1, y1, _t) in ranked[:max_dimensions]:
+            length = math.hypot(x1 - x0, y1 - y0)
+            if length < 500:
+                continue
+            if length >= 1000:
+                lab = f"{length / 1000:.2f} m"
+            else:
+                lab = f"{length:.0f} mm"
+            parts.extend(_dim_line(x0, y0, x1, y1, project, scale, lab))
+        parts.append("  </g>")
+
+    return DrawingView(width=width, height=height, body="\n".join(parts), title=label)
+
+
+def render_plan_svg(
+    model: ProjectModel,
+    level: str,
+    *,
+    margin_mm: float = 500.0,
+    scale: float = 0.05,
+    view_range_mm: float = 1200.0,
+    title: str | None = None,
+    show_dimensions: bool = True,
+) -> str:
+    view = render_plan_view(
+        model,
+        level,
+        margin_mm=margin_mm,
+        scale=scale,
+        view_range_mm=view_range_mm,
+        title=title,
+        show_dimensions=show_dimensions,
+    )
+    return view.to_svg()
 
 
 def write_plan_svg(model: ProjectModel, level: str, path: str | Path, **opts: object) -> Path:

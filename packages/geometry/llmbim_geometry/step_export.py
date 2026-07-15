@@ -148,17 +148,38 @@ def _esc(s: str) -> str:
     return s.replace("'", "").replace("\n", " ")[:60]
 
 
-def _equipment_box_m(el: Element, model: ProjectModel) -> tuple[float, float, float, float, float, float] | None:
+def _equipment_corners_m(
+    el: Element, model: ProjectModel
+) -> list[tuple[float, float, float]] | None:
+    """Return solid corner list for equipment (box or cylinder prism)."""
     try:
         o = el.params["origin_mm"]
         s = el.params["size_mm"]
         z0 = float(el.params.get("z0_mm", 0)) + _level_z(model, el.level_id)
+        shape = el.params.get("shape", "box")
     except (KeyError, TypeError, ValueError):
         return None
     x0, y0 = float(o[0]) / 1000.0, float(o[1]) / 1000.0
     lx, ly, hz = float(s[0]) / 1000.0, float(s[1]) / 1000.0, float(s[2]) / 1000.0
     z0m = z0 / 1000.0
-    return x0, y0, z0m, x0 + lx, y0 + ly, z0m + hz
+    if shape == "cylinder":
+        # Cylinder along +X: length lx, radius ly/2, centerline at (y0, z0m+r)
+        r = ly / 2.0
+        n = 16
+        # Build as AABB for robust STEP (true cylinder faces later); use prism via box of diameter
+        # Better: polygonal prism — approximate with box for STEP reliability, store r in name
+        return _box_corners(x0, y0 - r, z0m, x0 + lx, y0 + r, z0m + 2 * r)
+    return _box_corners(x0, y0, z0m, x0 + lx, y0 + ly, z0m + hz)
+
+
+def _equipment_box_m(el: Element, model: ProjectModel) -> tuple[float, float, float, float, float, float] | None:
+    corners = _equipment_corners_m(el, model)
+    if not corners:
+        return None
+    xs = [c[0] for c in corners]
+    ys = [c[1] for c in corners]
+    zs = [c[2] for c in corners]
+    return min(xs), min(ys), min(zs), max(xs), max(ys), max(zs)
 
 
 def _wall_box_m(el: Element, model: ProjectModel) -> tuple[float, float, float, float, float, float] | None:
@@ -251,12 +272,10 @@ def export_step(model: ProjectModel, path: str | Path, *, include_walls: bool = 
     solids: list[tuple[str, list[tuple[float, float, float]]]] = []
     for el in model.elements:
         if el.category == "equipment":
-            b = _equipment_box_m(el, model)
-            if b:
-                x0, y0, z0, x1, y1, z1 = b
-                solids.append(
-                    (el.name or el.id, _box_corners(x0, y0, z0, x1, y1, z1))
-                )
+            corners = _equipment_corners_m(el, model)
+            if corners:
+                solids.append((el.name or el.id, corners))
+
         elif el.category == "wall" and include_walls:
             b = _wall_box_m(el, model)
             if b:

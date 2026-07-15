@@ -84,14 +84,19 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
                 origin = el.params["origin_mm"]
                 size = el.params["size_mm"]
                 z0_off = float(el.params.get("z0_mm", 0))
+                shape = el.params.get("shape", "box")
             except (KeyError, TypeError, ValueError):
                 continue
             x0, y0 = float(origin[0]), float(origin[1])
             lx, ly, hz = float(size[0]), float(size[1]), float(size[2])
             z0 = _level_z(model, el.level_id) + z0_off
-            z1 = z0 + hz
-            # Represent box as degenerate "wall" along +X with thickness = ly
-            pos = _wall_box_positions(x0, y0 + ly / 2, x0 + lx, y0 + ly / 2, ly, z0, z1)
+            if shape == "cylinder":
+                # origin y is centerline; size L, D, D
+                z1 = z0 + ly
+                pos = _wall_box_positions(x0, y0, x0 + lx, y0, ly, z0, z1)
+            else:
+                z1 = z0 + hz
+                pos = _wall_box_positions(x0, y0 + ly / 2, x0 + lx, y0 + ly / 2, ly, z0, z1)
             if not pos:
                 continue
             all_pos.extend(pos)
