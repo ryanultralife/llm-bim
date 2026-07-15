@@ -443,14 +443,41 @@ def csi_for_element(model: ProjectModel, el: Element) -> dict[str, Any]:
         material_id=str(mat),
         system=str(system),
     )
-    # fire black steel / process from material
+    # fire black steel / process from material — only for pipe/fitting MEP, not panels/steel/equip
+    pipe_fit_types = {
+        "pipe",
+        "elbow_90",
+        "elbow_45",
+        "tee",
+        "coupling",
+        "reducer",
+        "cap",
+        "union",
+        "ball_valve",
+        "gate_valve",
+        "check_valve",
+        "flange",
+        "sprinkler_head",
+    }
     if str(mat) in MATERIAL_CSI_OVERRIDE and not el.params.get("csi_code"):
-        if el.category in {"pipe", "fitting", "fittings"} or ftype:
-            code = MATERIAL_CSI_OVERRIDE[str(mat)]
-            if system == "fire" or str(mat) == "black_steel":
-                code = "21 13 13"
-            if system == "process" or str(mat) == "ss316L":
-                code = "40 05 13" if ftype != "ball_valve" else "40 05 23"
+        if el.category in {"pipe", "fitting", "fittings", "plumbing_pipe"} or ftype in pipe_fit_types:
+            # do not override if part already resolved a specific catalog CSI
+            part_had_csi = False
+            if pid:
+                try:
+                    from llmbim_core.parts_catalog import get_part
+
+                    part = get_part(str(pid))
+                    if part and (part.csi_code or (part.specs or {}).get("csi_code")):
+                        part_had_csi = True
+                except Exception:  # noqa: BLE001
+                    pass
+            if not part_had_csi:
+                code = MATERIAL_CSI_OVERRIDE[str(mat)]
+                if system == "fire" or str(mat) == "black_steel":
+                    code = "21 13 13"
+                if system == "process" or str(mat) == "ss316L":
+                    code = "40 05 13" if ftype != "ball_valve" else "40 05 23"
 
     div = code.split()[0] if code else "01"
     loc = location_for_element(model, el)

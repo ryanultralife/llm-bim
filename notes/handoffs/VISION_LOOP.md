@@ -53,7 +53,8 @@
 | 28 | continue | multi-storey to_level riser | risers single-storey only | place_riser(to_level=L2/L3) | 96 unit | 2bd3ec6 |
 | 29 | continue | HVAC place_duct | no duct authoring | place_duct + plan/DXF/CSI 23 31 00 | 98 unit | 857c12c |
 | 30 | continue | electrical conduit | no conduit place | place_conduit CSI 26 05 33 + plan/DXF | 99 unit | 52c86e9 |
-| 31 | continue | grid bubble labels | grids were unlabeled lines | plan A/B + 1/2 bubbles; labels= | 100 unit | (this) |
+| 31 | continue | grid bubble labels | grids were unlabeled lines | plan A/B + 1/2 bubbles; labels= | 100 unit | dcab713 |
+| 32 | continue | multi-MEP + elev duct | elev ignored duct/conduit; panel CSI wrong | elev MEP; smoke duct/riser/conduit/panel; part CSI fix | 101 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -102,10 +103,14 @@
 42. ~~Grid intersection labels on plans~~ (pass 31)
 43. Dimension strings on plan SVG (partial — show_dimensions exists)
 44. ~~CLI place duct/conduit~~ (pass 29–30)
-45. Elev draw ducts as rectangles
-46. Panelboard / lighting fixture place
+45. ~~Elev draw ducts as rectangles~~ (pass 32)
+46. ~~Panelboard CSI from catalog part~~ (pass 32)
 47. Connection schedule on HTML index
-48. Multi-trade smoke case for duct+conduit+riser
+48. ~~Multi-trade smoke case for duct+conduit+riser~~ (pass 32)
+49. Tag walls with type mark on plan
+50. Space height / ceiling height params
+51. Clash: duct vs pipe AABB
+52. Skill docs for duct/conduit/to_level
 
 ## Rules for each scheduled pass
 
