@@ -25,3 +25,21 @@ def test_wall_type_on_plan(tmp_path: Path):
     text = plan.read_text(encoding="utf-8")
     assert 'class="wall-types"' in text
     assert "EXT-CMU" in text
+
+
+def test_room_ceiling_height_schedule():
+    from llmbim_drawings.schedules import schedule_rows
+
+    p = Project.create("room-h", vcs=False)
+    p.add_level("L1", 0)
+    p.create_room(
+        level="L1",
+        name="Office",
+        boundary=[(0, 0), (4000, 0), (4000, 3000), (0, 3000)],
+        height_mm=2700,
+    )
+    rows = schedule_rows(p.model, "room")
+    assert rows[0]["height_mm"] == 2700
+    assert rows[0]["ceiling_height_mm"] == 2700
+    el = next(e for e in p.model.elements if e.category == "room")
+    assert el.params.get("ceiling_height_mm") == 2700
