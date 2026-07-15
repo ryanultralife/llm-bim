@@ -415,6 +415,39 @@ class Project:
         finally:
             P(tmp).unlink(missing_ok=True)
 
+    def create_assembly(
+        self,
+        name: str,
+        element_ids: list[str] | None = None,
+        *,
+        kind: str = "group",
+    ) -> str:
+        r = self.op(
+            "create_assembly",
+            name=name,
+            element_ids=element_ids or [],
+            kind=kind,
+        )
+        return str(r["assembly_id"])
+
+    def assemblies(self) -> list[dict[str, Any]]:
+        return self.op("list_assemblies").get("assemblies", [])
+
+    def design_option(
+        self,
+        name: str,
+        element_ids: list[str] | None = None,
+        *,
+        clone: bool = True,
+    ) -> dict[str, Any]:
+        """Create a design option (optional clone of elements)."""
+        return self.op(
+            "design_option",
+            name=name,
+            element_ids=element_ids or [],
+            clone=clone,
+        )
+
     def levels(self) -> list[Level]:
         return list(self._model.levels)
 

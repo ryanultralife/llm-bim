@@ -1,7 +1,19 @@
-# AGENTS.md — Multi-agent collaboration (Grok + Claude)
+# AGENTS.md — Multi-agent collaboration + decentralized use
 
 This repository is built **by LLMs, for LLMs**. There is no human drafting UI.
 Humans review exports (IFC, PDF, SVG, glTF) and drive agents via chat/CLI.
+
+## Decentralized skill (any LLM on any machine)
+
+| Artifact | Path |
+|----------|------|
+| **Skill (primary)** | [`skills/llm-bim/SKILL.md`](skills/llm-bim/SKILL.md) |
+| **Op schema** | `llmbim ops --schema` → `skills/llm-bim/ops.schema.json` |
+| **Recipes** | [`skills/llm-bim/recipes/`](skills/llm-bim/recipes/) |
+| **Local install** | [`docs/LOCAL.md`](docs/LOCAL.md) · `scripts/install_local.ps1` |
+| **MCP example** | [`skills/llm-bim/mcp.example.json`](skills/llm-bim/mcp.example.json) |
+
+Users run the **kernel on their device** and point **their** LLM (Grok, Claude, local, …) at the skill + MCP. Hosting is optional.
 
 ## Tempo (read this first)
 

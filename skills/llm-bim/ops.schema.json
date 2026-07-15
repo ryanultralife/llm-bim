@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "llm-bim agent tools",
+  "version": "0.1.0a0",
+  "skill": "skills/llm-bim/SKILL.md",
+  "tools": [
+    {
+      "name": "project.create",
+      "description": "Create empty project (SDK: Project.create)",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "units": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "project.export_deliverables",
+      "description": "Full pack IFC/STEP/glTF/PDF/BOQ/DXF",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "out_dir": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "facility",
+              "part",
+              "both"
+            ]
+          }
+        },
+        "required": [
+          "out_dir"
+        ]
+      }
+    },
+    {
+      "name": "project.from_template",
+      "description": "office_bay|warehouse|hot_cell_bay|lab_bench",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "template_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "template_id"
+        ]
+      }
+    },
+    {
+      "name": "project.import_file",
+      "description": "Import by extension: dxf/ifc/step/csv/json",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "add_level",
+      "description": "Add building level",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "boq",
+      "description": "Bill of quantities",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "catalog",
+      "description": "Type catalog wall/door/window",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "clash",
+      "description": "AABB clashes",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "create_assembly",
+      "description": "Group elements into named assembly",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "create_generic",
+      "description": "Create element of any category",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "delete",
+      "description": "Delete element (cascade hosted)",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "design_option",
+      "description": "Clone elements into a design option assembly",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "export_pack",
+      "description": "Write deliverables pack to out_dir",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "list_assemblies",
+      "description": "List assemblies",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "ql",
+      "description": "Query language string",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "query",
+      "description": "Filter elements",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "repair",
+      "description": "Auto-repair common model issues",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "rules",
+      "description": "Design rules",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "set_param",
+      "description": "Set arbitrary param on element",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "stats",
+      "description": "Element counts",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "validate",
+      "description": "Run integrity validation",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    }
+  ]
+}

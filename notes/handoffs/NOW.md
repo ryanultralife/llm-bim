@@ -1,29 +1,24 @@
-# NOW — evolution for builders & designers
+# NOW — decentralized skill + continued features
 
 **Updated:** 2026-07-15 by Grok
 
-## Shipped this evolution
+## Shipped
 
-- Product **types** catalog (wall/door/window assemblies + costs)
-- **BOQ** quantities + est. cost (`boq.json` / CLI / API / MCP)
-- **Clash** AABB reports
-- **Design rules** (egress width, wall height, shield wall types, …)
-- **DXF** plan export for CAD handoff
-- **Templates**: office_bay, warehouse, hot_cell_bay, lab_bench
-- **Notes**, **phases**, **set_type**
-- Review UI: **Three.js glTF** + plan + BOQ/clash badges
-- Pack includes boq, clash, rules, dxf, zip, index.html
+### Decentralized product surface
+- `skills/llm-bim/SKILL.md` — portable agent instructions (any LLM)
+- `llmbim ops --schema` → `skills/llm-bim/ops.schema.json`
+- `docs/LOCAL.md` + `scripts/install_local.ps1` / `.sh`
+- MCP server simplified for offline clients
+- Recipes under `skills/llm-bim/recipes/`
 
-## Claude when free
+### Features continued
+- Assemblies + **design options** (clone elements)
+- Registry ops: ql, add_level, create_assembly, export_pack, design_option, catalog
+- Universal import/export/query/script stack (prior commits)
 
-- Optional: IFC quality / MVD
-- Optional: deeper rules library
-- Do not rewrite BOQ/clash/deliverables without STATUS claim
+## Claude / any agent on a user device
 
-## Commands
-
-```
-llmbim template --list
-llmbim template hot_cell_bay
-python scripts/verify_all.py
-```
+1. `scripts/install_local.*`
+2. Load `skills/llm-bim/SKILL.md`
+3. MCP: `llmbim mcp` (see mcp.example.json)
+4. Work offline; optional `llmbim serve` only for local review UI

@@ -213,6 +213,26 @@ def cmd_op(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_ops(args: argparse.Namespace) -> int:
+    """List ops or write JSON schema for any LLM tool-caller."""
+    # Import registry side effects
+    import llmbim_core.registry as reg  # noqa: F401
+    from llmbim_core.registry import list_ops, ops_schema, write_ops_schema
+
+    if args.schema:
+        out = args.schema if args.schema != True and args.schema is not True else None
+        # --schema alone → default path
+        path = args.out or "skills/llm-bim/ops.schema.json"
+        if isinstance(args.schema, str) and args.schema not in ("", "true"):
+            path = args.schema
+        written = write_ops_schema(path)
+        print(json.dumps({"wrote": written, "tools": len(ops_schema()["tools"])}, indent=2))
+        return 0
+    data = ops_schema() if args.json else list_ops()
+    print(json.dumps(data, indent=2))
+    return 0
+
+
 def cmd_pdf(args: argparse.Namespace) -> int:
     from llmbim_drawings.pdf_binder import export_pdf_binder
 
@@ -360,6 +380,18 @@ def main(argv: list[str] | None = None) -> int:
     p_op.add_argument("--params", default=None, help="JSON object")
     p_op.add_argument("--save", default=None)
     p_op.set_defaults(func=cmd_op)
+
+    p_ops = sub.add_parser("ops", help="List ops or emit JSON schema for LLM tools")
+    p_ops.add_argument("--json", action="store_true", help="Full schema JSON")
+    p_ops.add_argument(
+        "--schema",
+        nargs="?",
+        const=True,
+        default=None,
+        help="Write schema file (default skills/llm-bim/ops.schema.json)",
+    )
+    p_ops.add_argument("--out", default=None, help="Schema output path")
+    p_ops.set_defaults(func=cmd_ops)
 
     args = parser.parse_args(argv)
     return int(args.func(args))

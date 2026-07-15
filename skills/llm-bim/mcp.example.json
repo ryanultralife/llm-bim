@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "llm-bim": {
+      "command": "llmbim",
+      "args": ["mcp"],
+      "cwd": "REPLACE_WITH_ABSOLUTE_PATH_TO_llm-bim"
+    }
+  }
+}

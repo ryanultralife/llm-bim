@@ -4,7 +4,20 @@
 
 No drafting GUI. Agents create and edit a real 3D BIM model through **HTTP API**, **Python SDK**, **CLI**, and **MCP**. Import DXF/IFC/STEP/CSV/scripts; export IFC/STEP/glTF/DXF/SVG/PDF/BOQ. Humans **review** (including 3D). Built to handle **open-ended** building, site, and equipment work — not only demos.
 
-Capability: [`docs/CAPABILITY.md`](docs/CAPABILITY.md) · Honesty: [`docs/HONESTY.md`](docs/HONESTY.md)
+Capability: [`docs/CAPABILITY.md`](docs/CAPABILITY.md) · Honesty: [`docs/HONESTY.md`](docs/HONESTY.md) · **Local / decentralized:** [`docs/LOCAL.md`](docs/LOCAL.md)
+
+### Use with *your* LLM (no cloud host required)
+
+```bash
+# Windows
+.\scripts\install_local.ps1
+# macOS/Linux
+bash scripts/install_local.sh
+
+# Point Claude/Cursor/any MCP client at skills/llm-bim/mcp.example.json
+# Load skill: skills/llm-bim/SKILL.md
+# Tool catalog: llmbim ops --schema
+```
 
 ## Launch (local)
 
