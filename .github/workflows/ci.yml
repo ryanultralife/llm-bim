@@ -23,3 +23,5 @@ jobs:
         run: llmbim demo --out /tmp/llmbim-demo
       - name: Real-case packs
         run: python scripts/verify_all.py
+      - name: Chat path smoke
+        run: python scripts/chat_smoke.py

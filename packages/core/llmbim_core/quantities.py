@@ -58,15 +58,24 @@ def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
         cost = 0.0
         materials = []
         if wt:
+            from llmbim_core.materials import get_material, material_cost, material_mass_kg
+
             for layer in wt.layers:
                 layer_vol = area * (layer.thickness_mm / 1000.0)
-                layer_cost = layer_vol * layer.unit_cost_per_m3
+                mat = get_material(layer.material)
+                if mat:
+                    layer_cost = material_cost(layer.material, layer_vol)
+                    mass = material_mass_kg(layer.material, layer_vol)
+                else:
+                    layer_cost = layer_vol * layer.unit_cost_per_m3
+                    mass = layer_vol * (layer.density_kg_m3 or 0)
                 cost += layer_cost
                 materials.append(
                     {
                         "material": layer.material,
                         "thickness_mm": layer.thickness_mm,
                         "volume_m3": round(layer_vol, 4),
+                        "mass_kg": round(mass, 2),
                         "cost": round(layer_cost, 2),
                     }
                 )

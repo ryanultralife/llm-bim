@@ -15,7 +15,12 @@ llmbim ops --schema
 echo "==> Tests"
 pytest -q
 echo ""
+echo "==> Chat path smoke (writes to output/)"
+python scripts/chat_smoke.py
+echo ""
 echo "OK. Activate:  source .venv/bin/activate"
+echo "Point agent:  open this folder; agent reads CLAUDE.md"
 echo "Skill:        skills/llm-bim/SKILL.md"
 echo "MCP:          llmbim mcp"
-echo "Docs:         docs/LOCAL.md"
+echo "Try chat:     Create a warehouse and put all files in output/"
+echo "Docs:         docs/LOCAL.md  README.md"

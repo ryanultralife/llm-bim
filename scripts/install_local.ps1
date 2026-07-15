@@ -12,7 +12,12 @@ Write-Host "==> Writing ops schema for LLM clients"
 Write-Host "==> Tests"
 .\.venv\Scripts\pytest -q
 Write-Host ""
+Write-Host "==> Chat path smoke (writes to output/)"
+.\.venv\Scripts\python scripts\chat_smoke.py
+Write-Host ""
 Write-Host "OK. Activate:  .\.venv\Scripts\activate"
+Write-Host "Point agent:  open this folder; agent reads CLAUDE.md"
 Write-Host "Skill:        skills\llm-bim\SKILL.md"
 Write-Host "MCP:          llmbim mcp"
-Write-Host "Docs:         docs\LOCAL.md"
+Write-Host "Try chat:     Create a warehouse and put all files in output/"
+Write-Host "Docs:         docs\LOCAL.md  README.md"

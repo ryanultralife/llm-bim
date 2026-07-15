@@ -508,22 +508,38 @@ class Project:
 
     def export_deliverables(
         self,
-        out_dir: str | Path,
+        out_dir: str | Path | None = None,
         *,
         mode: str = "auto",
         plan_level: str | None = None,
         plan_scale: float | None = None,
     ) -> dict[str, Any]:
-        """Full pack: JSON + IFC + glTF + STEP + construction and/or part sheets."""
+        """Full pack: JSON + IFC + glTF + STEP + construction and/or part sheets.
+
+        If ``out_dir`` is omitted, writes to ``output/<project_slug>/`` in the repo.
+        """
+        from llmbim_core.paths import project_output_dir
         from llmbim_drawings.deliverables import export_deliverables
 
-        return export_deliverables(
+        dest = Path(out_dir) if out_dir else project_output_dir(self.name)
+        result = export_deliverables(
             self._model,
-            out_dir,
+            dest,
             mode=mode,
             plan_level=plan_level,
             plan_scale=plan_scale,
         )
+        result["output_dir"] = str(dest.resolve())
+        return result
+
+    def save_local(self, name: str | None = None) -> Path:
+        """Save project JSON under output/<slug>/model.llmbim.json."""
+        from llmbim_core.paths import project_output_dir
+
+        d = project_output_dir(name or self.name)
+        path = d / "model.llmbim.json"
+        self.save(path)
+        return path
 
 
 __all__ = ["Project", "Element", "Level", "ProjectModel", "__version__"]

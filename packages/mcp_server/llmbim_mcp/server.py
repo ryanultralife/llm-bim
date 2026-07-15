@@ -97,11 +97,54 @@ if HAS_MCP:
 
     @mcp.tool()
     def project_export_pack(project_id: str, out_dir: str = "") -> str:
-        """Full deliverables: IFC STEP glTF PDF BOQ DXF drawings"""
+        """Full deliverables to local folder (default output/<project_name>/).
+        Returns absolute path — tell the user where files landed."""
         p = store.get(project_id)
-        out = out_dir or str(store.artifacts_dir(project_id) / "pack")
-        man = p.export_deliverables(out)
-        return _tool_result({"out": out, "ok": man.get("ok"), "stats": man.get("stats")})
+        if out_dir:
+            man = p.export_deliverables(out_dir)
+            out = out_dir
+        else:
+            man = p.export_deliverables()  # → output/<slug>/
+            out = man.get("output_dir") or ""
+        return _tool_result(
+            {
+                "out": out,
+                "ok": man.get("ok"),
+                "stats": man.get("stats"),
+                "open": f"{out}/index.html" if out else None,
+            }
+        )
+
+    @mcp.tool()
+    def build_and_export(
+        name: str,
+        template_id: str = "",
+        out_dir: str = "",
+    ) -> str:
+        """One-shot: create from template (or empty) and export full pack to output/.
+        template_id: office_bay|warehouse|hot_cell_bay|lab_bench| (empty=blank)"""
+        if template_id:
+            p = Project.from_template(template_id)
+            if name:
+                p.model.name = name
+        else:
+            p = Project.create(name or "Chat Project")
+            p.add_level("L1", 0)
+        pid, _ = store.create(p.name)
+        p.model.id = pid
+        store._sessions[pid] = p
+        store.save(pid)
+        man = p.export_deliverables(out_dir or None)
+        out = man.get("output_dir") or out_dir
+        return _tool_result(
+            {
+                "project_id": pid,
+                "out": out,
+                "ok": man.get("ok"),
+                "stats": p.stats(),
+                "open": f"{out}/index.html" if out else None,
+            }
+        )
 
     @mcp.tool()
     def project_boq(project_id: str) -> str:

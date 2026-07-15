@@ -16,7 +16,17 @@ class ProjectStore:
     """Filesystem-backed multi-project store (Railway volume friendly)."""
 
     def __init__(self, root: str | Path | None = None) -> None:
-        self.root = Path(root or os.environ.get("LLMBIM_DATA_DIR", "./data"))
+        if root is not None:
+            self.root = Path(root)
+        elif os.environ.get("LLMBIM_DATA_DIR"):
+            self.root = Path(os.environ["LLMBIM_DATA_DIR"])
+        else:
+            try:
+                from llmbim_core.paths import output_root
+
+                self.root = output_root() / ".projects"
+            except Exception:
+                self.root = Path("./output/.projects")
         self.root.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self._sessions: dict[str, Project] = {}

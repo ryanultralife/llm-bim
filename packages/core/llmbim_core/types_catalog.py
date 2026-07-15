@@ -76,8 +76,8 @@ DEFAULT_WALL_TYPES: dict[str, WallType] = {
         id="W-SHIELD-CONC",
         name="Bioshield concrete",
         layers=[
-            MaterialLayer(material="reinforced_concrete", thickness_mm=600, function="structure", density_kg_m3=2400, unit_cost_per_m3=350),
-            MaterialLayer(material="SS316L_liner", thickness_mm=6, function="finish", density_kg_m3=8000, unit_cost_per_m3=12000),
+            MaterialLayer(material="concrete_shield", thickness_mm=600, function="structure", density_kg_m3=3500, unit_cost_per_m3=550),
+            MaterialLayer(material="ss316L", thickness_mm=6, function="finish", density_kg_m3=8000, unit_cost_per_m3=12000),
         ],
         fire_rating="4-hr",
         description="Hot-cell / tunnel shielding wall",
@@ -102,8 +102,11 @@ DEFAULT_WINDOW_TYPES: dict[str, WindowType] = {
 
 
 def catalog_dict() -> dict[str, Any]:
+    from llmbim_core.materials import materials_catalog
+
     return {
         "wall_types": {k: v.model_dump() for k, v in DEFAULT_WALL_TYPES.items()},
         "door_types": {k: v.model_dump() for k, v in DEFAULT_DOOR_TYPES.items()},
         "window_types": {k: v.model_dump() for k, v in DEFAULT_WINDOW_TYPES.items()},
+        "materials": materials_catalog(),
     }

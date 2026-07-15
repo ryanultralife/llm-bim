@@ -243,37 +243,61 @@ def cmd_pdf(args: argparse.Namespace) -> int:
 
 def cmd_template(args: argparse.Namespace) -> int:
     from llmbim import Project
+    from llmbim_core.paths import project_output_dir
     from llmbim_templates import list_templates
 
     if args.list:
         print(json.dumps(list_templates(), indent=2))
         return 0
     p = Project.from_template(args.name)
-    out = Path(args.out or f"examples/output/template_{args.name}")
+    out = Path(args.out) if args.out else project_output_dir(args.name)
     man = p.export_deliverables(out)
-    print(json.dumps({"template": args.name, "out": str(out), "ok": man.get("ok"), "stats": p.stats()}, indent=2))
+    print(
+        json.dumps(
+            {
+                "template": args.name,
+                "out": str(Path(man.get("output_dir", out)).resolve()),
+                "ok": man.get("ok"),
+                "stats": p.stats(),
+                "open": str(Path(man.get("output_dir", out)) / "index.html"),
+            },
+            indent=2,
+        )
+    )
     return 0 if man.get("ok") else 1
 
 
 def cmd_case(args: argparse.Namespace) -> int:
     """Build named real-world test cases (INTEC site, Proto10 separator)."""
+    from llmbim_core.paths import project_output_dir
+
     root = Path(__file__).resolve().parents[3]  # repo root when installed editable
     if not (root / "examples").exists():
         root = Path.cwd()
     if args.name == "intec":
         from examples.intec_site import build_intec
 
-        out = Path(args.out or root / "examples" / "output" / "intec")
+        out = Path(args.out) if args.out else project_output_dir("intec")
         p = build_intec(out)
     elif args.name == "proto10":
         from examples.proto10_separator import build_proto10
 
-        out = Path(args.out or root / "examples" / "output" / "proto10")
+        out = Path(args.out) if args.out else project_output_dir("proto10")
         p = build_proto10(out)
     else:
         print(f"Unknown case: {args.name}. Use intec | proto10", file=sys.stderr)
         return 2
-    print(json.dumps({"case": args.name, "out": str(out), "stats": p.stats()}, indent=2))
+    print(
+        json.dumps(
+            {
+                "case": args.name,
+                "out": str(out.resolve()),
+                "stats": p.stats(),
+                "open": str(out / "index.html"),
+            },
+            indent=2,
+        )
+    )
     return 0
 
 

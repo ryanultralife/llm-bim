@@ -15,8 +15,10 @@ build/
 # LLM-BIM runtime
 .llmbim/
 examples/output/
+output/
 data/
 *.llmbim.json
+!skills/**/*.json
 
 # OS / IDE
 .DS_Store

@@ -10,17 +10,24 @@ description: >
 
 You are operating **llm-bim**: a deterministic BIM **kernel**. You never invent final geometry in prose.
 
+## End goal
+
+User points you at this repo and chats. You write **real files** under **`output/<project>/`** on their machine (models, drawings, PDF, BOQ). No cloud required.
+
+Also read **`CLAUDE.md`** in the repo root when present.
+
 ## Install (user's machine — no cloud required)
 
 ```bash
 git clone https://github.com/ryanultralife/llm-bim.git
 cd llm-bim
-python -m venv .venv
-# Windows: .venv\Scripts\activate
-source .venv/bin/activate
+# Windows:  .\scripts\install_local.ps1
+# Unix:     bash scripts/install_local.sh
+# or:
+python -m venv .venv && source .venv/bin/activate  # or .venv\Scripts\activate
 pip install -e ".[dev,server]"
-pytest -q
 llmbim version
+llmbim ops --schema
 ```
 
 Optional MCP (Claude Desktop / Cursor / any MCP client):
@@ -51,15 +58,18 @@ Or HTTP (optional): `llmbim serve --port 8000` → docs at `/docs`.
 
 ## Primary workflows
 
-### A. Start from template
+### A. Start from template (default path = output/<name>/)
 
 ```python
 from llmbim import Project
 p = Project.from_template("office_bay")  # warehouse | hot_cell_bay | lab_bench
-p.export_deliverables("out/pack")
+man = p.export_deliverables()  # → output/office_bay/  (or project name slug)
+print("OPEN:", man["output_dir"] + "/index.html")
 ```
 
-CLI: `llmbim template office_bay --out out/pack`
+CLI: `llmbim template office_bay`  → `output/office_bay/`
+
+**Always tell the user the absolute path** to `index.html` and `PLOT_SET.pdf`.
 
 ### B. Freeform model
 
