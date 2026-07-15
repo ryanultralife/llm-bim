@@ -116,6 +116,47 @@ if HAS_MCP:
         )
 
     @mcp.tool()
+    def project_commit(project_id: str, message: str, author: str = "agent") -> str:
+        """Commit true model version (required after edits — not chat history)."""
+        p = store.get(project_id)
+        if p._vcs is None:
+            from llmbim_core.paths import project_output_dir
+
+            p.bind_vcs(project_output_dir(p.name))
+        try:
+            c = p.commit(message, author=author)
+            store.save(project_id)
+            return _tool_result(c)
+        except ValueError as e:
+            return _err(str(e))
+
+    @mcp.tool()
+    def project_log(project_id: str, limit: int = 20) -> str:
+        """List committed model versions (newest first)."""
+        p = store.get(project_id)
+        return _tool_result(p.log(limit=limit))
+
+    @mcp.tool()
+    def project_status(project_id: str) -> str:
+        """Working tree vs last commit — dirty if uncommitted model changes."""
+        p = store.get(project_id)
+        return _tool_result(p.status())
+
+    @mcp.tool()
+    def project_diff(project_id: str, version_a: str = "", version_b: str = "") -> str:
+        """Element-level diff (default HEAD vs working)."""
+        p = store.get(project_id)
+        return _tool_result(p.diff(version_a or None, version_b or None))
+
+    @mcp.tool()
+    def project_checkout(project_id: str, version_id: str) -> str:
+        """Restore model to a committed version (discards uncommitted work)."""
+        p = store.get(project_id)
+        r = p.checkout(version_id)
+        store.save(project_id)
+        return _tool_result(r)
+
+    @mcp.tool()
     def build_and_export(
         name: str,
         template_id: str = "",

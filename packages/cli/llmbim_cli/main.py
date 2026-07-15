@@ -213,6 +213,71 @@ def cmd_op(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_commit(args: argparse.Namespace) -> int:
+    from llmbim import Project
+
+    p = Project.open(args.path)
+    try:
+        c = p.commit(args.message, author=args.author or "cli")
+    except ValueError as e:
+        print(json.dumps({"ok": False, "error": str(e)}, indent=2))
+        return 1
+    print(json.dumps({"ok": True, **c}, indent=2))
+    return 0
+
+
+def cmd_log(args: argparse.Namespace) -> int:
+    from llmbim import Project
+
+    p = Project.open(args.path)
+    print(json.dumps(p.log(limit=args.limit), indent=2))
+    return 0
+
+
+def cmd_status_vcs(args: argparse.Namespace) -> int:
+    from llmbim import Project
+
+    p = Project.open(args.path)
+    st = p.status()
+    print(json.dumps(st, indent=2))
+    return 0 if st.get("clean") else 1
+
+
+def cmd_checkout(args: argparse.Namespace) -> int:
+    from llmbim import Project
+
+    p = Project.open(args.path)
+    r = p.checkout(args.version)
+    print(json.dumps(r, indent=2))
+    return 0
+
+
+def cmd_diff(args: argparse.Namespace) -> int:
+    from llmbim import Project
+
+    p = Project.open(args.path)
+    d = p.diff(args.a, args.b)
+    print(json.dumps(d, indent=2))
+    return 0
+
+
+def cmd_tag(args: argparse.Namespace) -> int:
+    from llmbim import Project
+
+    p = Project.open(args.path)
+    r = p.tag(args.name, args.version)
+    print(json.dumps(r, indent=2))
+    return 0
+
+
+def cmd_journal(args: argparse.Namespace) -> int:
+    from llmbim import Project
+
+    p = Project.open(args.path)
+    print(json.dumps(p.journal(limit=args.limit), indent=2))
+    return 0
+
+
 def cmd_ops(args: argparse.Namespace) -> int:
     """List ops or write JSON schema for any LLM tool-caller."""
     # Import registry side effects
@@ -416,6 +481,44 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_ops.add_argument("--out", default=None, help="Schema output path")
     p_ops.set_defaults(func=cmd_ops)
+
+    # Version control (true model history)
+    p_c = sub.add_parser("commit", help="Commit current model as a version")
+    p_c.add_argument("path", help="Project dir or model.llmbim.json")
+    p_c.add_argument("-m", "--message", required=True)
+    p_c.add_argument("--author", default="cli")
+    p_c.set_defaults(func=cmd_commit)
+
+    p_log = sub.add_parser("log", help="List model version history")
+    p_log.add_argument("path")
+    p_log.add_argument("-n", "--limit", type=int, default=20)
+    p_log.set_defaults(func=cmd_log)
+
+    p_st = sub.add_parser("status", help="Working tree vs last commit")
+    p_st.add_argument("path")
+    p_st.set_defaults(func=cmd_status_vcs)
+
+    p_co = sub.add_parser("checkout", help="Restore a committed model version")
+    p_co.add_argument("path")
+    p_co.add_argument("version")
+    p_co.set_defaults(func=cmd_checkout)
+
+    p_df = sub.add_parser("diff", help="Diff versions (default HEAD vs working)")
+    p_df.add_argument("path")
+    p_df.add_argument("-a", default=None, help="Version A (default HEAD)")
+    p_df.add_argument("-b", default=None, help="Version B (default working tree)")
+    p_df.set_defaults(func=cmd_diff)
+
+    p_tg = sub.add_parser("tag", help="Tag a version")
+    p_tg.add_argument("path")
+    p_tg.add_argument("name")
+    p_tg.add_argument("--version", default=None)
+    p_tg.set_defaults(func=cmd_tag)
+
+    p_jn = sub.add_parser("journal", help="Mutation journal (ops between commits)")
+    p_jn.add_argument("path")
+    p_jn.add_argument("-n", "--limit", type=int, default=50)
+    p_jn.set_defaults(func=cmd_journal)
 
     args = parser.parse_args(argv)
     return int(args.func(args))

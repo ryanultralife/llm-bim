@@ -55,6 +55,9 @@ Or HTTP (optional): `llmbim serve --port 8000` → docs at `/docs`.
 6. **Exact Fusion BREP:** `import_step` / `llmbim import-step` as **locked** equipment; keep the file.
 7. **Honesty:** coordination + documentation grade; PE seals / code certification are human processes.
 8. Prefer **small transactional steps** + `validate` / `rules` / `clash` after batches.
+9. **True version control (not chat):** after each meaningful edit batch,  
+   `project.commit("message")`. Use `status` / `diff` / `log` / `checkout`.  
+   Chat is not history — commits under `output/<project>/.llmbim/versions/` are.
 
 ## Primary workflows
 
@@ -125,7 +128,23 @@ p.op("set_param", id=eid, key="fire_rating", value="2-hr")
 p.repair()
 ```
 
-### G. Scripted generative design
+### G. Version control (true model versions)
+
+```python
+p = Project.create("Office")          # creates output/office/ + initial commit
+# ... edits ...
+p.commit("Shell and levels")
+p.create_wall(...)
+print(p.diff())                       # uncommitted changes
+p.commit("North wall")
+print(p.log())
+p.tag("for_client")
+# p.checkout("ver_…") or p.checkout("for_client")
+```
+
+CLI: `llmbim status|diff|commit|log|checkout|tag|journal <project_dir>`
+
+### H. Scripted generative design
 
 ```python
 # build.py

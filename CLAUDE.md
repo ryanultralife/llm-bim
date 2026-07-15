@@ -47,6 +47,11 @@ llmbim pack path.llmbim.json --out output/name
 - Do not invent geometry in prose.
 - Run `validate`, `rules`, `clash` before calling work “done”.
 - Tell the user the **folder path** with drawings (`index.html`, `PLOT_SET.pdf`, `construction/`, etc.).
+- **Version control (mandatory):** after each meaningful batch of model edits,  
+  `p.commit("clear message of what changed")`.  
+  Check `p.status()` — do not say “done” while dirty unless the user said not to commit.  
+  Use `p.diff()` / `p.log()` / `p.checkout(version_id)` for true model history — **not chat scrollback**.  
+  See `docs/VERSION_CONTROL.md`.
 
 ## MCP (optional)
 

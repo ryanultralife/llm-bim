@@ -297,3 +297,6 @@ def _design_option(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
         element_ids=p.get("element_ids"),
         clone=p.get("clone", True),
     )
+
+
+# Note: commit/checkout/diff require Project.vcs — use SDK methods, not bare registry

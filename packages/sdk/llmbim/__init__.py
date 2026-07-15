@@ -27,24 +27,83 @@ class Project:
     """Agent-facing project facade.
 
     All mutations go through the command bus so undo/redo stays consistent.
+    Version control (commit/log/checkout/diff) tracks *true model states*,
+    not chat history.
     """
 
-    def __init__(self, model: ProjectModel, log: TransactionLog | None = None) -> None:
+    def __init__(
+        self,
+        model: ProjectModel,
+        log: TransactionLog | None = None,
+        *,
+        vcs_dir: str | Path | None = None,
+        author: str = "agent",
+    ) -> None:
         self._model = model
         self._log = log or TransactionLog()
+        self._vcs = None
+        self._author = author
+        if vcs_dir is not None:
+            self.bind_vcs(vcs_dir)
 
     @classmethod
-    def create(cls, name: str = "Untitled", units: str = "mm") -> Project:
+    def create(
+        cls,
+        name: str = "Untitled",
+        units: str = "mm",
+        *,
+        vcs: bool = True,
+        author: str = "agent",
+    ) -> Project:
         if units != "mm":
-            raise ValueError("MVP only supports units='mm'")
-        return cls(ProjectModel(name=name, units=units))
+            # still allow via units module on walls; project store unit is mm
+            pass
+        p = cls(ProjectModel(name=name, units="mm"), author=author)
+        if vcs:
+            from llmbim_core.paths import project_output_dir
+            from llmbim_core.versioning import init_vcs
+
+            d = project_output_dir(name)
+            p._vcs = init_vcs(d, p._model, message="initial commit")
+            p._author = author
+        return p
 
     @classmethod
-    def open(cls, path: str | Path) -> Project:
-        return cls(ProjectModel.open(path))
+    def open(cls, path: str | Path, *, author: str = "agent") -> Project:
+        path = Path(path)
+        # open file or project directory
+        if path.is_dir():
+            model_path = path / "model.llmbim.json"
+            proj = cls(ProjectModel.open(model_path), author=author)
+            proj.bind_vcs(path)
+            return proj
+        model = ProjectModel.open(path)
+        proj = cls(model, author=author)
+        # if sibling .llmbim exists, bind
+        if (path.parent / ".llmbim").is_dir():
+            proj.bind_vcs(path.parent)
+        return proj
 
-    def save(self, path: str | Path) -> None:
-        self._model.save(path)
+    def bind_vcs(self, project_dir: str | Path) -> None:
+        """Attach version control to a directory (creates .llmbim/)."""
+        from llmbim_core.versioning import ModelVCS
+
+        self._vcs = ModelVCS(project_dir)
+        # ensure working copy exists
+        if not self._vcs.model_path.exists():
+            self._model.save(self._vcs.model_path)
+
+    @property
+    def vcs_dir(self) -> Path | None:
+        return self._vcs.project_dir if self._vcs else None
+
+    def save(self, path: str | Path | None = None) -> None:
+        if path is not None:
+            self._model.save(path)
+        elif self._vcs is not None:
+            self._model.save(self._vcs.model_path)
+        else:
+            raise ValueError("No path: pass path= or bind_vcs / create(vcs=True)")
 
     @property
     def name(self) -> str:
@@ -56,8 +115,71 @@ class Project:
         return self._model
 
     def execute(self, command: Any) -> dict[str, Any]:
-        """Apply a low-level command (advanced agents / tests)."""
-        return self._log.execute(self._model, command)
+        """Apply a low-level command (advanced agents / tests). Logs to VCS journal."""
+        result = self._log.execute(self._model, command)
+        if self._vcs is not None:
+            op = getattr(command, "op", type(command).__name__)
+            summary = result.get("result") if isinstance(result, dict) else {}
+            if not isinstance(summary, dict):
+                summary = {"result": summary}
+            self._vcs.append_journal(str(op), summary, author=self._author)
+        return result
+
+    # --- version control ------------------------------------------------------
+
+    def commit(self, message: str, *, author: str | None = None, allow_empty: bool = False) -> dict[str, Any]:
+        """Create a true model version (full snapshot + parent + hash). Required after chat edits."""
+        if self._vcs is None:
+            from llmbim_core.paths import project_output_dir
+            from llmbim_core.versioning import init_vcs
+
+            self._vcs = init_vcs(project_output_dir(self.name), self._model, message="initial commit")
+        return self._vcs.commit(
+            self._model,
+            message,
+            author=author or self._author,
+            allow_empty=allow_empty,
+        )
+
+    def log(self, *, limit: int = 50) -> list[dict[str, Any]]:
+        if self._vcs is None:
+            return []
+        return self._vcs.log(limit=limit)
+
+    def history(self, *, limit: int = 50) -> list[dict[str, Any]]:
+        """Alias for log() — committed model versions."""
+        return self.log(limit=limit)
+
+    def status(self) -> dict[str, Any]:
+        if self._vcs is None:
+            return {"clean": True, "head": None, "message": "VCS not bound"}
+        return self._vcs.status(self._model)
+
+    def checkout(self, version_id: str) -> dict[str, Any]:
+        """Restore model to a committed version. Discards uncommitted working changes."""
+        if self._vcs is None:
+            raise RuntimeError("VCS not bound — open a project dir or create(vcs=True)")
+        self._model = self._vcs.checkout(version_id, author=self._author)
+        self._log = TransactionLog()  # reset undo stack after checkout
+        return {"version_id": version_id, "stats": self._model.stats(), "head": self._vcs.head()}
+
+    def diff(self, version_a: str | None = None, version_b: str | None = None) -> dict[str, Any]:
+        """Diff versions (default: HEAD vs working tree)."""
+        if self._vcs is None:
+            return {"summary": {}, "note": "VCS not bound"}
+        return self._vcs.diff(version_a, version_b, model=self._model)
+
+    def tag(self, name: str, version_id: str | None = None) -> dict[str, Any]:
+        if self._vcs is None:
+            raise RuntimeError("VCS not bound")
+        return self._vcs.tag(name, version_id)
+
+    def journal(self, *, limit: int = 100) -> list[dict[str, Any]]:
+        """Append-only mutation journal (finer than commits)."""
+        if self._vcs is None:
+            return []
+        entries = self._vcs.read_journal()
+        return entries[-limit:]
 
     def add_level(self, name: str, elevation_mm: float) -> str:
         result = self._log.execute(self._model, AddLevel(name=name, elevation_mm=elevation_mm))
@@ -328,8 +450,10 @@ class Project:
     def from_template(cls, template_id: str, name: str | None = None, **kwargs: Any) -> Project:
         from llmbim_templates import apply_template
 
-        p = cls.create(name or template_id)
-        return apply_template(template_id, p, **kwargs)
+        p = cls.create(name or template_id, vcs=True)
+        apply_template(template_id, p, **kwargs)
+        # template mutates after initial commit — leave dirty for agent to commit
+        return p
 
     def undo(self) -> dict[str, Any]:
         return self._log.undo(self._model)
@@ -352,7 +476,10 @@ class Project:
         """Dispatch a registered operation by name (extensible agent surface)."""
         from llmbim_core.registry import dispatch
 
-        return dispatch(self._model, op_name, params)
+        result = dispatch(self._model, op_name, params)
+        if self._vcs is not None:
+            self._vcs.append_journal(op_name, {"params": params, "result": result}, author=self._author)
+        return result
 
     def ops(self) -> list[dict[str, Any]]:
         from llmbim_core.registry import list_ops

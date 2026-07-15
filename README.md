@@ -107,6 +107,20 @@ man = p.export_deliverables(out)
 print(out.resolve(), "ok=", man.get("ok"))
 ```
 
+## Model version control (not chat history)
+
+Every project under `output/<name>/` can keep **real versions** of the BIM model:
+
+```bash
+llmbim status output/office
+llmbim diff output/office
+llmbim commit output/office -m "Add entry door"
+llmbim log output/office
+llmbim checkout output/office ver_…
+```
+
+See [`docs/VERSION_CONTROL.md`](docs/VERSION_CONTROL.md). Agents must **commit** after edits — chat scrollback is not a version.
+
 ## Architecture (why this works in chat)
 
 ```text
