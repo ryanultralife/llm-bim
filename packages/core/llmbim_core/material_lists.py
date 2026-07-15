@@ -739,8 +739,59 @@ def csi_takeoff(model: ProjectModel, *, division: str | None = None) -> list[dic
 
 
 def steel_takeoff(model: ProjectModel) -> list[dict[str, Any]]:
-    """Structural steel by section (meters × weight)."""
-    return system_takeoff(model, "structural_steel")
+    """Structural steel by section (meters × weight).
+
+    Includes catalog part_summary rollup **plus** placed columns/beams so
+    place_column / place_beam always appear even without part catalog hits.
+    """
+    rows = list(system_takeoff(model, "structural_steel"))
+    seen_ids: set[str] = set()
+    for r in rows:
+        for eid in r.get("element_ids") or []:
+            seen_ids.add(str(eid))
+        # part_summary may use different keys
+        if r.get("element_id"):
+            seen_ids.add(str(r["element_id"]))
+
+    buckets: dict[str, dict[str, Any]] = {}
+    for el in model.elements:
+        is_col = el.category == "column" or el.params.get("fitting_type") == "column"
+        is_beam = el.category == "beam" or el.params.get("fitting_type") == "beam"
+        if not is_col and not is_beam:
+            continue
+        if el.id in seen_ids:
+            continue
+        section = str(el.params.get("section") or el.type_id or ("COL" if is_col else "BM"))
+        length_m = float(el.params.get("length_m") or 0)
+        if not length_m and el.params.get("height_mm"):
+            length_m = float(el.params["height_mm"]) / 1000.0
+        if not length_m and el.params.get("length_mm"):
+            length_m = float(el.params["length_mm"]) / 1000.0
+        if length_m <= 0:
+            continue
+        key = f"{section}|{'column' if is_col else 'beam'}"
+        if key not in buckets:
+            buckets[key] = {
+                "part_id": el.params.get("part_id") or el.type_id,
+                "section": section,
+                "category": "column" if is_col else "beam",
+                "system": "structural_steel",
+                "fitting_type": "column" if is_col else "beam",
+                "qty": 0.0,
+                "unit": "m",
+                "csi_code": el.params.get("csi_code") or "05 12 00",
+                "element_ids": [],
+                "segment_count": 0,
+            }
+        b = buckets[key]
+        b["qty"] = float(b["qty"]) + length_m
+        b["element_ids"].append(el.id)
+        b["segment_count"] = int(b["segment_count"]) + 1
+        seen_ids.add(el.id)
+    for b in buckets.values():
+        b["qty"] = round(float(b["qty"]), 3)
+        rows.append(b)
+    return rows
 
 
 def rebar_takeoff(model: ProjectModel) -> list[dict[str, Any]]:

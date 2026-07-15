@@ -27,6 +27,20 @@ def test_elevation_dxf_walls_and_mep(tmp_path: Path):
     assert "LINE" in text
 
 
+def test_elevation_dxf_columns_and_beams(tmp_path: Path):
+    p = Project.create("elev-struct", vcs=False)
+    p.add_level("L1", 0)
+    p.place_column(level="L1", origin=(2000, 1000), section="W10x33", height_mm=3500)
+    p.place_beam(level="L1", start=(0, 1000), end=(8000, 1000), section="W12x26", z0_mm=3000)
+    dxf = tmp_path / "elev_S.dxf"
+    export_elevation_dxf(p.model, "S", dxf)
+    text = dxf.read_text(encoding="utf-8")
+    assert "COLUMNS" in text
+    assert "BEAMS" in text
+    assert "W10x33" in text
+    assert "W12x26" in text
+
+
 def test_section_dxf_cut_and_mep(tmp_path: Path):
     p = Project.create("sec-dxf", vcs=False)
     p.add_level("L1", 0)

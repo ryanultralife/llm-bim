@@ -97,7 +97,8 @@
 | 71 | continue | beam MCP/IFC/STEP + ops | agent surface incomplete | MCP place_beam; IFC/STEP; ops.schema 45 | 140 unit | b4561be |
 | 72 | continue | wall fire_rating + beam sched | walls lacked rating; no beam.csv | create_wall fire_rating; pack beam.csv | 140 unit | 9496d71 |
 | 73 | continue | skill/capability structure | agent docs lag code | SKILL column/beam/fire; CAPABILITY trades | 140 unit | 8edcfad |
-| 74 | continue | DXF structure + clash | plan DXF no COLUMNS/BEAMS; clash skip | COLUMNS/BEAMS layers; AABB clash | 142 unit | (this) |
+| 74 | continue | DXF structure + clash | plan DXF no COLUMNS/BEAMS; clash skip | COLUMNS/BEAMS layers; AABB clash | 142 unit | 41bf481 |
+| 75 | continue | elev DXF structure + steel takeoff | elev no COLUMNS/BEAMS; steel missed place_* | elev COLUMNS/BEAMS; steel_takeoff merge | 144 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -201,7 +202,8 @@
 97. ~~Wall fire_rating + beam schedule~~ (pass 72)
 98. ~~Skill/capability structure docs~~ (pass 73)
 99. ~~Plan DXF columns/beams + structure clash~~ (pass 74)
-100. Keep closing residual gaps until pass 120 / 10h
+100. ~~Elev DXF columns/beams + steel_takeoff place_*~~ (pass 75)
+101. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
