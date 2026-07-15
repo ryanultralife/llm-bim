@@ -96,7 +96,7 @@ Project.export_deliverables(out_dir)
 | Python SDK `llmbim.Project` | ✅ |
 | CLI `llmbim` | ✅ pack, takeoff, **place** fitting/pipe/riser/part/duct/conduit, csi_instances, modules, VCS, … |
 | Registry ops + `ops.schema.json` | ✅ ~40 tools |
-| MCP stdio | ✅ takeoff/parts + place_pipe/riser/duct/conduit + modules/CSI query |
+| MCP stdio | ✅ takeoff/parts + place MEP + **export_pack phases** + set_phase + modules/CSI |
 | Skill `skills/llm-bim/SKILL.md` | ✅ |
 | Templates | ✅ office_bay, warehouse, hot_cell_bay, lab_bench |
 | Cases | ✅ intec, proto10, plumbing_loop, multi_trade, module_machine_host |

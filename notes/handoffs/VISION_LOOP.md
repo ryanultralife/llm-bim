@@ -66,6 +66,7 @@
 | 40 | continue | phase filter export | pack always all phases | filter_by_phase + export_deliverables(phases=) | 111 unit | 57c9f35 |
 | 41 | continue | zone schedule + pack phases | no area/volume sched; CLI no --phases | zone_areas.csv; pack --phases | 112 unit | 66a1c49 |
 | 42 | continue | IFC SpaceContents MEP | MEP not linked to IfcSpace | room pass + SpaceContents rel by point-in-poly | 113 unit | f097492 |
+| 43 | continue | MCP pack phases | MCP export lacked phase filter | project_export_pack phases + set_phase tool | 114 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -138,7 +139,8 @@
 66. ~~CLI pack --phases new~~ (pass 41)
 67. ~~IFC IfcSpace room linkage for placed MEP~~ (pass 42)
 68. STEP color/layer by system (optional)
-69. MCP export_pack phases arg
+69. ~~MCP export_pack phases arg~~ (pass 43)
+70. MCP set_phase tool
 
 ## Rules for each scheduled pass
 

@@ -119,24 +119,47 @@ if HAS_MCP:
         return _tool_result(r)
 
     @mcp.tool()
-    def project_export_pack(project_id: str, out_dir: str = "") -> str:
+    def project_export_pack(
+        project_id: str,
+        out_dir: str = "",
+        phases: str = "",
+    ) -> str:
         """Full deliverables to local folder (default output/<project_name>/).
+
+        phases: optional filter e.g. 'new' or 'new,existing' — IFC/BOQ/views
+        use filtered elements; full model still saved as model.llmbim.json.
         Returns absolute path — tell the user where files landed."""
         p = store.get(project_id)
+        phase_arg = phases.strip() or None
+        kwargs: dict = {}
+        if phase_arg:
+            kwargs["phases"] = phase_arg
         if out_dir:
-            man = p.export_deliverables(out_dir)
+            man = p.export_deliverables(out_dir, **kwargs)
             out = out_dir
         else:
-            man = p.export_deliverables()  # → output/<slug>/
+            man = p.export_deliverables(**kwargs)  # → output/<slug>/
             out = man.get("output_dir") or ""
         return _tool_result(
             {
                 "out": out,
                 "ok": man.get("ok"),
                 "stats": man.get("stats"),
+                "export_stats": man.get("export_stats"),
+                "phase_filter": man.get("phase_filter"),
+                "export_element_count": man.get("export_element_count"),
+                "full_element_count": man.get("full_element_count"),
                 "open": f"{out}/index.html" if out else None,
             }
         )
+
+    @mcp.tool()
+    def set_phase(project_id: str, element_id: str, phase: str = "new") -> str:
+        """Set element phase: new | existing | demo | temp (for pack phase filters)."""
+        p = store.get(project_id)
+        p.set_phase(element_id, phase)
+        store.save(project_id)
+        return _tool_result({"element_id": element_id, "phase": phase})
 
     @mcp.tool()
     def project_commit(project_id: str, message: str, author: str = "agent") -> str:
@@ -184,9 +207,11 @@ if HAS_MCP:
         name: str,
         template_id: str = "",
         out_dir: str = "",
+        phases: str = "",
     ) -> str:
         """One-shot: create from template (or empty) and export full pack to output/.
-        template_id: office_bay|warehouse|hot_cell_bay|lab_bench| (empty=blank)"""
+        template_id: office_bay|warehouse|hot_cell_bay|lab_bench| (empty=blank)
+        phases: optional e.g. new or new,existing"""
         if template_id:
             p = Project.from_template(template_id)
             if name:
@@ -198,7 +223,10 @@ if HAS_MCP:
         p.model.id = pid
         store._sessions[pid] = p
         store.save(pid)
-        man = p.export_deliverables(out_dir or None)
+        kwargs: dict = {}
+        if phases.strip():
+            kwargs["phases"] = phases.strip()
+        man = p.export_deliverables(out_dir or None, **kwargs)
         out = man.get("output_dir") or out_dir
         return _tool_result(
             {
@@ -206,6 +234,7 @@ if HAS_MCP:
                 "out": out,
                 "ok": man.get("ok"),
                 "stats": p.stats(),
+                "phase_filter": man.get("phase_filter"),
                 "open": f"{out}/index.html" if out else None,
             }
         )
