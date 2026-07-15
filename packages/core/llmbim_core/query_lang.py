@@ -16,6 +16,8 @@ Examples:
   nps=3/4
   section=W10x33
   trade_size=1
+  fire_rating=90_min
+  fire_rating~90
   phase=new
   phase=existing
 """
@@ -125,6 +127,7 @@ def match_element(el: Element, filters: list[tuple[str, str, Any]], model: Proje
             "section",
             "trade_size",
             "bar_size",
+            "fire_rating",
         ):
             left = el.params.get(field)
             # trade_size aliases nps on conduit; section may live on type_id for steel parts
@@ -132,6 +135,11 @@ def match_element(el: Element, filters: list[tuple[str, str, Any]], model: Proje
                 left = el.params.get("nps")
             if left is None and field == "section":
                 left = el.params.get("section") or el.type_id
+            # fire_rating: normalize 90_min ↔ 90 min for token queries
+            if field == "fire_rating" and left is not None:
+                left = str(left).replace("_", " ")
+            if field == "fire_rating" and isinstance(val, str):
+                val = val.replace("_", " ")
         elif field in ("vertical", "riser"):
             left = bool(el.params.get("vertical") or el.params.get("orientation") == "vertical")
             if isinstance(val, str):

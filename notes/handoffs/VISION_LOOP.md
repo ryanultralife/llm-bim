@@ -127,6 +127,7 @@
 | 101 | continue | section SVG duct/conduit/tray | cut section only pipes | multi-trade cut marks green/purple | 170 unit | (this) |
 | 102 | continue | door/window clash AABB | openings not in clash | host AABB + skill door/window docs | 171 unit | (this) |
 | 103 | continue | ops schema + capability openings | schema/docs missing wall/door ops | regenerate ops.schema + CAPABILITY | 171 unit | (this) |
+| 104 | continue | query fire_rating | no FR query token | fire_rating= / ~ with 90_min normalize | 172 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -259,7 +260,8 @@
 126. ~~Section SVG duct/conduit/tray cuts~~ (pass 101)
 127. ~~Door/window clash AABB + skill docs~~ (pass 102)
 128. ~~ops.schema + CAPABILITY openings~~ (pass 103)
-129. Keep closing residual gaps until pass 120 / 10h
+129. ~~Query fire_rating token~~ (pass 104)
+130. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 

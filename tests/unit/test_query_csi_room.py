@@ -78,6 +78,40 @@ def test_query_section_and_trade_size():
     assert len(cond) == 1
 
 
+def test_query_fire_rating():
+    p = Project.create("q-fr", vcs=False)
+    p.add_level("L1", 0)
+    w = p.create_wall(
+        level="L1",
+        start=(0, 0),
+        end=(6000, 0),
+        thickness_mm=200,
+        height_mm=3000,
+        fire_rating="2-hr",
+    )
+    p.place_door(
+        host=w,
+        offset_mm=1000,
+        width_mm=900,
+        height_mm=2100,
+        fire_rating="90 min",
+        type_id="D-HM-36",
+    )
+    p.place_door(
+        host=w,
+        offset_mm=3500,
+        width_mm=900,
+        height_mm=2100,
+        fire_rating="20 min",
+    )
+    fr90 = run_query(p.model, "category=door fire_rating=90_min")
+    assert len(fr90) == 1
+    fr_any = run_query(p.model, "fire_rating~90")
+    assert len(fr_any) >= 1
+    walls = run_query(p.model, "category=wall fire_rating~2")
+    assert len(walls) == 1
+
+
 def test_query_row_enrichment_fields_for_agents():
     """Fields agents need on query hits (mirrors MCP project_query row shape)."""
     from llmbim_core.csi import csi_for_element
