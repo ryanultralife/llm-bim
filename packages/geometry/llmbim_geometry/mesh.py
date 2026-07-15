@@ -80,6 +80,8 @@ _MATERIAL_RGBA: dict[str, list[float]] = {
     "cable_tray": [0.55, 0.15, 0.7, 1.0],  # deep purple
     "column": [0.35, 0.4, 0.45, 1.0],  # steel gray
     "beam": [0.4, 0.45, 0.5, 1.0],
+    "door": [0.55, 0.78, 0.55, 1.0],  # light green (matches plan SVG)
+    "window": [0.55, 0.75, 0.95, 1.0],  # light blue
     "fitting": [0.95, 0.6, 0.2, 1.0],
     "fixture": [0.45, 0.35, 0.65, 1.0],
     "module": [0.55, 0.55, 0.7, 1.0],
@@ -165,11 +167,45 @@ def _box_from_pipe(el: Element, model: ProjectModel) -> list[float]:
         return []
 
 
+def _box_from_opening(el: Element, model: ProjectModel, wall_by_id: dict) -> list[float]:
+    """Door/window box along host wall baseline at offset + sill."""
+    try:
+        host = wall_by_id.get(el.host_id or "")
+        if not host:
+            return []
+        s = host.params.get("start_mm")
+        e = host.params.get("end_mm")
+        if not s or not e:
+            return []
+        hx0, hy0 = float(s[0]), float(s[1])
+        hx1, hy1 = float(e[0]), float(e[1])
+        wlen = math.hypot(hx1 - hx0, hy1 - hy0)
+        if wlen < 1:
+            return []
+        off = float(el.params.get("offset_mm") or 0)
+        width_o = float(el.params.get("width_mm") or 900)
+        oh = float(el.params.get("height_mm") or (2100 if el.category == "door" else 1200))
+        sill = float(el.params.get("sill_mm") or 0)
+        th = float(host.params.get("thickness_mm") or 100)
+        ux, uy = (hx1 - hx0) / wlen, (hy1 - hy0) / wlen
+        ax, ay = hx0 + ux * off, hy0 + uy * off
+        bx, by = hx0 + ux * (off + width_o), hy0 + uy * (off + width_o)
+        z0 = _level_z(model, host.level_id) + sill
+        z1 = z0 + oh
+        return _wall_box_positions(ax, ay, bx, by, th, z0, z1)
+    except (KeyError, TypeError, ValueError, IndexError):
+        return []
+
+
 def _gltf_material_key(el: Element) -> str:
     """Pick coordination material bucket for multi-trade glTF colors."""
     cat = el.category or ""
     if cat == "wall":
         return "wall"
+    if cat == "door":
+        return "door"
+    if cat == "window":
+        return "window"
     if cat == "equipment":
         return "equipment"
     if cat in {"duct", "hvac"} or el.params.get("fitting_type") == "duct":
@@ -213,6 +249,8 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
             buckets[key] = {"pos": [], "idx": [], "base": 0}
         return buckets[key]
 
+    wall_by_id = {el.id: el for el in model.elements if el.category == "wall"}
+
     for el in model.elements:
         pos: list[float] = []
         if el.category == "wall":
@@ -228,6 +266,8 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
             pos = _wall_box_positions(
                 float(s[0]), float(s[1]), float(e[0]), float(e[1]), th, z0, z1
             )
+        elif el.category in {"door", "window"}:
+            pos = _box_from_opening(el, model, wall_by_id)
         elif el.category == "equipment":
             pos = _box_from_origin_size(el, model)
         elif el.category == "column" or el.params.get("fitting_type") == "column":
