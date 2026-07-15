@@ -117,6 +117,7 @@
 | 91 | continue | elev DXF doors/windows | elev DXF walls only for openings | DOORS/WINDOWS elev rects + FR labels | 160 unit | 4e25a31 |
 | 92 | continue | elev SVG doors/windows | elev SVG no openings | openings-elev group + type/FR labels | 161 unit | (this) |
 | 93 | continue | section DXF doors/windows | section DXF walls only for openings | DOORS/WINDOWS cut-near rects + type/FR labels | 162 unit | (this) |
+| 94 | continue | section SVG doors/windows | cut section SVG no openings | openings-section group + type/FR labels | 163 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -239,7 +240,8 @@
 116. ~~Elev DXF DOORS/WINDOWS openings~~ (pass 91)
 117. ~~Elev SVG openings-elev doors/windows~~ (pass 92)
 118. ~~Section DXF DOORS/WINDOWS openings~~ (pass 93)
-119. Keep closing residual gaps until pass 120 / 10h
+119. ~~Section SVG openings-section doors/windows~~ (pass 94)
+120. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 

@@ -94,3 +94,34 @@ def test_elevation_svg_doors_and_windows(tmp_path: Path) -> None:
     assert "HM-36" in text or "D-HM" in text
     assert "90m" in text or "90" in text
     assert "WIN" in text or "VIEW" in text
+
+
+def test_section_svg_doors_and_windows(tmp_path: Path):
+    p = Project.create("sec-open-svg", vcs=False)
+    p.add_level("L1", 0)
+    # wall crosses NS cut at x=4000
+    w = p.create_wall(
+        level="L1", start=(0, 2000), end=(8000, 2000), thickness_mm=200, height_mm=3000
+    )
+    p.place_door(
+        host=w,
+        offset_mm=3500,
+        width_mm=900,
+        height_mm=2100,
+        type_id="D-HM-36",
+        fire_rating="90 min",
+    )
+    p.place_window(
+        host=w,
+        offset_mm=1000,
+        width_mm=1000,
+        height_mm=900,
+        sill_mm=900,
+        type_id="WIN-VIEW",
+    )
+    out = tmp_path / "section.svg"
+    write_section_svg(p.model, (4000, -1000), (4000, 5000), out, scale=0.02, depth_mm=800)
+    text = out.read_text(encoding="utf-8")
+    assert 'class="openings-section"' in text
+    assert "HM-36" in text or "D-HM" in text
+    assert "WIN" in text or "VIEW" in text
