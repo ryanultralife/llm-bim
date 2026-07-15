@@ -32,7 +32,7 @@
 | 7 | T+~35m | MCP modules + CSI | modules only via project_op | import_module/connect/ports/csi_instances MCP tools | 72 unit pass | a6eda34 |
 | 8 | continue | glTF MEP + chat_smoke | glTF walls/equip only; smoke no multi-trade | pipe/fitting/fixture mesh; smoke step 4 | 73 unit + smoke ok | 9889df7 |
 | 9 | continue | skill section order | H2/H3 awkward | SKILL sections H–K sequential | — | 4fda52f |
-| 10 | continue | STEP MEP + connections export | STEP walls/equip only | pipe/fitting STEP solids; materials/connections | 74 unit | (pending) |
+| 10 | continue | STEP MEP + connections export | STEP walls/equip only | pipe/fitting STEP solids; materials/connections | 74 unit | 69e887b |
 
 ## Backlog (living — pull highest impact each pass)
 
