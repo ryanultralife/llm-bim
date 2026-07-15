@@ -1,10 +1,11 @@
-"""Room name + area + height labels on plan SVG."""
+"""Room name + area + height labels on plan SVG and DXF."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 from llmbim import Project
+from llmbim_drawings.dxf_export import export_plan_dxf
 from llmbim_drawings.plan import write_plan_svg
 
 
@@ -24,3 +25,21 @@ def test_room_label_area_and_height(tmp_path: Path):
     assert "Restroom A" in text
     assert "20.0m" in text or "20m" in text or "m" in text
     assert "H2700" in text
+
+
+def test_room_label_on_plan_dxf(tmp_path: Path):
+    p = Project.create("room-dxf", vcs=False)
+    p.add_level("L1", 0)
+    p.create_room(
+        level="L1",
+        name="Office",
+        boundary=[(0, 0), (4000, 0), (4000, 3000), (0, 3000)],
+        height_mm=3000,
+    )
+    dxf = tmp_path / "p.dxf"
+    export_plan_dxf(p.model, "L1", dxf)
+    text = dxf.read_text(encoding="utf-8")
+    assert "Office" in text
+    assert "m2" in text
+    assert "H3000" in text
+    assert "ROOMS" in text
