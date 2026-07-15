@@ -212,6 +212,128 @@ if HAS_MCP:
         return _tool_result(p.stats())
 
     @mcp.tool()
+    def project_takeoff(
+        project_id: str,
+        kind: str = "plumbing",
+        fitting_type: str = "",
+        material: str = "",
+        system: str = "",
+    ) -> str:
+        """Trade takeoff. kind: plumbing|fire|steel|rebar|csi|trades|fittings|fixture.
+        Answers e.g. how many 90° copper elbows by size."""
+        p = store.get(project_id)
+        k = (kind or "plumbing").lower()
+        if k == "fire":
+            return _tool_result(p.fire_takeoff())
+        if k in ("steel", "structural_steel"):
+            return _tool_result(p.steel_takeoff())
+        if k == "rebar":
+            return _tool_result(p.rebar_takeoff())
+        if k == "csi":
+            return _tool_result(p.csi_takeoff())
+        if k in ("trades", "all"):
+            return _tool_result(p.trade_schedule())
+        if k in ("fixture", "fixtures"):
+            return _tool_result(p.system_takeoff("fixture"))
+        if k == "plumbing":
+            return _tool_result(p.plumbing_schedule())
+        rows = p.fitting_takeoff(
+            fitting_type=fitting_type or None,
+            material=material or None,
+            system=system or None,
+        )
+        return _tool_result({"fittings": rows, "count_rows": len(rows)})
+
+    @mcp.tool()
+    def place_part(
+        project_id: str,
+        level: str,
+        kind: str = "",
+        part_id: str = "",
+        section: str = "",
+        bar_size: str = "",
+        origin_x: float = 0,
+        origin_y: float = 0,
+        qty: float = 1,
+        length_m: float = 0,
+        name: str = "",
+    ) -> str:
+        """Place catalog part: toilet, tp_dispenser, W10x33, rebar #5, sprinkler head, …"""
+        p = store.get(project_id)
+        eid = p.place_part(
+            level=level,
+            part_id=part_id or None,
+            kind=kind or None,
+            section=section or None,
+            bar_size=bar_size or None,
+            origin=(origin_x, origin_y),
+            qty=qty,
+            length_m=length_m if length_m else None,
+            name=name or None,
+        )
+        store.save(project_id)
+        return _tool_result({"element_id": eid})
+
+    @mcp.tool()
+    def place_fitting(
+        project_id: str,
+        level: str,
+        fitting_type: str,
+        nps: str,
+        origin_x: float = 0,
+        origin_y: float = 0,
+        material: str = "copper",
+        name: str = "",
+    ) -> str:
+        """Place pipe fitting. material: copper|fire|process|pvc. fitting_type: elbow_90|tee|…"""
+        p = store.get(project_id)
+        eid = p.place_fitting(
+            level=level,
+            fitting_type=fitting_type,
+            nps=nps,
+            origin=(origin_x, origin_y),
+            material=material,
+            name=name or None,
+        )
+        store.save(project_id)
+        return _tool_result({"element_id": eid})
+
+    @mcp.tool()
+    def parts_catalog(
+        category: str = "",
+        system: str = "",
+        fitting_type: str = "",
+        nps: str = "",
+    ) -> str:
+        """List/filter built-in parts catalog (~430 parts)."""
+        from llmbim_core.parts_catalog import catalog_summary, list_parts
+
+        if not any([category, system, fitting_type, nps]):
+            return _tool_result(catalog_summary())
+        rows = list_parts(
+            category=category or None,
+            system=system or None,
+            fitting_type=fitting_type or None,
+            nps=nps or None,
+        )
+        return _tool_result(
+            {
+                "count": len(rows),
+                "parts": [
+                    {
+                        "id": r.id,
+                        "name": r.name,
+                        "category": r.category,
+                        "csi": r.csi_code,
+                        "nps": (r.specs or {}).get("nps"),
+                        "fitting_type": (r.specs or {}).get("fitting_type"),
+                    }
+                    for r in rows[:100]
+                ],
+            }
+        )
+
+    @mcp.tool()
     def wall_create(
         project_id: str,
         level: str,

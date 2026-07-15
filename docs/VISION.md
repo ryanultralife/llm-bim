@@ -25,7 +25,8 @@ We win on the axis GUI tools cannot easily follow:
 | Extensibility | Steep plugins | Add a command → SDK + MCP + undo free |
 | Runtime | Desktop GUI | **Headless kernel**; CI and multi-agent |
 
-**Where we defer:** MEP, advanced structural, construction-doc depth, human canvas UI.
+**Where we defer:** full MEP routing/hydraulics, advanced structural analysis, sealed CD depth, human canvas UI.  
+**Where we already ship multi-trade data:** fire/process/plumbing catalogs, steel/rebar, fixtures, CSI takeoffs (catalog + quantities — not PE design).
 
 ## Design principles
 
@@ -45,12 +46,13 @@ We win on the axis GUI tools cannot easily follow:
 
 ## Roadmap (living)
 
-- **M0 — Kernel foundation** *(in progress)*: model, command bus + undo, geometry, levels, walls, hosted openings. Tested.
-- **M1 — Agent bridge**: LLM tool-schema (MCP), NL → commands, query API, CLI.
-- **M2 — Documentation**: plans/sections/elevations SVG/PDF, schedules, sheets.
-- **M3 — Interop**: IFC export (then import subset).
-- **M4 — Discipline growth**: structure stubs, light MEP, better joins.
-- **M? — Optional human review UI**: view-only 3D/plan for humans **if ever requested** — not authoring.
+- **M0 — Kernel foundation** ✅: model, command bus + undo, geometry, levels, walls, hosted openings.
+- **M1 — Agent bridge** ✅: ops registry, MCP, CLI, SDK, skill pack, query language, scripts/bulk.
+- **M2 — Documentation** ✅: plans/sections/elevations SVG, construction sheets, PDF binder, schedules, HTML index, ZIP.
+- **M3 — Interop** ✅: IFC4 export, STEP export/import (locked), DXF, glTF; IFC import subset.
+- **M4 — Discipline growth** 🟡: multi-trade catalogs (plumbing/fire/process/steel/rebar/fixtures), CSI takeoffs, BOQ, clash, rules; wall joins & full MEP routing still light.
+- **M5 — True model VCS** ✅: commit/log/checkout/diff/journal under `output/<project>/.llmbim/`.
+- **M? — Optional human review UI**: view-only 3D/plan **if ever requested** — not authoring (parked).
 
 ## Alignment
 
