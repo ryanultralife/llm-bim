@@ -71,6 +71,7 @@
 | 45 | continue | connection schedule | HTML only raw ports; no names | connection_schedule locator; schedules/connections.csv | 115 unit | d776fea |
 | 46 | continue | STEP system layers | STEP products untagged | PRODUCT names PIPE-CU/FP/DUCT/CONDUIT:… | 116 unit | 838ca91 |
 | 47 | continue | CLI/MCP schedule | no schedule agent surface | llmbim schedule + project_schedule MCP | 117 unit | 8abcefd |
+| 48 | continue | duct/conduit design rules | only pipe-in-wall rules | DUCT_IN_WALL, CONDUIT_IN_WALL, DUCT_LOW_CLEARANCE | 118 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -146,8 +147,9 @@
 69. ~~MCP export_pack phases arg~~ (pass 43)
 70. ~~MCP set_phase tool~~ (pass 43)
 71. ~~CLI schedule + MCP project_schedule~~ (pass 47)
-72. Design rule: duct through wall clearance
+72. ~~Design rule: duct/conduit through wall~~ (pass 48)
 73. Elev dimension strings for storey heights
+74. HTML zone_areas sample on index
 
 ## Rules for each scheduled pass
 

@@ -60,3 +60,25 @@ def test_broken_connection():
     ]
     findings = run_design_rules(p.model)
     assert any(f["rule"] == "BROKEN_CONNECTION" for f in findings)
+
+
+def test_duct_in_wall_and_low_clearance():
+    p = Project.create("duct-rules", vcs=False)
+    p.add_level("L1", 0)
+    p.create_wall(level="L1", start=(0, 0), end=(6000, 0), thickness_mm=200, height_mm=3000)
+    # duct along wall centerline → DUCT_IN_WALL
+    p.place_duct(
+        level="L1",
+        start=(500, 0),
+        end=(5000, 0),
+        width_mm=400,
+        height_mm=300,
+        z0_mm=1500,  # low headroom → DUCT_LOW_CLEARANCE
+    )
+    # conduit across wall
+    p.place_conduit(level="L1", start=(0, -500), end=(0, 500), trade_size="1")
+    findings = run_design_rules(p.model)
+    rules = {f["rule"] for f in findings}
+    assert "DUCT_IN_WALL" in rules
+    assert "DUCT_LOW_CLEARANCE" in rules
+    assert "CONDUIT_IN_WALL" in rules

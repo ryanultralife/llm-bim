@@ -305,6 +305,59 @@ def _mep_design_rules(model: ProjectModel) -> list[dict[str, Any]]:
                 )
                 break
 
+    # Duct / conduit vs wall (sleeve / fire damper location)
+    ducts = [
+        el
+        for el in model.elements
+        if el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct"
+    ]
+    conduits = [
+        el
+        for el in model.elements
+        if el.category == "conduit" or el.params.get("fitting_type") == "conduit"
+    ]
+    for el, rule, label in (
+        *[(d, "DUCT_IN_WALL", "Duct") for d in ducts],
+        *[(c, "CONDUIT_IN_WALL", "Conduit") for c in conduits],
+    ):
+        pb = element_aabb(el, model)
+        if not pb:
+            continue
+        # low hang duct under 2.1 m clear is a constructability note
+        if rule == "DUCT_IN_WALL":
+            z0 = float(el.params.get("z0_mm") or 0)
+            h = float(el.params.get("height_mm") or 250)
+            if z0 + h < 2100:
+                findings.append(
+                    {
+                        "rule": "DUCT_LOW_CLEARANCE",
+                        "severity": "info",
+                        "message": (
+                            f"Duct {el.name or el.id} bottom/top z0={z0:.0f} H={h:.0f} mm "
+                            f"— check headroom / door swing"
+                        ),
+                        "element_id": el.id,
+                        "domain": "mep",
+                    }
+                )
+        for wall, wb in walls:
+            if not wb or el.level_id != wall.level_id:
+                continue
+            if pb.intersects(wb, tol=1.0):
+                findings.append(
+                    {
+                        "rule": rule,
+                        "severity": "warning",
+                        "message": (
+                            f"{label} {el.name or el.id} intersects wall {wall.name or wall.id} "
+                            f"(provide sleeve / damper / firestop)"
+                        ),
+                        "element_id": el.id,
+                        "domain": "mep",
+                    }
+                )
+                break
+
     for el in fittings:
         ftype = str(el.params.get("fitting_type") or "")
         if ftype and ftype != "sprinkler_head" and not el.params.get("nps"):
