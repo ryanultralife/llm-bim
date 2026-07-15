@@ -250,7 +250,10 @@ def render_elevation_svg(
                 else:
                     h0, h1 = y0, y0 + ly
             segs.append((min(h0, h1), max(h0, h1), z0, z1))
-        elif el.category in {"pipe", "plumbing_pipe"} or el.params.get("fitting_type") == "pipe":
+        elif (
+            el.category in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac"}
+            or el.params.get("fitting_type") in {"pipe", "conduit", "duct"}
+        ):
             try:
                 mid = str(el.params.get("material_id") or "")
                 stroke = "#c45c26"
@@ -258,6 +261,10 @@ def render_elevation_svg(
                     stroke = "#222"
                 if "ss316" in mid:
                     stroke = "#6b7c8a"
+                if el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct":
+                    stroke = "#2e7d32"
+                if el.category == "conduit" or el.params.get("fitting_type") == "conduit":
+                    stroke = "#6a1b9a"
                 base = _level_elev(model, el.level_id)
                 if el.params.get("vertical") or el.params.get("orientation") == "vertical":
                     o = el.params.get("origin_mm") or el.params.get("start_mm")
@@ -282,8 +289,12 @@ def render_elevation_svg(
                     h0, h1 = x0, x1
                 else:
                     h0, h1 = y0, y1
+                # duct: thicker elev bar using height_mm
+                elev_h = 50.0
+                if el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct":
+                    elev_h = float(el.params.get("height_mm") or 250)
                 pipe_segs.append((min(h0, h1), max(h0, h1), z, stroke))
-                segs.append((min(h0, h1), max(h0, h1), z, z + 50))  # bbox
+                segs.append((min(h0, h1), max(h0, h1), z, z + elev_h))  # bbox
             except (KeyError, TypeError, ValueError, IndexError):
                 continue
         elif el.category in {"fitting", "fittings", "fixture"} and el.params.get("origin_mm"):
