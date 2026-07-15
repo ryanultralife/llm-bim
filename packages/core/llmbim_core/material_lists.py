@@ -513,6 +513,45 @@ def conduit_takeoff(model: ProjectModel) -> list[dict[str, Any]]:
     return sorted(out, key=lambda x: str(x["trade_size"]))
 
 
+def cable_tray_takeoff(model: ProjectModel) -> list[dict[str, Any]]:
+    """Cable tray runs: length_m + area_m2 by width."""
+    rows: list[dict[str, Any]] = []
+    for el in model.elements:
+        if el.category != "cable_tray" and el.params.get("fitting_type") != "cable_tray":
+            continue
+        length_m = float(el.params.get("length_m") or 0)
+        if not length_m and el.params.get("length_mm"):
+            length_m = float(el.params["length_mm"]) / 1000.0
+        if not length_m and el.params.get("start_mm") and el.params.get("end_mm"):
+            import math
+
+            s, e = el.params["start_mm"], el.params["end_mm"]
+            length_m = math.hypot(float(e[0]) - float(s[0]), float(e[1]) - float(s[1])) / 1000.0
+        w = float(el.params.get("width_mm") or 0)
+        h = float(el.params.get("height_mm") or 0)
+        area_m2 = float(el.params.get("area_m2") or 0)
+        if not area_m2 and w and length_m:
+            area_m2 = (w * length_m) / 1000.0
+        rows.append(
+            {
+                "element_id": el.id,
+                "name": el.name,
+                "category": "cable_tray",
+                "width_mm": w or None,
+                "height_mm": h or None,
+                "size": f"{w:.0f}x{h:.0f}" if w and h else None,
+                "length_m": round(length_m, 3),
+                "area_m2": round(area_m2, 3),
+                "system": el.params.get("system"),
+                "material_id": el.params.get("material_id"),
+                "part_id": el.params.get("part_id") or el.type_id,
+                "csi_code": el.params.get("csi_code") or "26 05 36",
+                "unit": "m",
+            }
+        )
+    return sorted(rows, key=lambda r: (str(r.get("size") or ""), r["element_id"]))
+
+
 def part_summary(model: ProjectModel) -> list[dict[str, Any]]:
     """Aggregate assigned parts by part_id (qty × unit cost)."""
     buckets: dict[str, dict[str, Any]] = {}
@@ -748,6 +787,7 @@ def full_trade_schedule(model: ProjectModel) -> dict[str, Any]:
         },
         "electrical": {
             "conduit": conduit_takeoff(model),
+            "cable_tray": cable_tray_takeoff(model),
             "devices": system_takeoff(model, "electrical"),
         },
         "csi": csi_takeoff(model),
@@ -835,6 +875,7 @@ def export_lists(model: ProjectModel, out_dir: str | Path) -> dict[str, str]:
     pipes = pipe_takeoff(model)
     ducts = duct_takeoff(model)
     conduits = conduit_takeoff(model)
+    trays = cable_tray_takeoff(model)
     parts_sum = part_summary(model)
     plumbing = plumbing_schedule(model)
     fire = fire_takeoff(model)
@@ -856,6 +897,7 @@ def export_lists(model: ProjectModel, out_dir: str | Path) -> dict[str, str]:
         "pipe_takeoff": pipes,
         "duct_takeoff": ducts,
         "conduit_takeoff": conduits,
+        "cable_tray_takeoff": trays,
         "part_summary": parts_sum,
         "steel_takeoff": steel,
         "rebar_takeoff": rebar,

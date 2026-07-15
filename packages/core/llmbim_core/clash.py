@@ -81,20 +81,21 @@ def element_aabb(el: Element, model: ProjectModel) -> AABB | None:
         ys = [float(p[1]) for p in poly]
         return AABB(min(xs), min(ys), z0 - th, max(xs), max(ys), z0)
     if (
-        el.category in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac"}
-        or el.params.get("fitting_type") in {"pipe", "conduit", "duct"}
+        el.category in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac", "cable_tray"}
+        or el.params.get("fitting_type") in {"pipe", "conduit", "duct", "cable_tray"}
     ):
         try:
             is_duct = el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct"
+            is_tray = el.category == "cable_tray" or el.params.get("fitting_type") == "cable_tray"
             od = 50.0
             if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
                 od = max(float(el.params["size_mm"][1]), 20.0)
-            if is_duct:
+            if is_duct or is_tray:
                 od = float(el.params.get("width_mm") or od)
             z_off = float(el.params.get("z0_mm", 0))
             elev_h = od
-            if is_duct:
-                elev_h = float(el.params.get("height_mm") or 250)
+            if is_duct or is_tray:
+                elev_h = float(el.params.get("height_mm") or (100 if is_tray else 250))
             # vertical riser
             if el.params.get("vertical") or el.params.get("orientation") == "vertical":
                 o = el.params.get("origin_mm") or el.params.get("start_mm") or [0, 0]
@@ -172,6 +173,7 @@ def find_clashes(
         "duct",
         "hvac",
         "conduit",
+        "cable_tray",
     ),
     ignore_same_host: bool = True,
 ) -> list[dict[str, Any]]:
@@ -193,6 +195,7 @@ def find_clashes(
         "duct",
         "hvac",
         "conduit",
+        "cable_tray",
     }
     clashes: list[dict[str, Any]] = []
     for i in range(len(items)):

@@ -84,7 +84,9 @@
 | 58 | continue | section DXF CAD handoff | only plan+elev DXF | export_section_dxf + pack views/section.dxf | 129 unit | d0f38c7 |
 | 59 | continue | DXF room area tags | DXF rooms name-only | area m2 + H#### on ROOMS layer | 132 unit | (this) |
 | 60 | continue | HVAC device schedule | VAV/diffuser/panel not scheduled | hvac_device rows + pack CSV | 132 unit | (this) |
-| 61 | continue | IFC CSI property sets | IFC had no CSI props | Pset_CSIMasterFormat CSI_Code+Locator | 132 unit | (this) |
+| 61 | continue | IFC CSI property sets | IFC had no CSI props | Pset_CSIMasterFormat CSI_Code+Locator | 132 unit | 5167cd6 |
+| 62 | continue | cable tray place+takeoff | only conduit raceway | place_cable_tray CSI 26 05 36 + plan/DXF/BOQ | (this) | (this) |
+| 63 | continue | skill takeoff docs | skill lacked duct/tray takeoff | SKILL place+takeoff duct/conduit/tray | (this) | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -175,7 +177,9 @@
 84. ~~DXF room area/height tags~~ (pass 59)
 85. ~~HVAC/electrical device schedule~~ (pass 60)
 86. ~~IFC Pset_CSIMasterFormat~~ (pass 61)
-87. Keep closing residual gaps until pass 120 / 10h
+87. ~~Cable tray place + takeoff~~ (pass 62)
+88. ~~Skill docs duct/conduit/tray takeoffs~~ (pass 63)
+89. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 

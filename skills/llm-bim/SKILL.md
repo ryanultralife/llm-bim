@@ -224,15 +224,19 @@ python examples/multi_trade_catalog.py
 Systems: `plumbing` · `fire` · `process` · `structural_steel` · `rebar` · `framing` · `fixture` / accessories · `hvac` · `electrical`. CSI divisions 03–10, 21–23, 26, 40, 43.
 
 ```python
-# HVAC duct + electrical conduit + multi-storey riser
+# HVAC duct + electrical conduit/tray + multi-storey riser
 p.place_duct(level="L1", start=(0,0), end=(8000,0), width_mm=600, height_mm=350)  # CSI 23 31 00
 p.place_conduit(level="L1", start=(0,500), end=(8000,500), trade_size="1")        # CSI 26 05 33
+p.place_cable_tray(level="L1", start=(0,800), end=(8000,800), width_mm=450)       # CSI 26 05 36
 p.place_part(level="L1", kind="vav", origin=(2000,2000))            # CSI 23 36 00
 p.place_part(level="L1", kind="fire_damper", origin=(4000,2000))    # CSI 23 33 00
 p.place_part(level="L1", kind="diffuser", origin=(6000,2000))       # CSI 23 37 00
 p.add_level("L2", 3500)
 p.place_riser(level="L1", nps="2", origin=(4000,0), to_level="L2")  # spans storeys
 p.place_part(level="L1", part_id="PT-ELEC-PANEL-42", origin=(500,500))
+print(p.duct_takeoff())
+print(p.conduit_takeoff())
+print(p.cable_tray_takeoff())
 # find items: room~Mech  csi~23_31  vertical=true
 print(p.clash()[:5])  # duct vs pipe AABB included
 ```
@@ -240,7 +244,12 @@ print(p.clash()[:5])  # duct vs pipe AABB included
 ```bash
 llmbim place model --kind duct --origin 0,0 --end 8000,0 --width 600 --height 350
 llmbim place model --kind conduit --origin 0,500 --end 8000,500 --nps 1
+llmbim place model --kind cable_tray --origin 0,800 --end 8000,800 --width 450
 llmbim place model --kind riser --origin 4000,0 --to-level L2 --nps 2
+llmbim takeoff model --kind duct
+llmbim takeoff model --kind conduit
+llmbim takeoff model --kind cable_tray
+llmbim schedule model --kind hvac_device
 llmbim query model "csi~26_05"
 ```
 

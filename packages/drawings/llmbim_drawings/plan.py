@@ -110,6 +110,7 @@ def render_plan_view(
             "duct",
             "hvac",
             "conduit",
+            "cable_tray",
         }
     ]
 
@@ -454,6 +455,42 @@ def render_plan_view(
             continue
     parts.append("  </g>")
 
+    # Cable trays as dashed parallel plan lines
+    parts.append(
+        f'  <g class="cable-trays" stroke="#6a1b9a" stroke-width="{fmt(max(0.8, 10 * scale))}" '
+        f'fill="none" stroke-dasharray="{fmt(max(2, 40 * scale))},{fmt(max(1, 20 * scale))}">'
+    )
+    for el in mep_els:
+        if el.category != "cable_tray" and el.params.get("fitting_type") != "cable_tray":
+            continue
+        try:
+            s, e = el.params["start_mm"], el.params["end_mm"]
+            x0, y0 = float(s[0]), float(s[1])
+            x1, y1 = float(e[0]), float(e[1])
+            w = float(el.params.get("width_mm") or 300)
+            length = math.hypot(x1 - x0, y1 - y0)
+            if length < 1:
+                continue
+            nx, ny = -(y1 - y0) / length, (x1 - x0) / length
+            half = w / 2
+            for sign in (-1, 1):
+                a = project(x0 + sign * half * nx, y0 + sign * half * ny)
+                b = project(x1 + sign * half * nx, y1 + sign * half * ny)
+                parts.append(
+                    f'    <line x1="{fmt(a[0])}" y1="{fmt(a[1])}" '
+                    f'x2="{fmt(b[0])}" y2="{fmt(b[1])}" stroke="#6a1b9a"/>'
+                )
+            mx, my = project((x0 + x1) / 2, (y0 + y1) / 2)
+            label = f"CT {w:.0f}"
+            parts.append(
+                f'    <text x="{fmt(mx)}" y="{fmt(my - 4)}" text-anchor="middle" '
+                f'font-size="{fmt(max(6, 9))}" fill="#4a148c" font-family="sans-serif">'
+                f"{esc(label)}</text>"
+            )
+        except (KeyError, TypeError, ValueError, IndexError):
+            continue
+    parts.append("  </g>")
+
     parts.append(
         f'  <g class="fittings" fill="#fff3e0" stroke="#c45c26" '
         f'stroke-width="{fmt(max(0.5, 8 * scale))}">'
@@ -461,9 +498,9 @@ def render_plan_view(
     for el in mep_els:
         ftype0 = str(el.params.get("fitting_type") or "")
         # linear runs drawn elsewhere; keep point-placed HVAC devices (VAV, dampers)
-        if el.category in {"pipe", "plumbing_pipe", "conduit"}:
+        if el.category in {"pipe", "plumbing_pipe", "conduit", "cable_tray"}:
             continue
-        if el.category in {"duct"} or ftype0 in {"pipe", "duct", "flex_duct"}:
+        if el.category in {"duct"} or ftype0 in {"pipe", "duct", "flex_duct", "cable_tray"}:
             continue
         if el.category == "hvac" and ftype0 in {"duct", "flex_duct", ""}:
             # bare linear duct category without device type

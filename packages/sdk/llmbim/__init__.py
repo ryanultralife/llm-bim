@@ -675,6 +675,34 @@ class Project:
         )
         return str(r["element_id"])
 
+    def place_cable_tray(
+        self,
+        *,
+        level: str,
+        start: tuple[float, float],
+        end: tuple[float, float],
+        width_mm: float = 300.0,
+        height_mm: float = 100.0,
+        name: str | None = None,
+        system: str = "PWR",
+        z0_mm: float = 2900.0,
+        material: str = "galv_steel",
+    ) -> str:
+        """Place cable tray run. CSI 26 05 36."""
+        r = self.op(
+            "place_cable_tray",
+            level=level,
+            start=list(start),
+            end=list(end),
+            width_mm=width_mm,
+            height_mm=height_mm,
+            name=name,
+            system=system,
+            z0_mm=z0_mm,
+            material=material,
+        )
+        return str(r["element_id"])
+
     def place_conduit(
         self,
         *,
@@ -777,6 +805,12 @@ class Project:
         from llmbim_core.material_lists import conduit_takeoff
 
         return conduit_takeoff(self._model)
+
+    def cable_tray_takeoff(self) -> list[dict[str, Any]]:
+        """Cable tray runs: length_m + area_m2 by width."""
+        from llmbim_core.material_lists import cable_tray_takeoff
+
+        return cable_tray_takeoff(self._model)
 
     def plumbing_schedule(self) -> dict[str, Any]:
         """Full plumbing takeoff: fittings by type/size + pipe lengths."""

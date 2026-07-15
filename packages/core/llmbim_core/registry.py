@@ -424,6 +424,26 @@ def _place_conduit(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+@register("place_cable_tray", description="Place cable tray run start→end (CSI 26 05 36)", mutates=True)
+def _place_cable_tray(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import place_cable_tray
+
+    start = p.get("start") or p.get("start_mm") or [0, 0]
+    end = p.get("end") or p.get("end_mm") or [1000, 0]
+    return place_cable_tray(
+        model,
+        level=p.get("level") or model.levels[0].name,
+        start=start,
+        end=end,
+        width_mm=float(p.get("width_mm") or p.get("width") or 300),
+        height_mm=float(p.get("height_mm") or p.get("height") or 100),
+        name=p.get("name"),
+        system_tag=p.get("system") or "PWR",
+        z0_mm=float(p.get("z0_mm") or 2900),
+        material_id=p.get("material_id") or p.get("material") or "galv_steel",
+    )
+
+
 @register("materials", description="Materials catalog", mutates=False)
 def _materials(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.materials import materials_catalog
