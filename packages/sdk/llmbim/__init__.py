@@ -8,6 +8,7 @@ from typing import Any
 from llmbim_core.commands import (
     AddGrid,
     AddLevel,
+    CreateEquipmentBox,
     CreateRoom,
     CreateSlab,
     CreateWall,
@@ -166,6 +167,65 @@ class Project:
             CreateRoom(level=level, name=name, boundary=boundary),
         )
         return str(result["result"]["element_id"])
+
+    def create_equipment_box(
+        self,
+        *,
+        level: str,
+        origin: tuple[float, float],
+        size: tuple[float, float, float],
+        name: str | None = None,
+        kind: str = "equipment",
+        centered: bool = False,
+        z0_mm: float = 0.0,
+    ) -> str:
+        """Place an axis-aligned equipment envelope (vessel, yoke, skid, etc.)."""
+        result = self._log.execute(
+            self._model,
+            CreateEquipmentBox(
+                level=level,
+                origin=origin,
+                size=size,
+                name=name or "",
+                kind=kind,
+                centered=centered,
+                z0_mm=z0_mm,
+            ),
+        )
+        return str(result["result"]["element_id"])
+
+    def create_rect_shell(
+        self,
+        *,
+        level: str,
+        x: float,
+        y: float,
+        w: float,
+        d: float,
+        height_mm: float,
+        thickness_mm: float = 300,
+        name_prefix: str = "W",
+    ) -> list[str]:
+        """Four walls forming a rectangular room/building footprint (mm)."""
+        corners = [
+            ((x, y), (x + w, y), f"{name_prefix}-S"),
+            ((x + w, y), (x + w, y + d), f"{name_prefix}-E"),
+            ((x + w, y + d), (x, y + d), f"{name_prefix}-N"),
+            ((x, y + d), (x, y), f"{name_prefix}-W"),
+        ]
+        ids: list[str] = []
+        for start, end, nm in corners:
+            ids.append(
+                self.create_wall(
+                    level=level,
+                    start=start,
+                    end=end,
+                    thickness_mm=thickness_mm,
+                    height_mm=height_mm,
+                    name=nm,
+                )
+            )
+        return ids
 
     def delete_element(self, element_id: str) -> None:
         self._log.execute(self._model, DeleteElement(element_id=element_id))

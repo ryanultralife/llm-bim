@@ -394,6 +394,59 @@ class RestoreGrid(Command):
 
 
 @dataclass
+class CreateEquipmentBox(Command):
+    """Axis-aligned equipment envelope (for process kit / vessel placeholders)."""
+
+    level: str
+    origin: tuple[float, float]  # plan mm, min-corner or center if centered=True
+    size: tuple[float, float, float]  # Lx, Ly, Hz in mm
+    name: str = ""
+    kind: str = "equipment"
+    centered: bool = False
+    z0_mm: float = 0.0
+    op: str = "create_equipment_box"
+    _element_id: str | None = None
+
+    def apply(self, model: ProjectModel) -> dict[str, Any]:
+        lv = model.get_level(self.level)
+        lx, ly, hz = (float(self.size[0]), float(self.size[1]), float(self.size[2]))
+        if lx <= 0 or ly <= 0 or hz <= 0:
+            raise ValidationError("Equipment size must be positive")
+        ox, oy = float(self.origin[0]), float(self.origin[1])
+        if self.centered:
+            x0, y0 = ox - lx / 2, oy - ly / 2
+        else:
+            x0, y0 = ox, oy
+        eid = self._element_id or new_id("eqp")
+        el = Element(
+            id=eid,
+            category="equipment",
+            name=self.name,
+            level_id=lv.id,
+            params={
+                "kind": self.kind,
+                "origin_mm": [x0, y0],
+                "size_mm": [lx, ly, hz],
+                "z0_mm": float(self.z0_mm),
+                "polygon_mm": [
+                    [x0, y0],
+                    [x0 + lx, y0],
+                    [x0 + lx, y0 + ly],
+                    [x0, y0 + ly],
+                ],
+            },
+        )
+        model.add_element(el)
+        self._element_id = el.id
+        return {"element_id": el.id, "category": "equipment", "kind": self.kind}
+
+    def invert(self) -> Command:
+        if not self._element_id:
+            raise ValidationError("Cannot invert CreateEquipmentBox before apply")
+        return DeleteElement(element_id=self._element_id)
+
+
+@dataclass
 class DeleteElement(Command):
     element_id: str
     op: str = "delete_element"

@@ -75,6 +75,7 @@ markers = [
   "wp_ifc: sealed WP-IFC acceptance (optional ifcopenshell)",
 ]
 pythonpath = [
+  ".",
   "packages/sdk",
   "packages/core",
   "packages/geometry",

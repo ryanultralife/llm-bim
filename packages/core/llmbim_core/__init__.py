@@ -5,6 +5,7 @@ __version__ = "0.1.0a0"
 from llmbim_core.commands import (
     AddGrid,
     AddLevel,
+    CreateEquipmentBox,
     CreateRoom,
     CreateSlab,
     CreateWall,
@@ -19,6 +20,7 @@ from llmbim_core.model import Element, Level, ProjectModel
 __all__ = [
     "AddGrid",
     "AddLevel",
+    "CreateEquipmentBox",
     "CreateRoom",
     "CreateSlab",
     "CreateWall",

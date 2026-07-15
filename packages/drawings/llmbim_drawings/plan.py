@@ -62,6 +62,7 @@ def render_plan_svg(
     doors = model.query(category="door", level=lvl.name)
     windows = model.query(category="window", level=lvl.name)
     rooms = model.query(category="room", level=lvl.name)
+    equipment = model.query(category="equipment", level=lvl.name)
 
     xs: list[float] = []
     ys: list[float] = []
@@ -71,6 +72,10 @@ def render_plan_svg(
             ys.append(py)
     for room in rooms:
         for pt in room.params.get("boundary_mm", []):
+            xs.append(float(pt[0]))
+            ys.append(float(pt[1]))
+    for eq in equipment:
+        for pt in eq.params.get("polygon_mm", []):
             xs.append(float(pt[0]))
             ys.append(float(pt[1]))
     if xs and ys:
@@ -145,9 +150,27 @@ def render_plan_svg(
         )
     parts.append("  </g>")
 
+    # Equipment envelopes
+    parts.append(
+        f'  <g class="equipment" fill="#cfe8ff" fill-opacity="0.55" '
+        f'stroke="#0b5cab" stroke-width="{fmt(max(0.4, 8 * scale))}">'
+    )
+    for eq in equipment:
+        poly = eq.params.get("polygon_mm") or []
+        if len(poly) < 3:
+            continue
+        pts = " ".join(
+            f"{fmt(px)},{fmt(py)}" for px, py in (project(float(p[0]), float(p[1])) for p in poly)
+        )
+        parts.append(f'    <polygon points="{pts}"/>')
+    parts.append("  </g>")
+
     # Room labels at centroid
-    parts.append(f'  <g class="rooms" fill="#333" font-size="{fmt(max(8, 200 * scale))}" '
-                 f'font-family="sans-serif" text-anchor="middle">')
+    font = max(8.0, min(28.0, 350 * scale))
+    parts.append(
+        f'  <g class="rooms" fill="#333" font-size="{fmt(font)}" '
+        f'font-family="sans-serif" text-anchor="middle">'
+    )
     for room in rooms:
         boundary = room.params.get("boundary_mm") or []
         if len(boundary) < 3:
@@ -156,6 +179,17 @@ def render_plan_svg(
         cy = sum(float(p[1]) for p in boundary) / len(boundary)
         px, py = project(cx, cy)
         parts.append(f'    <text x="{fmt(px)}" y="{fmt(py)}">{esc(room.name or "Room")}</text>')
+    for eq in equipment:
+        poly = eq.params.get("polygon_mm") or []
+        if len(poly) < 3 or not eq.name:
+            continue
+        cx = sum(float(p[0]) for p in poly) / len(poly)
+        cy = sum(float(p[1]) for p in poly) / len(poly)
+        px, py = project(cx, cy)
+        parts.append(
+            f'    <text x="{fmt(px)}" y="{fmt(py)}" fill="#0b5cab" font-size="{fmt(font * 0.75)}">'
+            f"{esc(eq.name)}</text>"
+        )
     parts.append("  </g>")
     parts.append("</svg>")
     return "\n".join(parts) + "\n"

@@ -60,24 +60,44 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
     all_idx: list[int] = []
     base = 0
     for el in model.elements:
-        if el.category != "wall":
-            continue
-        try:
-            s = el.params["start_mm"]
-            e = el.params["end_mm"]
-            th = float(el.params.get("thickness_mm", 200))
-            ht = float(el.params.get("height_mm", 3000))
-        except (KeyError, TypeError, ValueError):
-            continue
-        z0 = _level_z(model, el.level_id)
-        z1 = z0 + ht
-        pos = _wall_box_positions(float(s[0]), float(s[1]), float(e[0]), float(e[1]), th, z0, z1)
-        if not pos:
-            continue
-        all_pos.extend(pos)
-        for i in _BOX_INDICES:
-            all_idx.append(base + i)
-        base += 8
+        if el.category == "wall":
+            try:
+                s = el.params["start_mm"]
+                e = el.params["end_mm"]
+                th = float(el.params.get("thickness_mm", 200))
+                ht = float(el.params.get("height_mm", 3000))
+            except (KeyError, TypeError, ValueError):
+                continue
+            z0 = _level_z(model, el.level_id)
+            z1 = z0 + ht
+            pos = _wall_box_positions(
+                float(s[0]), float(s[1]), float(e[0]), float(e[1]), th, z0, z1
+            )
+            if not pos:
+                continue
+            all_pos.extend(pos)
+            for i in _BOX_INDICES:
+                all_idx.append(base + i)
+            base += 8
+        elif el.category == "equipment":
+            try:
+                origin = el.params["origin_mm"]
+                size = el.params["size_mm"]
+                z0_off = float(el.params.get("z0_mm", 0))
+            except (KeyError, TypeError, ValueError):
+                continue
+            x0, y0 = float(origin[0]), float(origin[1])
+            lx, ly, hz = float(size[0]), float(size[1]), float(size[2])
+            z0 = _level_z(model, el.level_id) + z0_off
+            z1 = z0 + hz
+            # Represent box as degenerate "wall" along +X with thickness = ly
+            pos = _wall_box_positions(x0, y0 + ly / 2, x0 + lx, y0 + ly / 2, ly, z0, z1)
+            if not pos:
+                continue
+            all_pos.extend(pos)
+            for i in _BOX_INDICES:
+                all_idx.append(base + i)
+            base += 8
 
     if not all_pos:
         all_pos = [0, 0, 0, 1, 0, 0, 1, 0, 1]

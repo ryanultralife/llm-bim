@@ -93,6 +93,28 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 1 if errors else 0
 
 
+def cmd_case(args: argparse.Namespace) -> int:
+    """Build named real-world test cases (INTEC site, Proto10 separator)."""
+    root = Path(__file__).resolve().parents[3]  # repo root when installed editable
+    if not (root / "examples").exists():
+        root = Path.cwd()
+    if args.name == "intec":
+        from examples.intec_site import build_intec
+
+        out = Path(args.out or root / "examples" / "output" / "intec")
+        p = build_intec(out)
+    elif args.name == "proto10":
+        from examples.proto10_separator import build_proto10
+
+        out = Path(args.out or root / "examples" / "output" / "proto10")
+        p = build_proto10(out)
+    else:
+        print(f"Unknown case: {args.name}. Use intec | proto10", file=sys.stderr)
+        return 2
+    print(json.dumps({"case": args.name, "out": str(out), "stats": p.stats()}, indent=2))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="llmbim", description="LLM-native BIM CLI")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -116,6 +138,11 @@ def main(argv: list[str] | None = None) -> int:
     p_val = sub.add_parser("validate", help="Validate a .llmbim.json project file")
     p_val.add_argument("path", help="Path to project JSON")
     p_val.set_defaults(func=cmd_validate)
+
+    p_case = sub.add_parser("case", help="Build real test cases: intec | proto10")
+    p_case.add_argument("name", choices=["intec", "proto10"])
+    p_case.add_argument("--out", default=None, help="Output directory")
+    p_case.set_defaults(func=cmd_case)
 
     args = parser.parse_args(argv)
     return int(args.func(args))
