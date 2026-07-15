@@ -63,3 +63,34 @@ def test_elevation_draws_columns_and_beams(tmp_path: Path) -> None:
     assert "W10x33" in text
     # beam drawn as elev line/rect stroke
     assert 'class="pipes-elev"' in text or "<rect " in text
+
+
+def test_elevation_svg_doors_and_windows(tmp_path: Path) -> None:
+    p = Project.create("ElevOpen", vcs=False)
+    p.add_level("L1", 0)
+    w = p.create_wall(
+        level="L1", start=(0, 0), end=(10000, 0), thickness_mm=200, height_mm=3000
+    )
+    p.place_door(
+        host=w,
+        offset_mm=2000,
+        width_mm=900,
+        height_mm=2100,
+        type_id="D-HM-36",
+        fire_rating="90 min",
+    )
+    p.place_window(
+        host=w,
+        offset_mm=5000,
+        width_mm=1200,
+        height_mm=900,
+        sill_mm=900,
+        type_id="WIN-VIEW",
+    )
+    out = tmp_path / "elev_S.svg"
+    write_elevation_svg(p.model, "S", out, scale=0.02)
+    text = out.read_text(encoding="utf-8")
+    assert 'class="openings-elev"' in text
+    assert "HM-36" in text or "D-HM" in text
+    assert "90m" in text or "90" in text
+    assert "WIN" in text or "VIEW" in text

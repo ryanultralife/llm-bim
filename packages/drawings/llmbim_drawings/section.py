@@ -293,8 +293,10 @@ def render_elevation_svg(
 
     # Project walls/equipment to (horizontal, z); pipes as horizontal lines at z0
     segs: list[tuple[float, float, float, float]] = []  # h0, h1, z0, z1
+    opening_rects: list[tuple[float, float, float, float, str, str]] = []  # h0,h1,z0,z1,fill,label
     pipe_segs: list[tuple[float, float, float, str]] = []  # h0, h1, z, stroke (horizontal)
     riser_segs: list[tuple[float, float, float, str]] = []  # h, z0, z1, stroke (vertical)
+    wall_by_id = {el.id: el for el in model.elements if el.category == "wall"}
     for el in model.elements:
         if el.category == "wall":
             ep = _wall_endpoints(el)
@@ -308,6 +310,45 @@ def render_elevation_svg(
             else:
                 h0, h1 = y0, y1
             segs.append((min(h0, h1), max(h0, h1), z0, z1))
+        elif el.category in {"door", "window"}:
+            host = wall_by_id.get(el.host_id or "")
+            if not host:
+                continue
+            ep = _wall_endpoints(host)
+            if not ep:
+                continue
+            try:
+                x0, y0, x1, y1, _t, _wh = ep
+                length = math.hypot(x1 - x0, y1 - y0)
+                if length < 1:
+                    continue
+                off = float(el.params.get("offset_mm") or 0)
+                width_o = float(el.params.get("width_mm") or 900)
+                oh = float(el.params.get("height_mm") or (2100 if el.category == "door" else 1200))
+                sill = float(el.params.get("sill_mm") or 0)
+                ux, uy = (x1 - x0) / length, (y1 - y0) / length
+                ax, ay = x0 + ux * off, y0 + uy * off
+                bx, by = x0 + ux * (off + width_o), y0 + uy * (off + width_o)
+                if d in {"N", "S"}:
+                    h0, h1 = ax, bx
+                else:
+                    h0, h1 = ay, by
+                base = _level_elev(model, host.level_id)
+                z_bot = base + sill
+                z_top = z_bot + oh
+                fill = "#c8e6c9" if el.category == "door" else "#bbdefb"
+                tid = str(el.type_id or el.params.get("type_id") or el.category)[:14]
+                fr = el.params.get("fire_rating") or ""
+                label = tid
+                if fr:
+                    fr_s = str(fr).replace(" min", "m").replace("-hr", "HR")
+                    label = f"{tid} {fr_s}"
+                opening_rects.append(
+                    (min(h0, h1), max(h0, h1), z_bot, z_top, fill, label)
+                )
+                segs.append((min(h0, h1), max(h0, h1), z_bot, z_top))  # bbox extent
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
         elif el.category == "equipment":
             try:
                 o = el.params["origin_mm"]
@@ -457,6 +498,12 @@ def render_elevation_svg(
     for h0, h1, z0, z1 in segs:
         if (z1 - z0) <= 60 and (h1 - h0) < 500:
             continue  # skip tiny pipe bbox placeholders
+        # skip opening-sized rects here — drawn in openings-elev
+        if any(
+            abs(h0 - oh0) < 1 and abs(h1 - oh1) < 1 and abs(z0 - oz0) < 1 and abs(z1 - oz1) < 1
+            for oh0, oh1, oz0, oz1, _f, _l in opening_rects
+        ):
+            continue
         x, y = project(h0, z1)
         w = (h1 - h0) * scale
         h = (z1 - z0) * scale
@@ -464,6 +511,27 @@ def render_elevation_svg(
             continue
         parts.append(f'    <rect x="{fmt(x)}" y="{fmt(y)}" width="{fmt(w)}" height="{fmt(h)}"/>')
     parts.append("  </g>")
+    if opening_rects:
+        parts.append(
+            '  <g class="openings-elev" stroke="#1565c0" stroke-width="1" '
+            'font-family="sans-serif" text-anchor="middle">'
+        )
+        for h0, h1, z0, z1, fill, lab in opening_rects:
+            x, y = project(h0, z1)
+            w = (h1 - h0) * scale
+            h = (z1 - z0) * scale
+            if w < 0.1:
+                continue
+            parts.append(
+                f'    <rect x="{fmt(x)}" y="{fmt(y)}" width="{fmt(w)}" height="{fmt(h)}" '
+                f'fill="{fill}"/>'
+            )
+            mx, my = project((h0 + h1) / 2, z1)
+            parts.append(
+                f'    <text x="{fmt(mx)}" y="{fmt(my - 2)}" font-size="{fmt(max(6, 9))}" '
+                f'fill="#0d47a1">{esc(lab[:18])}</text>'
+            )
+        parts.append("  </g>")
     parts.append(
         f'  <g class="pipes-elev" stroke-width="{fmt(max(1.2, 20 * scale))}" fill="none">'
     )
