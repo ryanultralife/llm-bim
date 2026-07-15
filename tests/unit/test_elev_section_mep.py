@@ -48,3 +48,18 @@ def test_pipe_pipe_clash():
         or "pipe" in (x["a_category"], x["b_category"])
         for x in c
     )
+
+
+def test_elevation_draws_columns_and_beams(tmp_path: Path) -> None:
+    p = Project.create("ElevStruct", vcs=False)
+    p.add_level("L1", 0)
+    p.create_wall(level="L1", start=(0, 0), end=(10000, 0), thickness_mm=200, height_mm=3500)
+    p.place_column(level="L1", origin=(3000, 500), section="W10x33", height_mm=3500)
+    p.place_beam(level="L1", start=(0, 500), end=(8000, 500), section="W12x26", z0_mm=3000)
+    out = tmp_path / "elev_S.svg"
+    write_elevation_svg(p.model, "S", out, scale=0.02)
+    text = out.read_text(encoding="utf-8")
+    assert 'class="columns-elev"' in text
+    assert "W10x33" in text
+    # beam drawn as elev line/rect stroke
+    assert 'class="pipes-elev"' in text or "<rect " in text

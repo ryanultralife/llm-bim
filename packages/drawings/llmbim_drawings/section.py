@@ -88,6 +88,46 @@ def render_section_svg(
             z1 = z0 + height
             half = 100.0
             rects.append((s - half, z0, s + half, z1))
+        elif el.category == "column" or el.params.get("fitting_type") == "column":
+            try:
+                hit = _project_point_to_cut(model, el, p0, p1, cut_len, depth_mm=depth_mm)
+                if hit is None:
+                    continue
+                s, z0 = hit
+                # z0 from helper includes z0_mm; rebuild full height from level
+                base = _level_elev(model, el.level_id)
+                z_base = base + float(el.params.get("z0_mm") or 0)
+                sz = el.params.get("size_mm") or [250.0, 250.0, 3000.0]
+                half = float(sz[0]) / 2
+                ht = float(el.params.get("height_mm") or (sz[2] if len(sz) > 2 else 3000.0))
+                rects.append((s - half, z_base, s + half, z_base + ht))
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
+        elif el.category == "beam" or el.params.get("fitting_type") == "beam":
+            try:
+                if "start_mm" not in el.params or "end_mm" not in el.params:
+                    continue
+                s0, e0 = el.params["start_mm"], el.params["end_mm"]
+                t = _segment_intersection_param(
+                    float(s0[0]), float(s0[1]), float(e0[0]), float(e0[1]),
+                    p0[0], p0[1], p1[0], p1[1],
+                )
+                if t is None:
+                    hit = _project_point_to_cut(model, el, p0, p1, cut_len, depth_mm=depth_mm)
+                    if hit is None:
+                        continue
+                    s = hit[0]
+                else:
+                    ix = float(s0[0]) + t * (float(e0[0]) - float(s0[0]))
+                    iy = float(s0[1]) + t * (float(e0[1]) - float(s0[1]))
+                    s = math.hypot(ix - p0[0], iy - p0[1])
+                base = _level_elev(model, el.level_id)
+                z = base + float(el.params.get("z0_mm") or 0)
+                depth = float(el.params.get("height_mm") or el.params.get("depth_mm") or 300)
+                half = float(el.params.get("width_mm") or 150) / 2
+                rects.append((s - half, z, s + half, z + depth))
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
         elif el.category in {"pipe", "plumbing_pipe", "fitting", "fittings", "fixture"}:
             try:
                 hit = _project_point_to_cut(model, el, p0, p1, cut_len, depth_mm=depth_mm)
@@ -293,6 +333,23 @@ def render_elevation_svg(
                 else:
                     h0, h1 = y0, y0 + ly
             segs.append((min(h0, h1), max(h0, h1), z0, z1))
+        elif el.category == "column" or el.params.get("fitting_type") == "column":
+            try:
+                o = el.params.get("origin_mm")
+                if not o:
+                    continue
+                sz = el.params.get("size_mm") or [250.0, 250.0, 3000.0]
+                half = float(sz[0]) / 2
+                ht = float(
+                    el.params.get("height_mm")
+                    or (sz[2] if len(sz) > 2 else 3000.0)
+                )
+                z0 = _level_elev(model, el.level_id) + float(el.params.get("z0_mm") or 0)
+                ox, oy = float(o[0]), float(o[1])
+                h = ox if d in {"N", "S"} else oy
+                segs.append((h - half, h + half, z0, z0 + ht))
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
         elif (
             el.category
             in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac", "cable_tray", "beam"}
@@ -309,6 +366,10 @@ def render_elevation_svg(
                 if el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct":
                     stroke = "#2e7d32"
                 if el.category == "conduit" or el.params.get("fitting_type") == "conduit":
+                    stroke = "#6a1b9a"
+                if el.category == "beam" or el.params.get("fitting_type") == "beam":
+                    stroke = "#546e7a"
+                if el.category == "cable_tray" or el.params.get("fitting_type") == "cable_tray":
                     stroke = "#6a1b9a"
                 base = _level_elev(model, el.level_id)
                 if el.params.get("vertical") or el.params.get("orientation") == "vertical":
@@ -334,10 +395,14 @@ def render_elevation_svg(
                     h0, h1 = x0, x1
                 else:
                     h0, h1 = y0, y1
-                # duct: thicker elev bar using height_mm
+                # duct/beam: thicker elev bar using height_mm
                 elev_h = 50.0
                 if el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct":
                     elev_h = float(el.params.get("height_mm") or 250)
+                if el.category == "beam" or el.params.get("fitting_type") == "beam":
+                    elev_h = float(el.params.get("height_mm") or el.params.get("depth_mm") or 300)
+                if el.category == "cable_tray" or el.params.get("fitting_type") == "cable_tray":
+                    elev_h = float(el.params.get("height_mm") or 100)
                 pipe_segs.append((min(h0, h1), max(h0, h1), z, stroke))
                 segs.append((min(h0, h1), max(h0, h1), z, z + elev_h))  # bbox
             except (KeyError, TypeError, ValueError, IndexError):
@@ -352,6 +417,20 @@ def render_elevation_svg(
                 segs.append((h - 30, h + 30, z, z + 50))
             except (KeyError, TypeError, ValueError, IndexError):
                 continue
+
+    # collect column labels for elev annotation
+    col_labels: list[tuple[float, float, str]] = []  # h, z_top, section
+    for el in model.elements:
+        if el.category != "column" and el.params.get("fitting_type") != "column":
+            continue
+        o = el.params.get("origin_mm")
+        if not o:
+            continue
+        sz = el.params.get("size_mm") or [250, 250, 3000]
+        ht = float(el.params.get("height_mm") or (sz[2] if len(sz) > 2 else 3000))
+        z0 = _level_elev(model, el.level_id) + float(el.params.get("z0_mm") or 0)
+        h = float(o[0]) if d in {"N", "S"} else float(o[1])
+        col_labels.append((h, z0 + ht, str(el.params.get("section") or "COL")))
 
     if segs:
         min_h = min(s[0] for s in segs) - margin_mm
@@ -401,6 +480,19 @@ def render_elevation_svg(
             f'x2="{fmt(pb[0])}" y2="{fmt(pb[1])}" stroke="{stroke}"/>'
         )
     parts.append("  </g>")
+
+    # Column section tags at top of elev
+    if col_labels:
+        parts.append(
+            '  <g class="columns-elev" fill="#37474f" font-family="sans-serif" '
+            f'font-size="{fmt(max(7, 10))}" text-anchor="middle">'
+        )
+        for h, z_top, sec in col_labels:
+            px, py = project(h, z_top)
+            parts.append(
+                f'    <text x="{fmt(px)}" y="{fmt(py - 4)}">{esc(str(sec)[:16])}</text>'
+            )
+        parts.append("  </g>")
 
     # Level lines + storey height dimensions (left edge)
     levels = sorted(model.levels, key=lambda lv: float(lv.elevation_mm))
