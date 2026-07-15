@@ -347,10 +347,11 @@ def export_elevation_dxf(
             "duct",
             "hvac",
             "conduit",
+            "cable_tray",
             "fitting",
             "fittings",
             "fixture",
-        } and el.params.get("fitting_type") not in {"pipe", "duct", "conduit"}:
+        } and el.params.get("fitting_type") not in {"pipe", "duct", "conduit", "cable_tray"}:
             continue
         layer = "PIPE-CU"
         mid = str(el.params.get("material_id") or "")
@@ -362,6 +363,8 @@ def export_elevation_dxf(
             layer = "DUCT"
         if el.category == "conduit" or el.params.get("fitting_type") == "conduit":
             layer = "CONDUIT"
+        if el.category == "cable_tray" or el.params.get("fitting_type") == "cable_tray":
+            layer = "CABLE-TRAY"
         base = _level_elev(model, el.level_id)
         if el.params.get("vertical") or el.params.get("orientation") == "vertical":
             o = el.params.get("origin_mm") or el.params.get("start_mm")

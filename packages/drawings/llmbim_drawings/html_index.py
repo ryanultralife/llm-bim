@@ -45,6 +45,8 @@ def write_pack_index(out_dir: str | Path) -> Path:
         "schedules/duct.csv",
         "schedules/conduit.csv",
         "schedules/zone_areas.csv",
+        "schedules/levels.csv",
+        "schedules/drawing_list.csv",
         "schedules/connections.csv",
         "clash_report.json",
         "design_rules.json",

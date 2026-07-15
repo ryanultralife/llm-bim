@@ -294,8 +294,8 @@ def render_elevation_svg(
                     h0, h1 = y0, y0 + ly
             segs.append((min(h0, h1), max(h0, h1), z0, z1))
         elif (
-            el.category in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac"}
-            or el.params.get("fitting_type") in {"pipe", "conduit", "duct"}
+            el.category in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac", "cable_tray"}
+            or el.params.get("fitting_type") in {"pipe", "conduit", "duct", "cable_tray"}
         ):
             try:
                 mid = str(el.params.get("material_id") or "")

@@ -251,6 +251,7 @@ def export_deliverables(
     schedules = out / "schedules"
     schedules.mkdir(exist_ok=True)
     for kind in (
+        "level",
         "room",
         "zone",
         "door",
@@ -273,7 +274,11 @@ def export_deliverables(
             else (
                 "connections.csv"
                 if kind == "connection"
-                else ("hvac_devices.csv" if kind == "hvac_device" else f"{kind}.csv")
+                else (
+                    "hvac_devices.csv"
+                    if kind == "hvac_device"
+                    else ("levels.csv" if kind == "level" else f"{kind}.csv")
+                )
             )
         )
         _try(
@@ -417,6 +422,14 @@ def export_deliverables(
     _try("pdf_binder", errors, _pdf)
     if (out / "PLOT_SET.pdf").is_file():
         result["plot_set_pdf"] = "PLOT_SET.pdf"
+
+    # Drawing / sheet index for the pack
+    from llmbim_drawings.schedules import export_drawing_list
+
+    sheets = _try("drawing_list", errors, lambda: export_drawing_list(out))
+    if sheets is not None:
+        result["drawing_list"] = "schedules/drawing_list.csv"
+        result["sheet_count"] = len(sheets)
 
     # checksums
     checksums: dict[str, str] = {}
