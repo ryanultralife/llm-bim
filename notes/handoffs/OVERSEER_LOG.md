@@ -18,3 +18,14 @@ Overseer loop installed 2026-07-15 — 30m scheduler + `scripts/vision_overseer_
   - Working tree has uncommitted changes
   - pytest unit ok: 105 passed
 
+## 2026-07-15T20:20:37Z — **HEALTHY**
+
+- pass_count: `37` / 120
+- last_vision_commit_age_min: `0.164857`
+- branch: `## main...origin/main`
+- dirty: `False`
+- pytest: ok=`True` passed=`106` failed=`0`
+- notes:
+  - Last vision-loop commit 0m ago (ok)
+  - pytest unit ok: 106 passed
+
