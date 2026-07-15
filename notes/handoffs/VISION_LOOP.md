@@ -50,7 +50,8 @@
 | 25 | continue | IFC FlowSegment + riser | risers missing from IFC; only proxy | IfcFlowSegment/Fitting/Terminal; vertical Z | 95 unit | 0115b91 |
 | 26 | continue | restroom CSI recipe | no end-to-end RM: demo | examples/restroom_csi + skill recipe | 95 unit | 0115b91 |
 | 27 | continue | MCP query CSI enrich | query returned id only | room/csi/locator on project_query | 96 unit | (this) |
-| 28 | continue | multi-storey to_level riser | risers single-storey only | place_riser(to_level=L2/L3) | 96 unit | (this) |
+| 28 | continue | multi-storey to_level riser | risers single-storey only | place_riser(to_level=L2/L3) | 96 unit | 2bd3ec6 |
+| 29 | continue | HVAC place_duct | no duct authoring | place_duct + plan/DXF/CSI 23 31 00 | 98 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -94,10 +95,12 @@
 37. Connection schedule in HTML index
 38. ~~IFC IfcFlowSegment for pipes (vs proxy)~~ (pass 25)
 39. ~~Agent recipe: restroom + CW loop + CSI takeoff~~ (pass 26)
-40. HVAC duct place + takeoff (generic or catalog)
+40. ~~HVAC duct place + takeoff (generic or catalog)~~ (pass 29)
 41. Electrical raceway / conduit place
 42. Grid intersection labels on plans
 43. Dimension strings on plan SVG
+44. CLI place --kind duct
+45. Elev draw ducts as rectangles
 
 ## Rules for each scheduled pass
 

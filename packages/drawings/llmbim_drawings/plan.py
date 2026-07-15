@@ -107,6 +107,9 @@ def render_plan_view(
             "accessory",
             "module_instance",
             "module_root",
+            "duct",
+            "hvac",
+            "conduit",
         }
     ]
 
@@ -353,14 +356,61 @@ def render_plan_view(
             continue
     parts.append("  </g>")
 
+    # HVAC ducts as parallel plan lines (width)
+    parts.append(
+        f'  <g class="ducts" stroke="#2e7d32" stroke-width="{fmt(max(0.8, 12 * scale))}" '
+        f'fill="none" stroke-linecap="butt">'
+    )
+    for el in mep_els:
+        if el.category not in {"duct", "hvac"} and el.params.get("fitting_type") != "duct":
+            continue
+        try:
+            s, e = el.params["start_mm"], el.params["end_mm"]
+            x0, y0 = float(s[0]), float(s[1])
+            x1, y1 = float(e[0]), float(e[1])
+            w = float(el.params.get("width_mm") or 400)
+            length = math.hypot(x1 - x0, y1 - y0)
+            if length < 1:
+                continue
+            nx, ny = -(y1 - y0) / length, (x1 - x0) / length
+            half = w / 2
+            # two parallel edges
+            for sign in (-1, 1):
+                a = project(x0 + sign * half * nx, y0 + sign * half * ny)
+                b = project(x1 + sign * half * nx, y1 + sign * half * ny)
+                parts.append(
+                    f'    <line x1="{fmt(a[0])}" y1="{fmt(a[1])}" '
+                    f'x2="{fmt(b[0])}" y2="{fmt(b[1])}" stroke="#2e7d32"/>'
+                )
+            # end caps
+            for pt in ((x0, y0), (x1, y1)):
+                a = project(pt[0] - half * nx, pt[1] - half * ny)
+                b = project(pt[0] + half * nx, pt[1] + half * ny)
+                parts.append(
+                    f'    <line x1="{fmt(a[0])}" y1="{fmt(a[1])}" '
+                    f'x2="{fmt(b[0])}" y2="{fmt(b[1])}" stroke="#2e7d32"/>'
+                )
+            mx, my = project((x0 + x1) / 2, (y0 + y1) / 2)
+            label = f"{w:.0f}x{float(el.params.get('height_mm') or 0):.0f}"
+            parts.append(
+                f'    <text x="{fmt(mx)}" y="{fmt(my - 4)}" text-anchor="middle" '
+                f'font-size="{fmt(max(6, 9))}" fill="#1b5e20" font-family="sans-serif">'
+                f"{esc(label)}</text>"
+            )
+        except (KeyError, TypeError, ValueError, IndexError):
+            continue
+    parts.append("  </g>")
+
     parts.append(
         f'  <g class="fittings" fill="#fff3e0" stroke="#c45c26" '
         f'stroke-width="{fmt(max(0.5, 8 * scale))}">'
     )
     for el in mep_els:
-        if el.category in {"pipe", "plumbing_pipe"}:
+        if el.category in {"pipe", "plumbing_pipe", "duct", "hvac", "conduit"}:
             continue
         if el.params.get("fitting_type") == "pipe":
+            continue
+        if el.params.get("fitting_type") == "duct":
             continue
         try:
             o = el.params.get("origin_mm")

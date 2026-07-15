@@ -383,6 +383,14 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
             if eid is not None:
                 contained[storey].append(eid)
 
+        elif el.category in {"duct", "hvac"}:
+            # rectangular duct as FlowSegment envelope
+            eid = _export_pipe_proxy(f, el, owner, axis_z, extrude_rect)
+            if eid is None:
+                eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect)
+            if eid is not None:
+                contained[storey].append(eid)
+
         elif el.category in {
             "fitting",
             "fittings",
@@ -395,6 +403,7 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
             "framing",
             "fire_protection",
             "process_piping",
+            "conduit",
         }:
             # MEP/catalog parts + module envelopes as coordination proxies
             eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect)
