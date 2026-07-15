@@ -290,6 +290,41 @@ def schedule_rows(model: ProjectModel, kind: str) -> list[dict[str, Any]]:
                 )
             )
         return rows
+    if kind in {"hvac_device", "hvac_devices", "device", "devices"}:
+        device_types = {
+            "vav",
+            "diffuser",
+            "grille",
+            "fire_damper",
+            "smoke_damper",
+            "panel",
+            "luminaire",
+            "switch",
+            "receptacle",
+        }
+        rows = []
+        for el in model.elements:
+            ftype = str(el.params.get("fitting_type") or el.params.get("kind") or "").lower()
+            if ftype not in device_types:
+                continue
+            rows.append(
+                _annotate_csi(
+                    model,
+                    el,
+                    {
+                        "id": el.id,
+                        "name": el.name,
+                        "device_type": ftype,
+                        "fitting_type": ftype,
+                        "part_id": el.params.get("part_id") or el.type_id,
+                        "material_id": el.params.get("material_id"),
+                        "system": el.params.get("system"),
+                        "qty": el.params.get("part_qty", 1),
+                        "origin_mm": el.params.get("origin_mm"),
+                    },
+                )
+            )
+        return rows
     raise ValueError(f"Unknown schedule kind: {kind}")
 
 

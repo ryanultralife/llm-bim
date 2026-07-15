@@ -142,10 +142,25 @@ def export_plan_dxf(
             a = poly[i]
             b = poly[(i + 1) % len(poly)]
             ents += _line(float(a[0]), float(a[1]), float(b[0]), float(b[1]), "ROOMS")
-        if el.name:
-            cx = sum(float(p[0]) for p in poly) / len(poly)
-            cy = sum(float(p[1]) for p in poly) / len(poly)
-            ents += _text(cx, cy, 150.0, el.name, "TEXT")
+        name = el.name or "Room"
+        cx = sum(float(p[0]) for p in poly) / len(poly)
+        cy = sum(float(p[1]) for p in poly) / len(poly)
+        area_mm2 = el.params.get("area_mm2")
+        if area_mm2 is None and len(poly) >= 3:
+            a_acc = 0.0
+            n = len(poly)
+            for i in range(n):
+                x1, y1 = float(poly[i][0]), float(poly[i][1])
+                x2, y2 = float(poly[(i + 1) % n][0]), float(poly[(i + 1) % n][1])
+                a_acc += x1 * y2 - x2 * y1
+            area_mm2 = abs(a_acc) / 2.0
+        label = str(name)
+        if area_mm2 is not None and float(area_mm2) > 0:
+            label += f" {float(area_mm2) / 1e6:.1f}m2"
+        h_mm = el.params.get("height_mm") or el.params.get("ceiling_height_mm")
+        if h_mm:
+            label += f" H{float(h_mm):.0f}"
+        ents += _text(cx, cy, 150.0, label, "ROOMS")
 
     # MEP pipes / fittings (same level)
     for el in model.elements:

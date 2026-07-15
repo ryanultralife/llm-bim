@@ -125,6 +125,49 @@ def _mep_name_tag(el) -> tuple[str, str]:
     return str(name), "-".join(tag_parts)[:40]
 
 
+def _attach_csi_pset(f: _Ifc, owner: int, product_id: int, model: ProjectModel, el) -> None:
+    """Attach Pset_CSIMasterFormat with CSI code + locator for IFC browsers."""
+    try:
+        from llmbim_core.csi import csi_for_element
+
+        info = csi_for_element(model, el)
+    except Exception:  # noqa: BLE001
+        info = {}
+    code = info.get("csi_code") or el.params.get("csi_code") or ""
+    if not code:
+        return
+    locator = info.get("locator") or info.get("csi_instance") or ""
+    room = info.get("room") or ""
+    section = info.get("csi_section_name") or ""
+    props: list[int] = []
+    props.append(
+        f.add(f"IFCPROPERTYSINGLEVALUE('CSI_Code',$,IFCLABEL('{_esc(str(code))}'),$)")
+    )
+    if section:
+        props.append(
+            f.add(
+                f"IFCPROPERTYSINGLEVALUE('CSI_Section',$,IFCLABEL('{_esc(str(section))}'),$)"
+            )
+        )
+    if locator:
+        props.append(
+            f.add(
+                f"IFCPROPERTYSINGLEVALUE('Locator',$,IFCLABEL('{_esc(str(locator))}'),$)"
+            )
+        )
+    if room:
+        props.append(
+            f.add(f"IFCPROPERTYSINGLEVALUE('Room',$,IFCLABEL('{_esc(str(room))}'),$)")
+        )
+    ids = ",".join(f"#{p}" for p in props)
+    pset = f.add(
+        f"IFCPROPERTYSET('{f.guid()}',#{owner},'Pset_CSIMasterFormat',$,({ids}))"
+    )
+    f.add(
+        f"IFCRELDEFINESBYPROPERTIES('{f.guid()}',#{owner},$,$,(#{product_id}),#{pset})"
+    )
+
+
 def _export_pipe_proxy(
     f: _Ifc,
     el,
@@ -408,6 +451,7 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
                 f"$,$,#{loc},#{prod},$)"
             )
             contained[storey].append(wall)
+            _attach_csi_pset(f, owner, wall, model, el)
 
         elif el.category == "slab":
             try:
@@ -437,12 +481,14 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
             if eid is not None:
                 contained[storey].append(eid)
                 _link_to_space(el, eid)
+                _attach_csi_pset(f, owner, eid, model, el)
 
         elif el.category in {"pipe", "plumbing_pipe", "conduit"}:
             eid = _export_pipe_proxy(f, el, owner, axis_z, extrude_rect)
             if eid is not None:
                 contained[storey].append(eid)
                 _link_to_space(el, eid)
+                _attach_csi_pset(f, owner, eid, model, el)
 
         elif el.category in {"duct", "hvac"}:
             # rectangular duct as FlowSegment envelope
@@ -452,6 +498,7 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
             if eid is not None:
                 contained[storey].append(eid)
                 _link_to_space(el, eid)
+                _attach_csi_pset(f, owner, eid, model, el)
 
         elif el.category in {
             "fitting",
@@ -472,6 +519,7 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
             if eid is not None:
                 contained[storey].append(eid)
                 _link_to_space(el, eid)
+                _attach_csi_pset(f, owner, eid, model, el)
 
         elif el.category in {"door", "window"}:
             # Place as opening proxy at host offset — simplified box at origin
@@ -488,6 +536,7 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
                 f"#{loc},#{prod},$,$)"
             )
             contained[storey].append(ent)
+            _attach_csi_pset(f, owner, ent, model, el)
 
     for storey, els in contained.items():
         if not els:

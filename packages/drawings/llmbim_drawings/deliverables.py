@@ -261,6 +261,7 @@ def export_deliverables(
         "pipe",
         "duct",
         "conduit",
+        "hvac_device",
         "part",
         "material",
         "csi",
@@ -269,7 +270,11 @@ def export_deliverables(
         fname = (
             "zone_areas.csv"
             if kind == "zone"
-            else ("connections.csv" if kind == "connection" else f"{kind}.csv")
+            else (
+                "connections.csv"
+                if kind == "connection"
+                else ("hvac_devices.csv" if kind == "hvac_device" else f"{kind}.csv")
+            )
         )
         _try(
             f"schedule_{kind}",

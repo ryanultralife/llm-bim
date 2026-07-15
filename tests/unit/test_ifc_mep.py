@@ -68,3 +68,24 @@ def test_ifc_space_links_mep_in_room(tmp_path: Path) -> None:
     assert "SpaceContents" in text
     # at least one containment rel naming SpaceContents
     assert text.count("IFCRELCONTAINEDINSPATIALSTRUCTURE") >= 2
+
+
+def test_ifc_csi_property_sets(tmp_path: Path) -> None:
+    """MEP elements carry Pset_CSIMasterFormat with CSI_Code + Locator."""
+    p = Project.create("CSI IFC", vcs=False)
+    p.add_level("L1", 0)
+    p.create_room(
+        level="L1",
+        name="Mech",
+        boundary=[(0, 0), (6000, 0), (6000, 5000), (0, 5000)],
+    )
+    p.place_pipe(level="L1", nps="2", start=(500, 2500), end=(5500, 2500), material="copper")
+    p.place_duct(level="L1", start=(500, 1000), end=(4000, 1000), width_mm=400, height_mm=250)
+    out = tmp_path / "csi.ifc"
+    export_ifc(p.model, out)
+    text = out.read_text(encoding="utf-8")
+    assert "Pset_CSIMasterFormat" in text
+    assert "CSI_Code" in text
+    assert "22 11 16" in text
+    assert "23 31 00" in text
+    assert "IFCRELDEFINESBYPROPERTIES" in text
