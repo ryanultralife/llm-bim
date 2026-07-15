@@ -51,6 +51,41 @@ def test_wall_type_and_fire_on_plan_dxf(tmp_path: Path):
     assert "2HR" in text
 
 
+def test_plan_dxf_doors_and_windows(tmp_path: Path):
+    from llmbim_drawings.dxf_export import export_plan_dxf
+
+    p = Project.create("open-dxf", vcs=False)
+    p.add_level("L1", 0)
+    w = p.create_wall(
+        level="L1", start=(0, 0), end=(10000, 0), thickness_mm=200, height_mm=3000
+    )
+    p.place_door(
+        host=w,
+        offset_mm=1000,
+        width_mm=900,
+        height_mm=2100,
+        type_id="D-HM-36",
+        fire_rating="90 min",
+    )
+    p.place_window(
+        host=w,
+        offset_mm=4000,
+        width_mm=600,
+        height_mm=600,
+        sill_mm=900,
+        type_id="WIN-VIEW-24x24",
+    )
+    dxf = tmp_path / "p.dxf"
+    export_plan_dxf(p.model, "L1", dxf)
+    text = dxf.read_text(encoding="utf-8")
+    assert "DOORS" in text
+    assert "WINDOWS" in text
+    assert "D1" in text
+    assert "HM-36" in text or "D-HM" in text
+    assert "90m" in text or "90" in text
+    assert "W1" in text
+
+
 def test_room_ceiling_height_schedule():
     from llmbim_drawings.schedules import schedule_rows
 

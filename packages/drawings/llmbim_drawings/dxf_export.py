@@ -137,6 +137,52 @@ def export_plan_dxf(
             mx, my = (x0 + x1) / 2, (y0 + y1) / 2
             ents += _text(mx, my, 100.0, str(short)[:24], "WALL-TYPES")
 
+    # Doors / windows on host walls (plan line + mark + type/FR)
+    wall_by_id = {el.id: el for el in model.query(category="wall", level=lvl.name)}
+    door_n = 0
+    win_n = 0
+    for el in list(model.query(category="door", level=lvl.name)) + list(
+        model.query(category="window", level=lvl.name)
+    ):
+        host = wall_by_id.get(el.host_id or "")
+        if not host:
+            continue
+        try:
+            s = host.params["start_mm"]
+            e = host.params["end_mm"]
+            x0, y0 = float(s[0]), float(s[1])
+            x1, y1 = float(e[0]), float(e[1])
+            length = math.hypot(x1 - x0, y1 - y0)
+            if length < 1:
+                continue
+            off = float(el.params.get("offset_mm") or 0)
+            width_o = float(el.params.get("width_mm") or 900)
+            ux, uy = (x1 - x0) / length, (y1 - y0) / length
+            ax, ay = x0 + ux * off, y0 + uy * off
+            bx, by = x0 + ux * (off + width_o), y0 + uy * (off + width_o)
+            mx, my = x0 + ux * (off + width_o / 2), y0 + uy * (off + width_o / 2)
+        except (KeyError, TypeError, ValueError):
+            continue
+        layer = "DOORS" if el.category == "door" else "WINDOWS"
+        ents += _line(ax, ay, bx, by, layer)
+        if el.category == "door":
+            door_n += 1
+            tag = f"D{door_n}"
+        else:
+            win_n += 1
+            tag = f"W{win_n}"
+        tid = str(el.type_id or el.params.get("type_id") or "")
+        if tid.startswith("D-"):
+            tid = tid[2:]
+        fr = el.params.get("fire_rating") or ""
+        label = tag
+        if tid:
+            label = f"{tag} {tid[:12]}"
+        if fr:
+            fr_s = str(fr).replace(" min", "m").replace("-hr", "HR").replace(" hr", "HR")
+            label = f"{label} {fr_s}".strip()
+        ents += _text(mx, my + 150, 90.0, label[:28], layer)
+
     for el in model.query(category="equipment", level=lvl.name):
         poly = el.params.get("polygon_mm") or []
         if len(poly) < 2:
