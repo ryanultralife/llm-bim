@@ -17,7 +17,7 @@
 |-------------|--------|--------|--------|
 | Semantic BIM model | `.llmbim.json` | ✅ | `llmbim_core` |
 | Industry BIM interchange | IFC4 `.ifc` | ✅ pure SPF: walls/slabs/doors/spaces + **proxy for equip/pipe/fitting/fixture/module** | `llmbim_ifc` |
-| 3D review mesh | glTF | 🟡 walls + equipment boxes | `llmbim_geometry.mesh` |
+| 3D review mesh | glTF | ✅ walls + equipment + **pipe/fitting/fixture/module boxes** | `llmbim_geometry.mesh` |
 | 3D solid exchange | STEP AP203 | ✅ boxes/cylinders assembly | `llmbim_geometry.step_export` |
 | Floor plan | SVG | ✅ | `llmbim_drawings.plan` |
 | Section / elevation | SVG | 🟡 basic | `llmbim_drawings.section` |

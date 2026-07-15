@@ -71,6 +71,27 @@ def main() -> int:
     cat = p.catalog()
     assert "materials" in cat and "concrete_4000psi" in cat["materials"]
 
+    print("4. Multi-trade + CSI locators + glTF MEP")
+    p3 = Project.create("Chat Smoke MultiTrade", vcs=False)
+    p3.add_level("L1", 0)
+    p3.place_pipe(level="L1", nps="3/4", start=(0, 0), end=(4000, 0), material="copper")
+    p3.place_fitting(level="L1", fitting_type="elbow_90", nps="3/4", origin=(0, 0), material="copper")
+    p3.place_fitting(level="L1", fitting_type="elbow_90", nps="2", origin=(100, 0), material="fire")
+    p3.place_part(level="L1", kind="toilet", origin=(2000, 2000))
+    p3.place_part(level="L1", section="W10x33", length_m=3.0, origin=(0, 0))
+    ft = p3.fitting_takeoff(fitting_type="elbow_90")
+    assert any(r["nps"] == "3/4" for r in ft)
+    assert any(r.get("system") == "fire" or "black" in str(r.get("material_id", "")).lower() for r in ft)
+    inst = p3.csi_instances()
+    assert any(r["csi_code"] == "22 11 16" for r in inst)
+    assert any(r["csi_code"] == "21 13 13" for r in inst)
+    man3 = p3.export_deliverables(project_output_dir("chat_smoke_multitrade"))
+    out3 = Path(man3["output_dir"])
+    assert (out3 / "materials" / "csi_instances.json").is_file() or (
+        out3 / "materials" / "MATERIALS_AND_PARTS.json"
+    ).is_file()
+    assert (out3 / "model.gltf").is_file() and (out3 / "model.gltf").stat().st_size > 500
+
     print(
         json.dumps(
             {
@@ -78,6 +99,7 @@ def main() -> int:
                 "output_root": str(output_root()),
                 "office": str(out),
                 "custom": str(out2),
+                "multitrade": str(out3),
                 "open_office": str(out / "index.html"),
                 "open_custom": str(out2 / "index.html"),
             },

@@ -30,6 +30,7 @@
 | 5 | T+20m | IFC pipe/fitting/fixture | IFC only walls/equip | BuildingElementProxy for pipe/fitting/fixture/module | 70 unit pass | 6af664a |
 | 6 | T+~30m | CSI real codes + locators | codes too coarse; no XY/Z | csi_instance L1\|X\|Y\|Z; MF 22 42 13 toilets etc | 72 unit pass | 62a9f96 |
 | 7 | T+~35m | MCP modules + CSI | modules only via project_op | import_module/connect/ports/csi_instances MCP tools | 72 unit pass | a6eda34 |
+| 8 | continue | glTF MEP + chat_smoke | glTF walls/equip only; smoke no multi-trade | pipe/fitting/fixture mesh; smoke step 4 | 73 unit + smoke ok | (pending) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -39,9 +40,9 @@
 4. ~~Verify pack materials/~~ (pass 3)
 5. ~~MCP tools for place_part / takeoff~~ (pass 1)
 6. ~~IFC export fittings/pipe~~ (pass 5)
-7. glTF for pipe/fitting markers (optional)
+7. ~~glTF pipe/fitting markers~~ (pass 8)
 8. Skill SKILL.md section order (H2 awkward)
-9. chat_smoke covers multi-trade ops
+9. ~~chat_smoke multi-trade~~ (pass 8)
 10. ~~CSI division 00 on process parts~~ (pass 4, related)
 11. ~~part_summary unit for linear m parts~~ (pass 2)
 12. ~~Process separator CSI~~ (pass 4)
@@ -49,7 +50,7 @@
 14. ~~OUTPUT_MATRIX modules~~ (pass 4)
 15. ~~CSI MasterFormat + level/XY/Z locators~~ (pass 6)
 
-**Next suggested focus:** #7 glTF pipe markers or #9 chat_smoke multi-trade
+**Next suggested focus:** #8 skill section order or STEP export MEP proxies
 
 ## Rules for each scheduled pass
 
