@@ -1,8 +1,9 @@
 """Minimal IFC4 SPF writer (no ifcopenshell required).
 
 Writes IfcProject / Site / Building / BuildingStorey / Wall / Slab /
-Door / Window / Space / BuildingElementProxy (equipment) with extruded
-area solids where possible. Opens in many IFC viewers (BlenderBIM, FreeCAD).
+Door / Window / Space / BuildingElementProxy (equipment, pipe, fittings,
+fixtures, module envelopes) with extruded area solids where possible.
+Opens in many IFC viewers (BlenderBIM, FreeCAD).
 
 Engineering-estimate geometry — not a certified MVD delivery.
 """
@@ -42,6 +43,91 @@ class _Ifc:
 
 def _esc(s: str) -> str:
     return (s or "").replace("'", "''")[:80]
+
+
+def _export_box_proxy(
+    f: _Ifc,
+    el,
+    owner: int,
+    axis_z: int,
+    axis_x: int,
+    extrude_rect,
+) -> int | None:
+    """IfcBuildingElementProxy from origin_mm + size_mm (equipment, fittings, modules)."""
+    try:
+        o = el.params.get("origin_mm")
+        s = el.params.get("size_mm")
+        if not o or not s:
+            # fittings may only have origin — default small cube
+            if not o:
+                return None
+            s = [100.0, 100.0, 100.0]
+        z0 = float(el.params.get("z0_mm", 0))
+        x0, y0 = float(o[0]), float(o[1])
+        lx, ly, hz = float(s[0]), float(s[1]), float(s[2] if len(s) > 2 else s[1])
+        if lx < 1:
+            lx = 50.0
+        if ly < 1:
+            ly = 50.0
+        if hz < 1:
+            hz = 50.0
+    except (KeyError, TypeError, ValueError, IndexError):
+        return None
+    pt = f.add(f"IFCCARTESIANPOINT(({x0},{y0},{z0}))")
+    a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{axis_x})")
+    loc = f.add(f"IFCLOCALPLACEMENT($,#{a3})")
+    body = extrude_rect(lx, ly, hz)
+    prod = f.add(f"IFCPRODUCTDEFINITIONSHAPE($,$,(#{body}))")
+    tag = el.category.upper()[:20]
+    return f.add(
+        f"IFCBUILDINGELEMENTPROXY('{f.guid()}',#{owner},"
+        f"'{_esc(el.name or el.id)}','{_esc(tag)}',$,#{loc},#{prod},$,.ELEMENT.)"
+    )
+
+
+def _export_pipe_proxy(
+    f: _Ifc,
+    el,
+    owner: int,
+    axis_z: int,
+    extrude_rect,
+) -> int | None:
+    """Pipe run as elongated box along start→end (coordination envelope)."""
+    try:
+        if "start_mm" in el.params and "end_mm" in el.params:
+            s = el.params["start_mm"]
+            e = el.params["end_mm"]
+            x0, y0 = float(s[0]), float(s[1])
+            x1, y1 = float(e[0]), float(e[1])
+            length = math.hypot(x1 - x0, y1 - y0)
+            if length < 1:
+                return None
+            ang = math.atan2(y1 - y0, x1 - x0)
+        elif "origin_mm" in el.params and "size_mm" in el.params:
+            o = el.params["origin_mm"]
+            sz = el.params["size_mm"]
+            x0, y0 = float(o[0]), float(o[1])
+            length = float(sz[0])
+            ang = 0.0
+        else:
+            return None
+        # OD from size or default 50 mm
+        od = 50.0
+        if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
+            od = max(float(el.params["size_mm"][1]), 20.0)
+        z0 = float(el.params.get("z0_mm", 0))
+    except (KeyError, TypeError, ValueError, IndexError):
+        return None
+    pt = f.add(f"IFCCARTESIANPOINT(({x0},{y0},{z0}))")
+    dx_dir = f.add(f"IFCDIRECTION(({math.cos(ang)},{math.sin(ang)},0.))")
+    a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{dx_dir})")
+    loc = f.add(f"IFCLOCALPLACEMENT($,#{a3})")
+    body = extrude_rect(length, od, od)
+    prod = f.add(f"IFCPRODUCTDEFINITIONSHAPE($,$,(#{body}))")
+    return f.add(
+        f"IFCBUILDINGELEMENTPROXY('{f.guid()}',#{owner},"
+        f"'{_esc(el.name or el.id)}','PIPE',$,#{loc},#{prod},$,.ELEMENT.)"
+    )
 
 
 def export_ifc(model: ProjectModel, path: str | Path) -> Path:
@@ -216,24 +302,32 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
             contained[storey].append(slab)
 
         elif el.category == "equipment":
-            try:
-                o = el.params["origin_mm"]
-                s = el.params["size_mm"]
-                z0 = float(el.params.get("z0_mm", 0))
-            except (KeyError, TypeError, ValueError):
-                continue
-            x0, y0 = float(o[0]), float(o[1])
-            lx, ly, hz = float(s[0]), float(s[1]), float(s[2])
-            pt = f.add(f"IFCCARTESIANPOINT(({x0},{y0},{z0}))")
-            a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{axis_x})")
-            loc = f.add(f"IFCLOCALPLACEMENT($,#{a3})")
-            body = extrude_rect(lx, ly, hz)
-            prod = f.add(f"IFCPRODUCTDEFINITIONSHAPE($,$,(#{body}))")
-            proxy = f.add(
-                f"IFCBUILDINGELEMENTPROXY('{f.guid()}',#{owner},"
-                f"'{_esc(el.name or el.id)}',$,$,#{loc},#{prod},$,.ELEMENT.)"
-            )
-            contained[storey].append(proxy)
+            eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect)
+            if eid is not None:
+                contained[storey].append(eid)
+
+        elif el.category in {"pipe", "plumbing_pipe"}:
+            eid = _export_pipe_proxy(f, el, owner, axis_z, extrude_rect)
+            if eid is not None:
+                contained[storey].append(eid)
+
+        elif el.category in {
+            "fitting",
+            "fittings",
+            "fixture",
+            "accessory",
+            "module_instance",
+            "module_root",
+            "steel",
+            "rebar",
+            "framing",
+            "fire_protection",
+            "process_piping",
+        }:
+            # MEP/catalog parts + module envelopes as coordination proxies
+            eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect)
+            if eid is not None:
+                contained[storey].append(eid)
 
         elif el.category == "room":
             try:

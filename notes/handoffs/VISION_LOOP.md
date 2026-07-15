@@ -24,6 +24,7 @@
 | 2 | T+5m | BOQ/takeoff units | steel/rebar listed as ea | quantities + part_assignment unit m/m2; test | 61 unit pass | 6463cca |
 | 3 | T+10m | verify materials pack | verify ignored materials/ | require_materials + CLI flag + tests | 62 unit pass | 6c683b1 |
 | 4 | T+15m | CSI process + matrix modules | sep parts CSI empty; modules undoc'd | flange/cartridge/magnet/pedestal CSI; OUTPUT_MATRIX M6 | 68 unit pass | b5143a5 |
+| 5 | T+20m | IFC pipe/fitting/fixture | IFC only walls/equip | BuildingElementProxy for pipe/fitting/fixture/module | 70 unit pass | (pending) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -32,7 +33,7 @@
 3. ~~BOQ unit for linear steel `m`~~ (pass 2)
 4. ~~Verify pack materials/~~ (pass 3)
 5. ~~MCP tools for place_part / takeoff~~ (pass 1)
-6. IFC export of fittings/pipe categories
+6. ~~IFC export fittings/pipe~~ (pass 5)
 7. glTF for pipe/fitting markers (optional)
 8. Skill SKILL.md section order (H2 awkward)
 9. chat_smoke covers multi-trade ops
@@ -42,7 +43,7 @@
 13. MCP tools for import_module / connect (modules via project_op only)
 14. ~~OUTPUT_MATRIX modules~~ (pass 4)
 
-**Next suggested focus:** #6 IFC fittings/pipe or #13 MCP module tools
+**Next suggested focus:** #13 MCP module tools or #7 glTF pipe markers
 
 ## Rules for each scheduled pass
 
