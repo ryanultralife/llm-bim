@@ -68,6 +68,8 @@ def render_section_svg(
     # Collect wall hits as rectangles in (s, z) space
     rects: list[tuple[float, float, float, float]] = []  # s0, z0, s1, z1
     pipe_marks: list[tuple[float, float, float, str]] = []  # s, z, r, stroke
+    opening_rects: list[tuple[float, float, float, float, str, str]] = []  # s0,z0,s1,z1,fill,label
+    wall_by_id = {el.id: el for el in model.elements if el.category == "wall"}
     for el in model.elements:
         if el.category == "wall":
             ep = _wall_endpoints(el)
@@ -88,6 +90,62 @@ def render_section_svg(
             z1 = z0 + height
             half = 100.0
             rects.append((s - half, z0, s + half, z1))
+        elif el.category in {"door", "window"}:
+            host = wall_by_id.get(el.host_id or "")
+            if not host:
+                continue
+            ep = _wall_endpoints(host)
+            if not ep:
+                continue
+            try:
+                hx0, hy0, hx1, hy1, _t, _wh = ep
+                wlen = math.hypot(hx1 - hx0, hy1 - hy0)
+                if wlen < 1:
+                    continue
+                off = float(el.params.get("offset_mm") or 0)
+                width_o = float(el.params.get("width_mm") or 900)
+                oh = float(el.params.get("height_mm") or (2100 if el.category == "door" else 1200))
+                sill = float(el.params.get("sill_mm") or 0)
+                wux, wuy = (hx1 - hx0) / wlen, (hy1 - hy0) / wlen
+                mx = hx0 + wux * (off + width_o / 2)
+                my = hy0 + wuy * (off + width_o / 2)
+                # host wall near or crossing cut
+                t_host = _segment_intersection_param(
+                    hx0, hy0, hx1, hy1, p0[0], p0[1], p1[0], p1[1]
+                )
+                abx, aby = p1[0] - p0[0], p1[1] - p0[1]
+                L = math.hypot(abx, aby) or 1.0
+                nx, ny = -aby / L, abx / L
+                dist = abs((mx - p0[0]) * nx + (my - p0[1]) * ny)
+                if t_host is None and dist > max(depth_mm, 800.0):
+                    continue
+                # s along cut at opening center (or host intersection)
+                if t_host is not None:
+                    ix = hx0 + t_host * (hx1 - hx0)
+                    iy = hy0 + t_host * (hy1 - hy0)
+                    s = math.hypot(ix - p0[0], iy - p0[1])
+                else:
+                    abx, aby = p1[0] - p0[0], p1[1] - p0[1]
+                    L2 = abx * abx + aby * aby
+                    t_proj = ((mx - p0[0]) * abx + (my - p0[1]) * aby) / L2 if L2 > 1 else 0.0
+                    s = t_proj * cut_len
+                if s < -500 or s > cut_len + 500:
+                    continue
+                base = _level_elev(model, host.level_id)
+                z_bot = base + sill
+                z_top = z_bot + oh
+                half = max(width_o / 4, 100.0)
+                fill = "#c8e6c9" if el.category == "door" else "#bbdefb"
+                tid = str(el.type_id or el.params.get("type_id") or el.category)[:14]
+                fr = el.params.get("fire_rating") or ""
+                lab = tid
+                if fr:
+                    fr_s = str(fr).replace(" min", "m").replace("-hr", "HR")
+                    lab = f"{tid} {fr_s}"
+                opening_rects.append((s - half, z_bot, s + half, z_top, fill, lab))
+                rects.append((s - half, z_bot, s + half, z_top))  # bbox extent
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
         elif el.category == "column" or el.params.get("fitting_type") == "column":
             try:
                 hit = _project_point_to_cut(model, el, p0, p1, cut_len, depth_mm=depth_mm)
@@ -175,11 +233,38 @@ def render_section_svg(
         # skip tiny mep bbox rects drawn as circles instead — only wall-sized
         if (s1 - s0) < 80 and (z1 - z0) < 80:
             continue
+        # skip openings — drawn in openings-section
+        if any(
+            abs(s0 - os0) < 1 and abs(s1 - os1) < 1 and abs(z0 - oz0) < 1 and abs(z1 - oz1) < 1
+            for os0, oz0, os1, oz1, _f, _l in opening_rects
+        ):
+            continue
         x, y = project(s0, z1)
         w = (s1 - s0) * scale
         h = (z1 - z0) * scale
         parts.append(f'    <rect x="{fmt(x)}" y="{fmt(y)}" width="{fmt(w)}" height="{fmt(h)}"/>')
     parts.append("  </g>")
+    if opening_rects:
+        parts.append(
+            '  <g class="openings-section" stroke="#1565c0" stroke-width="1" '
+            'font-family="sans-serif" text-anchor="middle">'
+        )
+        for s0, z0, s1, z1, fill, lab in opening_rects:
+            x, y = project(s0, z1)
+            w = (s1 - s0) * scale
+            h = (z1 - z0) * scale
+            if w < 0.1:
+                continue
+            parts.append(
+                f'    <rect x="{fmt(x)}" y="{fmt(y)}" width="{fmt(w)}" height="{fmt(h)}" '
+                f'fill="{fill}"/>'
+            )
+            mx, my = project((s0 + s1) / 2, z1)
+            parts.append(
+                f'    <text x="{fmt(mx)}" y="{fmt(my - 2)}" font-size="{fmt(max(6, 9))}" '
+                f'fill="#0d47a1">{esc(lab[:18])}</text>'
+            )
+        parts.append("  </g>")
     parts.append('  <g class="pipes-section" fill="none" stroke-width="1.5">')
     for s, z, r, stroke in pipe_marks:
         cx, cy = project(s, z)
