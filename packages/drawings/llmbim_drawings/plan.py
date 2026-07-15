@@ -298,11 +298,17 @@ def render_plan_view(
         f'fill="none" stroke-linecap="round">'
     )
     for el in mep_els:
-        if el.category not in {"pipe", "plumbing_pipe"} and el.params.get("fitting_type") != "pipe":
+        is_conduit = el.category == "conduit" or el.params.get("fitting_type") == "conduit"
+        if (
+            el.category not in {"pipe", "plumbing_pipe", "conduit"}
+            and el.params.get("fitting_type") not in {"pipe", "conduit"}
+        ):
             continue
         try:
             mid = str(el.params.get("material_id") or "")
             stroke = "#c45c26"
+            if is_conduit:
+                stroke = "#6a1b9a"
             if "black" in mid or el.params.get("system") in ("FP", "fire"):
                 stroke = "#333333"
             if "ss316" in mid or el.params.get("system") in ("PROC", "process"):

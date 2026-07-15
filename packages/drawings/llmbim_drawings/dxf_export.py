@@ -151,9 +151,13 @@ def export_plan_dxf(
     for el in model.elements:
         if el.level_id != lvl.id:
             continue
-        if el.category in {"pipe", "plumbing_pipe"} or el.params.get("fitting_type") == "pipe":
-            layer = _pipe_layer(el)
-            nps = el.params.get("nps")
+        if (
+            el.category in {"pipe", "plumbing_pipe", "conduit"}
+            or el.params.get("fitting_type") in {"pipe", "conduit"}
+        ):
+            is_conduit = el.category == "conduit" or el.params.get("fitting_type") == "conduit"
+            layer = "CONDUIT" if is_conduit else _pipe_layer(el)
+            nps = el.params.get("nps") or el.params.get("trade_size")
             # vertical riser: plan symbol = concentric circles + R label
             if el.params.get("vertical") or el.params.get("orientation") == "vertical":
                 o = el.params.get("origin_mm") or el.params.get("start_mm")

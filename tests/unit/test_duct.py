@@ -44,3 +44,21 @@ def test_duct_on_plan_and_dxf(tmp_path: Path):
     export_plan_dxf(p.model, "L1", dxf)
     text = dxf.read_text(encoding="utf-8")
     assert "DUCT" in text
+
+
+def test_place_conduit_csi():
+    p = Project.create("conduit", vcs=False)
+    p.add_level("L1", 0)
+    eid = p.place_conduit(
+        level="L1",
+        start=(0, 0),
+        end=(10000, 0),
+        trade_size="1",
+        system="P",
+    )
+    el = p.model.get_element(eid)
+    assert el.category == "conduit"
+    assert abs(float(el.params["length_m"]) - 10.0) < 0.01
+    row = next(r for r in p.csi_instances() if r.get("element_id") == eid)
+    assert row["csi_code"] == "26 05 33"
+    assert "NPS1" in str(row.get("locator", "")) or row.get("nps") == "1"
