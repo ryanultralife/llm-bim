@@ -61,6 +61,7 @@
 | 35 | continue | room ceiling height | rooms area-only | height_mm/ceiling_height_mm on room + schedule | 104 unit | d72f0c0 |
 | 36 | continue | BOQ+MCP duct/conduit | BOQ skipped MEP duct; MCP no place | BOQ m2/m; MCP place_duct/conduit; glTF | 105 unit | cfd2ae5 |
 | 37 | continue | door/window type marks | plan only D1/W1 | type_id on place + opening-type on plan; matrix duct/conduit | 106 unit | d8b3d09 |
+| 38 | continue | glTF system colors | one gray mesh for all MEP | multi-material glTF copper/fire/duct/conduit | 107 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -121,7 +122,7 @@
 54. ~~HTML connections schedule~~ (pass 34)
 55. ~~Ceiling height / room height_mm~~ (pass 35)
 56. ~~Door/window type marks on plan (beyond D1/W1)~~ (pass 37)
-57. glTF materials by system color (pipe/duct/conduit) — geometry yes, color TBD
+57. ~~glTF materials by system color (pipe/duct/conduit)~~ (pass 38)
 58. ~~BOQ include duct area_m2 + conduit length~~ (pass 36)
 59. ~~MCP place_duct / place_conduit tools~~ (pass 36)
 60. Phase filters on export pack
