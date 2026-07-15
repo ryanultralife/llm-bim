@@ -67,6 +67,22 @@ _PROXY_CATS = {
     "process_piping",
 }
 
+# System / category → glTF baseColorFactor (RGBA) for coordination review
+_MATERIAL_RGBA: dict[str, list[float]] = {
+    "wall": [0.72, 0.72, 0.72, 1.0],
+    "equipment": [0.42, 0.62, 0.88, 1.0],
+    "pipe_copper": [0.77, 0.36, 0.15, 1.0],  # plan SVG orange
+    "pipe_fire": [0.2, 0.2, 0.2, 1.0],
+    "pipe_process": [0.42, 0.49, 0.54, 1.0],
+    "pipe_pvc": [0.9, 0.85, 0.29, 1.0],
+    "duct": [0.18, 0.49, 0.2, 1.0],  # green
+    "conduit": [0.42, 0.11, 0.6, 1.0],  # purple
+    "fitting": [0.95, 0.6, 0.2, 1.0],
+    "fixture": [0.45, 0.35, 0.65, 1.0],
+    "module": [0.55, 0.55, 0.7, 1.0],
+    "default": [0.6, 0.6, 0.6, 1.0],
+}
+
 
 def _append_box(
     all_pos: list[float],
@@ -109,6 +125,8 @@ def _box_from_pipe(el: Element, model: ProjectModel) -> list[float]:
         od = 50.0
         if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
             od = max(float(el.params["size_mm"][1]), 20.0)
+        if el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct":
+            od = float(el.params.get("width_mm") or od)
         # vertical riser: box at XY spanning z0→z1
         if el.params.get("vertical") or el.params.get("orientation") == "vertical":
             o = el.params.get("origin_mm") or el.params.get("start_mm") or [0, 0]
@@ -132,16 +150,56 @@ def _box_from_pipe(el: Element, model: ProjectModel) -> list[float]:
             return []
         z0_off = float(el.params.get("z0_mm", 0))
         z0 = _level_z(model, el.level_id) + z0_off
-        return _wall_box_positions(x0, y0, x1, y1, od, z0, z0 + od)
+        elev_h = od
+        if el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct":
+            elev_h = float(el.params.get("height_mm") or 250)
+        return _wall_box_positions(x0, y0, x1, y1, od, z0, z0 + elev_h)
     except (KeyError, TypeError, ValueError, IndexError):
         return []
 
 
+def _gltf_material_key(el: Element) -> str:
+    """Pick coordination material bucket for multi-trade glTF colors."""
+    cat = el.category or ""
+    if cat == "wall":
+        return "wall"
+    if cat == "equipment":
+        return "equipment"
+    if cat in {"duct", "hvac"} or el.params.get("fitting_type") == "duct":
+        return "duct"
+    if cat == "conduit" or el.params.get("fitting_type") == "conduit":
+        return "conduit"
+    if cat in {"fixture", "accessory"}:
+        return "fixture"
+    if cat in {"module_instance", "module_root"}:
+        return "module"
+    if cat in {"fitting", "fittings"}:
+        return "fitting"
+    if cat in {"pipe", "plumbing_pipe"} or el.params.get("fitting_type") == "pipe":
+        mid = str(el.params.get("material_id") or "").lower()
+        sys = str(el.params.get("system") or "").lower()
+        if "black" in mid or sys in ("fp", "fire", "fire_protection"):
+            return "pipe_fire"
+        if "ss316" in mid or sys in ("proc", "process"):
+            return "pipe_process"
+        if "pvc" in mid:
+            return "pipe_pvc"
+        return "pipe_copper"
+    if cat in _PROXY_CATS:
+        return "default"
+    return "default"
+
+
 def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
-    """Write glTF 2.0 JSON: walls + equipment + pipe/fitting/fixture/module boxes."""
-    all_pos: list[float] = []
-    all_idx: list[int] = []
-    base = 0
+    """Write glTF 2.0 JSON: walls + equipment + MEP with system-colored materials."""
+    # bucket → positions + local indices
+    buckets: dict[str, dict] = {}
+
+    def _ensure(key: str) -> dict:
+        if key not in buckets:
+            buckets[key] = {"pos": [], "idx": [], "base": 0}
+        return buckets[key]
+
     for el in model.elements:
         pos: list[float] = []
         if el.category == "wall":
@@ -168,72 +226,146 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
                 pos = _box_from_origin_size(el, model)
         else:
             continue
-        base = _append_box(all_pos, all_idx, base, pos)
+        if not pos:
+            continue
+        key = _gltf_material_key(el)
+        b = _ensure(key)
+        b["base"] = _append_box(b["pos"], b["idx"], b["base"], pos)
 
-    if not all_pos:
-        all_pos = [0, 0, 0, 1, 0, 0, 1, 0, 1]
-        all_idx = [0, 1, 2]
+    if not buckets:
+        buckets["default"] = {
+            "pos": [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0],
+            "idx": [0, 1, 2],
+            "base": 3,
+        }
 
-    # Encode as base64-less glTF with embedded buffer as raw component arrays via accessors
-    # Use a simple approach: put data in a buffer as little-endian binary base64
     import base64
     import struct
 
+    all_pos: list[float] = []
+    all_idx: list[int] = []
+    # (mat_key, pos_float_offset, n_verts, idx_start, n_idx)
+    prim_meta: list[tuple[str, int, int, int, int]] = []
+    vert_base = 0
+    for key, b in buckets.items():
+        pos = b["pos"]
+        idx = b["idx"]
+        if not pos or not idx:
+            continue
+        pos_start = len(all_pos)
+        n_verts = len(pos) // 3
+        all_pos.extend(pos)
+        idx_start = len(all_idx)
+        for i in idx:
+            all_idx.append(vert_base + i)
+        prim_meta.append((key, pos_start, n_verts, idx_start, len(idx)))
+        vert_base += n_verts
+
     pos_bytes = b"".join(struct.pack("<f", float(v)) for v in all_pos)
     idx_bytes = b"".join(struct.pack("<H", int(i)) for i in all_idx)
-    # pad idx to 4-byte align
     pad = (4 - (len(idx_bytes) % 4)) % 4
     idx_bytes_padded = idx_bytes + (b"\x00" * pad)
     blob = pos_bytes + idx_bytes_padded
     b64 = base64.b64encode(blob).decode("ascii")
     uri = f"data:application/octet-stream;base64,{b64}"
 
-    n_verts = len(all_pos) // 3
-    max_x = max(all_pos[0::3]) if all_pos else 1
-    max_y = max(all_pos[1::3]) if all_pos else 1
-    max_z = max(all_pos[2::3]) if all_pos else 1
-    min_x = min(all_pos[0::3]) if all_pos else 0
-    min_y = min(all_pos[1::3]) if all_pos else 0
-    min_z = min(all_pos[2::3]) if all_pos else 0
+    n_verts_total = len(all_pos) // 3
+    max_x = max(all_pos[0::3]) if all_pos else 1.0
+    max_y = max(all_pos[1::3]) if all_pos else 1.0
+    max_z = max(all_pos[2::3]) if all_pos else 1.0
+    min_x = min(all_pos[0::3]) if all_pos else 0.0
+    min_y = min(all_pos[1::3]) if all_pos else 0.0
+    min_z = min(all_pos[2::3]) if all_pos else 0.0
+
+    mat_keys: list[str] = []
+    for key, *_ in prim_meta:
+        if key not in mat_keys:
+            mat_keys.append(key)
+    materials = []
+    for key in mat_keys:
+        rgba = _MATERIAL_RGBA.get(key, _MATERIAL_RGBA["default"])
+        materials.append(
+            {
+                "name": key,
+                "pbrMetallicRoughness": {
+                    "baseColorFactor": rgba,
+                    "metallicFactor": 0.1,
+                    "roughnessFactor": 0.85,
+                },
+            }
+        )
+    mat_index = {k: i for i, k in enumerate(mat_keys)}
+
+    buffer_views = [
+        {"buffer": 0, "byteOffset": 0, "byteLength": len(pos_bytes), "target": 34962},
+        {
+            "buffer": 0,
+            "byteOffset": len(pos_bytes),
+            "byteLength": len(idx_bytes),
+            "target": 34963,
+        },
+    ]
+
+    # accessors[0] always = full vertex count (tests + simple clients)
+    accessors: list[dict] = [
+        {
+            "bufferView": 0,
+            "byteOffset": 0,
+            "componentType": 5126,
+            "count": n_verts_total,
+            "type": "VEC3",
+            "max": [max_x, max_y, max_z],
+            "min": [min_x, min_y, min_z],
+        }
+    ]
+    primitives: list[dict] = []
+    for key, pos_start, n_verts, idx_start, n_idx in prim_meta:
+        pslice = all_pos[pos_start : pos_start + n_verts * 3]
+        pos_acc = len(accessors)
+        accessors.append(
+            {
+                "bufferView": 0,
+                "byteOffset": pos_start * 4,
+                "componentType": 5126,
+                "count": n_verts,
+                "type": "VEC3",
+                "max": [max(pslice[0::3]), max(pslice[1::3]), max(pslice[2::3])],
+                "min": [min(pslice[0::3]), min(pslice[1::3]), min(pslice[2::3])],
+            }
+        )
+        idx_acc = len(accessors)
+        accessors.append(
+            {
+                "bufferView": 1,
+                "byteOffset": idx_start * 2,
+                "componentType": 5123,
+                "count": n_idx,
+                "type": "SCALAR",
+            }
+        )
+        primitives.append(
+            {
+                "attributes": {"POSITION": pos_acc},
+                "indices": idx_acc,
+                "mode": 4,
+                "material": mat_index[key],
+            }
+        )
 
     gltf = {
         "asset": {"version": "2.0", "generator": "llm-bim"},
         "buffers": [{"byteLength": len(blob), "uri": uri}],
-        "bufferViews": [
-            {"buffer": 0, "byteOffset": 0, "byteLength": len(pos_bytes), "target": 34962},
-            {
-                "buffer": 0,
-                "byteOffset": len(pos_bytes),
-                "byteLength": len(idx_bytes),
-                "target": 34963,
-            },
-        ],
-        "accessors": [
-            {
-                "bufferView": 0,
-                "componentType": 5126,
-                "count": n_verts,
-                "type": "VEC3",
-                "max": [max_x, max_y, max_z],
-                "min": [min_x, min_y, min_z],
-            },
-            {
-                "bufferView": 1,
-                "componentType": 5123,
-                "count": len(all_idx),
-                "type": "SCALAR",
-            },
-        ],
-        "meshes": [
-            {
-                "primitives": [
-                    {"attributes": {"POSITION": 0}, "indices": 1, "mode": 4}
-                ]
-            }
-        ],
+        "bufferViews": buffer_views,
+        "accessors": accessors,
+        "materials": materials,
+        "meshes": [{"name": "llm-bim-model", "primitives": primitives}],
         "nodes": [{"mesh": 0, "name": model.name}],
         "scenes": [{"nodes": [0]}],
         "scene": 0,
+        "extras": {
+            "material_legend": {k: _MATERIAL_RGBA.get(k) for k in mat_keys},
+            "honesty": "ENGINEERING ESTIMATE coordination colors — not fabrication materials",
+        },
     }
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
