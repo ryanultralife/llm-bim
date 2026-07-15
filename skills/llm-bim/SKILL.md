@@ -172,7 +172,7 @@ python examples/plumbing_loop.py   # demo → output/plumbing_loop/COPPER_90_ELB
 
 Catalog: copper Type L pipe + 90/45 elbows, tees, couplings, caps, unions, ball valves (NPS ½–4"); PVC Sch40 subset. Part ids like `PT-CU-ELB90-1_2`, `PT-CU-PIPE-3_4`.
 
-### H2. All trades (fire, process, steel, rebar, framing, fixtures)
+### I. All trades (fire, process, steel, rebar, framing, fixtures)
 
 ```python
 # Fire sprinkler black steel
@@ -211,7 +211,7 @@ python examples/multi_trade_catalog.py
 
 Systems: `plumbing` · `fire` · `process` · `structural_steel` · `rebar` · `framing` · `fixture` / accessories · `hvac` · `electrical`. CSI divisions 03–10, 21–23, 26, 40, 43.
 
-### H3. Modules / blocks / machines (import into one another)
+### J. Modules / blocks / machines (import into one another)
 
 Nest drawings and fabrications into a host model:
 
@@ -248,7 +248,7 @@ python examples/module_machine_host.py
 
 Exports expand blocks to solids for IFC/STEP/glTF; the saved host model keeps instances.
 
-### I. Scripted generative design
+### K. Scripted generative design
 
 ```python
 # build.py
