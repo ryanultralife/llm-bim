@@ -235,6 +235,7 @@ def export_deliverables(
     schedules.mkdir(exist_ok=True)
     for kind in (
         "room",
+        "zone",
         "door",
         "window",
         "wall",
@@ -245,10 +246,11 @@ def export_deliverables(
         "material",
         "csi",
     ):
+        fname = "zone_areas.csv" if kind == "zone" else f"{kind}.csv"
         _try(
             f"schedule_{kind}",
             errors,
-            lambda k=kind: export_schedule_csv(work, k, schedules / f"{k}.csv"),
+            lambda k=kind, f=fname: export_schedule_csv(work, k, schedules / f),
         )
 
     # Materials / parts / plumbing takeoff package

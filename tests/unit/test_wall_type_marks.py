@@ -69,3 +69,27 @@ def test_door_window_type_marks_on_plan(tmp_path: Path):
     assert "HM-36" in text
     assert "opening-type" in text
     assert "WIN-VIEW" in text or "VIEW-24" in text
+
+
+def test_zone_area_schedule_with_volume(tmp_path: Path):
+    from llmbim_drawings.schedules import export_schedule_csv, schedule_rows
+
+    p = Project.create("zones", vcs=False)
+    p.add_level("L1", 0)
+    p.create_room(
+        level="L1",
+        name="Office A",
+        boundary=[(0, 0), (5000, 0), (5000, 4000), (0, 4000)],
+        height_mm=2700,
+    )
+    rows = schedule_rows(p.model, "zone")
+    assert rows
+    assert rows[0]["name"] == "Office A"
+    assert rows[0]["level"] == "L1"
+    assert abs(float(rows[0]["area_m2"]) - 20.0) < 0.01  # 5m x 4m
+    assert rows[0]["height_mm"] == 2700
+    assert abs(float(rows[0]["volume_m3"]) - 54.0) < 0.1  # 20 * 2.7
+    export_schedule_csv(p.model, "zone", tmp_path / "zone_areas.csv")
+    text = (tmp_path / "zone_areas.csv").read_text(encoding="utf-8")
+    assert "volume_m3" in text
+    assert "Office A" in text
