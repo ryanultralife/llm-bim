@@ -62,6 +62,20 @@ def test_broken_connection():
     assert any(f["rule"] == "BROKEN_CONNECTION" for f in findings)
 
 
+def test_structure_column_in_wall_and_beam_low():
+    p = Project.create("struct-rules", vcs=False)
+    p.add_level("L1", 0)
+    p.create_wall(level="L1", start=(0, 0), end=(8000, 0), thickness_mm=200, height_mm=3500)
+    # column centered on wall → COLUMN_IN_WALL
+    p.place_column(level="L1", origin=(4000, 0), section="W10x33", height_mm=3500)
+    # low beam → BEAM_LOW_CLEARANCE
+    p.place_beam(level="L1", start=(0, 2000), end=(6000, 2000), section="W12x26", z0_mm=1800)
+    findings = run_design_rules(p.model)
+    rules = {f["rule"] for f in findings}
+    assert "COLUMN_IN_WALL" in rules
+    assert "BEAM_LOW_CLEARANCE" in rules
+
+
 def test_duct_in_wall_and_low_clearance():
     p = Project.create("duct-rules", vcs=False)
     p.add_level("L1", 0)

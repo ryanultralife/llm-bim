@@ -115,6 +115,8 @@ llmbim query model.llmbim.json "category=equipment kind=shell"
 llmbim query model.llmbim.json "room~Restroom category=fitting"
 llmbim query model.llmbim.json "csi~22_11"          # MasterFormat (use _ for spaces)
 llmbim query model.llmbim.json "vertical=true nps=2"  # risers
+llmbim query model.llmbim.json "category=column section=W10x33"
+llmbim query model.llmbim.json "category=conduit trade_size=1"
 ```
 
 ### F. Extensible ops

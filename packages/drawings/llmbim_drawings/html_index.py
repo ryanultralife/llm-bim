@@ -195,8 +195,8 @@ def write_pack_index(out_dir: str | Path) -> Path:
     legend = """
 <h2>MEP / layers legend</h2>
 <ul>
-<li><strong>Plan SVG</strong> — copper pipes orange; fire black steel dark; process SS gray; PVC yellow; risers = concentric circles; ducts green; conduit purple</li>
-<li><strong>DXF layers</strong> — WALLS, EQUIP, ROOMS, PIPE-CU/FP/SS, DUCT, CONDUIT, FITTINGS (risers = CIRCLE)</li>
+<li><strong>Plan SVG</strong> — copper pipes orange; fire black steel dark; process SS gray; PVC yellow; risers = concentric circles; ducts green; conduit purple; cable tray dashed purple; columns X-marks; beams gray</li>
+<li><strong>DXF layers</strong> — WALLS, EQUIP, ROOMS, PIPE-CU/FP/SS, DUCT, CONDUIT, CABLE-TRAY, COLUMNS, BEAMS, FITTINGS (risers = CIRCLE)</li>
 <li><strong>CSI</strong> — e.g. <code>22 11 16</code> domestic water, <code>21 13 13</code> wet sprinkler, <code>22 42 13</code> water closets</li>
 <li><strong>Locator</strong> — <code>L1|RM:Restroom_A|X1200Y3400|Z900|NPS3/4|RISER</code></li>
 <li><strong>Honesty</strong> — ENGINEERING ESTIMATE envelopes/takeoff; not PE-sealed CDs</li>

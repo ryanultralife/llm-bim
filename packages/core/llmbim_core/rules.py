@@ -460,6 +460,96 @@ def _mep_design_rules(model: ProjectModel) -> list[dict[str, Any]]:
                     }
                 )
 
+    # Structural steel constructability
+    columns = [
+        el
+        for el in model.elements
+        if el.category == "column" or el.params.get("fitting_type") == "column"
+    ]
+    beams = [
+        el
+        for el in model.elements
+        if el.category == "beam" or el.params.get("fitting_type") == "beam"
+    ]
+    for el in columns:
+        if not el.params.get("section"):
+            findings.append(
+                {
+                    "rule": "COLUMN_MISSING_SECTION",
+                    "severity": "warning",
+                    "message": f"Column {el.name or el.id} has no steel section mark",
+                    "element_id": el.id,
+                    "domain": "structure",
+                }
+            )
+        cb = element_aabb(el, model)
+        if not cb:
+            continue
+        for wall, wb in walls:
+            if not wb or el.level_id != wall.level_id:
+                continue
+            if cb.intersects(wb, tol=1.0):
+                findings.append(
+                    {
+                        "rule": "COLUMN_IN_WALL",
+                        "severity": "warning",
+                        "message": (
+                            f"Column {el.name or el.id} intersects wall {wall.name or wall.id} "
+                            f"(embed / chase conflict)"
+                        ),
+                        "element_id": el.id,
+                        "domain": "structure",
+                    }
+                )
+                break
+    for el in beams:
+        if not el.params.get("section"):
+            findings.append(
+                {
+                    "rule": "BEAM_MISSING_SECTION",
+                    "severity": "warning",
+                    "message": f"Beam {el.name or el.id} has no steel section mark",
+                    "element_id": el.id,
+                    "domain": "structure",
+                }
+            )
+        z0 = float(el.params.get("z0_mm") or 0)
+        depth = float(el.params.get("height_mm") or el.params.get("depth_mm") or 300)
+        # bottom of beam under 2.1 m clear is headroom note
+        if z0 < 2100:
+            findings.append(
+                {
+                    "rule": "BEAM_LOW_CLEARANCE",
+                    "severity": "info",
+                    "message": (
+                        f"Beam {el.name or el.id} z0={z0:.0f} mm depth={depth:.0f} mm "
+                        f"— check headroom / door swing"
+                    ),
+                    "element_id": el.id,
+                    "domain": "structure",
+                }
+            )
+        bb = element_aabb(el, model)
+        if not bb:
+            continue
+        for wall, wb in walls:
+            if not wb or el.level_id != wall.level_id:
+                continue
+            if bb.intersects(wb, tol=1.0):
+                findings.append(
+                    {
+                        "rule": "BEAM_IN_WALL",
+                        "severity": "warning",
+                        "message": (
+                            f"Beam {el.name or el.id} intersects wall {wall.name or wall.id} "
+                            f"(bearing / opening conflict)"
+                        ),
+                        "element_id": el.id,
+                        "domain": "structure",
+                    }
+                )
+                break
+
     return findings
 
 
