@@ -269,6 +269,35 @@ def export_plan_dxf(
             ents += _line(ox, oy - r, ox, oy + r, "FITTINGS")
             label = el.params.get("nps") or el.params.get("fitting_type") or el.name or "FIT"
             ents += _text(ox + r, oy + r, 70.0, str(label)[:20], "PIPE-TEXT")
+        elif el.category == "column" or el.params.get("fitting_type") == "column":
+            o = el.params.get("origin_mm")
+            if not o:
+                continue
+            ox, oy = float(o[0]), float(o[1])
+            sz = el.params.get("size_mm") or [250, 250, 3000]
+            half_x = float(sz[0]) / 2
+            half_y = float(sz[1]) / 2 if len(sz) > 1 else half_x
+            # plan square
+            ents += _line(ox - half_x, oy - half_y, ox + half_x, oy - half_y, "COLUMNS")
+            ents += _line(ox + half_x, oy - half_y, ox + half_x, oy + half_y, "COLUMNS")
+            ents += _line(ox + half_x, oy + half_y, ox - half_x, oy + half_y, "COLUMNS")
+            ents += _line(ox - half_x, oy + half_y, ox - half_x, oy - half_y, "COLUMNS")
+            # X mark
+            ents += _line(ox - half_x * 0.6, oy - half_y * 0.6, ox + half_x * 0.6, oy + half_y * 0.6, "COLUMNS")
+            ents += _line(ox - half_x * 0.6, oy + half_y * 0.6, ox + half_x * 0.6, oy - half_y * 0.6, "COLUMNS")
+            sec = el.params.get("section") or el.name or "COL"
+            ents += _text(ox, oy - half_y - 120, 100.0, str(sec)[:20], "COLUMNS")
+        elif el.category == "beam" or el.params.get("fitting_type") == "beam":
+            try:
+                s = el.params["start_mm"]
+                e = el.params["end_mm"]
+                x0, y0 = float(s[0]), float(s[1])
+                x1, y1 = float(e[0]), float(e[1])
+                ents += _line(x0, y0, x1, y1, "BEAMS")
+                sec = el.params.get("section") or "BM"
+                ents += _text((x0 + x1) / 2, (y0 + y1) / 2, 90.0, str(sec)[:20], "BEAMS")
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
 
     for g in model.grids:
         axis = g.params.get("axis", "U")

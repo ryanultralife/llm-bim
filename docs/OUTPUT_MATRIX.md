@@ -20,7 +20,7 @@
 | 3D review mesh | glTF | ✅ walls + equipment + MEP + **system materials** (copper/fire/duct/conduit colors) | `llmbim_geometry.mesh` |
 | 3D solid exchange | STEP AP203 | ✅ boxes/cylinders + MEP + **LAYER:name** PRODUCT tags (PIPE-CU/FP/DUCT/…) | `llmbim_geometry.step_export` |
 | Floor plan | SVG | ✅ walls + openings + equip + **pipes/fittings/fixtures + riser circles + ducts** | `llmbim_drawings.plan` |
-| Plan DXF | DXF R12 | ✅ walls/equip/rooms + **PIPE-CU/FP/SS + riser CIRCLE + DUCT** | `llmbim_drawings.dxf_export` |
+| Plan DXF | DXF R12 | ✅ walls/equip/rooms + MEP + **COLUMNS/BEAMS** + grids | `llmbim_drawings.dxf_export` |
 | Elevation DXF | DXF R12 | ✅ walls + MEP (X=plan, Y=Z) + LEVELS | `export_elevation_dxf` |
 | Section DXF | DXF R12 | ✅ cut plane + walls/MEP + LEVELS | `export_section_dxf` |
 | Section / elevation | SVG | ✅ walls/equip + MEP + **storey height dims** | `llmbim_drawings.section` |
@@ -101,8 +101,8 @@ Project.export_deliverables(out_dir)
 |---------|--------|
 | Python SDK `llmbim.Project` | ✅ |
 | CLI `llmbim` | ✅ pack, **schedule**, takeoff, place MEP, csi_instances, modules, VCS, … |
-| Registry ops + `ops.schema.json` | ✅ ~40 tools |
-| MCP stdio | ✅ takeoff/parts + place MEP + **export_pack phases** + set_phase + modules/CSI |
+| Registry ops + `ops.schema.json` | ✅ ~45 tools (duct/conduit/tray/column/beam) |
+| MCP stdio | ✅ takeoff/parts + place MEP/structure + **export_pack phases** + set_phase + modules/CSI |
 | Skill `skills/llm-bim/SKILL.md` | ✅ |
 | Templates | ✅ office_bay, warehouse, hot_cell_bay, lab_bench |
 | Cases | ✅ intec, proto10, plumbing_loop, multi_trade, module_machine_host |
