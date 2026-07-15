@@ -490,8 +490,8 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
                 _link_to_space(el, eid)
                 _attach_csi_pset(f, owner, eid, model, el)
 
-        elif el.category in {"duct", "hvac"}:
-            # rectangular duct as FlowSegment envelope
+        elif el.category in {"duct", "hvac", "cable_tray"}:
+            # rectangular duct / cable tray as FlowSegment envelope
             eid = _export_pipe_proxy(f, el, owner, axis_z, extrude_rect)
             if eid is None:
                 eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect)

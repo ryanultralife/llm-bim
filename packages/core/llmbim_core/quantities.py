@@ -264,6 +264,7 @@ def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
         is_pipe = el.category in {"pipe", "plumbing_pipe"} or ftype == "pipe"
         is_conduit = el.category == "conduit" or ftype == "conduit"
         is_duct = el.category in {"duct", "hvac"} or ftype == "duct"
+        is_tray = el.category == "cable_tray" or ftype == "cable_tray"
         is_pipe_fitting = el.category in {"fitting", "fittings"} or (
             ftype in _PIPE_FIT_TYPES
         )
@@ -277,7 +278,45 @@ def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
             "grid",
             "equipment",  # already emitted above
         }
-        if not is_pipe and not is_pipe_fitting and not is_catalog and not is_duct and not is_conduit:
+        if (
+            not is_pipe
+            and not is_pipe_fitting
+            and not is_catalog
+            and not is_duct
+            and not is_conduit
+            and not is_tray
+        ):
+            continue
+
+        if is_tray:
+            length_m = float(el.params.get("length_m") or 0)
+            if not length_m and el.params.get("length_mm"):
+                length_m = float(el.params["length_mm"]) / 1000.0
+            unit_cost = part_unit_cost(part) if part else 28.0
+            rows.append(
+                {
+                    "category": "cable_tray",
+                    "id": el.id,
+                    "name": el.name,
+                    "type_id": str(pid or "PT-ELEC-CABLE-TRAY"),
+                    "type_name": part.name if part else "cable tray",
+                    "qty": round(length_m, 3),
+                    "unit": "m",
+                    "secondary_qty": el.params.get("width_mm"),
+                    "secondary_unit": "width_mm",
+                    "est_cost": round(length_m * unit_cost, 2),
+                    "phase": el.params.get("phase", "new"),
+                    "csi_code": el.params.get("csi_code")
+                    or (part.csi_code if part else "26 05 36"),
+                    "materials": [
+                        {
+                            "material": el.params.get("material_id") or "galv_steel",
+                            "width_mm": el.params.get("width_mm"),
+                        }
+                    ],
+                }
+            )
+            seen_ids.add(el.id)
             continue
 
         if is_duct:

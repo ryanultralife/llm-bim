@@ -457,6 +457,9 @@ def cmd_takeoff(args: argparse.Namespace) -> int:
     if kind in ("conduit", "electrical"):
         print(json.dumps({"conduit": p.conduit_takeoff()}, indent=2, default=str))
         return 0
+    if kind in ("cable_tray", "tray"):
+        print(json.dumps({"cable_tray": p.cable_tray_takeoff()}, indent=2, default=str))
+        return 0
     if kind == "plumbing":
         print(json.dumps(p.plumbing_schedule(), indent=2))
         return 0
@@ -594,6 +597,21 @@ def cmd_place(args: argparse.Namespace) -> int:
             material=args.material or "steel_A36",
         )
         result = {"element_id": eid, "kind": "conduit"}
+    elif kind in ("cable_tray", "tray"):
+        if not args.end:
+            raise SystemExit("place cable_tray requires --end x,y")
+        end = _parse_xy(args.end)
+        eid = p.place_cable_tray(
+            level=level,
+            start=origin,
+            end=end,
+            width_mm=float(args.width if args.width is not None else 300),
+            height_mm=float(args.height if args.height is not None else 100),
+            name=args.name,
+            system=args.system or "PWR",
+            material=args.material or "galv_steel",
+        )
+        result = {"element_id": eid, "kind": "cable_tray"}
     else:
         raise SystemExit(f"Unknown place kind: {kind}")
     # persist back to path
@@ -921,8 +939,10 @@ def main(argv: list[str] | None = None) -> int:
             "hvac",
             "conduit",
             "electrical",
+            "cable_tray",
+            "tray",
         ],
-        help="fittings|pipe|plumbing|fire|steel|rebar|csi|duct|hvac|conduit|electrical|trades|fixture",
+        help="fittings|pipe|plumbing|fire|steel|rebar|csi|duct|conduit|cable_tray|trades|fixture",
     )
     p_tk.add_argument("--fitting-type", default=None, help="elbow_90 | tee | sprinkler_head | ...")
     p_tk.add_argument("--nps", default=None)
@@ -939,7 +959,7 @@ def main(argv: list[str] | None = None) -> int:
     p_pl.add_argument(
         "--kind",
         required=True,
-        choices=["fitting", "pipe", "riser", "part", "duct", "conduit"],
+        choices=["fitting", "pipe", "riser", "part", "duct", "conduit", "cable_tray", "tray"],
         help="What to place",
     )
     p_pl.add_argument("--width", type=float, default=None, help="Duct width mm")

@@ -602,3 +602,73 @@ def place_conduit(
         "trade_size": trade_size,
         "nps": trade_size,
     }
+
+
+def place_cable_tray(
+    model: ProjectModel,
+    *,
+    level: str,
+    start: tuple[float, float] | list[float],
+    end: tuple[float, float] | list[float],
+    width_mm: float = 300.0,
+    height_mm: float = 100.0,
+    name: str | None = None,
+    system_tag: str = "PWR",
+    z0_mm: float = 2900.0,
+    material_id: str = "galv_steel",
+) -> dict[str, Any]:
+    """Cable tray run (ladder/solid bottom coordination). CSI 26 05 36."""
+    import math
+
+    from llmbim_core.ids import new_id
+
+    x0, y0 = float(start[0]), float(start[1])
+    x1, y1 = float(end[0]), float(end[1])
+    length_mm = math.hypot(x1 - x0, y1 - y0)
+    if length_mm < 1:
+        raise ValidationError("Cable tray length too small", start=start, end=end)
+    length_m = length_mm / 1000.0
+    w, h = float(width_mm), float(height_mm)
+    # takeoff: plan area of tray bottom (m2)
+    area_m2 = (w * length_mm) / 1_000_000.0
+    level_id = model.get_level(level).id
+    pid = "PT-ELEC-CABLE-TRAY"
+    el = Element(
+        id=new_id("tray"),
+        category="cable_tray",
+        name=name or f"Cable tray {w:.0f}x{h:.0f} L={length_m:.2f}m",
+        level_id=level_id,
+        type_id=pid,
+        params={
+            "start_mm": [x0, y0],
+            "end_mm": [x1, y1],
+            "origin_mm": [x0, y0],
+            "length_mm": length_mm,
+            "length_m": length_m,
+            "width_mm": w,
+            "height_mm": h,
+            "system": system_tag,
+            "material_id": material_id,
+            "part_id": pid,
+            "part_qty": round(length_m, 3),
+            "area_m2": round(area_m2, 3),
+            "size_mm": [length_mm, w, h],
+            "shape": "box",
+            "z0_mm": float(z0_mm),
+            "fitting_type": "cable_tray",
+            "csi_code": "26 05 36",
+        },
+    )
+    model.add_element(el)
+    try:
+        assign_part(model, el.id, pid, qty=length_m)
+    except Exception:  # noqa: BLE001
+        pass
+    return {
+        "element_id": el.id,
+        "part_id": pid,
+        "length_m": round(length_m, 3),
+        "area_m2": round(area_m2, 3),
+        "width_mm": w,
+        "height_mm": h,
+    }

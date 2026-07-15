@@ -60,6 +60,7 @@
 | Fixtures (toilet, hose, TP dispenser) | place + takeoff | ✅ | `place_part` kinds |
 | HVAC rectangular duct | place + BOQ m² + **duct_takeoff** + plan/DXF | ✅ | `place_duct` / `duct_takeoff` CSI 23 31 00 |
 | Electrical conduit | place + BOQ m + **conduit_takeoff** + plan/DXF | ✅ | `place_conduit` / `conduit_takeoff` CSI 26 05 33 |
+| Cable tray | place + BOQ m + **cable_tray_takeoff** + plan/DXF | ✅ | `place_cable_tray` CSI 26 05 36 |
 | Vertical multi-storey riser | place + IFC/glTF | ✅ | `place_riser(to_level=…)` |
 | CSI MasterFormat rollup | JSON/CSV | ✅ | `csi_takeoff` + room locators |
 | Pack `materials/` folder | export | ✅ | `export_lists` in deliverables |

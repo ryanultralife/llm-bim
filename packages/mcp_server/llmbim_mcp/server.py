@@ -304,6 +304,8 @@ if HAS_MCP:
             return _tool_result({"duct": p.duct_takeoff()})
         if k in ("conduit", "electrical"):
             return _tool_result({"conduit": p.conduit_takeoff()})
+        if k in ("cable_tray", "tray"):
+            return _tool_result({"cable_tray": p.cable_tray_takeoff()})
         rows = p.fitting_takeoff(
             fitting_type=fitting_type or None,
             material=material or None,
@@ -479,6 +481,35 @@ if HAS_MCP:
             start=(start_x, start_y),
             end=(end_x, end_y),
             trade_size=trade_size,
+            system=system,
+            z0_mm=z0_mm,
+            name=name or None,
+        )
+        store.save(project_id)
+        return _tool_result({"element_id": eid})
+
+    @mcp.tool()
+    def place_cable_tray(
+        project_id: str,
+        level: str,
+        start_x: float,
+        start_y: float,
+        end_x: float,
+        end_y: float,
+        width_mm: float = 300,
+        height_mm: float = 100,
+        system: str = "PWR",
+        z0_mm: float = 2900,
+        name: str = "",
+    ) -> str:
+        """Cable tray run (CSI 26 05 36)."""
+        p = store.get(project_id)
+        eid = p.place_cable_tray(
+            level=level,
+            start=(start_x, start_y),
+            end=(end_x, end_y),
+            width_mm=width_mm,
+            height_mm=height_mm,
             system=system,
             z0_mm=z0_mm,
             name=name or None,
