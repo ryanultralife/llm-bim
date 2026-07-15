@@ -65,6 +65,7 @@
 | 39 | continue | VAV + fire damper | no HVAC device place/plan | kind=vav/fire_damper CSI 23 36/33; plan FD/VAV | 109 unit | 45fd538 |
 | 40 | continue | phase filter export | pack always all phases | filter_by_phase + export_deliverables(phases=) | 111 unit | 57c9f35 |
 | 41 | continue | zone schedule + pack phases | no area/volume sched; CLI no --phases | zone_areas.csv; pack --phases | 112 unit | 66a1c49 |
+| 42 | continue | IFC SpaceContents MEP | MEP not linked to IfcSpace | room pass + SpaceContents rel by point-in-poly | 113 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -99,7 +100,7 @@
 28. ~~DXF plan riser CIRCLE symbols~~ (pass 20)
 29. ~~CLI place fitting/pipe/riser/part + csi_instances~~ (pass 21)
 30. ~~Room column in schedules CSV~~ (pass 22)
-31. IFC IfcSpace room linkage for placed MEP
+31. ~~IFC IfcSpace room linkage for placed MEP~~ (pass 42)
 32. ~~HTML index room+CSI locator sample~~ (pass 24)
 33. ~~Query language filter by CSI / room / locator~~ (pass 23)
 34. ~~Skill SKILL.md place_riser + RM: locators~~ (pass 24)
@@ -135,8 +136,9 @@
 64. ~~Phase filters on export pack~~ (pass 40)
 65. ~~Zone schedule room heights + area~~ (pass 41)
 66. ~~CLI pack --phases new~~ (pass 41)
-67. IFC IfcSpace room linkage for placed MEP
+67. ~~IFC IfcSpace room linkage for placed MEP~~ (pass 42)
 68. STEP color/layer by system (optional)
+69. MCP export_pack phases arg
 
 ## Rules for each scheduled pass
 
