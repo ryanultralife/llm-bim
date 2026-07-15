@@ -186,23 +186,57 @@ def render_section_svg(
                 rects.append((s - half, z, s + half, z + depth))
             except (KeyError, TypeError, ValueError, IndexError):
                 continue
-        elif el.category in {"pipe", "plumbing_pipe", "fitting", "fittings", "fixture"}:
+        elif el.category in {
+            "pipe",
+            "plumbing_pipe",
+            "fitting",
+            "fittings",
+            "fixture",
+            "duct",
+            "hvac",
+            "conduit",
+            "cable_tray",
+        }:
             try:
                 hit = _project_point_to_cut(model, el, p0, p1, cut_len, depth_mm=depth_mm)
                 if hit is None:
                     continue
                 s, z = hit
-                od = 40.0
-                if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
-                    od = max(float(el.params["size_mm"][1]), 20.0)
-                mid = str(el.params.get("material_id") or "")
-                stroke = "#c45c26"
-                if "black" in mid:
-                    stroke = "#222"
-                if "ss316" in mid:
-                    stroke = "#6b7c8a"
-                pipe_marks.append((s, z + od / 2, od / 2, stroke))
-                rects.append((s - od, z, s + od, z + od))
+                cat = el.category or ""
+                ftype = str(el.params.get("fitting_type") or "")
+                is_duct = cat in {"duct", "hvac"} or ftype == "duct"
+                is_conduit = cat == "conduit" or ftype == "conduit"
+                is_tray = cat == "cable_tray" or ftype == "cable_tray"
+                if is_duct:
+                    w = float(el.params.get("width_mm") or 400)
+                    h = float(el.params.get("height_mm") or 250)
+                    half_w = max(w / 4, 80.0)
+                    rects.append((s - half_w, z, s + half_w, z + h))
+                    pipe_marks.append((s, z + h / 2, max(w / 6, 40.0), "#2e7d32"))  # green
+                elif is_tray:
+                    w = float(el.params.get("width_mm") or 300)
+                    h = float(el.params.get("height_mm") or 100)
+                    half_w = max(w / 4, 60.0)
+                    rects.append((s - half_w, z, s + half_w, z + h))
+                    pipe_marks.append((s, z + h / 2, max(w / 6, 30.0), "#6a1b9a"))  # purple
+                elif is_conduit:
+                    od = 30.0
+                    if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
+                        od = max(float(el.params["size_mm"][1]), 20.0)
+                    pipe_marks.append((s, z + od / 2, od / 2, "#6a1b9a"))
+                    rects.append((s - od, z, s + od, z + od))
+                else:
+                    od = 40.0
+                    if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
+                        od = max(float(el.params["size_mm"][1]), 20.0)
+                    mid = str(el.params.get("material_id") or "")
+                    stroke = "#c45c26"
+                    if "black" in mid:
+                        stroke = "#222"
+                    if "ss316" in mid:
+                        stroke = "#6b7c8a"
+                    pipe_marks.append((s, z + od / 2, od / 2, stroke))
+                    rects.append((s - od, z, s + od, z + od))
             except (KeyError, TypeError, ValueError, IndexError):
                 continue
 

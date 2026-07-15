@@ -37,6 +37,42 @@ def test_section_draws_pipe_circles(tmp_path: Path) -> None:
     assert "<circle " in text
 
 
+def test_section_draws_duct_conduit_tray(tmp_path: Path) -> None:
+    p = Project.create("SecMEP-multi", vcs=False)
+    p.add_level("L1", 0)
+    # cut along X at y=2000; place multi-trade near cut
+    p.place_duct(
+        level="L1",
+        start=(0, 2000),
+        end=(5000, 2000),
+        width_mm=400,
+        height_mm=250,
+        z0_mm=2800,
+    )
+    p.place_conduit(
+        level="L1",
+        start=(0, 2100),
+        end=(5000, 2100),
+        trade_size="1",
+        z0_mm=2700,
+    )
+    p.place_cable_tray(
+        level="L1",
+        start=(0, 1900),
+        end=(5000, 1900),
+        width_mm=300,
+        height_mm=100,
+        z0_mm=2900,
+    )
+    out = tmp_path / "sec_mep.svg"
+    write_section_svg(p.model, (0, 2000), (6000, 2000), out, scale=0.02, depth_mm=800)
+    text = out.read_text(encoding="utf-8")
+    assert 'class="pipes-section"' in text
+    assert "<circle " in text
+    # multi-trade colors: green duct / purple conduit-tray
+    assert "#2e7d32" in text or "#6a1b9a" in text
+
+
 def test_pipe_pipe_clash():
     p = Project.create("ClashPipe", vcs=False)
     p.add_level("L1", 0)
