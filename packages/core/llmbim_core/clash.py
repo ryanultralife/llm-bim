@@ -80,6 +80,62 @@ def element_aabb(el: Element, model: ProjectModel) -> AABB | None:
         xs = [float(p[0]) for p in poly]
         ys = [float(p[1]) for p in poly]
         return AABB(min(xs), min(ys), z0 - th, max(xs), max(ys), z0)
+    if el.category in {"pipe", "plumbing_pipe"} or el.params.get("fitting_type") == "pipe":
+        try:
+            od = 50.0
+            if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
+                od = max(float(el.params["size_mm"][1]), 20.0)
+            z_off = float(el.params.get("z0_mm", 0))
+            if "start_mm" in el.params and "end_mm" in el.params:
+                s, e = el.params["start_mm"], el.params["end_mm"]
+                xs = [float(s[0]), float(e[0])]
+                ys = [float(s[1]), float(e[1])]
+                pad = od / 2
+                return AABB(
+                    min(xs) - pad,
+                    min(ys) - pad,
+                    z0 + z_off,
+                    max(xs) + pad,
+                    max(ys) + pad,
+                    z0 + z_off + od,
+                )
+            if "origin_mm" in el.params and "size_mm" in el.params:
+                o, s = el.params["origin_mm"], el.params["size_mm"]
+                x0, y0 = float(o[0]), float(o[1])
+                lx, ly = float(s[0]), float(s[1])
+                return AABB(x0, y0 - ly / 2, z0 + z_off, x0 + lx, y0 + ly / 2, z0 + z_off + ly)
+        except (KeyError, TypeError, ValueError, IndexError):
+            return None
+    if el.category in {
+        "fitting",
+        "fittings",
+        "fixture",
+        "accessory",
+        "module_instance",
+        "module_root",
+        "equipment",
+    } or el.params.get("origin_mm"):
+        try:
+            o = el.params.get("origin_mm")
+            if not o:
+                return None
+            s = el.params.get("size_mm") or [100.0, 100.0, 100.0]
+            z_off = float(el.params.get("z0_mm", 0))
+            x0, y0 = float(o[0]), float(o[1])
+            lx = float(s[0]) if len(s) > 0 else 100.0
+            ly = float(s[1]) if len(s) > 1 else 100.0
+            hz = float(s[2]) if len(s) > 2 else ly
+            # fittings often centered on origin
+            return AABB(
+                x0 - lx / 2,
+                y0 - ly / 2,
+                z0 + z_off,
+                x0 + lx / 2,
+                y0 + ly / 2,
+                z0 + z_off + max(hz, 50.0),
+            )
+        except (KeyError, TypeError, ValueError, IndexError):
+            return None
     return None
 
 
