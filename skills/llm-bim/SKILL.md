@@ -144,7 +144,35 @@ p.tag("for_client")
 
 CLI: `llmbim status|diff|commit|log|checkout|tag|journal <project_dir>`
 
-### H. Scripted generative design
+### H. Materials, parts, plumbing takeoff
+
+Full BIM lists — answer *“how many 90° copper fittings of what size?”*:
+
+```python
+p = Project.create("Plumb")
+p.add_level("L1", 0)
+p.place_pipe(level="L1", nps="3/4", start=(0,0), end=(5000,0), material="copper")
+p.place_fitting(level="L1", fitting_type="elbow_90", nps="3/4", origin=(0,0), material="copper")
+p.place_fitting(level="L1", fitting_type="elbow_90", nps="1/2", origin=(100,0), material="copper")
+print(p.fitting_takeoff(fitting_type="elbow_90", material="copper"))
+print(p.plumbing_schedule()["copper_90_elbows_by_size"])
+p.assign_part(equip_id, "PT-SEP-SHELL-320")
+p.assign_material(wall_id, "CMU")
+p.auto_assign()  # equipment kind → part; wall type → materials
+man = p.export_deliverables()  # includes materials/ + schedules/plumbing_takeoff.json
+```
+
+```bash
+llmbim parts --fitting-type elbow_90 --material copper
+llmbim takeoff model.llmbim.json --kind plumbing
+llmbim takeoff model.llmbim.json --fitting-type elbow_90 --material copper
+llmbim materials model.llmbim.json --out output/lists
+python examples/plumbing_loop.py   # demo → output/plumbing_loop/COPPER_90_ELBOWS.json
+```
+
+Catalog: copper Type L pipe + 90/45 elbows, tees, couplings, caps, unions, ball valves (NPS ½–4"); PVC Sch40 subset. Part ids like `PT-CU-ELB90-1_2`, `PT-CU-PIPE-3_4`.
+
+### I. Scripted generative design
 
 ```python
 # build.py
@@ -167,6 +195,8 @@ llmbim script build.py --pack out/gen
 - `model.ifc` · `model.step` · `model.gltf`  
 - `construction/` or `parts/` SVG sheets + `PLOT_SET.pdf`  
 - `views/*.dxf` · `boq.json` (CSI) · `clash_report.json` · `design_rules.json`  
+- `materials/` — assignments, exploded BOM, **fitting_takeoff**, pipe_takeoff  
+- `schedules/plumbing_takeoff.json` · fitting/pipe/part/material CSVs  
 - `index.html` · `deliverables.zip` · `MANIFEST.json`  
 
 ## Wall types (catalog)

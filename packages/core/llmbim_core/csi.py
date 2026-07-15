@@ -39,6 +39,9 @@ CATEGORY_CSI: dict[str, str] = {
     "equipment": "11 00 00",
     "note": "01 31 00",
     "grid": "01 32 00",
+    "fitting": "22 11 16",
+    "pipe": "22 11 16",
+    "plumbing_pipe": "22 11 16",
 }
 
 TYPE_CSI: dict[str, str] = {

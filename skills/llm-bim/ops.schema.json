@@ -91,6 +91,36 @@
       }
     },
     {
+      "name": "assign_material",
+      "description": "Assign material_id to element",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "assign_part",
+      "description": "Assign catalog part_id to element",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "auto_assign",
+      "description": "Auto-assign materials/parts from type/kind",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
       "name": "boq",
       "description": "Bill of quantities",
       "mutates": false,
@@ -171,9 +201,69 @@
       }
     },
     {
+      "name": "fitting_takeoff",
+      "description": "Count fittings by type+size (e.g. copper 90\u00b0 elbows)",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
       "name": "list_assemblies",
       "description": "List assemblies",
       "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "material_lists",
+      "description": "Export material/part/fitting lists to folder",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "materials",
+      "description": "Materials catalog",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "parts",
+      "description": "Parts catalog (filter: category, fitting_type, nps)",
+      "mutates": false,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "place_fitting",
+      "description": "Place plumbing fitting by type+NPS (copper/pvc)",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "place_pipe",
+      "description": "Place pipe run start\u2192end with NPS",
+      "mutates": true,
       "parameters": {
         "type": "object",
         "additionalProperties": true,

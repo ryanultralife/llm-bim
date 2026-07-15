@@ -446,6 +446,170 @@ class Project:
 
         return catalog_dict()
 
+    def materials_catalog(self) -> dict[str, Any]:
+        from llmbim_core.materials import materials_catalog
+
+        return materials_catalog()
+
+    def parts_catalog(
+        self,
+        *,
+        category: str | None = None,
+        fitting_type: str | None = None,
+        nps: str | None = None,
+        material: str | None = None,
+    ) -> list[dict[str, Any]]:
+        from llmbim_core.parts_catalog import list_parts
+
+        return [
+            p.model_dump()
+            for p in list_parts(
+                category=category,
+                fitting_type=fitting_type,
+                nps=nps,
+                material=material,
+            )
+        ]
+
+    def assign_material(self, element_id: str, material_id: str, *, role: str = "primary") -> dict[str, Any]:
+        from llmbim_core.assign_commands import AssignMaterial
+
+        return self.execute(AssignMaterial(element_id=element_id, material_id=material_id, role=role))
+
+    def assign_part(
+        self,
+        element_id: str,
+        part_id: str,
+        *,
+        qty: float = 1.0,
+        apply_geometry: bool = False,
+    ) -> dict[str, Any]:
+        from llmbim_core.assign_commands import AssignPart
+
+        return self.execute(
+            AssignPart(element_id=element_id, part_id=part_id, qty=qty, apply_geometry=apply_geometry)
+        )
+
+    def auto_assign(self) -> dict[str, Any]:
+        """Assign materials/parts from wall types and equipment kind."""
+        return self.op("auto_assign")
+
+    def place_fitting(
+        self,
+        *,
+        level: str,
+        fitting_type: str,
+        nps: str,
+        origin: tuple[float, float] = (0.0, 0.0),
+        name: str | None = None,
+        material: str = "copper",
+        qty: float = 1.0,
+        system: str = "CW",
+    ) -> str:
+        """Place a catalog plumbing fitting (e.g. copper 90° elbow 1/2\")."""
+        r = self.op(
+            "place_fitting",
+            level=level,
+            fitting_type=fitting_type,
+            nps=nps,
+            origin=list(origin),
+            name=name,
+            material=material,
+            qty=qty,
+            system=system,
+        )
+        return str(r["element_id"])
+
+    def place_pipe(
+        self,
+        *,
+        level: str,
+        nps: str,
+        start: tuple[float, float],
+        end: tuple[float, float],
+        name: str | None = None,
+        material: str = "copper",
+        system: str = "CW",
+        z0_mm: float = 0.0,
+    ) -> str:
+        """Place a straight copper/PVC pipe segment (length from start→end)."""
+        r = self.op(
+            "place_pipe",
+            level=level,
+            nps=nps,
+            start=list(start),
+            end=list(end),
+            name=name,
+            material=material,
+            system=system,
+            z0_mm=z0_mm,
+        )
+        return str(r["element_id"])
+
+    def fitting_takeoff(
+        self,
+        *,
+        fitting_type: str | None = None,
+        nps: str | None = None,
+        material: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Count fittings by type and size — e.g. copper 90° elbows by NPS."""
+        from llmbim_core.material_lists import fitting_takeoff
+
+        return fitting_takeoff(
+            self._model,
+            fitting_type=fitting_type,
+            nps=nps,
+            material=material,
+        )
+
+    def pipe_takeoff(
+        self,
+        *,
+        nps: str | None = None,
+        material: str | None = None,
+    ) -> list[dict[str, Any]]:
+        from llmbim_core.material_lists import pipe_takeoff
+
+        return pipe_takeoff(self._model, nps=nps, material=material)
+
+    def plumbing_schedule(self) -> dict[str, Any]:
+        """Full plumbing takeoff: fittings by type/size + pipe lengths."""
+        from llmbim_core.material_lists import plumbing_schedule
+
+        return plumbing_schedule(self._model)
+
+    def material_lists(self) -> dict[str, Any]:
+        """In-memory material/part assignment + BOM + fitting takeoff."""
+        from llmbim_core.material_lists import (
+            exploded_material_bom,
+            fitting_takeoff,
+            material_assignment_list,
+            material_summary,
+            part_assignment_list,
+            part_summary,
+            pipe_takeoff,
+            plumbing_schedule,
+        )
+
+        exploded = exploded_material_bom(self._model)
+        return {
+            "material_assignments": material_assignment_list(self._model),
+            "part_assignments": part_assignment_list(self._model),
+            "material_summary": material_summary(exploded),
+            "fitting_takeoff": fitting_takeoff(self._model),
+            "pipe_takeoff": pipe_takeoff(self._model),
+            "part_summary": part_summary(self._model),
+            "plumbing": plumbing_schedule(self._model),
+        }
+
+    def export_material_lists(self, out_dir: str | Path | None = None) -> dict[str, str]:
+        from llmbim_core.material_lists import export_lists
+        from llmbim_core.paths import project_output_dir
+
+        dest = Path(out_dir) if out_dir else project_output_dir(self.name) / "materials"
+        return export_lists(self._model, dest)
+
     @classmethod
     def from_template(cls, template_id: str, name: str | None = None, **kwargs: Any) -> Project:
         from llmbim_templates import apply_template

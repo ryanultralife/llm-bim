@@ -298,6 +298,74 @@ def cmd_ops(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_materials(args: argparse.Namespace) -> int:
+    """List materials catalog or export material lists for a project."""
+    if args.path:
+        from llmbim import Project
+
+        p = Project.open(args.path)
+        if args.out:
+            written = p.export_material_lists(args.out)
+            print(json.dumps({"out": args.out, "files": written}, indent=2))
+            return 0
+        print(json.dumps(p.material_lists(), indent=2, default=str))
+        return 0
+    from llmbim_core.materials import materials_catalog
+
+    print(json.dumps(materials_catalog(), indent=2))
+    return 0
+
+
+def cmd_parts(args: argparse.Namespace) -> int:
+    from llmbim_core.parts_catalog import list_parts, parts_catalog
+
+    if args.full:
+        print(json.dumps(parts_catalog(), indent=2))
+        return 0
+    rows = list_parts(
+        category=args.category,
+        fitting_type=args.fitting_type,
+        nps=args.nps,
+        material=args.material,
+        system=args.system,
+    )
+    slim = [
+        {
+            "id": p.id,
+            "name": p.name,
+            "category": p.category,
+            "material": p.primary_material_id,
+            "unit_cost": p.unit_cost,
+            "nps": (p.specs or {}).get("nps"),
+            "fitting_type": (p.specs or {}).get("fitting_type"),
+        }
+        for p in rows
+    ]
+    print(json.dumps({"count": len(slim), "parts": slim}, indent=2))
+    return 0
+
+
+def cmd_takeoff(args: argparse.Namespace) -> int:
+    """Plumbing / fitting takeoff — answer 'how many 90 copper of what size?'."""
+    from llmbim import Project
+
+    p = Project.open(args.path)
+    if args.kind == "pipe":
+        print(json.dumps(p.pipe_takeoff(nps=args.nps, material=args.material), indent=2))
+        return 0
+    if args.kind == "plumbing":
+        print(json.dumps(p.plumbing_schedule(), indent=2))
+        return 0
+    # default fittings
+    rows = p.fitting_takeoff(
+        fitting_type=args.fitting_type,
+        nps=args.nps,
+        material=args.material,
+    )
+    print(json.dumps({"fittings": rows, "count_rows": len(rows)}, indent=2))
+    return 0
+
+
 def cmd_pdf(args: argparse.Namespace) -> int:
     from llmbim_drawings.pdf_binder import export_pdf_binder
 
@@ -519,6 +587,33 @@ def main(argv: list[str] | None = None) -> int:
     p_jn.add_argument("path")
     p_jn.add_argument("-n", "--limit", type=int, default=50)
     p_jn.set_defaults(func=cmd_journal)
+
+    p_mat = sub.add_parser("materials", help="Materials catalog or project material lists")
+    p_mat.add_argument("path", nargs="?", default=None, help="Project path (omit = catalog only)")
+    p_mat.add_argument("--out", default=None, help="Write CSV/JSON lists to directory")
+    p_mat.set_defaults(func=cmd_materials)
+
+    p_pts = sub.add_parser("parts", help="Parts catalog (filter plumbing fittings)")
+    p_pts.add_argument("--category", default=None)
+    p_pts.add_argument("--fitting-type", default=None, help="elbow_90 | tee | pipe | ...")
+    p_pts.add_argument("--nps", default=None, help='e.g. 1/2 or 3/4')
+    p_pts.add_argument("--material", default=None)
+    p_pts.add_argument("--system", default=None)
+    p_pts.add_argument("--full", action="store_true")
+    p_pts.set_defaults(func=cmd_parts)
+
+    p_tk = sub.add_parser("takeoff", help="Fitting/pipe takeoff from a project")
+    p_tk.add_argument("path", help="Project dir or model.llmbim.json")
+    p_tk.add_argument(
+        "--kind",
+        default="fittings",
+        choices=["fittings", "pipe", "plumbing"],
+        help="fittings (default) | pipe | plumbing (full schedule)",
+    )
+    p_tk.add_argument("--fitting-type", default=None, help="elbow_90 | tee | ...")
+    p_tk.add_argument("--nps", default=None)
+    p_tk.add_argument("--material", default=None, help="copper | pvc | ...")
+    p_tk.set_defaults(func=cmd_takeoff)
 
     args = parser.parse_args(argv)
     return int(args.func(args))

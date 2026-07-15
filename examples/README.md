@@ -3,8 +3,9 @@
 | Script | Scale | Source | Outputs |
 |--------|-------|--------|---------|
 | `simple_house.py` | residential box | synthetic | walls/doors |
-| **`intec_site.py`** | facility (m) | `intec_fusion_params.json` + INT-GA | plan, section, glTF |
-| **`proto10_separator.py`** | equipment (mm) | Fusion MB-SEP-PROTO / RFQ | plan, section, envelopes |
+| **`intec_site.py`** | facility (m) | `intec_fusion_params.json` + INT-GA | plan, section, glTF, CW copper takeoff |
+| **`proto10_separator.py`** | equipment (mm) | Fusion MB-SEP-PROTO / RFQ | plan, section, parts assigned |
+| **`plumbing_loop.py`** | room MEP | synthetic CW loop | **90° copper elbows by size** |
 
 ## Run
 
@@ -12,9 +13,11 @@
 pip install -e ".[dev,server]"
 python examples/intec_site.py
 python examples/proto10_separator.py
+python examples/plumbing_loop.py
+llmbim takeoff output/plumbing_loop --kind plumbing
 ```
 
-Artifacts land in `examples/output/intec/` and `examples/output/proto10/`.
+Artifacts: `examples/output/intec/`, `examples/output/proto10/`, `output/plumbing_loop/` (incl. `COPPER_90_ELBOWS.json`, `materials/fitting_takeoff.csv`).
 
 ## Honesty
 

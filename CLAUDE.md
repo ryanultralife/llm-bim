@@ -60,3 +60,16 @@ If the user has MCP: run `llmbim mcp` with cwd = this repo. Tools: `project_crea
 ## Recipes
 
 See `skills/llm-bim/recipes/`. Templates: `office_bay`, `warehouse`, `hot_cell_bay`, `lab_bench`.
+
+## Materials / parts / plumbing
+
+```python
+p.place_fitting(level="L1", fitting_type="elbow_90", nps="1/2", origin=(0,0), material="copper")
+p.place_pipe(level="L1", nps="3/4", start=(0,0), end=(4000,0))
+print(p.fitting_takeoff(fitting_type="elbow_90", material="copper"))  # qty by size
+print(p.plumbing_schedule())
+p.auto_assign()  # shell/flange/magnet → Proto10 parts; wall types → materials
+p.export_material_lists()  # or included in export_deliverables → materials/
+```
+
+CLI: `llmbim takeoff <project> --kind plumbing` · `llmbim parts --fitting-type elbow_90`

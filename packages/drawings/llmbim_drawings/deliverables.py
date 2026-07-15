@@ -157,11 +157,22 @@ def export_deliverables(
 
     schedules = out / "schedules"
     schedules.mkdir(exist_ok=True)
-    for kind in ("room", "door", "window", "wall", "equipment"):
+    for kind in ("room", "door", "window", "wall", "equipment", "fitting", "pipe", "part", "material"):
         _try(
             f"schedule_{kind}",
             errors,
             lambda k=kind: export_schedule_csv(model, k, schedules / f"{k}.csv"),
+        )
+
+    # Materials / parts / plumbing takeoff package
+    from llmbim_core.material_lists import export_lists, plumbing_schedule
+
+    mat_dir = out / "materials"
+    mat_written = _try("material_lists", errors, lambda: export_lists(model, mat_dir))
+    plumb = _try("plumbing_schedule", errors, lambda: plumbing_schedule(model))
+    if plumb is not None:
+        (out / "schedules" / "plumbing_takeoff.json").write_text(
+            json.dumps(plumb, indent=2) + "\n", encoding="utf-8"
         )
 
     result: dict[str, Any] = {
@@ -173,6 +184,10 @@ def export_deliverables(
         "views": "views/",
         "schedules": "schedules/",
     }
+    if mat_written:
+        result["materials"] = "materials/"
+    if plumb is not None:
+        result["plumbing_takeoff"] = "schedules/plumbing_takeoff.json"
 
     # Builder / designer intelligence
     from llmbim_core.clash import find_clashes

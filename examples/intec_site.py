@@ -178,6 +178,60 @@ def build_intec(out_dir: Path) -> Project:
             name="Main personnel entry",
         )
 
+    # Process / domestic copper water loop (takeoff demo — ENGINEERING ESTIMATE)
+    # Main CW spine along tunnel north edge + risers to active sep cells
+    p.place_pipe(
+        level="L0",
+        nps="2",
+        start=(m_to_mm(5.5), m_to_mm(22.0)),
+        end=(m_to_mm(40.0), m_to_mm(22.0)),
+        name="CW main 2\" spine",
+        material="copper",
+        system="CW",
+        z0_mm=3000,
+    )
+    for nps, x in (("1", 13.0), ("1", 20.0), ("1", 27.0), ("3/4", 13.0), ("3/4", 20.0), ("3/4", 27.0)):
+        # branch drops (plan stubs)
+        p.place_pipe(
+            level="L0",
+            nps=nps,
+            start=(m_to_mm(x), m_to_mm(22.0)),
+            end=(m_to_mm(x), m_to_mm(16.5 if nps == "1" else 4.9)),
+            name=f"CW branch {nps}\" x={x}",
+            material="copper",
+            system="CW",
+            z0_mm=2500,
+        )
+    # 90° elbows at spine / branch junctions + cell ends (count by size)
+    for nps, count, x0 in (("2", 2, 5.5), ("1", 6, 13.0), ("3/4", 6, 13.0), ("1/2", 4, 44.0)):
+        for i in range(count):
+            p.place_fitting(
+                level="L0",
+                fitting_type="elbow_90",
+                nps=nps,
+                origin=(m_to_mm(x0 + i * 1.2), m_to_mm(22.0 if nps != "1/2" else 5.0)),
+                name=f"Cu 90° {nps}\" #{i+1}",
+                material="copper",
+                system="CW",
+            )
+    for nps, n in (("2", 2), ("1", 3), ("3/4", 3)):
+        for i in range(n):
+            p.place_fitting(
+                level="L0",
+                fitting_type="tee",
+                nps=nps,
+                origin=(m_to_mm(10 + i * 5), m_to_mm(22.0)),
+                name=f"Cu tee {nps}\" #{i+1}",
+                material="copper",
+                system="CW",
+            )
+    p.place_fitting(level="L0", fitting_type="ball_valve", nps="2", origin=(m_to_mm(5.5), m_to_mm(22.0)), name="CW isolation 2\"", material="copper")
+    p.place_fitting(level="L0", fitting_type="ball_valve", nps="1", origin=(m_to_mm(13.0), m_to_mm(18.0)), name="Cell CW valve 1\"", material="copper")
+
+    # Assign vessel/equipment parts + wall materials where typed
+    p.auto_assign()
+    p.commit("INTEC shell, vessels, CW copper plumbing")
+
     # Full deliverables pack: BIM JSON, IFC, glTF, STEP, construction set, part sheets
     manifest = p.export_deliverables(
         out_dir,

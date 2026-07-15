@@ -103,10 +103,19 @@ DEFAULT_WINDOW_TYPES: dict[str, WindowType] = {
 
 def catalog_dict() -> dict[str, Any]:
     from llmbim_core.materials import materials_catalog
+    from llmbim_core.parts_catalog import PARTS
 
+    plumbing = [p.id for p in PARTS.values() if p.category == "plumbing"]
     return {
         "wall_types": {k: v.model_dump() for k, v in DEFAULT_WALL_TYPES.items()},
         "door_types": {k: v.model_dump() for k, v in DEFAULT_DOOR_TYPES.items()},
         "window_types": {k: v.model_dump() for k, v in DEFAULT_WINDOW_TYPES.items()},
         "materials": materials_catalog(),
+        "parts_count": len(PARTS),
+        "parts_by_category": {
+            cat: sum(1 for p in PARTS.values() if p.category == cat)
+            for cat in sorted({p.category for p in PARTS.values()})
+        },
+        "plumbing_part_ids_sample": plumbing[:20],
+        "plumbing_part_ids_count": len(plumbing),
     }

@@ -299,4 +299,129 @@ def _design_option(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+@register("assign_material", description="Assign material_id to element", mutates=True)
+def _assign_material(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import assign_material
+
+    return assign_material(model, p["element_id"], p["material_id"], role=p.get("role") or "primary")
+
+
+@register("assign_part", description="Assign catalog part_id to element", mutates=True)
+def _assign_part(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import assign_part
+
+    return assign_part(
+        model,
+        p["element_id"],
+        p["part_id"],
+        qty=float(p.get("qty") or 1),
+        apply_geometry=bool(p.get("apply_geometry")),
+    )
+
+
+@register("auto_assign", description="Auto-assign materials/parts from type/kind", mutates=True)
+def _auto_assign(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import auto_assign_all, auto_assign_from_type
+
+    if p.get("element_id"):
+        return auto_assign_from_type(model, p["element_id"])
+    return auto_assign_all(model)
+
+
+@register("place_fitting", description="Place plumbing fitting by type+NPS (copper/pvc)", mutates=True)
+def _place_fitting(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import place_fitting
+
+    origin = p.get("origin") or p.get("origin_mm") or [0, 0]
+    return place_fitting(
+        model,
+        level=p.get("level") or model.levels[0].name,
+        fitting_type=p["fitting_type"],
+        nps=p["nps"],
+        origin=origin,
+        name=p.get("name"),
+        material=p.get("material") or "copper",
+        qty=float(p.get("qty") or 1),
+        system_tag=p.get("system") or "CW",
+    )
+
+
+@register("place_pipe", description="Place pipe run start→end with NPS", mutates=True)
+def _place_pipe(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import place_pipe
+
+    return place_pipe(
+        model,
+        level=p.get("level") or model.levels[0].name,
+        nps=p["nps"],
+        start=p["start"],
+        end=p["end"],
+        name=p.get("name"),
+        material=p.get("material") or "copper",
+        system_tag=p.get("system") or "CW",
+        z0_mm=float(p.get("z0_mm") or 0),
+    )
+
+
+@register("materials", description="Materials catalog", mutates=False)
+def _materials(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.materials import materials_catalog
+
+    return materials_catalog()
+
+
+@register("parts", description="Parts catalog (filter: category, fitting_type, nps)", mutates=False)
+def _parts(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.parts_catalog import list_parts, parts_catalog
+
+    if p.get("filter") or p.get("category") or p.get("fitting_type") or p.get("nps"):
+        rows = list_parts(
+            category=p.get("category"),
+            fitting_type=p.get("fitting_type"),
+            nps=p.get("nps"),
+            material=p.get("material"),
+            system=p.get("system"),
+        )
+        return {"count": len(rows), "parts": [r.model_dump() for r in rows]}
+    if p.get("full"):
+        return parts_catalog()
+    # summary only
+    from llmbim_core.parts_catalog import PARTS
+
+    by_cat: dict[str, int] = {}
+    for pt in PARTS.values():
+        by_cat[pt.category] = by_cat.get(pt.category, 0) + 1
+    return {"count": len(PARTS), "by_category": by_cat, "ids_sample": list(PARTS.keys())[:40]}
+
+
+@register(
+    "fitting_takeoff",
+    description="Count fittings by type+size (e.g. copper 90° elbows)",
+    mutates=False,
+)
+def _fitting_takeoff(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.material_lists import fitting_takeoff, pipe_takeoff, plumbing_schedule
+
+    if p.get("full_schedule"):
+        return plumbing_schedule(model)
+    rows = fitting_takeoff(
+        model,
+        fitting_type=p.get("fitting_type"),
+        nps=p.get("nps"),
+        material=p.get("material"),
+        system=p.get("system") or "plumbing",
+    )
+    pipes = pipe_takeoff(model, nps=p.get("nps"), material=p.get("material"))
+    return {"fittings": rows, "pipe": pipes, "count_rows": len(rows)}
+
+
+@register("material_lists", description="Export material/part/fitting lists to folder", mutates=False)
+def _material_lists(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.material_lists import export_lists
+
+    out = p.get("out_dir") or p.get("out") or "out/materials"
+    written = export_lists(model, out)
+    return {"out": out, "files": written}
+
+
 # Note: commit/checkout/diff require Project.vcs — use SDK methods, not bare registry

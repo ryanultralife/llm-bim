@@ -41,6 +41,8 @@ llmbim template office_bay --out output/demo_office
 | `PLOT_SET.pdf` | Multi-page plot set |
 | `views/*.dxf` | CAD handoff |
 | `boq.json` | Quantities + CSI cost codes |
+| `materials/` | Material/part assignments, exploded BOM, **fitting takeoff** |
+| `schedules/plumbing_takeoff.json` | Fittings by type+size (e.g. copper 90° by NPS) |
 | `clash_report.json` / `design_rules.json` | Coordination checks |
 | `index.html` | Clickable review index |
 | `deliverables.zip` | Whole pack |
@@ -81,9 +83,13 @@ llmbim import drawing.dxf --out output/from_dxf --pack
 llmbim import-step part.step --level L1 --out output/part
 llmbim pack model.llmbim.json --out output/pack
 llmbim boq output/pack/model.llmbim.json
+llmbim takeoff output/pack --kind plumbing   # copper 90° elbows by size, etc.
+llmbim parts --fitting-type elbow_90 --nps 1/2
+llmbim materials output/pack --out output/lists
 llmbim clash output/pack/model.llmbim.json
 llmbim rules output/pack/model.llmbim.json -v
 llmbim serve --port 8000             # optional local review API
+python examples/plumbing_loop.py     # demo takeoff → output/plumbing_loop/
 ```
 
 ## Python (what agents usually run)

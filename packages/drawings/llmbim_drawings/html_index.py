@@ -20,9 +20,24 @@ def write_pack_index(out_dir: str | Path) -> Path:
         links.append(f'<li><a href="{rel}" target="_blank">{rel}</a></li>')
 
     threes = []
-    for name in ("model.gltf", "model.ifc", "model.step", "model.llmbim.json"):
+    for name in ("model.gltf", "model.ifc", "model.step", "model.llmbim.json", "PLOT_SET.pdf", "boq.json"):
         if (out / name).exists():
             threes.append(f'<li><a href="{name}">{name}</a> ({(out / name).stat().st_size} bytes)</li>')
+
+    data_links = []
+    for rel in (
+        "materials/fitting_takeoff.json",
+        "materials/pipe_takeoff.json",
+        "materials/material_summary.json",
+        "materials/part_assignments.json",
+        "materials/plumbing_schedule.json",
+        "materials/MATERIALS_AND_PARTS.json",
+        "schedules/plumbing_takeoff.json",
+        "clash_report.json",
+        "design_rules.json",
+    ):
+        if (out / rel).is_file():
+            data_links.append(f'<li><a href="{rel}">{rel}</a></li>')
 
     ok = manifest.get("ok", manifest.get("verification", {}).get("ok"))
     html = f"""<!DOCTYPE html>
@@ -37,6 +52,7 @@ code{{background:#21262d;padding:2px 6px;border-radius:4px}}
 <p>Status: <span class="{"ok" if ok else "bad"}">{"OK" if ok else "CHECK VERIFY.json"}</span></p>
 <p>{manifest.get("honesty", "")}</p>
 <h2>3D / BIM</h2><ul>{"".join(threes)}</ul>
+<h2>Materials / plumbing takeoff</h2><ul>{"".join(data_links) or "<li>none — place fittings/parts then re-export</li>"}</ul>
 <h2>Drawings (SVG)</h2><ul>{"".join(links) or "<li>none</li>"}</ul>
 <h2>Manifest</h2><pre>{json.dumps(manifest.get("verification", {}), indent=2)}</pre>
 </body></html>

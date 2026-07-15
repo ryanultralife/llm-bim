@@ -154,7 +154,12 @@ def build_proto10(out_dir: Path) -> Project:
         name="Shell OD plan silhouette",
     )
 
+    # Link equipment to parts catalog (materials + BOM explosion)
+    p.auto_assign()
+    p.commit("Proto10 geometry + part/material assignments")
+
     # Full pack: BIM + IFC + glTF + assembly STEP + per-part STEP + 2D part sheets
+    # + materials/ lists + fitting takeoff (empty until plumbing placed)
     manifest = p.export_deliverables(
         out_dir,
         mode="part",
