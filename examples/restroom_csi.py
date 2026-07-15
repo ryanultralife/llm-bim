@@ -19,6 +19,7 @@ def build_restroom(out: Path | None = None) -> Project:
         level="L1",
         name="Restroom A",
         boundary=[(200, 200), (4800, 200), (4800, 3800), (200, 3800)],
+        height_mm=2700,
     )
     p.place_part(level="L1", kind="toilet", origin=(1200, 1500))
     p.place_part(level="L1", kind="tp_dispenser", origin=(900, 1500))
@@ -32,6 +33,15 @@ def build_restroom(out: Path | None = None) -> Project:
     p.place_fitting(
         level="L1", fitting_type="tee", nps="3/4", origin=(1200, 1500), material="copper"
     )
+    p.place_duct(
+        level="L1",
+        start=(800, 3000),
+        end=(4000, 3000),
+        width_mm=400,
+        height_mm=250,
+        z0_mm=2400,
+    )
+    p.place_part(level="L1", kind="diffuser", origin=(2400, 3000))
     p.place_riser(
         level="L1",
         nps="2",

@@ -74,8 +74,9 @@
 | 48 | continue | duct/conduit design rules | only pipe-in-wall rules | DUCT_IN_WALL, CONDUIT_IN_WALL, DUCT_LOW_CLEARANCE | 118 unit | bbe2c2a |
 | 49 | continue | elev storey dims + zone HTML | elev no level dims; index no zone | level-dims; zone_areas sample | 119 unit | 3b707e7 |
 | 50 | continue | section storey dims | section lacked level dims | level-dims + storey-height on section SVG | 120 unit | 9873377 |
-| 51 | continue | elev DXF CAD handoff | only plan DXF | export_elevation_dxf S/E in pack; SDK | 121 unit | (this) |
-| 52 | continue | query phase= | phase query incomplete docs | phase=new\|existing filter tests | 122 unit | (this) |
+| 51 | continue | elev DXF CAD handoff | only plan DXF | export_elevation_dxf S/E in pack; SDK | 121 unit | bcab845 |
+| 52 | continue | query phase= | phase query incomplete docs | phase=new\|existing filter tests | 122 unit | bcab845 |
+| 53 | continue | full multi-trade pack smoke | chat path thin | elev DXF+zone+CSI+IFC space+STEP layers | 123 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -157,8 +158,9 @@
 75. ~~Section cut storey height dims (mirror elev)~~ (pass 50)
 76. ~~VISION M4 status refresh~~ (pass 50)
 77. ~~DXF elevation export~~ (pass 51)
-78. Example restroom full pack smoke in CI (optional)
+78. ~~Example multi-trade full pack smoke~~ (pass 53)
 79. ~~Query filter by phase=~~ (pass 52)
+80. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
