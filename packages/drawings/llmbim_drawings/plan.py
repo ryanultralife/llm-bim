@@ -298,28 +298,50 @@ def render_plan_view(
         if el.category not in {"pipe", "plumbing_pipe"} and el.params.get("fitting_type") != "pipe":
             continue
         try:
-            if "start_mm" in el.params and "end_mm" in el.params:
-                s, e = el.params["start_mm"], el.params["end_mm"]
-                x0, y0 = float(s[0]), float(s[1])
-                x1, y1 = float(e[0]), float(e[1])
-            else:
-                continue
-            # color by system / material
             mid = str(el.params.get("material_id") or "")
-            stroke = "#c45c26"  # copper-ish
+            stroke = "#c45c26"
             if "black" in mid or el.params.get("system") in ("FP", "fire"):
                 stroke = "#333333"
             if "ss316" in mid or el.params.get("system") in ("PROC", "process"):
                 stroke = "#6b7c8a"
             if "pvc" in mid:
                 stroke = "#e6d84a"
+            nps = el.params.get("nps")
+            # vertical riser: plan symbol = concentric circles
+            if el.params.get("vertical") or el.params.get("orientation") == "vertical":
+                o = el.params.get("origin_mm") or el.params.get("start_mm")
+                if not o:
+                    continue
+                px, py = project(float(o[0]), float(o[1]))
+                r = max(3.0, 40 * scale)
+                parts.append(
+                    f'    <circle cx="{fmt(px)}" cy="{fmt(py)}" r="{fmt(r)}" '
+                    f'stroke="{stroke}" fill="none"/>'
+                )
+                parts.append(
+                    f'    <circle cx="{fmt(px)}" cy="{fmt(py)}" r="{fmt(r * 0.4)}" '
+                    f'stroke="{stroke}" fill="{stroke}"/>'
+                )
+                tag = f'R{nps}"' if nps else "R"
+                parts.append(
+                    f'    <text x="{fmt(px + r * 1.5)}" y="{fmt(py)}" '
+                    f'font-size="{fmt(max(6, 9))}" fill="{stroke}" font-family="sans-serif">'
+                    f"{esc(tag)}</text>"
+                )
+                continue
+            if "start_mm" in el.params and "end_mm" in el.params:
+                s, e = el.params["start_mm"], el.params["end_mm"]
+                x0, y0 = float(s[0]), float(s[1])
+                x1, y1 = float(e[0]), float(e[1])
+            else:
+                continue
+            if abs(x1 - x0) < 1 and abs(y1 - y0) < 1:
+                continue  # pure riser without vertical flag
             pa, pb = project(x0, y0), project(x1, y1)
             parts.append(
                 f'    <line x1="{fmt(pa[0])}" y1="{fmt(pa[1])}" '
                 f'x2="{fmt(pb[0])}" y2="{fmt(pb[1])}" stroke="{stroke}"/>'
             )
-            # NPS tag mid-span
-            nps = el.params.get("nps")
             if nps:
                 mx, my = (pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2
                 parts.append(

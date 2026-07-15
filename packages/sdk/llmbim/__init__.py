@@ -546,6 +546,32 @@ class Project:
         )
         return str(r["element_id"])
 
+    def place_riser(
+        self,
+        *,
+        level: str,
+        nps: str,
+        origin: tuple[float, float],
+        z0_mm: float,
+        z1_mm: float,
+        name: str | None = None,
+        material: str = "copper",
+        system: str = "CW",
+    ) -> str:
+        """Vertical pipe riser at plan XY from z0_mm to z1_mm."""
+        r = self.op(
+            "place_riser",
+            level=level,
+            nps=nps,
+            origin=list(origin),
+            z0_mm=z0_mm,
+            z1_mm=z1_mm,
+            name=name,
+            material=material,
+            system=system,
+        )
+        return str(r["element_id"])
+
     def place_part(
         self,
         *,

@@ -378,3 +378,72 @@ def place_pipe(
         "length_m": round(length_m, 3),
         "nps": nps,
     }
+
+
+def place_riser(
+    model: ProjectModel,
+    *,
+    level: str,
+    nps: str,
+    origin: tuple[float, float] | list[float],
+    z0_mm: float,
+    z1_mm: float,
+    name: str | None = None,
+    material: str = "copper",
+    system_tag: str = "CW",
+) -> dict[str, Any]:
+    """Vertical pipe riser at fixed plan XY from z0_mm → z1_mm (absolute on level)."""
+    from llmbim_core.ids import new_id
+    from llmbim_core.parts_catalog import resolve_fitting_part_id
+
+    pid = resolve_fitting_part_id("pipe", nps, material=material)
+    if not pid:
+        raise ValidationError("Unknown pipe", nps=nps, material=material)
+    part = get_part(pid)
+    assert part is not None
+    x, y = float(origin[0]), float(origin[1])
+    z0, z1 = float(z0_mm), float(z1_mm)
+    if abs(z1 - z0) < 1:
+        raise ValidationError("Riser height too small", z0_mm=z0, z1_mm=z1)
+    lo, hi = min(z0, z1), max(z0, z1)
+    length_mm = hi - lo
+    length_m = length_mm / 1000.0
+    od = float((part.specs or {}).get("od_mm") or 28.6)
+    level_id = model.get_level(level).id
+    el = Element(
+        id=new_id("ris"),
+        category="pipe",
+        name=name or f"{part.name} riser H={length_m:.2f}m",
+        level_id=level_id,
+        type_id=pid,
+        params={
+            "origin_mm": [x, y],
+            "start_mm": [x, y],
+            "end_mm": [x, y],  # plan footprint is a point
+            "length_mm": length_mm,
+            "length_m": length_m,
+            "nps": nps,
+            "system": system_tag,
+            "material_id": part.primary_material_id,
+            "part_id": pid,
+            "part_qty": length_m,
+            "size_mm": [od, od, length_mm],  # vertical extent in Z
+            "shape": "cylinder",
+            "vertical": True,
+            "z0_mm": lo,
+            "z1_mm": hi,
+            "fitting_type": "pipe",
+            "orientation": "vertical",
+        },
+    )
+    model.add_element(el)
+    assign_part(model, el.id, pid, qty=length_m)
+    return {
+        "element_id": el.id,
+        "part_id": pid,
+        "length_m": round(length_m, 3),
+        "nps": nps,
+        "z0_mm": lo,
+        "z1_mm": hi,
+        "vertical": True,
+    }

@@ -210,7 +210,8 @@ def render_elevation_svg(
 
     # Project walls/equipment to (horizontal, z); pipes as horizontal lines at z0
     segs: list[tuple[float, float, float, float]] = []  # h0, h1, z0, z1
-    pipe_segs: list[tuple[float, float, float, str]] = []  # h0, h1, z, stroke
+    pipe_segs: list[tuple[float, float, float, str]] = []  # h0, h1, z, stroke (horizontal)
+    riser_segs: list[tuple[float, float, float, str]] = []  # h, z0, z1, stroke (vertical)
     for el in model.elements:
         if el.category == "wall":
             ep = _wall_endpoints(el)
@@ -251,23 +252,36 @@ def render_elevation_svg(
             segs.append((min(h0, h1), max(h0, h1), z0, z1))
         elif el.category in {"pipe", "plumbing_pipe"} or el.params.get("fitting_type") == "pipe":
             try:
-                if "start_mm" in el.params and "end_mm" in el.params:
-                    s, e = el.params["start_mm"], el.params["end_mm"]
-                    x0, y0 = float(s[0]), float(s[1])
-                    x1, y1 = float(e[0]), float(e[1])
-                else:
-                    continue
-                z = _level_elev(model, el.level_id) + float(el.params.get("z0_mm") or 0)
-                if d in {"N", "S"}:
-                    h0, h1 = x0, x1
-                else:
-                    h0, h1 = y0, y1
                 mid = str(el.params.get("material_id") or "")
                 stroke = "#c45c26"
                 if "black" in mid:
                     stroke = "#222"
                 if "ss316" in mid:
                     stroke = "#6b7c8a"
+                base = _level_elev(model, el.level_id)
+                if el.params.get("vertical") or el.params.get("orientation") == "vertical":
+                    o = el.params.get("origin_mm") or el.params.get("start_mm")
+                    if not o:
+                        continue
+                    ox, oy = float(o[0]), float(o[1])
+                    h = ox if d in {"N", "S"} else oy
+                    z0 = base + float(el.params.get("z0_mm") or 0)
+                    z1 = base + float(el.params.get("z1_mm") or (z0 + 1000))
+                    lo, hi = min(z0, z1), max(z0, z1)
+                    riser_segs.append((h, lo, hi, stroke))
+                    segs.append((h - 20, h + 20, lo, hi))
+                    continue
+                if "start_mm" in el.params and "end_mm" in el.params:
+                    s, e = el.params["start_mm"], el.params["end_mm"]
+                    x0, y0 = float(s[0]), float(s[1])
+                    x1, y1 = float(e[0]), float(e[1])
+                else:
+                    continue
+                z = base + float(el.params.get("z0_mm") or 0)
+                if d in {"N", "S"}:
+                    h0, h1 = x0, x1
+                else:
+                    h0, h1 = y0, y1
                 pipe_segs.append((min(h0, h1), max(h0, h1), z, stroke))
                 segs.append((min(h0, h1), max(h0, h1), z, z + 50))  # bbox
             except (KeyError, TypeError, ValueError, IndexError):
@@ -320,6 +334,12 @@ def render_elevation_svg(
     )
     for h0, h1, z, stroke in pipe_segs:
         pa, pb = project(h0, z), project(h1, z)
+        parts.append(
+            f'    <line x1="{fmt(pa[0])}" y1="{fmt(pa[1])}" '
+            f'x2="{fmt(pb[0])}" y2="{fmt(pb[1])}" stroke="{stroke}"/>'
+        )
+    for h, z0, z1, stroke in riser_segs:
+        pa, pb = project(h, z0), project(h, z1)
         parts.append(
             f'    <line x1="{fmt(pa[0])}" y1="{fmt(pa[1])}" '
             f'x2="{fmt(pb[0])}" y2="{fmt(pb[1])}" stroke="{stroke}"/>'

@@ -86,6 +86,14 @@ def element_aabb(el: Element, model: ProjectModel) -> AABB | None:
             if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
                 od = max(float(el.params["size_mm"][1]), 20.0)
             z_off = float(el.params.get("z0_mm", 0))
+            # vertical riser
+            if el.params.get("vertical") or el.params.get("orientation") == "vertical":
+                o = el.params.get("origin_mm") or el.params.get("start_mm") or [0, 0]
+                x, y = float(o[0]), float(o[1])
+                z_lo = z0 + float(el.params.get("z0_mm") or 0)
+                z_hi = z0 + float(el.params.get("z1_mm") or (z_lo + 1000))
+                r = od / 2
+                return AABB(x - r, y - r, min(z_lo, z_hi), x + r, y + r, max(z_lo, z_hi))
             if "start_mm" in el.params and "end_mm" in el.params:
                 s, e = el.params["start_mm"], el.params["end_mm"]
                 xs = [float(s[0]), float(e[0])]
