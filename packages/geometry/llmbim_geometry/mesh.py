@@ -1,4 +1,4 @@
-"""Minimal mesh / glTF export for review (wall boxes only)."""
+"""Minimal mesh / glTF export for review (walls + equipment + MEP proxies)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import json
 import math
 from pathlib import Path
 
-from llmbim_core.model import ProjectModel
+from llmbim_core.model import Element, ProjectModel
 
 
 def _level_z(model: ProjectModel, level_id: str | None) -> float:
@@ -53,13 +53,87 @@ _BOX_INDICES = [
     0, 3, 2, 0, 2, 1,  # bottom
 ]
 
+_PROXY_CATS = {
+    "fitting",
+    "fittings",
+    "fixture",
+    "accessory",
+    "module_instance",
+    "module_root",
+    "steel",
+    "rebar",
+    "framing",
+    "fire_protection",
+    "process_piping",
+}
+
+
+def _append_box(
+    all_pos: list[float],
+    all_idx: list[int],
+    base: int,
+    pos: list[float],
+) -> int:
+    if not pos:
+        return base
+    all_pos.extend(pos)
+    for i in _BOX_INDICES:
+        all_idx.append(base + i)
+    return base + 8
+
+
+def _box_from_origin_size(el: Element, model: ProjectModel) -> list[float]:
+    try:
+        origin = el.params.get("origin_mm")
+        size = el.params.get("size_mm") or [100, 100, 100]
+        if not origin:
+            return []
+        z0_off = float(el.params.get("z0_mm", 0))
+        shape = el.params.get("shape", "box")
+        x0, y0 = float(origin[0]), float(origin[1])
+        lx = float(size[0]) if len(size) > 0 else 100.0
+        ly = float(size[1]) if len(size) > 1 else 100.0
+        hz = float(size[2]) if len(size) > 2 else ly
+        z0 = _level_z(model, el.level_id) + z0_off
+        if shape == "cylinder" or el.params.get("fitting_type") == "pipe":
+            # horizontal cylinder envelope along +X length
+            return _wall_box_positions(x0, y0, x0 + max(lx, 50), y0, max(ly, 30), z0, z0 + max(hz, ly, 30))
+        return _wall_box_positions(x0, y0 + ly / 2, x0 + max(lx, 50), y0 + ly / 2, max(ly, 30), z0, z0 + max(hz, 30))
+    except (KeyError, TypeError, ValueError, IndexError):
+        return []
+
+
+def _box_from_pipe(el: Element, model: ProjectModel) -> list[float]:
+    """Pipe run start→end as a thin box at z0 (coordination marker)."""
+    try:
+        if "start_mm" in el.params and "end_mm" in el.params:
+            s, e = el.params["start_mm"], el.params["end_mm"]
+            x0, y0 = float(s[0]), float(s[1])
+            x1, y1 = float(e[0]), float(e[1])
+        elif "origin_mm" in el.params and "size_mm" in el.params:
+            o, sz = el.params["origin_mm"], el.params["size_mm"]
+            x0, y0 = float(o[0]), float(o[1])
+            x1, y1 = x0 + float(sz[0]), y0
+        else:
+            return []
+        od = 50.0
+        if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
+            od = max(float(el.params["size_mm"][1]), 20.0)
+        z0_off = float(el.params.get("z0_mm", 0))
+        z0 = _level_z(model, el.level_id) + z0_off
+        # centerline height ≈ z0 + od/2; box from z0 to z0+od
+        return _wall_box_positions(x0, y0, x1, y1, od, z0, z0 + od)
+    except (KeyError, TypeError, ValueError, IndexError):
+        return []
+
 
 def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
-    """Write a glTF 2.0 JSON with one mesh per wall (box approximation)."""
+    """Write glTF 2.0 JSON: walls + equipment + pipe/fitting/fixture/module boxes."""
     all_pos: list[float] = []
     all_idx: list[int] = []
     base = 0
     for el in model.elements:
+        pos: list[float] = []
         if el.category == "wall":
             try:
                 s = el.params["start_mm"]
@@ -73,36 +147,18 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
             pos = _wall_box_positions(
                 float(s[0]), float(s[1]), float(e[0]), float(e[1]), th, z0, z1
             )
-            if not pos:
-                continue
-            all_pos.extend(pos)
-            for i in _BOX_INDICES:
-                all_idx.append(base + i)
-            base += 8
         elif el.category == "equipment":
-            try:
-                origin = el.params["origin_mm"]
-                size = el.params["size_mm"]
-                z0_off = float(el.params.get("z0_mm", 0))
-                shape = el.params.get("shape", "box")
-            except (KeyError, TypeError, ValueError):
-                continue
-            x0, y0 = float(origin[0]), float(origin[1])
-            lx, ly, hz = float(size[0]), float(size[1]), float(size[2])
-            z0 = _level_z(model, el.level_id) + z0_off
-            if shape == "cylinder":
-                # origin y is centerline; size L, D, D
-                z1 = z0 + ly
-                pos = _wall_box_positions(x0, y0, x0 + lx, y0, ly, z0, z1)
+            pos = _box_from_origin_size(el, model)
+        elif el.category in {"pipe", "plumbing_pipe"}:
+            pos = _box_from_pipe(el, model)
+        elif el.category in _PROXY_CATS:
+            if el.params.get("start_mm") and el.params.get("end_mm"):
+                pos = _box_from_pipe(el, model)
             else:
-                z1 = z0 + hz
-                pos = _wall_box_positions(x0, y0 + ly / 2, x0 + lx, y0 + ly / 2, ly, z0, z1)
-            if not pos:
-                continue
-            all_pos.extend(pos)
-            for i in _BOX_INDICES:
-                all_idx.append(base + i)
-            base += 8
+                pos = _box_from_origin_size(el, model)
+        else:
+            continue
+        base = _append_box(all_pos, all_idx, base, pos)
 
     if not all_pos:
         all_pos = [0, 0, 0, 1, 0, 0, 1, 0, 1]
