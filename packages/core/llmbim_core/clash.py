@@ -80,12 +80,21 @@ def element_aabb(el: Element, model: ProjectModel) -> AABB | None:
         xs = [float(p[0]) for p in poly]
         ys = [float(p[1]) for p in poly]
         return AABB(min(xs), min(ys), z0 - th, max(xs), max(ys), z0)
-    if el.category in {"pipe", "plumbing_pipe"} or el.params.get("fitting_type") == "pipe":
+    if (
+        el.category in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac"}
+        or el.params.get("fitting_type") in {"pipe", "conduit", "duct"}
+    ):
         try:
+            is_duct = el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct"
             od = 50.0
             if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
                 od = max(float(el.params["size_mm"][1]), 20.0)
+            if is_duct:
+                od = float(el.params.get("width_mm") or od)
             z_off = float(el.params.get("z0_mm", 0))
+            elev_h = od
+            if is_duct:
+                elev_h = float(el.params.get("height_mm") or 250)
             # vertical riser
             if el.params.get("vertical") or el.params.get("orientation") == "vertical":
                 o = el.params.get("origin_mm") or el.params.get("start_mm") or [0, 0]
@@ -105,7 +114,7 @@ def element_aabb(el: Element, model: ProjectModel) -> AABB | None:
                     z0 + z_off,
                     max(xs) + pad,
                     max(ys) + pad,
-                    z0 + z_off + od,
+                    z0 + z_off + elev_h,
                 )
             if "origin_mm" in el.params and "size_mm" in el.params:
                 o, s = el.params["origin_mm"], el.params["size_mm"]
@@ -160,6 +169,9 @@ def find_clashes(
         "fixture",
         "module_instance",
         "module_root",
+        "duct",
+        "hvac",
+        "conduit",
     ),
     ignore_same_host: bool = True,
 ) -> list[dict[str, Any]]:
@@ -172,7 +184,16 @@ def find_clashes(
         if box and box.volume() > 0:
             items.append((el, box))
 
-    mep = {"pipe", "plumbing_pipe", "fitting", "fittings", "fixture"}
+    mep = {
+        "pipe",
+        "plumbing_pipe",
+        "fitting",
+        "fittings",
+        "fixture",
+        "duct",
+        "hvac",
+        "conduit",
+    }
     clashes: list[dict[str, Any]] = []
     for i in range(len(items)):
         for j in range(i + 1, len(items)):

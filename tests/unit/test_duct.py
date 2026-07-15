@@ -62,3 +62,31 @@ def test_place_conduit_csi():
     row = next(r for r in p.csi_instances() if r.get("element_id") == eid)
     assert row["csi_code"] == "26 05 33"
     assert "NPS1" in str(row.get("locator", "")) or row.get("nps") == "1"
+
+
+def test_duct_pipe_clash():
+    from llmbim_core.clash import find_clashes
+
+    p = Project.create("clash-mep", vcs=False)
+    p.add_level("L1", 0)
+    # same plan corridor, overlapping Z band
+    p.place_pipe(
+        level="L1",
+        nps="4",
+        start=(0, 1000),
+        end=(5000, 1000),
+        material="copper",
+        z0_mm=2700,
+    )
+    p.place_duct(
+        level="L1",
+        start=(1000, 1000),
+        end=(4000, 1000),
+        width_mm=600,
+        height_mm=400,
+        z0_mm=2650,
+    )
+    clashes = find_clashes(p.model)
+    assert any(
+        {c.get("a_category"), c.get("b_category")} == {"pipe", "duct"} for c in clashes
+    ), clashes[:3]
