@@ -95,7 +95,8 @@
 | 69 | continue | structural columns | only place_part steel | place_column W-section + plan/BOQ/CSI | 139 unit | ef60bf4 |
 | 70 | continue | structural beams | no beam place API | place_beam start→end + plan/BOQ/CSI | 140 unit | 6ab7036 |
 | 71 | continue | beam MCP/IFC/STEP + ops | agent surface incomplete | MCP place_beam; IFC/STEP; ops.schema 45 | 140 unit | b4561be |
-| 72 | continue | wall fire_rating + beam sched | walls lacked rating; no beam.csv | create_wall fire_rating; pack beam.csv | 140 unit | (this) |
+| 72 | continue | wall fire_rating + beam sched | walls lacked rating; no beam.csv | create_wall fire_rating; pack beam.csv | 140 unit | 9496d71 |
+| 73 | continue | skill/capability structure | agent docs lag code | SKILL column/beam/fire; CAPABILITY trades | 140 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -197,7 +198,8 @@
 95. ~~Structural place_beam~~ (pass 70)
 96. ~~Beam MCP/IFC/STEP + ops schema~~ (pass 71)
 97. ~~Wall fire_rating + beam schedule~~ (pass 72)
-98. Keep closing residual gaps until pass 120 / 10h
+98. ~~Skill/capability structure docs~~ (pass 73)
+99. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
