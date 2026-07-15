@@ -72,7 +72,7 @@
 | 46 | continue | STEP system layers | STEP products untagged | PRODUCT names PIPE-CU/FP/DUCT/CONDUIT:… | 116 unit | 838ca91 |
 | 47 | continue | CLI/MCP schedule | no schedule agent surface | llmbim schedule + project_schedule MCP | 117 unit | 8abcefd |
 | 48 | continue | duct/conduit design rules | only pipe-in-wall rules | DUCT_IN_WALL, CONDUIT_IN_WALL, DUCT_LOW_CLEARANCE | 118 unit | bbe2c2a |
-| 49 | continue | elev storey dims + zone HTML | elev no level dims; index no zone | level-dims; zone_areas sample | 119 unit | (this) |
+| 49 | continue | elev storey dims + zone HTML | elev no level dims; index no zone | level-dims; zone_areas sample | 119 unit | 3b707e7 |
 
 ## Backlog (living — pull highest impact each pass)
 
