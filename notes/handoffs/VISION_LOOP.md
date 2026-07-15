@@ -102,7 +102,8 @@
 | 76 | continue | elev/section SVG structure | elev SVG no columns | columns-elev tags; beam depth; section cut | 145 unit | 76fa760 |
 | 77 | continue | section DXF structure | section DXF no COLUMNS/BEAMS | COLUMNS/BEAMS on cut + cable tray | 146 unit | 9b95995 |
 | 78 | continue | multi-trade pack smoke | smoke thin on structure/tray | column/beam/tray + takeoffs + pack DXF | 146 unit | 5d324e4 |
-| 79 | continue | query section + structure rules | no section=; no steel rules | section/trade_size query; COLUMN_IN_WALL | 148 unit | (this) |
+| 79 | continue | query section + structure rules | no section=; no steel rules | section/trade_size query; COLUMN_IN_WALL | 148 unit | c80bfaa |
+| 80 | continue | MCP query enrichment | query rows thin on section/system | section/trade_size/fire/phase + docs | 149 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -211,7 +212,8 @@
 102. ~~Section DXF columns/beams + tray~~ (pass 77)
 103. ~~Multi-trade pack smoke structure+tray~~ (pass 78)
 104. ~~Query section= + structure design rules~~ (pass 79)
-105. Keep closing residual gaps until pass 120 / 10h
+105. ~~MCP query enrichment section/system~~ (pass 80)
+106. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 

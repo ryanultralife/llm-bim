@@ -100,9 +100,9 @@ Project.export_deliverables(out_dir)
 | Surface | Status |
 |---------|--------|
 | Python SDK `llmbim.Project` | ✅ |
-| CLI `llmbim` | ✅ pack, **schedule**, takeoff, place MEP, csi_instances, modules, VCS, … |
+| CLI `llmbim` | ✅ pack, **schedule** (level/column/beam/duct…), takeoff, place MEP/structure, csi_instances, modules, VCS |
 | Registry ops + `ops.schema.json` | ✅ ~45 tools (duct/conduit/tray/column/beam) |
-| MCP stdio | ✅ takeoff/parts + place MEP/structure + **export_pack phases** + set_phase + modules/CSI |
+| MCP stdio | ✅ query (section/CSI/room) + takeoff + place MEP/structure + schedule kinds + pack phases + modules |
 | Skill `skills/llm-bim/SKILL.md` | ✅ |
 | Templates | ✅ office_bay, warehouse, hot_cell_bay, lab_bench |
 | Cases | ✅ intec, proto10, plumbing_loop, multi_trade, module_machine_host |

@@ -73,10 +73,13 @@ Ops: `assign_material`, `assign_part`, `place_fitting`, `place_pipe`, `place_duc
 ```python
 p.place_part(level="L1", kind="toilet")
 p.place_part(level="L1", kind="tp_dispenser")
-p.place_part(level="L1", section="W10x33", length_m=3.5)
+p.place_column(level="L1", origin=(0, 0), section="W10x33", height_mm=3500)
+p.place_beam(level="L1", start=(0, 0), end=(8000, 0), section="W12x26")
 p.place_part(level="L1", bar_size="5", length_m=120)
 p.place_fitting(level="L1", fitting_type="elbow_90", nps="2", material="fire")
 p.csi_takeoff()  # by MasterFormat
+p.query("category=column section=W10x33")
+p.steel_takeoff()  # place_column/beam + catalog steel
 ```
 
 ## Modules / blocks / machines

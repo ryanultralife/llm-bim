@@ -70,7 +70,7 @@ if HAS_MCP:
 
     @mcp.tool()
     def project_query(project_id: str, q: str) -> str:
-        """Query: category=wall level=L1 room~Restroom csi~22_11 vertical=true nps=2"""
+        """Query: category=column section=W10x33 | room~Mech csi~23_31 | vertical=true nps=2 | trade_size=1"""
         p = store.get(project_id)
         els = p.query(q)
         rows = []
@@ -83,10 +83,18 @@ if HAS_MCP:
                 "id": e.id,
                 "category": e.category,
                 "name": e.name,
-                "nps": e.params.get("nps"),
+                "nps": e.params.get("nps") or e.params.get("trade_size"),
+                "trade_size": e.params.get("trade_size") or e.params.get("nps"),
+                "section": e.params.get("section"),
+                "system": e.params.get("system"),
                 "fitting_type": e.params.get("fitting_type"),
                 "vertical": e.params.get("vertical"),
                 "part_id": e.params.get("part_id") or e.type_id,
+                "type_id": e.type_id,
+                "fire_rating": e.params.get("fire_rating"),
+                "phase": e.params.get("phase", "new"),
+                "length_m": e.params.get("length_m"),
+                "height_mm": e.params.get("height_mm"),
             }
             if csi_for_element is not None:
                 try:
@@ -241,7 +249,7 @@ if HAS_MCP:
 
     @mcp.tool()
     def project_schedule(project_id: str, kind: str = "zone", limit: int = 100) -> str:
-        """Schedule rows. kind: zone|room|door|window|wall|csi|connection|pipe|fitting|part."""
+        """Schedule rows. kind: level|zone|room|door|window|wall|column|beam|pipe|duct|conduit|hvac_device|csi|connection|fitting|part."""
         from llmbim_drawings.schedules import schedule_rows
 
         p = store.get(project_id)
@@ -280,8 +288,8 @@ if HAS_MCP:
         material: str = "",
         system: str = "",
     ) -> str:
-        """Trade takeoff. kind: plumbing|fire|steel|rebar|csi|duct|hvac|conduit|electrical|trades|fittings|fixture.
-        Answers e.g. how many 90° copper elbows by size, or duct area / conduit length."""
+        """Trade takeoff. kind: plumbing|fire|steel|rebar|csi|duct|hvac|conduit|cable_tray|electrical|trades|fittings|fixture.
+        Steel includes place_column/place_beam lengths. Duct/conduit/tray are dedicated takeoffs."""
         p = store.get(project_id)
         k = (kind or "plumbing").lower()
         if k == "fire":
@@ -302,10 +310,18 @@ if HAS_MCP:
             return _tool_result(p.plumbing_schedule())
         if k in ("duct", "hvac"):
             return _tool_result({"duct": p.duct_takeoff()})
-        if k in ("conduit", "electrical"):
+        if k in ("conduit",):
             return _tool_result({"conduit": p.conduit_takeoff()})
         if k in ("cable_tray", "tray"):
             return _tool_result({"cable_tray": p.cable_tray_takeoff()})
+        if k == "electrical":
+            return _tool_result(
+                {
+                    "conduit": p.conduit_takeoff(),
+                    "cable_tray": p.cable_tray_takeoff(),
+                    "devices": p.system_takeoff("electrical"),
+                }
+            )
         rows = p.fitting_takeoff(
             fitting_type=fitting_type or None,
             material=material or None,
