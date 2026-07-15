@@ -62,7 +62,7 @@
 | 36 | continue | BOQ+MCP duct/conduit | BOQ skipped MEP duct; MCP no place | BOQ m2/m; MCP place_duct/conduit; glTF | 105 unit | cfd2ae5 |
 | 37 | continue | door/window type marks | plan only D1/W1 | type_id on place + opening-type on plan; matrix duct/conduit | 106 unit | d8b3d09 |
 | 38 | continue | glTF system colors | one gray mesh for all MEP | multi-material glTF copper/fire/duct/conduit | 107 unit | ed4e990 |
-| 39 | continue | VAV + fire damper | no HVAC device place/plan | kind=vav/fire_damper CSI 23 36/33; plan FD/VAV | 109 unit | (this) |
+| 39 | continue | VAV + fire damper | no HVAC device place/plan | kind=vav/fire_damper CSI 23 36/33; plan FD/VAV | 109 unit | 45fd538 |
 
 ## Backlog (living — pull highest impact each pass)
 
