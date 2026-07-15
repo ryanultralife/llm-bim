@@ -23,7 +23,12 @@ llmbim rules model.llmbim.json -v
 llmbim serve --port 8000            # API + 3D review pages
 ```
 
-Builder/designer guide: [`docs/BUILDER_DESIGNER.md`](docs/BUILDER_DESIGNER.md)
+Builder/designer guide: [`docs/BUILDER_DESIGNER.md`](docs/BUILDER_DESIGNER.md) · Depth passes: [`docs/DEPTH_PASSES.md`](docs/DEPTH_PASSES.md)
+
+```bash
+llmbim pdf examples/output/intec/construction --out plot.pdf
+llmbim import-step path/to/part.step --level L1 --out ./fusion_ref
+```
 
 ### Deliverables pack (what you get)
 

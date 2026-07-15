@@ -163,6 +163,8 @@ def render_plan_view(
     parts.append(
         f'  <g class="openings" stroke="#0066aa" stroke-width="{fmt(max(0.4, 10 * scale))}">'
     )
+    door_num = 0
+    win_num = 0
     for opening in list(doors) + list(windows):
         host = wall_by_id.get(opening.host_id or "")
         if not host:
@@ -176,14 +178,41 @@ def render_plan_view(
         try:
             a = point_along_segment((x0, y0), (x1, y1), off)
             b = point_along_segment((x0, y0), (x1, y1), off + width_o)
+            mid = point_along_segment((x0, y0), (x1, y1), off + width_o / 2)
         except Exception:
             continue
         pa, pb = project(*a), project(*b)
+        pm = project(*mid)
         color = "#228822" if opening.category == "door" else "#0066aa"
         parts.append(
             f'    <line x1="{fmt(pa[0])}" y1="{fmt(pa[1])}" '
             f'x2="{fmt(pb[0])}" y2="{fmt(pb[1])}" stroke="{color}"/>'
         )
+        # door / window tags
+        if opening.category == "door":
+            door_num += 1
+            tag = f"D{door_num}"
+            r = max(6.0, 80 * scale)
+            parts.append(
+                f'    <circle cx="{fmt(pm[0])}" cy="{fmt(pm[1])}" r="{fmt(r)}" '
+                f'fill="#e8ffe8" stroke="#228822" stroke-width="1"/>'
+            )
+            parts.append(
+                f'    <text x="{fmt(pm[0])}" y="{fmt(pm[1] + r * 0.35)}" text-anchor="middle" '
+                f'font-size="{fmt(max(7, r))}" fill="#145214" font-family="sans-serif">{tag}</text>'
+            )
+        else:
+            win_num += 1
+            tag = f"W{win_num}"
+            r = max(5.0, 70 * scale)
+            parts.append(
+                f'    <rect x="{fmt(pm[0] - r)}" y="{fmt(pm[1] - r * 0.6)}" '
+                f'width="{fmt(2 * r)}" height="{fmt(1.2 * r)}" fill="#e8f0ff" stroke="#0066aa"/>'
+            )
+            parts.append(
+                f'    <text x="{fmt(pm[0])}" y="{fmt(pm[1] + r * 0.25)}" text-anchor="middle" '
+                f'font-size="{fmt(max(6, r * 0.9))}" fill="#003366" font-family="sans-serif">{tag}</text>'
+            )
     parts.append("  </g>")
 
     # Equipment

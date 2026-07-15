@@ -202,6 +202,28 @@ def export_deliverables(
     result["design_rules"] = "design_rules.json"
     result["dxf"] = f"views/plan_{level}.dxf"
 
+    # PDF plot binder (construction and/or parts drawings)
+    from llmbim_drawings.pdf_binder import export_pdf_binder
+
+    def _pdf() -> None:
+        # Prefer construction sheets, else parts drawings
+        cand = out / "construction"
+        if not cand.is_dir() or not list(cand.glob("*.svg")):
+            cand = out / "parts" / "drawings"
+        if cand.is_dir() and list(cand.glob("*.svg")):
+            export_pdf_binder(cand, out / "PLOT_SET.pdf", title=model.name)
+
+    _try("pdf_binder", errors, _pdf)
+    if (out / "PLOT_SET.pdf").is_file():
+        result["plot_set_pdf"] = "PLOT_SET.pdf"
+
+    # Bundle locked Fusion STEP references
+    from llmbim_geometry.step_import import pack_step_references
+
+    refs = _try("step_refs", errors, lambda: pack_step_references(model, out)) or []
+    if refs:
+        result["step_refs"] = "step_refs/"
+
     if mode in {"facility", "both"} or has_walls:
         cd = _try(
             "construction_set",

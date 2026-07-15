@@ -9,6 +9,7 @@ from llmbim_geometry.primitives import (
     wall_length_mm,
 )
 from llmbim_geometry.step_export import export_step, export_step_part
+from llmbim_geometry.step_import import import_step_as_equipment, parse_step_bbox
 
 __all__ = [
     "Vec2",
@@ -16,6 +17,8 @@ __all__ = [
     "export_gltf_walls",
     "export_step",
     "export_step_part",
+    "import_step_as_equipment",
+    "parse_step_bbox",
     "point_along_segment",
     "polygon_area_mm2",
     "wall_length_mm",

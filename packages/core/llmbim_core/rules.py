@@ -113,6 +113,100 @@ def run_design_rules(model: ProjectModel) -> list[dict[str, Any]]:
                     }
                 )
 
+    # Accessibility: door clear width 815 mm preferred (ADA-ish)
+    for el in model.query(category="door"):
+        w = float(el.params.get("width_mm") or 0)
+        if 800 <= w < 815:
+            findings.append(
+                {
+                    "rule": "ADA_DOOR_CLEAR",
+                    "severity": "info",
+                    "message": f"Door {w:.0f} mm is tight for accessible clear width (~815+)",
+                    "element_id": el.id,
+                    "domain": "accessibility",
+                }
+            )
+
+    # Equipment clearance: equipment within 300 mm of wall gets warning
+    from llmbim_core.clash import element_aabb
+
+    walls = [(el, element_aabb(el, model)) for el in model.query(category="wall")]
+    for eq in model.query(category="equipment"):
+        eb = element_aabb(eq, model)
+        if not eb:
+            continue
+        for wall, wb in walls:
+            if not wb:
+                continue
+            # expand wall AABB by 300 mm clearance
+            gap = 300.0
+            near = not (
+                eb.xmax < wb.xmin - gap
+                or eb.xmin > wb.xmax + gap
+                or eb.ymax < wb.ymin - gap
+                or eb.ymin > wb.ymax + gap
+            )
+            # but not intersecting heavily (that's clash)
+            if near and not eb.intersects(wb, tol=50):
+                findings.append(
+                    {
+                        "rule": "EQUIP_CLEARANCE_300",
+                        "severity": "info",
+                        "message": f"Equipment {eq.name or eq.id} within 300 mm of wall {wall.name or wall.id}",
+                        "element_id": eq.id,
+                        "domain": "constructability",
+                    }
+                )
+                break
+
+    # Dual egress: rooms > 50 m² should have >= 2 doors on level (heuristic)
+    for room in model.query(category="room"):
+        area = float(room.params.get("area_mm2") or 0) / 1e6
+        if area < 50:
+            continue
+        doors = [d for d in model.query(category="door") if d.level_id == room.level_id]
+        if len(doors) < 2:
+            findings.append(
+                {
+                    "rule": "DUAL_EGRESS_HEURISTIC",
+                    "severity": "warning",
+                    "message": f"Large room {room.name!r} ({area:.0f} m²) has < 2 doors on level",
+                    "element_id": room.id,
+                    "domain": "life_safety",
+                }
+            )
+
+    # Locked STEP refs must exist on disk
+    for el in model.query(category="equipment"):
+        if el.params.get("locked") and el.params.get("step_ref_path"):
+            from pathlib import Path
+
+            if not Path(str(el.params["step_ref_path"])).is_file():
+                findings.append(
+                    {
+                        "rule": "MISSING_STEP_REF",
+                        "severity": "error",
+                        "message": f"Locked equipment missing STEP file: {el.params['step_ref_path']}",
+                        "element_id": el.id,
+                        "domain": "integrity",
+                    }
+                )
+
+    # Level count
+    if len(model.levels) == 1 and any(el.category == "wall" for el in model.elements):
+        for el in model.query(category="wall"):
+            if float(el.params.get("height_mm") or 0) > 6000:
+                findings.append(
+                    {
+                        "rule": "TALL_WALL_SINGLE_LEVEL",
+                        "severity": "info",
+                        "message": "Tall walls with single level — consider intermediate levels",
+                        "element_id": el.id,
+                        "domain": "design",
+                    }
+                )
+                break
+
     return findings
 
 

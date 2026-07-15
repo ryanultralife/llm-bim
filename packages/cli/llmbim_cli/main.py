@@ -147,6 +147,28 @@ def cmd_rules(args: argparse.Namespace) -> int:
     return 1 if r["summary"].get("error", 0) else 0
 
 
+def cmd_import_step(args: argparse.Namespace) -> int:
+    from llmbim import Project
+
+    p = Project.open(args.project) if args.project else Project.create("STEP Import")
+    if not args.project:
+        p.add_level(args.level, 0)
+    eid = p.import_step(args.step, level=args.level, name=args.name, copy_into=args.copy_into)
+    out = Path(args.out or "examples/output/step_import")
+    p.save(out / "model.llmbim.json")
+    man = p.export_deliverables(out, mode="part")
+    print(json.dumps({"equipment_id": eid, "out": str(out), "ok": man.get("ok")}, indent=2))
+    return 0 if man.get("ok") else 1
+
+
+def cmd_pdf(args: argparse.Namespace) -> int:
+    from llmbim_drawings.pdf_binder import export_pdf_binder
+
+    p = export_pdf_binder(args.sheets, args.out, title=args.title or "LLM-BIM Plot Set")
+    print(json.dumps({"pdf": str(p), "size": p.stat().st_size}, indent=2))
+    return 0
+
+
 def cmd_template(args: argparse.Namespace) -> int:
     from llmbim import Project
     from llmbim_templates import list_templates
@@ -244,6 +266,21 @@ def main(argv: list[str] | None = None) -> int:
     p_tpl.add_argument("--list", action="store_true")
     p_tpl.add_argument("--out", default=None)
     p_tpl.set_defaults(func=cmd_template)
+
+    p_imp = sub.add_parser("import-step", help="Import Fusion STEP as locked equipment")
+    p_imp.add_argument("step", help="Path to .step/.stp file")
+    p_imp.add_argument("--project", default=None, help="Existing .llmbim.json")
+    p_imp.add_argument("--level", default="L1")
+    p_imp.add_argument("--name", default=None)
+    p_imp.add_argument("--copy-into", default=None)
+    p_imp.add_argument("--out", default=None)
+    p_imp.set_defaults(func=cmd_import_step)
+
+    p_pdf = sub.add_parser("pdf", help="Build multi-page PDF from SVG sheet folder")
+    p_pdf.add_argument("sheets", help="Directory of SVG sheets")
+    p_pdf.add_argument("--out", required=True)
+    p_pdf.add_argument("--title", default=None)
+    p_pdf.set_defaults(func=cmd_pdf)
 
     args = parser.parse_args(argv)
     return int(args.func(args))

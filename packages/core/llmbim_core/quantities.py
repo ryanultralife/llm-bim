@@ -45,7 +45,9 @@ def equipment_volume_m3(el) -> float:
 
 
 def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
-    """Bill of quantities with optional catalog costs."""
+    """Bill of quantities with optional catalog costs + CSI codes."""
+    from llmbim_core.csi import annotate_boq_with_csi, boq_by_csi_division
+
     rows: list[dict[str, Any]] = []
 
     for el in model.query(category="wall"):
@@ -188,10 +190,12 @@ def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
             }
         )
 
-    return rows
+    return annotate_boq_with_csi(rows)
 
 
 def boq_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    from llmbim_core.csi import boq_by_csi_division
+
     by_cat: dict[str, float] = {}
     total = 0.0
     for r in rows:
@@ -202,6 +206,7 @@ def boq_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "line_items": len(rows),
         "est_cost_total": round(total, 2),
         "est_cost_by_category": {k: round(v, 2) for k, v in by_cat.items()},
+        "est_cost_by_csi_division": boq_by_csi_division(rows),
         "currency_note": "ENGINEERING ESTIMATE unit costs — not a bid",
     }
 
@@ -217,6 +222,8 @@ def export_boq_csv(model: ProjectModel, path: str | Path) -> Path:
     for r in rows:
         flat.append(
             {
+                "csi_code": r.get("csi_code", ""),
+                "csi_division": r.get("csi_division", ""),
                 "category": r["category"],
                 "id": r["id"],
                 "name": r["name"],

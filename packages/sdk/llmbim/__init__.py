@@ -278,6 +278,33 @@ class Project:
 
         export_plan_dxf(self._model, level, path)
 
+    def export_pdf_binder(self, sheet_dir: str | Path, path: str | Path, **kw: Any) -> None:
+        from llmbim_drawings.pdf_binder import export_pdf_binder
+
+        export_pdf_binder(sheet_dir, path, title=self.name, **kw)
+
+    def import_step(
+        self,
+        step_path: str | Path,
+        *,
+        level: str,
+        name: str | None = None,
+        kind: str = "step_ref",
+        copy_into: str | Path | None = None,
+    ) -> str:
+        """Import Fusion/CAD STEP as locked equipment envelope + file reference."""
+        from llmbim_geometry.step_import import import_step_as_equipment
+
+        el = import_step_as_equipment(
+            self._model,
+            step_path,
+            level=level,
+            name=name,
+            kind=kind,
+            copy_into=copy_into,
+        )
+        return el.id
+
     def catalog(self) -> dict[str, Any]:
         from llmbim_core.types_catalog import catalog_dict
 
