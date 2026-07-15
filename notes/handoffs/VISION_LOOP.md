@@ -128,6 +128,7 @@
 | 102 | continue | door/window clash AABB | openings not in clash | host AABB + skill door/window docs | 171 unit | (this) |
 | 103 | continue | ops schema + capability openings | schema/docs missing wall/door ops | regenerate ops.schema + CAPABILITY | 171 unit | (this) |
 | 104 | continue | query fire_rating | no FR query token | fire_rating= / ~ with 90_min normalize | 172 unit | (this) |
+| 105 | continue | HTML door sample + demo openings | index no door table; demo walls only | doors.csv sample + demo_house door/window | 173 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -261,7 +262,8 @@
 127. ~~Door/window clash AABB + skill docs~~ (pass 102)
 128. ~~ops.schema + CAPABILITY openings~~ (pass 103)
 129. ~~Query fire_rating token~~ (pass 104)
-130. Keep closing residual gaps until pass 120 / 10h
+130. ~~HTML door sample + demo openings~~ (pass 105)
+131. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
