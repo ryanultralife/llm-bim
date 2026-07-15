@@ -276,5 +276,48 @@ class Project:
 
         return [i.to_dict() for i in validate_model(self._model)]
 
+    def export_ifc(self, path: str | Path) -> None:
+        from llmbim_ifc import export_ifc
+
+        export_ifc(self._model, path)
+
+    def export_step(self, path: str | Path, *, include_walls: bool = True) -> None:
+        from llmbim_geometry.step_export import export_step
+
+        export_step(self._model, path, include_walls=include_walls)
+
+    def export_construction_set(
+        self, out_dir: str | Path, *, plan_level: str | None = None, plan_scale: float = 0.02
+    ) -> dict[str, Any]:
+        from llmbim_drawings.construction import export_construction_set
+
+        return export_construction_set(
+            self._model, out_dir, plan_level=plan_level, plan_scale=plan_scale
+        )
+
+    def export_part_pack(self, out_dir: str | Path, *, scale: float = 0.4) -> dict[str, Any]:
+        from llmbim_drawings.parts import export_part_pack
+
+        return export_part_pack(self._model, out_dir, scale=scale)
+
+    def export_deliverables(
+        self,
+        out_dir: str | Path,
+        *,
+        mode: str = "auto",
+        plan_level: str | None = None,
+        plan_scale: float | None = None,
+    ) -> dict[str, Any]:
+        """Full pack: JSON + IFC + glTF + STEP + construction and/or part sheets."""
+        from llmbim_drawings.deliverables import export_deliverables
+
+        return export_deliverables(
+            self._model,
+            out_dir,
+            mode=mode,
+            plan_level=plan_level,
+            plan_scale=plan_scale,
+        )
+
 
 __all__ = ["Project", "Element", "Level", "ProjectModel", "__version__"]

@@ -68,11 +68,11 @@ include = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# IFC stays optional; drawings acceptance now runs by default
-addopts = "-m \"not wp_ifc\""
+# Pure IFC SPF tests run by default; ifcopenshell optional inside tests
+addopts = ""
 markers = [
   "wp_drawings: drawings acceptance",
-  "wp_ifc: sealed WP-IFC acceptance (optional ifcopenshell)",
+  "wp_ifc: IFC export acceptance",
 ]
 pythonpath = [
   ".",

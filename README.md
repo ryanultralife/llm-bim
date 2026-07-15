@@ -13,9 +13,26 @@ source .venv/bin/activate
 pip install -e ".[dev,server]"
 
 llmbim demo --out examples/output   # model + plan/section/elevation SVG
+llmbim case intec                   # facility pack → examples/output/intec/
+llmbim case proto10                 # part pack → examples/output/proto10/
+llmbim pack path.json --out ./pack  # full BIM+IFC+STEP+glTF+sheets
 llmbim serve --port 8000            # API + review pages
 ```
 
+### Deliverables pack (what you get)
+
+| Output | File |
+|--------|------|
+| BIM model | `model.llmbim.json` |
+| IFC4 | `model.ifc` |
+| 3D mesh | `model.gltf` |
+| 3D solids | `model.step` (+ per-part STEP under `parts/step/`) |
+| Construction set | `construction/G-001…A-604_*.svg` |
+| Part drawings | `parts/drawings/P-###_*.svg` |
+| Schedules | `schedules/*.csv` |
+| Index | `MANIFEST.json` |
+
+See [`docs/OUTPUT_MATRIX.md`](docs/OUTPUT_MATRIX.md).
 - Health: http://127.0.0.1:8000/health  
 - API docs: http://127.0.0.1:8000/docs  
 - Review: http://127.0.0.1:8000/  

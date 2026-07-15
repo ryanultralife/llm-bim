@@ -177,18 +177,19 @@ def build_intec(out_dir: Path) -> Project:
             name="Main personnel entry",
         )
 
-    # Exports
-    p.save(out_dir / "intec_site.llmbim.json")
-    # Site is large — smaller scale for readable SVG
-    p.export_plan("L0", out_dir / "intec_plan_L0.svg", scale=0.008)
-    p.export_section(
-        (m_to_mm(24.0), m_to_mm(-5.0)),
-        (m_to_mm(24.0), m_to_mm(40.0)),
-        out_dir / "intec_section_NS.svg",
-        scale=0.008,
+    # Full deliverables pack: BIM JSON, IFC, glTF, STEP, construction set, part sheets
+    manifest = p.export_deliverables(
+        out_dir,
+        mode="auto",
+        plan_level="L0",
+        plan_scale=0.008,
     )
-    p.export_elevation("S", out_dir / "intec_elev_S.svg", scale=0.008)
-    p.export_gltf(out_dir / "intec_walls.gltf")
+    # Legacy-friendly aliases
+    if (out_dir / "model.llmbim.json").exists():
+        (out_dir / "intec_site.llmbim.json").write_text(
+            (out_dir / "model.llmbim.json").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
 
     meta = {
         "source": "intec_fusion_params.json params_version 2026-06-13.site4",
@@ -196,6 +197,7 @@ def build_intec(out_dir: Path) -> Project:
         "stats": p.stats(),
         "validation": p.validate(),
         "placements": len(PLACEMENTS),
+        "deliverables": manifest,
     }
     (out_dir / "intec_site_meta.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
     return p

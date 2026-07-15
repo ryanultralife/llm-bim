@@ -150,11 +150,18 @@ def build_proto10(out_dir: Path) -> Project:
         name="Shell OD plan silhouette",
     )
 
-    p.save(out_dir / "proto10_separator.llmbim.json")
-    p.export_plan("Bench", out_dir / "proto10_plan.svg", scale=0.4)
-    p.export_section((-400, 0), (400, 0), out_dir / "proto10_section.svg", scale=0.4)
-    p.export_elevation("S", out_dir / "proto10_elev_S.svg", scale=0.4)
-    p.export_gltf(out_dir / "proto10.gltf")
+    # Full pack: BIM + IFC + glTF + assembly STEP + per-part STEP + 2D part sheets
+    manifest = p.export_deliverables(
+        out_dir,
+        mode="part",
+        plan_level="Bench",
+        plan_scale=0.4,
+    )
+    if (out_dir / "model.llmbim.json").exists():
+        (out_dir / "proto10_separator.llmbim.json").write_text(
+            (out_dir / "model.llmbim.json").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
 
     meta = {
         "source": "MB-SEP-PROTO / Fusion Proto10 RFQ dimensions",
@@ -170,6 +177,7 @@ def build_proto10(out_dir: Path) -> Project:
         },
         "stats": p.stats(),
         "validation": p.validate(),
+        "deliverables": manifest,
     }
     (out_dir / "proto10_meta.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
     return p

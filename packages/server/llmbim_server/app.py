@@ -514,6 +514,18 @@ def download_project_json(project_id: str) -> Response:
         raise HTTPException(404, "project not found") from e
 
 
+@app.post("/v1/projects/{project_id}/export/pack", dependencies=[Depends(require_api_key)])
+def export_pack(project_id: str, mode: str = "auto") -> Any:
+    """Write full deliverables pack under data/artifacts/{id}/pack/."""
+    try:
+        p = store.get(project_id)
+        out = store.artifacts_dir(project_id) / "pack"
+        manifest = p.export_deliverables(out, mode=mode)
+        return _ok({"dir": str(out), "manifest": manifest})
+    except Exception as e:
+        return _err(e)
+
+
 @app.post("/v1/demo/simple-house", dependencies=[Depends(require_api_key)])
 def demo_simple_house() -> Any:
     """Seed a complete demo project for launch smoke tests."""

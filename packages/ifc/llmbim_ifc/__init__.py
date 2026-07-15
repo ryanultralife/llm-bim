@@ -1,4 +1,4 @@
-"""IFC import/export — WP-IFC for Claude."""
+"""IFC import/export."""
 
 from llmbim_ifc.export import export_ifc
 

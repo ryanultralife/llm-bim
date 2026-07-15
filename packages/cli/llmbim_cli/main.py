@@ -93,6 +93,21 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 1 if errors else 0
 
 
+def cmd_pack(args: argparse.Namespace) -> int:
+    """Export full deliverables pack from a .llmbim.json file."""
+    from llmbim import Project
+
+    p = Project.open(args.path)
+    manifest = p.export_deliverables(
+        args.out,
+        mode=args.mode,
+        plan_level=args.level,
+        plan_scale=args.scale,
+    )
+    print(json.dumps(manifest, indent=2))
+    return 0
+
+
 def cmd_case(args: argparse.Namespace) -> int:
     """Build named real-world test cases (INTEC site, Proto10 separator)."""
     root = Path(__file__).resolve().parents[3]  # repo root when installed editable
@@ -143,6 +158,14 @@ def main(argv: list[str] | None = None) -> int:
     p_case.add_argument("name", choices=["intec", "proto10"])
     p_case.add_argument("--out", default=None, help="Output directory")
     p_case.set_defaults(func=cmd_case)
+
+    p_pack = sub.add_parser("pack", help="Full deliverables pack from .llmbim.json")
+    p_pack.add_argument("path", help="Input project JSON")
+    p_pack.add_argument("--out", required=True, help="Output directory")
+    p_pack.add_argument("--mode", default="auto", choices=["auto", "facility", "part", "both"])
+    p_pack.add_argument("--level", default=None)
+    p_pack.add_argument("--scale", type=float, default=None)
+    p_pack.set_defaults(func=cmd_pack)
 
     args = parser.parse_args(argv)
     return int(args.func(args))

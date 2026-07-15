@@ -14,8 +14,15 @@ def test_intec_site(tmp_path: Path) -> None:
     assert s["wall"] >= 4
     assert s.get("equipment", 0) >= 6  # vessels + stack
     assert s.get("room", 0) >= 10
-    assert (tmp_path / "intec" / "intec_plan_L0.svg").is_file()
-    assert (tmp_path / "intec" / "intec_plan_L0.svg").stat().st_size > 500
+    root = tmp_path / "intec"
+    assert (root / "model.llmbim.json").is_file()
+    assert (root / "model.ifc").is_file()
+    assert (root / "model.step").is_file()
+    assert (root / "model.gltf").is_file()
+    assert (root / "construction" / "A-101_plan.svg").is_file()
+    assert (root / "MANIFEST.json").is_file()
+    assert "IFCPROJECT" in (root / "model.ifc").read_text(encoding="utf-8")
+    assert "MANIFOLD_SOLID_BREP" in (root / "model.step").read_text(encoding="utf-8")
     errors = [i for i in p.validate() if i["severity"] == "error"]
     assert not errors
 
@@ -24,7 +31,12 @@ def test_proto10(tmp_path: Path) -> None:
     p = build_proto10(tmp_path / "p10")
     s = p.stats()
     assert s.get("equipment", 0) >= 8  # pedestal, yoke, shell, 2 flanges, cartridge, 4 magnets
-    assert (tmp_path / "p10" / "proto10_plan.svg").is_file()
-    text = (tmp_path / "p10" / "proto10_plan.svg").read_text(encoding="utf-8")
+    root = tmp_path / "p10"
+    assert (root / "model.step").is_file()
+    assert (root / "parts" / "PARTS_INDEX.json").is_file()
+    steps = list((root / "parts" / "step").glob("*.step"))
+    assert len(steps) >= 8
+    ga = root / "parts" / "drawings" / "P-000_assembly_GA.svg"
+    assert ga.is_file()
+    text = ga.read_text(encoding="utf-8")
     assert "<svg" in text.lower()
-    assert "shell" in text.lower() or "Al6061" in text or "equipment" in text.lower()
