@@ -459,19 +459,23 @@ def render_plan_view(
         f'stroke-width="{fmt(max(0.5, 8 * scale))}">'
     )
     for el in mep_els:
-        if el.category in {"pipe", "plumbing_pipe", "duct", "hvac", "conduit"}:
+        ftype0 = str(el.params.get("fitting_type") or "")
+        # linear runs drawn elsewhere; keep point-placed HVAC devices (VAV, dampers)
+        if el.category in {"pipe", "plumbing_pipe", "conduit"}:
             continue
-        if el.params.get("fitting_type") == "pipe":
+        if el.category in {"duct"} or ftype0 in {"pipe", "duct", "flex_duct"}:
             continue
-        if el.params.get("fitting_type") == "duct":
-            continue
+        if el.category == "hvac" and ftype0 in {"duct", "flex_duct", ""}:
+            # bare linear duct category without device type
+            if el.params.get("start_mm") and el.params.get("end_mm"):
+                continue
         try:
             o = el.params.get("origin_mm")
             if not o:
                 continue
             ox, oy = float(o[0]), float(o[1])
             px, py = project(ox, oy)
-            ftype = str(el.params.get("fitting_type") or el.category)
+            ftype = ftype0 or str(el.category)
             nps = el.params.get("nps") or ""
             mid = str(el.params.get("material_id") or "")
             stroke = "#c45c26"
@@ -517,6 +521,31 @@ def render_plan_view(
                 parts.append(
                     f'    <text x="{fmt(px)}" y="{fmt(py + r * 0.3)}" text-anchor="middle" '
                     f'font-size="{fmt(max(5, r * 0.7))}" fill="{stroke}" font-family="sans-serif">'
+                    f"{esc(tag)}</text>"
+                )
+            elif ftype in ("vav", "fire_damper", "smoke_damper", "diffuser", "grille") or el.category == "hvac":
+                # HVAC terminal / damper / VAV
+                stroke = "#1b5e20"
+                fill = "#e8f5e9"
+                if "damper" in ftype or "fire" in ftype:
+                    stroke = "#b71c1c"
+                    fill = "#ffebee"
+                rw = r * 1.6
+                rh = r * 1.1
+                parts.append(
+                    f'    <rect x="{fmt(px - rw)}" y="{fmt(py - rh)}" width="{fmt(2 * rw)}" '
+                    f'height="{fmt(2 * rh)}" fill="{fill}" stroke="{stroke}" class="hvac-device"/>'
+                )
+                tag = {
+                    "vav": "VAV",
+                    "fire_damper": "FD",
+                    "smoke_damper": "SD",
+                    "diffuser": "CD",
+                    "grille": "RG",
+                }.get(ftype, (ftype or "HVAC")[:4].upper())
+                parts.append(
+                    f'    <text x="{fmt(px)}" y="{fmt(py + r * 0.35)}" text-anchor="middle" '
+                    f'font-size="{fmt(max(5, r * 0.75))}" fill="{stroke}" font-family="sans-serif">'
                     f"{esc(tag)}</text>"
                 )
             else:
