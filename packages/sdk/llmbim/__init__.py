@@ -1202,6 +1202,168 @@ class Project:
 
         export_step(self._model, path, include_walls=include_walls)
 
+    # --- Fab BREP + GD&T (CadQuery / OpenCascade) ---------------------------------
+
+    def create_fab_part(
+        self,
+        *,
+        name: str = "FabPart",
+        material: str = "steel_A36",
+        level: str | None = None,
+        origin: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    ) -> str:
+        """Create fab-grade BREP part (feature tree + GD&T). Requires cadquery extra."""
+        r = self.op(
+            "create_fab_part",
+            name=name,
+            material=material,
+            level=level,
+            origin_mm=list(origin),
+        )
+        return str(r["element_id"])
+
+    def fab_box(
+        self,
+        element_id: str,
+        size_mm: tuple[float, float, float],
+        origin_mm: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    ) -> dict[str, Any]:
+        return self.op(
+            "fab_box", element_id=element_id, size_mm=list(size_mm), origin_mm=list(origin_mm)
+        )
+
+    def fab_cylinder(
+        self,
+        element_id: str,
+        *,
+        diameter_mm: float,
+        height_mm: float,
+        origin_mm: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        axis: str = "z",
+    ) -> dict[str, Any]:
+        return self.op(
+            "fab_cylinder",
+            element_id=element_id,
+            diameter_mm=diameter_mm,
+            height_mm=height_mm,
+            origin_mm=list(origin_mm),
+            axis=axis,
+        )
+
+    def fab_hole(
+        self,
+        element_id: str,
+        *,
+        diameter_mm: float,
+        origin_mm: tuple[float, float, float],
+        depth_mm: float | None = None,
+        direction: str = "down",
+    ) -> dict[str, Any]:
+        kw: dict[str, Any] = {
+            "element_id": element_id,
+            "diameter_mm": diameter_mm,
+            "origin_mm": list(origin_mm),
+            "direction": direction,
+        }
+        if depth_mm is not None:
+            kw["depth_mm"] = depth_mm
+        return self.op("fab_hole", **kw)
+
+    def fab_fillet(
+        self, element_id: str, *, radius_mm: float, selector: str = "|Z"
+    ) -> dict[str, Any]:
+        """Ease edges (fillet) on fab BREP."""
+        return self.op(
+            "fab_fillet", element_id=element_id, radius_mm=radius_mm, selector=selector
+        )
+
+    def fab_chamfer(
+        self, element_id: str, *, distance_mm: float, selector: str = ">Z"
+    ) -> dict[str, Any]:
+        return self.op(
+            "fab_chamfer", element_id=element_id, distance_mm=distance_mm, selector=selector
+        )
+
+    def fab_thread(
+        self,
+        element_id: str,
+        *,
+        designation: str = "M10x1.5",
+        length_mm: float = 20.0,
+        origin_mm: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        internal: bool = False,
+    ) -> dict[str, Any]:
+        """Machine thread (ISO metric designation e.g. M10x1.5)."""
+        return self.op(
+            "fab_thread",
+            element_id=element_id,
+            designation=designation,
+            length_mm=length_mm,
+            origin_mm=list(origin_mm),
+            internal=internal,
+        )
+
+    def gdt_datum(
+        self, element_id: str, *, label: str = "A", face: str = "bottom", note: str = ""
+    ) -> dict[str, Any]:
+        return self.op("gdt_datum", element_id=element_id, label=label, face=face, note=note)
+
+    def gdt_fcf(
+        self,
+        element_id: str,
+        *,
+        symbol: str,
+        tolerance: float,
+        datums: list[str] | None = None,
+        diameter: bool = False,
+        applies_to: str = "",
+        note: str = "",
+    ) -> dict[str, Any]:
+        """GD&T feature control frame (position, flatness, perpendicularity, …)."""
+        return self.op(
+            "gdt_fcf",
+            element_id=element_id,
+            symbol=symbol,
+            tolerance=tolerance,
+            datums=datums or [],
+            diameter=diameter,
+            applies_to=applies_to,
+            note=note,
+        )
+
+    def gdt_size(
+        self,
+        element_id: str,
+        *,
+        dimension: str,
+        nominal: float,
+        tol_plus: float,
+        tol_minus: float | None = None,
+        unit: str = "mm",
+    ) -> dict[str, Any]:
+        return self.op(
+            "gdt_size",
+            element_id=element_id,
+            dimension=dimension,
+            nominal=nominal,
+            tol_plus=tol_plus,
+            tol_minus=tol_minus,
+            unit=unit,
+        )
+
+    def export_fab_step(self, element_id: str, path: str | Path) -> dict[str, Any]:
+        """Export fab_part as true OpenCascade STEP BREP."""
+        return self.op("export_fab_step", element_id=element_id, path=str(path))
+
+    def validate_fab(self, element_id: str) -> dict[str, Any]:
+        return self.op("validate_fab", element_id=element_id)
+
+    def export_gdt_drawing(self, element_id: str, path: str | Path) -> Path:
+        """Write machining SVG with feature list + GD&T callouts."""
+        from llmbim_drawings.gdt_drawing import write_gdt_drawing
+
+        return write_gdt_drawing(self._model, element_id, path)
+
     def export_construction_set(
         self, out_dir: str | Path, *, plan_level: str | None = None, plan_scale: float = 0.02
     ) -> dict[str, Any]:

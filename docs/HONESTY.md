@@ -24,12 +24,14 @@ We are not a Revit clone. We are the **agent-first** BIM stack: same coordinatio
 
 | Representation | Use |
 |----------------|-----|
-| Parametric walls/slabs/rooms/openings | Authoring source of truth |
-| Equipment box / faceted cylinder solids | Coordination + fabrication **envelopes** |
-| Locked external STEP (Fusion, etc.) | Full vendor BREP preserved by reference |
+| Parametric walls/slabs/rooms/openings | Building authoring source of truth |
+| Equipment box / faceted cylinder solids | Coordination **envelopes** (MEP/structure presentation) |
+| **Fab feature-tree BREP** (`fab_part` + CadQuery/OCP) | Machine parts: box/cyl/hole/**fillet/chamfer**/**thread**, true STEP |
+| **GD&T** (`gdt_datum` / `gdt_fcf` / `gdt_size`) | Datums + feature control frames + size tols on fab parts |
+| Locked external STEP (Fusion, etc.) | Vendor BREP preserved by reference when not re-authored here |
 | IFC SPF | Coordination exchange (not every MVD certified) |
 
-When a user needs exact multi-body Fusion BREP, they **import STEP as locked** and keep the file; llm-bim owns layout, docs, quantities, and coordination around it.
+**Fab path (optional extra `llmbim[fab]`):** agents author a parametric feature history → OpenCascade rebuilds a true BREP → STEP + tessellated glTF + GD&T SVG. Threads use helical groove solids + ISO designations (e.g. `M10x1.5`). GD&T is **model data for manufacturing intent**, not a PE-stamped inspection certificate.
 
 ## What we still don’t pretend
 

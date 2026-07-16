@@ -52,6 +52,7 @@ _MATERIAL_PBR: dict[str, tuple[list[float], float, float]] = {
     "coil": ([0.72, 0.38, 0.12, 1.0], 0.88, 0.28),  # copper coil
     "bolt": ([0.42, 0.44, 0.48, 1.0], 0.9, 0.28),  # A325 steel
     "flange": ([0.48, 0.5, 0.54, 1.0], 0.75, 0.35),  # joined material section
+    "fab_part": ([0.55, 0.58, 0.62, 1.0], 0.88, 0.32),  # machined steel BREP
     "default": ([0.62, 0.62, 0.65, 1.0], 0.2, 0.7),
 }
 
@@ -758,6 +759,8 @@ def _gltf_material_key(el: Element) -> str:
         return "wire"
     if cat in {"flange", "joint"} or ftype in {"flange", "joint"}:
         return "flange"
+    if cat == "fab_part":
+        return "fab_part"
     if cat in {"fixture", "accessory"}:
         return "fixture"
     if cat in {"module_instance", "module_root"}:
@@ -824,6 +827,16 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
             "fitting_type"
         ) in {"wire", "coil", "bolt", "flange", "joint"}:
             pos, nrm, indices = _mesh_from_detail(el, model)
+        elif el.category == "fab_part" and el.params.get("features"):
+            try:
+                from llmbim_geometry.fab_brep import HAS_CADQUERY, tessellate_features
+
+                if HAS_CADQUERY:
+                    pos, nrm, indices = tessellate_features(list(el.params.get("features") or []))
+                else:
+                    pos, nrm, indices = [], [], []
+            except Exception:  # noqa: BLE001
+                pos, nrm, indices = [], [], []
         elif el.category in {"fitting", "fittings"}:
             pos, nrm, indices = _fitting_detail_mesh(el, model)
             if not pos:

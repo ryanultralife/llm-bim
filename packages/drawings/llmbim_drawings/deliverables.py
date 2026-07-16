@@ -537,6 +537,41 @@ def export_deliverables(
     except Exception as exc:  # noqa: BLE001
         errors.append({"step": "viewer3d", "error": str(exc)})
 
+    # Fab BREP parts → per-part STEP + GD&T drawings
+    fab_parts = [el for el in work.elements if el.category == "fab_part" and el.params.get("features")]
+    if fab_parts:
+        fab_dir = out / "fab"
+        fab_dir.mkdir(exist_ok=True)
+        fab_exports: list[dict] = []
+        for el in fab_parts:
+            try:
+                from llmbim_core.fab import export_fab_part_step
+                from llmbim_drawings.gdt_drawing import write_gdt_drawing
+
+                safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in (el.name or el.id))[:40]
+                step_p = fab_dir / f"{safe}_{el.id}.step"
+                svg_p = fab_dir / f"{safe}_{el.id}_gdt.svg"
+                info = export_fab_part_step(work, el.id, str(step_p))
+                write_gdt_drawing(work, el.id, svg_p)
+                fab_exports.append(
+                    {
+                        "element_id": el.id,
+                        "name": el.name,
+                        "step": str(step_p.relative_to(out).as_posix()),
+                        "gdt_svg": str(svg_p.relative_to(out).as_posix()),
+                        "volume_mm3": info.get("volume_mm3"),
+                        "n_gdt": len(el.params.get("gdt") or []),
+                    }
+                )
+            except Exception as exc:  # noqa: BLE001
+                errors.append({"step": "fab_part", "element_id": el.id, "error": str(exc)})
+        if fab_exports:
+            result["fab_parts"] = fab_exports
+            (fab_dir / "FAB_INDEX.json").write_text(
+                json.dumps({"parts": fab_exports, "fidelity": "brep_cadquery"}, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
     try:
         from llmbim_drawings.html_index import write_pack_index
 

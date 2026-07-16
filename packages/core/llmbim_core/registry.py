@@ -746,6 +746,176 @@ def _place_bolt(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+# --- Fab BREP + GD&T (CadQuery/OCP feature trees) ---------------------------------
+
+
+@register("create_fab_part", description="Create fab-grade BREP part (feature tree + GD&T)", mutates=True)
+def _create_fab_part(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import create_fab_part
+
+    origin = p.get("origin_mm") or p.get("origin") or [0, 0, 0]
+    return create_fab_part(
+        model,
+        name=str(p.get("name") or "FabPart"),
+        material_id=str(p.get("material_id") or p.get("material") or "steel_A36"),
+        level=p.get("level"),
+        origin_mm=origin,
+    )
+
+
+@register("fab_box", description="Add box solid feature to fab_part", mutates=True)
+def _fab_box(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import fab_box
+
+    size = p.get("size_mm") or p.get("size") or [50, 50, 20]
+    origin = p.get("origin_mm") or p.get("origin") or [0, 0, 0]
+    return fab_box(model, p["element_id"], size_mm=size, origin_mm=origin)
+
+
+@register("fab_cylinder", description="Add cylinder solid feature to fab_part", mutates=True)
+def _fab_cylinder(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import fab_cylinder
+
+    origin = p.get("origin_mm") or p.get("origin") or [0, 0, 0]
+    return fab_cylinder(
+        model,
+        p["element_id"],
+        diameter_mm=float(p.get("diameter_mm") or p.get("d_mm") or 20),
+        height_mm=float(p.get("height_mm") or p.get("length_mm") or 40),
+        origin_mm=origin,
+        axis=str(p.get("axis") or "z"),
+    )
+
+
+@register("fab_hole", description="Drill hole feature in fab_part", mutates=True)
+def _fab_hole(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import fab_hole
+
+    origin = p.get("origin_mm") or p.get("origin") or [0, 0, 0]
+    return fab_hole(
+        model,
+        p["element_id"],
+        diameter_mm=float(p.get("diameter_mm") or p.get("d_mm") or 6),
+        depth_mm=float(p["depth_mm"]) if p.get("depth_mm") is not None else None,
+        origin_mm=origin,
+        direction=str(p.get("direction") or "down"),
+    )
+
+
+@register("fab_fillet", description="Fillet / ease edges on fab_part", mutates=True)
+def _fab_fillet(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import fab_fillet
+
+    return fab_fillet(
+        model,
+        p["element_id"],
+        radius_mm=float(p.get("radius_mm") or p.get("radius") or 1),
+        selector=str(p.get("selector") or p.get("edges") or "|Z"),
+    )
+
+
+@register("fab_chamfer", description="Chamfer / break edges on fab_part", mutates=True)
+def _fab_chamfer(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import fab_chamfer
+
+    return fab_chamfer(
+        model,
+        p["element_id"],
+        distance_mm=float(p.get("distance_mm") or p.get("d_mm") or 1),
+        selector=str(p.get("selector") or p.get("edges") or ">Z"),
+    )
+
+
+@register("fab_thread", description="Machine thread (ISO M / designation) on fab_part", mutates=True)
+def _fab_thread(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import fab_thread
+
+    origin = p.get("origin_mm") or p.get("origin") or [0, 0, 0]
+    return fab_thread(
+        model,
+        p["element_id"],
+        designation=str(p.get("designation") or p.get("thread") or "M10x1.5"),
+        length_mm=float(p.get("length_mm") or p.get("depth_mm") or 20),
+        origin_mm=origin,
+        internal=bool(p.get("internal") or p.get("female")),
+        pitch_mm=float(p["pitch_mm"]) if p.get("pitch_mm") is not None else None,
+        diameter_mm=float(p["diameter_mm"]) if p.get("diameter_mm") is not None else None,
+    )
+
+
+@register("fab_cut_box", description="Boolean cut box pocket from fab_part", mutates=True)
+def _fab_cut_box(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import fab_cut_box
+
+    size = p.get("size_mm") or p.get("size") or [10, 10, 10]
+    origin = p.get("origin_mm") or p.get("origin") or [0, 0, 0]
+    return fab_cut_box(model, p["element_id"], size_mm=size, origin_mm=origin)
+
+
+@register("gdt_datum", description="Add GD&T datum (A/B/C) to fab_part", mutates=True)
+def _gdt_datum(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import gdt_add_datum
+
+    return gdt_add_datum(
+        model,
+        p["element_id"],
+        label=str(p.get("label") or "A"),
+        face=str(p.get("face") or "bottom"),
+        note=str(p.get("note") or ""),
+    )
+
+
+@register("gdt_fcf", description="Add GD&T feature control frame to fab_part", mutates=True)
+def _gdt_fcf(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import gdt_add_fcf
+
+    datums = p.get("datums") or []
+    if isinstance(datums, str):
+        datums = [d.strip() for d in datums.split("|") if d.strip()]
+    return gdt_add_fcf(
+        model,
+        p["element_id"],
+        symbol=str(p.get("symbol") or "position"),
+        tolerance=float(p.get("tolerance") or p.get("tol") or 0.1),
+        datums=list(datums),
+        diameter=bool(p.get("diameter") or p.get("dia")),
+        zone=str(p.get("zone") or ""),
+        note=str(p.get("note") or ""),
+        applies_to=str(p.get("applies_to") or ""),
+    )
+
+
+@register("gdt_size", description="Add size dimension ±tolerance to fab_part", mutates=True)
+def _gdt_size(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import gdt_add_size
+
+    return gdt_add_size(
+        model,
+        p["element_id"],
+        dimension=str(p.get("dimension") or "size"),
+        nominal=float(p.get("nominal") or 0),
+        tol_plus=float(p.get("tol_plus") or p.get("tol") or 0.1),
+        tol_minus=float(p["tol_minus"]) if p.get("tol_minus") is not None else None,
+        unit=str(p.get("unit") or "mm"),
+        note=str(p.get("note") or ""),
+    )
+
+
+@register("export_fab_step", description="Export fab_part feature tree as true OCC STEP BREP", mutates=False)
+def _export_fab_step(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import export_fab_part_step
+
+    path = p.get("path") or p.get("out") or "fab_part.step"
+    return export_fab_part_step(model, p["element_id"], str(path))
+
+
+@register("validate_fab", description="Rebuild fab_part BREP to validate feature tree", mutates=False)
+def _validate_fab(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import validate_fab_part
+
+    return validate_fab_part(model, p["element_id"])
+
+
 @register("place_flange", description="Place flange / joined material ring at a joint", mutates=True)
 def _place_flange(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.assignment import place_flange
