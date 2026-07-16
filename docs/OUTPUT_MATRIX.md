@@ -30,7 +30,9 @@
 | Plot set PDF | multi-page PDF | ✅ | `llmbim_drawings.pdf_binder` |
 | Schedules | CSV/JSON | ✅ rooms/**zone_areas** (area+height+volume)/doors/windows/walls/equip/MEP/CSI | `llmbim_drawings.schedules` |
 | Dimensions / tags / title block | | 🟡 title block + sheet frames | construction sheets |
-| True wall joins / layered walls | | 🟡 **endpoint join extend** (L/T half-thickness) in plan+glTF; not layered cores | `mesh` / `plan` |
+| True wall joins / layered walls | | 🟡 endpoint join extend + **layered wall_types** (structure/insulation/finish bands in plan+glTF) | `set_type` → `wall_layers` |
+| MEP connection graph | JSON + geometry | ✅ `mep_route` auto pipe/duct/conduit + dogleg + meta.mep_graph | `mep_route` / `mep_graph` |
+| LLM authoring checklist | ops | ✅ required/recommended fields per product class | `authoring_checklist` / `validate_intent` |
 | W-section steel 3D | glTF | ✅ I-profile column/beam (approx AISC from W##x##) | `mesh._w_column_mesh` / `_w_beam_mesh` |
 | Design rules + clash AABB | JSON | ✅ | `llmbim_core.rules` / `clash` |
 | BOQ + CSI | JSON/CSV | ✅ real MasterFormat + **locator (level\|RM:\|XY\|Z\|NPS\|RISER)** | `llmbim_core.csi` |

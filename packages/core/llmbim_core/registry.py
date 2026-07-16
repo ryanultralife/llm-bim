@@ -1049,6 +1049,62 @@ def _fab_host_to_building(model: ProjectModel, p: dict[str, Any]) -> dict[str, A
     )
 
 
+@register(
+    "mep_route",
+    description="Auto MEP run between two elements (pipe/duct/conduit + graph edge)",
+    mutates=True,
+)
+def _mep_route(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.mep_route import mep_route
+
+    return mep_route(
+        model,
+        str(p["from_id"]),
+        str(p["to_id"]),
+        kind=str(p.get("kind") or p.get("route_kind") or "pipe"),  # type: ignore[arg-type]
+        nps=str(p.get("nps") or "2"),
+        material=str(p.get("material") or "copper"),
+        system=str(p.get("system") or "CW"),
+        from_port=p.get("from_port"),
+        to_port=p.get("to_port"),
+        orthogonal=bool(p.get("orthogonal", True)),
+        z0_mm=float(p["z0_mm"]) if p.get("z0_mm") is not None else None,
+        width_mm=float(p.get("width_mm") or 400),
+        height_mm=float(p.get("height_mm") or 250),
+        trade_size=str(p.get("trade_size") or p.get("nps") or "3/4"),
+        name=str(p.get("name") or ""),
+    )
+
+
+@register("mep_graph", description="List MEP connection graph edges", mutates=False)
+def _mep_graph(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.mep_route import mep_graph
+
+    return {"edges": mep_graph(model), "count": len(mep_graph(model))}
+
+
+@register(
+    "authoring_checklist",
+    description="Required/recommended fields so LLM collects explicit detail before modeling",
+    mutates=False,
+)
+def _authoring_checklist(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.authoring import authoring_checklist
+
+    return authoring_checklist(p.get("product") or p.get("intent"))
+
+
+@register(
+    "validate_intent",
+    description="Check model has enough detail for intent (building_shell|mep_run|fab_part|…)",
+    mutates=False,
+)
+def _validate_intent(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.authoring import validate_intent
+
+    return validate_intent(model, str(p.get("intent") or p.get("product") or "building_shell"))
+
+
 @register("place_flange", description="Place flange / joined material ring at a joint", mutates=True)
 def _place_flange(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.assignment import place_flange

@@ -35,15 +35,62 @@ def _fcf_text(g: dict[str, Any]) -> str:
     return f"|{sym}|{dia}{tol}{dats}|"
 
 
+def _feature_bbox_mm(feats: list[dict[str, Any]]) -> tuple[float, float, float]:
+    """Rough LxWxH mm from feature tree for dimension callouts."""
+    try:
+        from llmbim_geometry.fab_brep import estimate_feature_bbox
+
+        bb = estimate_feature_bbox(feats)
+        L = max(float(bb["xmax"]) - float(bb["xmin"]), 1.0)
+        W = max(float(bb["ymax"]) - float(bb["ymin"]), 1.0)
+        H = max(float(bb["zmax"]) - float(bb["zmin"]), 1.0)
+        return L, W, H
+    except Exception:  # noqa: BLE001
+        return 50.0, 50.0, 20.0
+
+
+def _dim_overlay(L: float, W: float, H: float, view: str) -> str:
+    """Simple projected size dimensions for a view panel (mm labels)."""
+    # local panel coords after title (approx 240x150 content)
+    if view == "top":
+        # L horizontal, W vertical
+        return (
+            f'<line x1="30" y1="160" x2="220" y2="160" stroke="#e3b341" stroke-width="1"/>'
+            f'<text x="125" y="172" text-anchor="middle" fill="#e3b341" font-size="10" '
+            f'font-family="Consolas,monospace">{L:.0f} mm</text>'
+            f'<line x1="20" y1="40" x2="20" y2="150" stroke="#e3b341" stroke-width="1"/>'
+            f'<text x="8" y="100" fill="#e3b341" font-size="10" font-family="Consolas,monospace" '
+            f'transform="rotate(-90 8 100)">{W:.0f} mm</text>'
+        )
+    if view == "front":
+        return (
+            f'<line x1="30" y1="160" x2="220" y2="160" stroke="#e3b341" stroke-width="1"/>'
+            f'<text x="125" y="172" text-anchor="middle" fill="#e3b341" font-size="10" '
+            f'font-family="Consolas,monospace">{L:.0f} mm</text>'
+            f'<line x1="230" y1="40" x2="230" y2="150" stroke="#e3b341" stroke-width="1"/>'
+            f'<text x="238" y="100" fill="#e3b341" font-size="10" font-family="Consolas,monospace">'
+            f"{H:.0f} mm</text>"
+        )
+    # right: W × H
+    return (
+        f'<line x1="30" y1="160" x2="220" y2="160" stroke="#e3b341" stroke-width="1"/>'
+        f'<text x="125" y="172" text-anchor="middle" fill="#e3b341" font-size="10" '
+        f'font-family="Consolas,monospace">{W:.0f} mm</text>'
+        f'<line x1="230" y1="40" x2="230" y2="150" stroke="#e3b341" stroke-width="1"/>'
+        f'<text x="238" y="100" fill="#e3b341" font-size="10" font-family="Consolas,monospace">'
+        f"{H:.0f} mm</text>"
+    )
+
+
 def _embed_ortho_strip(
     feats: list[dict[str, Any]],
     *,
     x0: float,
     y0: float,
     panel_w: float = 260,
-    panel_h: float = 180,
+    panel_h: float = 190,
 ) -> tuple[list[str], float]:
-    """Top/front/right ortho projections as foreignObject or linked group placeholders.
+    """Top/front/right ortho projections + overall size dimensions.
 
     Returns (svg_fragments, next_y). Uses CadQuery getSVG when available.
     """
@@ -53,31 +100,32 @@ def _embed_ortho_strip(
 
         if not HAS_CADQUERY or not feats:
             return frags, y0
-        views = export_fab_ortho_svgs(feats, width=panel_w - 20, height=panel_h - 28)
+        views = export_fab_ortho_svgs(feats, width=panel_w - 20, height=panel_h - 40)
     except Exception:  # noqa: BLE001
         return frags, y0
 
+    L, W, H = _feature_bbox_mm(feats)
     labels = [("top", "TOP"), ("front", "FRONT"), ("right", "RIGHT")]
     x = x0
     frags.append(
         f'<text x="{x0}" y="{y0}" fill="#5eb1ff" font-family="Segoe UI,system-ui,sans-serif" '
-        f'font-size="13" font-weight="600">ORTHO VIEWS (true BREP projection)</text>'
+        f'font-size="13" font-weight="600">ORTHO VIEWS + PROJECTED SIZE (true BREP)</text>'
     )
     y_panel = y0 + 12
     for key, label in labels:
         svg = views.get(key) or ""
-        # strip xml header; wrap in group with translate
         body = svg
         if "?>" in body:
             body = body.split("?>", 1)[1]
-        # scale into panel
+        dims = _dim_overlay(L, W, H, key)
         frags.append(
             f'<g transform="translate({x},{y_panel})">'
             f'<rect x="0" y="0" width="{panel_w}" height="{panel_h}" fill="#121820" '
             f'stroke="#30363d" stroke-width="1"/>'
             f'<text x="8" y="16" fill="#8b97a8" font-family="Segoe UI,system-ui,sans-serif" '
             f'font-size="11">{label}</text>'
-            f'<g transform="translate(4,22) scale(0.85)">{body}</g></g>'
+            f'<g transform="translate(4,22) scale(0.8)">{body}</g>'
+            f"{dims}</g>"
         )
         x += panel_w + 12
     return frags, y_panel + panel_h + 24

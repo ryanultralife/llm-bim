@@ -80,6 +80,10 @@ class SetElementType(Command):
             wt = DEFAULT_WALL_TYPES.get(self.type_id)
             if wt and wt.total_thickness_mm > 0:
                 el.params["thickness_mm"] = wt.total_thickness_mm
+            if wt and wt.layers:
+                el.params["wall_layers"] = [L.model_dump() for L in wt.layers]
+                if wt.fire_rating and not el.params.get("fire_rating"):
+                    el.params["fire_rating"] = wt.fire_rating
         return {"element_id": el.id, "type_id": self.type_id}
 
     def invert(self) -> Command:
