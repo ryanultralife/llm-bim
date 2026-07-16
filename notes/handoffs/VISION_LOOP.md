@@ -143,6 +143,7 @@
 | 117 | continue | set_type/set_phase ops | type/phase not in registry | registry+MCP set_type; registry set_phase | 180 unit | (this) |
 | 118 | continue | skill agent surface sync | skill lagged room/slab/equip/grid/note | SKILL+batch_ops full place surface | 180 unit | (this) |
 | 119 | continue | shell_create + element_delete | MCP lacked shell/delete | create_rect_shell op + MCP shell/delete | 180 unit | (this) |
+| 120 | FINAL | CLI place shell + stop | loop budget reached | place --kind shell; agent shell complete | 181 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -291,7 +292,31 @@
 142. ~~set_type/set_phase registry+MCP~~ (pass 117)
 143. ~~skill agent surface sync~~ (pass 118)
 144. ~~shell_create + element_delete MCP~~ (pass 119)
-145. Keep closing residual gaps until pass 120 / 10h
+145. ~~CLI place shell~~ (pass 120)
+146. **STOP** — pass 120 / 10h budget met
+
+## FINAL summary (pass 120 / 10h budget)
+
+**Status:** Vision alignment loop **complete** at pass **120**.
+
+### What shipped (high level)
+
+| Area | Outcome |
+|------|---------|
+| Multi-trade MEP/structure | duct/conduit/tray/column/beam/pipe/riser/part; CSI MasterFormat + locators |
+| Architecture | wall/door/window (SVG/DXF/IFC/glTF/STEP/clash); room/slab/shell; grids; notes; type/phase |
+| Agent surfaces | SDK · CLI place · registry ~60 ops · MCP · skill/batch_ops |
+| Deliverables | full pack + doors/windows schedules + verify_pack signals + multi-trade smoke |
+| Honesty | no drafting GUI; no PE seals; envelopes + coordination grade |
+
+### Metrics at stop
+
+- Unit tests: **181 passed**
+- Residual intentional gaps: true wall joins, full Fusion BREP, GD&T, full MEP routing/P&ID
+
+### Operating note
+
+Further scheduled vision-loop fires should **stop** (pass_count ≥ 120). Overseer may still health-check.
 
 ## Rules for each scheduled pass
 

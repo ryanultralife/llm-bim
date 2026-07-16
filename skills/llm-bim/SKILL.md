@@ -95,9 +95,9 @@ p.set_type(w, "W-EXT-CMU")  # W-INT-GYP | W-SHIELD-CONC — also op set_type / M
 p.set_phase(w, "new")       # new|existing|demo|temp — pack --phases filter
 p.create_note(level="L1", text="Fire rating TBD", position=(1000, 1000))
 p.export_deliverables("out/pack")
-# agents: MCP place_door/window · room_create · slab_create · equipment_create · grid_add · note_create · set_type/set_phase
-# CLI: place --kind wall|door|window|room|slab|equipment|grid|note
-# ops: create_wall/place_door/place_window/create_room/create_slab/create_equipment_box/add_grid/create_note/set_type/set_phase
+# agents: MCP shell_create · place_door/window · room/slab/equipment/grid/note · set_type/phase · element_delete
+# CLI: place --kind shell|wall|door|window|room|slab|equipment|grid|note
+# ops: create_rect_shell/create_wall/place_door/window/create_room/slab/equipment/add_grid/create_note/set_type/set_phase/delete
 ```
 
 ### C. Import whatever the user has
@@ -271,6 +271,7 @@ llmbim place model --kind riser --origin 4000,0 --to-level L2 --nps 2
 llmbim place model --kind wall --origin 0,0 --end 8000,0 --width 200 --height 3000 --fire-rating 2-hr
 llmbim place model --kind door --host <wall_id> --offset 2000 --width 900 --height 2100 --type-id D-HM-36 --fire-rating "90 min"
 llmbim place model --kind window --host <wall_id> --offset 5000 --sill 900 --type-id WIN-VIEW
+llmbim place model --kind shell --origin 0,0 --end 12000,9000 --height 3500 --thickness 200 --name B
 llmbim place model --kind room --origin 0,0 --end 8000,6000 --name Office --height 2700
 llmbim place model --kind slab --origin 0,0 --end 8000,6000 --width 200
 llmbim place model --kind equipment --origin 2000,2000 --size 1200,800,1500 --name Skid --part-kind shell

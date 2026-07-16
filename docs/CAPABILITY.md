@@ -58,7 +58,7 @@ JSON · IFC · glTF · STEP · SVG sheets · DXF · PDF plot set · BOQ (CSI) ·
 | Place grid | `p.add_grid` · op `add_grid` · MCP `grid_add` · CLI `place --kind grid` |
 | Place note | `p.create_note` · op `create_note` · MCP `note_create` · CLI `place --kind note --text` |
 | Set type / phase | `p.set_type` · `p.set_phase` · ops `set_type`/`set_phase` · MCP `set_type`/`set_phase` |
-| Shell / delete | `p.create_rect_shell` · op `create_rect_shell` · MCP `shell_create` · op `delete` · MCP `element_delete` |
+| Shell / delete | `p.create_rect_shell` · op `create_rect_shell` · MCP `shell_create` · CLI `place --kind shell` · op `delete` · MCP `element_delete` |
 | Count 90° copper by size | `p.fitting_takeoff(fitting_type="elbow_90", material="copper")` |
 | MEP takeoffs | `p.duct_takeoff()` · `conduit_takeoff()` · `cable_tray_takeoff()` · ops |
 | Schedules | `p.schedule("column")` · zone · duct · cable_tray · csi · door |
