@@ -81,6 +81,16 @@
       }
     },
     {
+      "name": "add_grid",
+      "description": "Add structural grid axis U (X) or V (Y) with positions_mm list",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
       "name": "add_level",
       "description": "Add building level",
       "mutates": true,

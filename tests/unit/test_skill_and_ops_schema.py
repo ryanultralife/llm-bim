@@ -72,6 +72,7 @@ def test_registry_create_wall_place_door_window() -> None:
     assert "create_slab" in names
     assert "create_room" in names
     assert "create_equipment_box" in names
+    assert "add_grid" in names
 
     p = Project.create("reg-open", vcs=False)
     p.add_level("L1", 0)
@@ -160,3 +161,11 @@ def test_registry_create_wall_place_door_window() -> None:
     )
     assert eq.get("category") == "equipment"
     assert p.stats().get("equipment") == 1
+
+    gr = dispatch(
+        p.model,
+        "add_grid",
+        {"axis": "V", "positions_mm": [0, 5000, 10000], "name": "Grid-V"},
+    )
+    assert gr.get("axis") == "V" or gr.get("element_id")
+    assert len(p.model.grids) >= 1

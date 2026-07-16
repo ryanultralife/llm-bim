@@ -61,6 +61,38 @@ def test_cli_place_riser_and_fitting(tmp_path: Path):
     assert any(e.category == "fitting" for e in p3.model.elements)
 
 
+def test_cli_place_grid(tmp_path: Path, capsys):
+    p = Project.create("cli-grid", vcs=False)
+    p.add_level("L1", 0)
+    model = tmp_path / "model.llmbim.json"
+    p.save(model)
+    rc = main(
+        [
+            "place",
+            str(model),
+            "--kind",
+            "grid",
+            "--axis",
+            "U",
+            "--positions",
+            "0,6000,12000",
+            "--name",
+            "Grid-U",
+            "--labels",
+            "1,2,3",
+        ]
+    )
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["kind"] == "grid"
+    assert out["axis"] == "U"
+    assert out["count"] == 3
+    p2 = Project.open(model)
+    assert any(g.category == "grid" for g in p2.model.grids) or any(
+        e.category == "grid" for e in p2.model.elements
+    ) or len(p2.model.grids) >= 1
+
+
 def test_cli_place_equipment_box(tmp_path: Path, capsys):
     p = Project.create("cli-eq", vcs=False)
     p.add_level("L1", 0)
