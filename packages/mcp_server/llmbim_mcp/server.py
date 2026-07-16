@@ -205,6 +205,45 @@ if HAS_MCP:
         )
 
     @mcp.tool()
+    def element_delete(
+        project_id: str,
+        element_id: str,
+        cascade: bool = True,
+    ) -> str:
+        """Delete element. cascade=True also removes hosted doors/windows on walls."""
+        p = store.get(project_id)
+        p.delete_element(element_id, cascade=cascade)
+        store.save(project_id)
+        return _tool_result({"deleted": element_id, "cascade": cascade})
+
+    @mcp.tool()
+    def shell_create(
+        project_id: str,
+        level: str,
+        x: float = 0,
+        y: float = 0,
+        width_mm: float = 10000,
+        depth_mm: float = 8000,
+        height_mm: float = 3000,
+        thickness_mm: float = 200,
+        name_prefix: str = "W",
+    ) -> str:
+        """Create four walls of a rectangular shell (S/E/N/W). Returns wall element ids."""
+        p = store.get(project_id)
+        ids = p.create_rect_shell(
+            level=level,
+            x=x,
+            y=y,
+            w=width_mm,
+            d=depth_mm,
+            height_mm=height_mm,
+            thickness_mm=thickness_mm,
+            name_prefix=name_prefix,
+        )
+        store.save(project_id)
+        return _tool_result({"wall_ids": ids, "count": len(ids), "prefix": name_prefix})
+
+    @mcp.tool()
     def project_commit(project_id: str, message: str, author: str = "agent") -> str:
         """Commit true model version (required after edits — not chat history)."""
         p = store.get(project_id)

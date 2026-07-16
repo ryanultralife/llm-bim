@@ -274,6 +274,43 @@ def _create_wall(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+@register(
+    "create_rect_shell",
+    description="Create four walls of a rectangular shell (x,y,w,d,height_mm)",
+    mutates=True,
+)
+def _create_rect_shell(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.commands import CreateWall
+
+    level = p.get("level") or model.levels[0].name
+    x = float(p.get("x") or 0)
+    y = float(p.get("y") or 0)
+    w = float(p.get("w") or p.get("width_mm") or p.get("width") or 10000)
+    d = float(p.get("d") or p.get("depth_mm") or p.get("depth") or 8000)
+    th = float(p.get("thickness_mm") or p.get("thickness") or 200)
+    ht = float(p.get("height_mm") or p.get("height") or 3000)
+    prefix = str(p.get("name_prefix") or p.get("prefix") or "W")
+    corners = [
+        ((x, y), (x + w, y), f"{prefix}-S"),
+        ((x + w, y), (x + w, y + d), f"{prefix}-E"),
+        ((x + w, y + d), (x, y + d), f"{prefix}-N"),
+        ((x, y + d), (x, y), f"{prefix}-W"),
+    ]
+    ids: list[str] = []
+    for start, end, nm in corners:
+        r = CreateWall(
+            level=level,
+            start=start,
+            end=end,
+            thickness_mm=th,
+            height_mm=ht,
+            name=nm,
+            fire_rating=str(p.get("fire_rating") or ""),
+        ).apply(model)
+        ids.append(str(r["element_id"]))
+    return {"wall_ids": ids, "count": len(ids), "prefix": prefix}
+
+
 @register("place_door", description="Place door on host wall (offset/width/height/fire_rating)", mutates=True)
 def _place_door(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.commands import PlaceDoor

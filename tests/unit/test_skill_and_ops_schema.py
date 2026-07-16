@@ -80,6 +80,8 @@ def test_registry_create_wall_place_door_window() -> None:
     assert "create_note" in names
     assert "set_type" in names
     assert "set_phase" in names
+    assert "create_rect_shell" in names
+    assert "delete" in names
 
     p = Project.create("reg-open", vcs=False)
     p.add_level("L1", 0)
@@ -192,3 +194,24 @@ def test_registry_create_wall_place_door_window() -> None:
     sp = dispatch(p.model, "set_phase", {"id": host, "phase": "existing"})
     assert sp.get("phase") == "existing"
     assert p.model.get_element(host).params.get("phase") == "existing"
+
+    shell = dispatch(
+        p.model,
+        "create_rect_shell",
+        {
+            "level": "L1",
+            "x": 100,
+            "y": 100,
+            "w": 5000,
+            "d": 4000,
+            "height_mm": 3000,
+            "thickness_mm": 200,
+            "name_prefix": "B",
+        },
+    )
+    assert shell.get("count") == 4
+    assert len(shell.get("wall_ids") or []) == 4
+    # delete a wall from shell
+    victim = shell["wall_ids"][1]
+    dispatch(p.model, "delete", {"id": victim, "cascade": True})
+    assert victim not in {e.id for e in p.model.elements}

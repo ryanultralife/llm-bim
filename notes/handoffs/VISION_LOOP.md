@@ -142,6 +142,7 @@
 | 116 | continue | multi-trade smoke openings | smoke lacked door/grid/equip | pack smoke openings+equip+grid+verify | 180 unit | (this) |
 | 117 | continue | set_type/set_phase ops | type/phase not in registry | registry+MCP set_type; registry set_phase | 180 unit | (this) |
 | 118 | continue | skill agent surface sync | skill lagged room/slab/equip/grid/note | SKILL+batch_ops full place surface | 180 unit | (this) |
+| 119 | continue | shell_create + element_delete | MCP lacked shell/delete | create_rect_shell op + MCP shell/delete | 180 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -289,7 +290,8 @@
 141. ~~multi-trade smoke openings/equip/grid~~ (pass 116)
 142. ~~set_type/set_phase registry+MCP~~ (pass 117)
 143. ~~skill agent surface sync~~ (pass 118)
-144. Keep closing residual gaps until pass 120 / 10h
+144. ~~shell_create + element_delete MCP~~ (pass 119)
+145. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
