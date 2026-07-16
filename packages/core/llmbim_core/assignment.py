@@ -813,3 +813,208 @@ def place_cable_tray(
         "width_mm": w,
         "height_mm": h,
     }
+
+
+def place_wire(
+    model: ProjectModel,
+    *,
+    level: str,
+    start: tuple[float, float] | list[float],
+    end: tuple[float, float] | list[float],
+    diameter_mm: float = 6.0,
+    name: str | None = None,
+    material_id: str = "copper",
+    system_tag: str = "PWR",
+    z0_mm: float = 2900.0,
+) -> dict[str, Any]:
+    """Thin conductor / control wire run (presentation cylinder). CSI 26 05 19."""
+    import math
+
+    from llmbim_core.ids import new_id
+
+    x0, y0 = float(start[0]), float(start[1])
+    x1, y1 = float(end[0]), float(end[1])
+    length_mm = math.hypot(x1 - x0, y1 - y0)
+    if length_mm < 1:
+        raise ValidationError("Wire length too small", start=start, end=end)
+    d = max(float(diameter_mm), 1.0)
+    level_id = model.get_level(level).id
+    mid = "copper_C12200" if "copper" in str(material_id).lower() else str(material_id)
+    el = Element(
+        id=new_id("wir"),
+        category="wire",
+        name=name or f"Wire Ø{d:.0f} L={length_mm / 1000:.2f}m",
+        level_id=level_id,
+        type_id="PT-ELEC-WIRE",
+        params={
+            "start_mm": [x0, y0],
+            "end_mm": [x1, y1],
+            "origin_mm": [x0, y0],
+            "length_mm": length_mm,
+            "length_m": length_mm / 1000.0,
+            "diameter_mm": d,
+            "wire_d_mm": d,
+            "system": system_tag,
+            "material_id": mid,
+            "shape": "wire",
+            "fitting_type": "wire",
+            "z0_mm": float(z0_mm),
+            "size_mm": [length_mm, d, d],
+            "csi_code": "26 05 19",
+        },
+    )
+    model.add_element(el)
+    return {
+        "element_id": el.id,
+        "length_m": round(length_mm / 1000.0, 3),
+        "diameter_mm": d,
+    }
+
+
+def place_coil(
+    model: ProjectModel,
+    *,
+    level: str,
+    origin: tuple[float, float] | list[float],
+    coil_radius_mm: float = 80.0,
+    tube_radius_mm: float = 8.0,
+    turns: float = 6.0,
+    pitch_mm: float = 24.0,
+    name: str | None = None,
+    material_id: str = "copper",
+    system_tag: str = "PROC",
+    z0_mm: float = 1000.0,
+    orientation: str = "vertical",
+) -> dict[str, Any]:
+    """Helical coil / wound conductor (presentation helix). CSI 23 82 16."""
+    from llmbim_core.ids import new_id
+
+    x0, y0 = float(origin[0]), float(origin[1])
+    level_id = model.get_level(level).id
+    cr = max(float(coil_radius_mm), 10.0)
+    tr = max(float(tube_radius_mm), 2.0)
+    n_turns = max(1.0, float(turns))
+    pitch = max(float(pitch_mm), 5.0)
+    height = pitch * n_turns
+    el = Element(
+        id=new_id("coil"),
+        category="coil",
+        name=name or f"Coil R{cr:.0f}×{n_turns:.0f}t",
+        level_id=level_id,
+        type_id="PT-MECH-COIL",
+        params={
+            "origin_mm": [x0, y0],
+            "coil_radius_mm": cr,
+            "tube_radius_mm": tr,
+            "turns": n_turns,
+            "pitch_mm": pitch,
+            "shape": "coil",
+            "fitting_type": "coil",
+            "orientation": orientation,
+            "axis": orientation,
+            "system": system_tag,
+            "material_id": material_id,
+            "z0_mm": float(z0_mm),
+            "size_mm": [cr * 2, cr * 2, height],
+            "csi_code": "23 82 16",
+        },
+    )
+    model.add_element(el)
+    return {
+        "element_id": el.id,
+        "coil_radius_mm": cr,
+        "turns": n_turns,
+        "height_mm": height,
+    }
+
+
+def place_bolt(
+    model: ProjectModel,
+    *,
+    level: str,
+    origin: tuple[float, float] | list[float],
+    shank_d_mm: float = 20.0,
+    shank_len_mm: float = 60.0,
+    grade: str = "A325",
+    name: str | None = None,
+    z0_mm: float = 0.0,
+    orientation: str = "vertical",
+) -> dict[str, Any]:
+    """Structural bolt (hex head + shank presentation). CSI 05 12 23."""
+    from llmbim_core.ids import new_id
+
+    x0, y0 = float(origin[0]), float(origin[1])
+    level_id = model.get_level(level).id
+    d = max(float(shank_d_mm), 4.0)
+    L = max(float(shank_len_mm), 10.0)
+    mid = "steel_A490" if "490" in str(grade).upper() else "steel_A325"
+    el = Element(
+        id=new_id("blt"),
+        category="bolt",
+        name=name or f"Bolt {grade} Ø{d:.0f}×{L:.0f}",
+        level_id=level_id,
+        type_id=f"PT-BOLT-{grade}",
+        params={
+            "origin_mm": [x0, y0],
+            "shank_d_mm": d,
+            "diameter_mm": d,
+            "shank_len_mm": L,
+            "length_mm": L,
+            "head_af_mm": d * 1.5,
+            "head_h_mm": d * 0.7,
+            "grade": grade,
+            "shape": "bolt",
+            "fitting_type": "bolt",
+            "orientation": orientation,
+            "material_id": mid,
+            "z0_mm": float(z0_mm),
+            "size_mm": [d * 1.5, d * 1.5, L + d],
+            "csi_code": "05 12 23",
+            "part_qty": 1.0,
+        },
+    )
+    model.add_element(el)
+    return {"element_id": el.id, "grade": grade, "shank_d_mm": d, "shank_len_mm": L}
+
+
+def place_flange(
+    model: ProjectModel,
+    *,
+    level: str,
+    origin: tuple[float, float] | list[float],
+    od_mm: float = 150.0,
+    thickness_mm: float = 18.0,
+    name: str | None = None,
+    material_id: str = "steel_A36",
+    system_tag: str = "PROC",
+    z0_mm: float = 1000.0,
+) -> dict[str, Any]:
+    """Joined material flange / ring section at a joint. CSI 40 05 13."""
+    from llmbim_core.ids import new_id
+
+    x0, y0 = float(origin[0]), float(origin[1])
+    level_id = model.get_level(level).id
+    od = max(float(od_mm), 20.0)
+    th = max(float(thickness_mm), 4.0)
+    el = Element(
+        id=new_id("flg"),
+        category="flange",
+        name=name or f"Flange Ø{od:.0f}",
+        level_id=level_id,
+        type_id="PT-FLANGE",
+        params={
+            "origin_mm": [x0, y0],
+            "od_mm": od,
+            "diameter_mm": od,
+            "thickness_mm": th,
+            "shape": "flange",
+            "fitting_type": "flange",
+            "system": system_tag,
+            "material_id": material_id,
+            "z0_mm": float(z0_mm),
+            "size_mm": [th, od, od],
+            "csi_code": "40 05 13",
+        },
+    )
+    model.add_element(el)
+    return {"element_id": el.id, "od_mm": od, "thickness_mm": th}

@@ -157,6 +157,12 @@ CATEGORY_CSI: dict[str, str] = {
     "module_instance": "11 00 00",
     "module_root": "11 00 00",
     "steel": "05 12 00",
+    "wire": "26 05 19",
+    "coil": "23 82 16",
+    "bolt": "05 12 23",
+    "fastener": "05 12 23",
+    "flange": "40 05 13",
+    "joint": "40 05 13",
 }
 
 TYPE_CSI: dict[str, str] = {
@@ -189,6 +195,10 @@ TYPE_CSI: dict[str, str] = {
     "wide_flange": "05 12 00",
     "hss": "05 12 00",
     "bolt": "05 12 23",
+    "wire": "26 05 19",
+    "coil": "23 82 16",
+    "flange": "40 05 13",
+    "joint": "40 05 13",
     "elbow_90": "22 11 16",
     "elbow_45": "22 11 16",
     "tee": "22 11 16",

@@ -328,6 +328,14 @@ def _step_layer(el: Element) -> str:
         return "PIPE-CU"
     if cat in {"fitting", "fittings"}:
         return "FITTING"
+    if cat == "wire" or ftype == "wire":
+        return "WIRE"
+    if cat == "coil" or ftype == "coil":
+        return "COIL"
+    if cat == "bolt" or ftype == "bolt":
+        return "BOLT"
+    if cat in {"flange", "joint"} or ftype in {"flange", "joint"}:
+        return "FLANGE"
     if cat in {"fixture", "accessory"}:
         return "FIXTURE"
     if cat in {"module_instance", "module_root"}:
@@ -408,6 +416,12 @@ def export_step(
         "cable_tray",
         "column",
         "beam",
+        "wire",
+        "coil",
+        "bolt",
+        "fastener",
+        "flange",
+        "joint",
     }
     for el in model.elements:
         pname = _step_product_name(el)
@@ -427,8 +441,14 @@ def export_step(
             "hvac",
             "cable_tray",
             "beam",
+            "wire",
         }:
             solid = _pipe_solid(el, model, cyl_sides=max(8, cyl_sides // 2))
+            if solid:
+                solids.append((pname, solid[0], solid[1]))
+        elif el.category in {"coil", "bolt", "flange", "joint", "fastener"}:
+            # presentation envelopes via equipment solid path (origin+size)
+            solid = _equipment_solid(el, model, cyl_sides=cyl_sides)
             if solid:
                 solids.append((pname, solid[0], solid[1]))
         elif el.category in proxy_cats:

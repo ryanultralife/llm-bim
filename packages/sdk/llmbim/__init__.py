@@ -781,6 +781,116 @@ class Project:
         )
         return str(r["element_id"])
 
+    def place_wire(
+        self,
+        *,
+        level: str,
+        start: tuple[float, float],
+        end: tuple[float, float],
+        diameter_mm: float = 6.0,
+        name: str | None = None,
+        material: str = "copper",
+        system: str = "PWR",
+        z0_mm: float = 2900.0,
+    ) -> str:
+        """Thin wire/conductor run (CSI 26 05 19) — renders as fine cylinder."""
+        r = self.op(
+            "place_wire",
+            level=level,
+            start=list(start),
+            end=list(end),
+            diameter_mm=diameter_mm,
+            name=name,
+            material=material,
+            system=system,
+            z0_mm=z0_mm,
+        )
+        return str(r["element_id"])
+
+    def place_coil(
+        self,
+        *,
+        level: str,
+        origin: tuple[float, float] = (0.0, 0.0),
+        coil_radius_mm: float = 80.0,
+        tube_radius_mm: float = 8.0,
+        turns: float = 6.0,
+        pitch_mm: float = 24.0,
+        name: str | None = None,
+        material: str = "copper",
+        system: str = "PROC",
+        z0_mm: float = 1000.0,
+        orientation: str = "vertical",
+    ) -> str:
+        """Helical coil / wound conductor (CSI 23 82 16)."""
+        r = self.op(
+            "place_coil",
+            level=level,
+            origin=list(origin),
+            coil_radius_mm=coil_radius_mm,
+            tube_radius_mm=tube_radius_mm,
+            turns=turns,
+            pitch_mm=pitch_mm,
+            name=name,
+            material=material,
+            system=system,
+            z0_mm=z0_mm,
+            orientation=orientation,
+        )
+        return str(r["element_id"])
+
+    def place_bolt(
+        self,
+        *,
+        level: str,
+        origin: tuple[float, float] = (0.0, 0.0),
+        shank_d_mm: float = 20.0,
+        shank_len_mm: float = 60.0,
+        grade: str = "A325",
+        name: str | None = None,
+        z0_mm: float = 0.0,
+        orientation: str = "vertical",
+    ) -> str:
+        """Structural bolt hex head + shank (CSI 05 12 23)."""
+        r = self.op(
+            "place_bolt",
+            level=level,
+            origin=list(origin),
+            shank_d_mm=shank_d_mm,
+            shank_len_mm=shank_len_mm,
+            grade=grade,
+            name=name,
+            z0_mm=z0_mm,
+            orientation=orientation,
+        )
+        return str(r["element_id"])
+
+    def place_flange(
+        self,
+        *,
+        level: str,
+        origin: tuple[float, float] = (0.0, 0.0),
+        od_mm: float = 150.0,
+        thickness_mm: float = 18.0,
+        name: str | None = None,
+        material: str = "steel_A36",
+        system: str = "PROC",
+        z0_mm: float = 1000.0,
+    ) -> str:
+        """Joined flange / ring section at a joint (CSI 40 05 13)."""
+        r = self.op(
+            "place_flange",
+            level=level,
+            origin=list(origin),
+            od_mm=od_mm,
+            thickness_mm=thickness_mm,
+            name=name,
+            material=material,
+            system=system,
+            z0_mm=z0_mm,
+        )
+        return str(r["element_id"])
+
     def fitting_takeoff(
         self,
         *,

@@ -46,6 +46,12 @@ _MATERIAL_PBR: dict[str, tuple[list[float], float, float]] = {
     "fitting": ([0.95, 0.55, 0.15, 1.0], 0.7, 0.35),
     "fixture": ([0.55, 0.42, 0.75, 1.0], 0.2, 0.5),
     "module": ([0.5, 0.55, 0.7, 1.0], 0.25, 0.55),
+    # Fine detail layers (wires / coils / fasteners / joined flanges)
+    "wire": ([0.92, 0.72, 0.22, 1.0], 0.9, 0.22),  # copper conductor
+    "wire_steel": ([0.55, 0.58, 0.62, 1.0], 0.85, 0.3),
+    "coil": ([0.72, 0.38, 0.12, 1.0], 0.88, 0.28),  # copper coil
+    "bolt": ([0.42, 0.44, 0.48, 1.0], 0.9, 0.28),  # A325 steel
+    "flange": ([0.48, 0.5, 0.54, 1.0], 0.75, 0.35),  # joined material section
     "default": ([0.62, 0.62, 0.65, 1.0], 0.2, 0.7),
 }
 
@@ -64,7 +70,301 @@ _PROXY_CATS = {
     "framing",
     "fire_protection",
     "process_piping",
+    "wire",
+    "coil",
+    "bolt",
+    "fastener",
+    "flange",
+    "joint",
 }
+
+
+def _merge_meshes(
+    parts: list[tuple[list[float], list[float], list[int]]],
+) -> tuple[list[float], list[float], list[int]]:
+    """Concatenate solid meshes (local 0-based indices each)."""
+    pos: list[float] = []
+    nrm: list[float] = []
+    idx: list[int] = []
+    base = 0
+    for p, n, i in parts:
+        if not p or not i:
+            continue
+        pos.extend(p)
+        nrm.extend(n)
+        for vi in i:
+            idx.append(base + vi)
+        base += len(p) // 3
+    return pos, nrm, idx
+
+
+def _disk_mesh(
+    cx: float,
+    cy: float,
+    cz: float,
+    radius: float,
+    thickness: float,
+    *,
+    axis: str = "y",
+    segments: int = 28,
+) -> tuple[list[float], list[float], list[int]]:
+    """Short cylinder (flange / washer) centered at plan XY, elev cz."""
+    r = max(radius, 1.0)
+    th = max(thickness, 1.0)
+    half = th / 2.0
+    if axis == "y":  # vertical axis in plan? elev is Y in glTF — disk in XZ, normal +Y
+        return _cylinder_mesh(cx, cy, cx, cy, cz - half, cz + half, r, vertical=True, segments=segments)
+    # horizontal axis along +X (plan east)
+    return _cylinder_mesh(cx - half, cy, cx + half, cy, cz - r, cz + r, r, segments=segments, caps=True)
+
+
+def _bolt_mesh(
+    cx: float,
+    cy: float,
+    z0: float,
+    *,
+    shank_d: float = 20.0,
+    shank_len: float = 60.0,
+    head_af: float = 30.0,
+    head_h: float = 14.0,
+    orientation: str = "vertical",
+) -> tuple[list[float], list[float], list[int]]:
+    """Hex head + cylindrical shank (presentation fastener)."""
+    r = max(shank_d, 4.0) / 2.0
+    parts: list[tuple[list[float], list[float], list[int]]] = []
+    # hex head as 6-sided prism approximated with short cylinder (readable under orbit)
+    head_r = max(head_af, shank_d * 1.5) / 2.0
+    if orientation == "vertical":
+        parts.append(
+            _cylinder_mesh(
+                cx, cy, cx, cy, z0 + shank_len, z0 + shank_len + head_h, head_r, vertical=True, segments=6
+            )
+        )
+        parts.append(
+            _cylinder_mesh(cx, cy, cx, cy, z0, z0 + shank_len, r, vertical=True, segments=16)
+        )
+    else:
+        # horizontal along +X from origin
+        parts.append(
+            _cylinder_mesh(cx, cy, cx + shank_len, cy, z0 - r, z0 + r, r, segments=16)
+        )
+        parts.append(
+            _cylinder_mesh(
+                cx + shank_len,
+                cy,
+                cx + shank_len + head_h,
+                cy,
+                z0 - head_r,
+                z0 + head_r,
+                head_r,
+                segments=6,
+            )
+        )
+    return _merge_meshes(parts)
+
+
+def _helix_coil_mesh(
+    cx: float,
+    cy: float,
+    z0: float,
+    *,
+    coil_radius: float = 80.0,
+    tube_radius: float = 8.0,
+    turns: float = 6.0,
+    pitch: float = 24.0,
+    axis: str = "vertical",
+    segs_per_turn: int = 16,
+) -> tuple[list[float], list[float], list[int]]:
+    """Helical tube (coil / spring / wound conductor)."""
+    cr = max(coil_radius, 10.0)
+    tr = max(tube_radius, 2.0)
+    n_turns = max(1.0, float(turns))
+    n = max(8, int(segs_per_turn * n_turns))
+    parts: list[tuple[list[float], list[float], list[int]]] = []
+    pts: list[tuple[float, float, float]] = []
+    for i in range(n + 1):
+        t = i / n
+        ang = 2 * math.pi * n_turns * t
+        if axis == "vertical":
+            x = cx + cr * math.cos(ang)
+            y = cy + cr * math.sin(ang)
+            z = z0 + pitch * n_turns * t
+            pts.append((x, y, z))
+        else:
+            # axis along +X
+            x = cx + pitch * n_turns * t
+            y = cy + cr * math.cos(ang)
+            z = z0 + cr * math.sin(ang)
+            pts.append((x, y, z))
+    # short cylinders between successive samples
+    for i in range(len(pts) - 1):
+        a, b = pts[i], pts[i + 1]
+        # vertical-ish vs horizontal cylinder pick
+        dx, dy, dz = b[0] - a[0], b[1] - a[1], b[2] - a[2]
+        if abs(dz) > abs(dx) and abs(dz) > abs(dy) and math.hypot(dx, dy) < tr * 0.5:
+            parts.append(
+                _cylinder_mesh(
+                    a[0], a[1], a[0], a[1], min(a[2], b[2]), max(a[2], b[2]), tr, vertical=True, segments=10, caps=False
+                )
+            )
+        else:
+            # use mid elev span for horizontal cylinder API
+            z_lo = min(a[2], b[2]) - tr
+            z_hi = max(a[2], b[2]) + tr
+            # better: place cylinder along plan projection with elev at midpoint
+            zm = (a[2] + b[2]) / 2.0
+            # if mostly plan-horizontal, standard horizontal cylinder
+            if math.hypot(dx, dy) > 1e-3:
+                parts.append(
+                    _cylinder_mesh(a[0], a[1], b[0], b[1], zm - tr, zm + tr, tr, segments=10, caps=False)
+                )
+            else:
+                parts.append(
+                    _cylinder_mesh(
+                        a[0], a[1], a[0], a[1], min(a[2], b[2]), max(a[2], b[2]), tr, vertical=True, segments=10, caps=False
+                    )
+                )
+    return _merge_meshes(parts)
+
+
+def _fitting_detail_mesh(
+    el: Element, model: ProjectModel
+) -> tuple[list[float], list[float], list[int]]:
+    """Elbow / tee / flange / coupler as joined material solids (not a single box)."""
+    try:
+        origin = el.params.get("origin_mm") or [0, 0]
+        x0, y0 = float(origin[0]), float(origin[1])
+        size = el.params.get("size_mm") or [80, 80, 80]
+        od = max(float(size[1]) if len(size) > 1 else 40.0, 15.0)
+        r = od / 2.0
+        z0 = _level_z(model, el.level_id) + float(el.params.get("z0_mm") or 0)
+        ftype = str(el.params.get("fitting_type") or "").lower()
+        arm = max(od * 1.8, 40.0)
+        parts: list[tuple[list[float], list[float], list[int]]] = []
+
+        if ftype in {"elbow_90", "elbow", "elb90"}:
+            # two legs of a 90° elbow in plan + small bend body
+            parts.append(_cylinder_mesh(x0, y0, x0 + arm, y0, z0 - r, z0 + r, r, segments=20))
+            parts.append(_cylinder_mesh(x0, y0, x0, y0 + arm, z0 - r, z0 + r, r, segments=20))
+            # join fillet: short vertical-ish torus approx as disk at corner
+            parts.append(
+                _cylinder_mesh(x0, y0, x0, y0, z0 - r * 1.1, z0 + r * 1.1, r * 1.15, vertical=True, segments=16)
+            )
+        elif ftype in {"elbow_45", "elb45"}:
+            parts.append(_cylinder_mesh(x0, y0, x0 + arm, y0, z0 - r, z0 + r, r, segments=20))
+            dx, dy = arm * 0.707, arm * 0.707
+            parts.append(_cylinder_mesh(x0, y0, x0 + dx, y0 + dy, z0 - r, z0 + r, r, segments=20))
+        elif ftype in {"tee", "t"}:
+            parts.append(_cylinder_mesh(x0 - arm, y0, x0 + arm, y0, z0 - r, z0 + r, r, segments=20))
+            parts.append(_cylinder_mesh(x0, y0, x0, y0 + arm, z0 - r, z0 + r, r, segments=20))
+        elif ftype in {"flange", "union", "coupler", "coupling", "cpl"}:
+            # pipe stub + two flange disks (joined materials)
+            parts.append(_cylinder_mesh(x0 - arm * 0.6, y0, x0 + arm * 0.6, y0, z0 - r, z0 + r, r, segments=24))
+            fr = r * 1.8
+            for sx in (-arm * 0.55, arm * 0.55):
+                parts.append(
+                    _cylinder_mesh(
+                        x0 + sx - 6, y0, x0 + sx + 6, y0, z0 - fr, z0 + fr, fr, segments=24
+                    )
+                )
+        elif ftype in {"cap"}:
+            parts.append(_cylinder_mesh(x0, y0, x0 + arm * 0.4, y0, z0 - r, z0 + r, r, segments=20))
+            parts.append(
+                _cylinder_mesh(x0, y0, x0, y0, z0 - r * 1.05, z0 + r * 1.05, r * 1.05, vertical=True, segments=16)
+            )
+        elif ftype in {"ball_valve", "gate_valve", "valve"}:
+            # body box + two ports
+            parts.append(_aabb_box_mesh(x0 - od, y0 - od, z0 - od, x0 + od, y0 + od, z0 + od))
+            parts.append(_cylinder_mesh(x0 - arm, y0, x0 + arm, y0, z0 - r * 0.8, z0 + r * 0.8, r * 0.8, segments=16))
+            # stem
+            parts.append(
+                _cylinder_mesh(x0, y0, x0, y0, z0 + od * 0.5, z0 + od * 2.0, r * 0.35, vertical=True, segments=12)
+            )
+        else:
+            # generic joined fitting: cylinder body + end flanges
+            parts.append(_cylinder_mesh(x0 - arm * 0.5, y0, x0 + arm * 0.5, y0, z0 - r, z0 + r, r, segments=20))
+            fr = r * 1.6
+            for sx in (-arm * 0.45, arm * 0.45):
+                parts.append(
+                    _cylinder_mesh(x0 + sx - 5, y0, x0 + sx + 5, y0, z0 - fr, z0 + fr, fr, segments=20)
+                )
+        return _merge_meshes(parts)
+    except (KeyError, TypeError, ValueError, IndexError):
+        return [], [], []
+
+
+def _mesh_from_detail(
+    el: Element, model: ProjectModel
+) -> tuple[list[float], list[float], list[int]]:
+    """Wire / coil / bolt / flange detail solids."""
+    try:
+        cat = el.category or ""
+        ftype = str(el.params.get("fitting_type") or "").lower()
+        shape = str(el.params.get("shape") or "").lower()
+        origin = el.params.get("origin_mm") or el.params.get("start_mm") or [0, 0]
+        x0, y0 = float(origin[0]), float(origin[1])
+        z0 = _level_z(model, el.level_id) + float(el.params.get("z0_mm") or 0)
+
+        if cat == "bolt" or ftype == "bolt" or shape == "bolt":
+            return _bolt_mesh(
+                x0,
+                y0,
+                z0,
+                shank_d=float(el.params.get("shank_d_mm") or el.params.get("diameter_mm") or 20),
+                shank_len=float(el.params.get("shank_len_mm") or el.params.get("length_mm") or 60),
+                head_af=float(el.params.get("head_af_mm") or 30),
+                head_h=float(el.params.get("head_h_mm") or 14),
+                orientation=str(el.params.get("orientation") or "vertical"),
+            )
+
+        if cat == "coil" or ftype == "coil" or shape == "coil":
+            if el.params.get("tube_radius_mm") is not None:
+                tr = float(el.params["tube_radius_mm"])
+            elif el.params.get("wire_d_mm") is not None:
+                tr = float(el.params["wire_d_mm"]) / 2.0
+            else:
+                tr = 8.0
+            return _helix_coil_mesh(
+                x0,
+                y0,
+                z0,
+                coil_radius=float(el.params.get("coil_radius_mm") or 80),
+                tube_radius=tr,
+                turns=float(el.params.get("turns") or 6),
+                pitch=float(el.params.get("pitch_mm") or 24),
+                axis=str(el.params.get("orientation") or el.params.get("axis") or "vertical"),
+            )
+
+        if cat == "wire" or ftype == "wire" or shape == "wire":
+            od = float(el.params.get("diameter_mm") or el.params.get("wire_d_mm") or 6)
+            r = max(od / 2.0, 1.5)
+            if el.params.get("vertical") or el.params.get("orientation") == "vertical":
+                z1 = z0 + float(el.params.get("length_mm") or 1000)
+                return _cylinder_mesh(x0, y0, x0, y0, min(z0, z1), max(z0, z1), r, vertical=True, segments=12)
+            s = el.params.get("start_mm") or origin
+            e = el.params.get("end_mm")
+            if not e:
+                length = float(el.params.get("length_mm") or 1000)
+                e = [x0 + length, y0]
+            x1, y1 = float(e[0]), float(e[1])
+            return _cylinder_mesh(float(s[0]), float(s[1]), x1, y1, z0 - r, z0 + r, r, segments=12)
+
+        if cat in {"flange", "joint"} or ftype in {"flange", "joint"}:
+            od = float(el.params.get("od_mm") or el.params.get("diameter_mm") or 120)
+            th = float(el.params.get("thickness_mm") or 18)
+            r = od / 2.0
+            # flange disk + short neck (joined section)
+            parts = [
+                _cylinder_mesh(x0 - th / 2, y0, x0 + th / 2, y0, z0 - r, z0 + r, r, segments=28),
+                _cylinder_mesh(
+                    x0 - th, y0, x0 + th, y0, z0 - r * 0.45, z0 + r * 0.45, r * 0.45, segments=20
+                ),
+            ]
+            return _merge_meshes(parts)
+
+        return [], [], []
+    except (KeyError, TypeError, ValueError, IndexError):
+        return [], [], []
 
 
 def _append_mesh(
@@ -426,6 +726,7 @@ def _mesh_from_slab(el: Element, model: ProjectModel) -> tuple[list[float], list
 
 def _gltf_material_key(el: Element) -> str:
     cat = el.category or ""
+    ftype = str(el.params.get("fitting_type") or "").lower()
     if cat == "wall":
         return "wall"
     if cat == "slab":
@@ -436,23 +737,36 @@ def _gltf_material_key(el: Element) -> str:
         return "window"
     if cat == "equipment":
         return "equipment"
-    if cat in {"duct", "hvac"} or el.params.get("fitting_type") == "duct":
+    if cat in {"duct", "hvac"} or ftype == "duct":
         return "duct"
-    if cat == "conduit" or el.params.get("fitting_type") == "conduit":
+    if cat == "conduit" or ftype == "conduit":
         return "conduit"
-    if cat == "cable_tray" or el.params.get("fitting_type") == "cable_tray":
+    if cat == "cable_tray" or ftype == "cable_tray":
         return "cable_tray"
-    if cat == "column" or el.params.get("fitting_type") == "column":
+    if cat == "column" or ftype == "column":
         return "column"
-    if cat == "beam" or el.params.get("fitting_type") == "beam":
+    if cat == "beam" or ftype == "beam":
         return "beam"
+    if cat == "bolt" or ftype == "bolt":
+        return "bolt"
+    if cat == "coil" or ftype == "coil":
+        return "coil"
+    if cat == "wire" or ftype == "wire":
+        mid = str(el.params.get("material_id") or "").lower()
+        if "steel" in mid or "alum" in mid:
+            return "wire_steel"
+        return "wire"
+    if cat in {"flange", "joint"} or ftype in {"flange", "joint"}:
+        return "flange"
     if cat in {"fixture", "accessory"}:
         return "fixture"
     if cat in {"module_instance", "module_root"}:
         return "module"
     if cat in {"fitting", "fittings"}:
+        if ftype in {"flange", "union", "coupler", "coupling"}:
+            return "flange"
         return "fitting"
-    if cat in {"pipe", "plumbing_pipe"} or el.params.get("fitting_type") == "pipe":
+    if cat in {"pipe", "plumbing_pipe"} or ftype == "pipe":
         mid = str(el.params.get("material_id") or "").lower()
         sys = str(el.params.get("system") or "").lower()
         if "black" in mid or sys in ("fp", "fire", "fire_protection"):
@@ -506,8 +820,19 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
             pos, nrm, indices = _mesh_from_pipe(el, model)
         elif el.category in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac", "cable_tray"}:
             pos, nrm, indices = _mesh_from_pipe(el, model)
+        elif el.category in {"wire", "coil", "bolt", "fastener", "flange", "joint"} or el.params.get(
+            "fitting_type"
+        ) in {"wire", "coil", "bolt", "flange", "joint"}:
+            pos, nrm, indices = _mesh_from_detail(el, model)
+        elif el.category in {"fitting", "fittings"}:
+            pos, nrm, indices = _fitting_detail_mesh(el, model)
+            if not pos:
+                pos, nrm, indices = _mesh_from_origin_size(el, model)
         elif el.category in _PROXY_CATS:
-            if el.params.get("start_mm") and el.params.get("end_mm"):
+            detail = _mesh_from_detail(el, model)
+            if detail[0]:
+                pos, nrm, indices = detail
+            elif el.params.get("start_mm") and el.params.get("end_mm"):
                 pos, nrm, indices = _mesh_from_pipe(el, model)
             else:
                 pos, nrm, indices = _mesh_from_origin_size(el, model)
