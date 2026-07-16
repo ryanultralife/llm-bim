@@ -149,7 +149,13 @@ p.export_deliverables(out, phases="new")  # IFC/BOQ/views = new only; full model
 | Designer tools | Templates, types, notes, DXF |
 | Geometry kernel | Parametric solids sufficient for coordination & fabrication envelopes |
 
-**Fab BREP (with `pip install llmbim[fab]` / cadquery):** `create_fab_part` → `fab_box` / `fab_cylinder` / `fab_hole` / `fab_fillet` / `fab_chamfer` / `fab_thread` / `fab_cut_box` → `export_fab_step` (true OCC STEP) + glTF tessellation + `gdt_datum` / `gdt_fcf` / `gdt_size` machining SVG.
+**Fab BREP (with `pip install llmbim[fab]` / cadquery):** `create_fab_part` → `fab_box` / `fab_cylinder` / `fab_hole` / `fab_fillet` / `fab_chamfer` / `fab_thread` / `fab_cut_box` → `export_fab_step` (true OCC STEP) + glTF tessellation + `gdt_datum` / `gdt_fcf` / `gdt_size` machining SVG (ortho + projected size dims).
+
+**MEP graph:** `mep_route(from_id, to_id, kind=pipe|duct|conduit)` places runs (+ elbow dogleg) and records `meta.mep_graph`.
+
+**Layered walls:** `set_type(id, "W-EXT-CMU")` stores `wall_layers` → multi-band plan + glTF `wall_structure` / `wall_insulation` / `wall_finish`.
+
+**LLM authoring contract:** `authoring_checklist(product)` + `validate_intent(intent)` — required fields before modeling (`skills/llm-bim/recipes/explicit_build.md`).
 
 **Not claimed:** replacing Revit families ecosystem, or legal sealed CD / PE certification. The system is built so **any new requirement is an op + params + export**, not a rewrite.
 

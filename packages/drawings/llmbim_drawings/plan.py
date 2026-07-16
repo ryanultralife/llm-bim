@@ -226,12 +226,50 @@ def render_plan_view(
         f'  <g class="walls" fill="#c8c8c8" stroke="#1a1a1a" stroke-width="{fmt(sw)}" '
         f'stroke-linejoin="round">',
     ]
-    for _el, (x0, y0, x1, y1, t) in walls_draw:
-        band = _wall_band(x0, y0, x1, y1, t)
-        if not band:
-            continue
-        pts = " ".join(f"{fmt(px)},{fmt(py)}" for px, py in (project(x, y) for x, y in band))
-        parts.append(f'    <polygon points="{pts}"/>')
+    layer_fills = {
+        "structure": "#b0b0b0",
+        "insulation": "#f0e68c",
+        "finish": "#e8e8e8",
+        "membrane": "#4a5568",
+    }
+    for el, (x0, y0, x1, y1, t) in walls_draw:
+        layers = el.params.get("wall_layers")
+        if not layers and el.type_id:
+            try:
+                from llmbim_core.types_catalog import DEFAULT_WALL_TYPES
+
+                wt = DEFAULT_WALL_TYPES.get(el.type_id)
+                if wt and wt.layers:
+                    layers = [L.model_dump() for L in wt.layers]
+            except Exception:  # noqa: BLE001
+                layers = None
+        if layers and len(layers) >= 2:
+            total = sum(float(L.get("thickness_mm") or 0) for L in layers) or t
+            dx, dy = x1 - x0, y1 - y0
+            length = math.hypot(dx, dy) or 1.0
+            nx, ny = -dy / length, dx / length
+            cursor = -total / 2.0
+            for L in layers:
+                lt = float(L.get("thickness_mm") or 0)
+                if lt < 1:
+                    continue
+                mid = cursor + lt / 2.0
+                ox, oy = nx * mid, ny * mid
+                band = _wall_band(x0 + ox, y0 + oy, x1 + ox, y1 + oy, lt)
+                if not band:
+                    continue
+                fill = layer_fills.get(str(L.get("function") or "structure"), "#c8c8c8")
+                pts = " ".join(
+                    f"{fmt(px)},{fmt(py)}" for px, py in (project(x, y) for x, y in band)
+                )
+                parts.append(f'    <polygon points="{pts}" fill="{fill}"/>')
+                cursor += lt
+        else:
+            band = _wall_band(x0, y0, x1, y1, t)
+            if not band:
+                continue
+            pts = " ".join(f"{fmt(px)},{fmt(py)}" for px, py in (project(x, y) for x, y in band))
+            parts.append(f'    <polygon points="{pts}"/>')
     parts.append("  </g>")
 
     parts.append(

@@ -1721,6 +1721,54 @@ class Project:
             self._vcs.append_journal("connect", result, author=self._author)
         return result
 
+    def mep_route(
+        self,
+        from_id: str,
+        to_id: str,
+        *,
+        kind: str = "pipe",
+        nps: str = "2",
+        material: str = "copper",
+        system: str = "CW",
+        from_port: str | None = None,
+        to_port: str | None = None,
+        orthogonal: bool = True,
+        z0_mm: float | None = None,
+        width_mm: float = 400.0,
+        height_mm: float = 250.0,
+        trade_size: str = "3/4",
+        name: str = "",
+    ) -> dict[str, Any]:
+        """Auto-place pipe/duct/conduit between two elements + graph edge."""
+        return self.op(
+            "mep_route",
+            from_id=from_id,
+            to_id=to_id,
+            kind=kind,
+            nps=nps,
+            material=material,
+            system=system,
+            from_port=from_port,
+            to_port=to_port,
+            orthogonal=orthogonal,
+            z0_mm=z0_mm,
+            width_mm=width_mm,
+            height_mm=height_mm,
+            trade_size=trade_size,
+            name=name,
+        )
+
+    def mep_graph(self) -> list[dict[str, Any]]:
+        return list(self.op("mep_graph").get("edges") or [])
+
+    def authoring_checklist(self, product: str | None = None) -> dict[str, Any]:
+        """Required/recommended fields for a product class (LLM must collect these)."""
+        return self.op("authoring_checklist", product=product)
+
+    def validate_intent(self, intent: str = "building_shell") -> dict[str, Any]:
+        """Check model completeness for building_shell | mep_run | fab_part | structure | openings."""
+        return self.op("validate_intent", intent=intent)
+
     def modules(self) -> dict[str, Any]:
         from llmbim_core.modules import list_connections, list_modules
 

@@ -30,6 +30,10 @@ def _mm_to_gltf(x_mm: float, y_mm: float, z_mm: float) -> tuple[float, float, fl
 # System / category → baseColor + metallic + roughness
 _MATERIAL_PBR: dict[str, tuple[list[float], float, float]] = {
     "wall": ([0.78, 0.76, 0.72, 1.0], 0.02, 0.88),
+    "wall_structure": ([0.72, 0.70, 0.66, 1.0], 0.02, 0.9),
+    "wall_insulation": ([0.95, 0.9, 0.45, 1.0], 0.0, 0.95),
+    "wall_finish": ([0.92, 0.92, 0.9, 1.0], 0.0, 0.85),
+    "wall_membrane": ([0.2, 0.25, 0.35, 1.0], 0.1, 0.7),
     "slab": ([0.55, 0.55, 0.58, 1.0], 0.05, 0.82),
     "equipment": ([0.28, 0.52, 0.82, 1.0], 0.35, 0.45),
     # Equipment kinds — OPAQUE by default (viewer can ghost shells on demand).
@@ -1135,6 +1139,45 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
                 y0 -= uy * ex0
                 x1 += ux * ex1
                 y1 += uy * ex1
+            layers = el.params.get("wall_layers")
+            if not layers and el.type_id:
+                try:
+                    from llmbim_core.types_catalog import DEFAULT_WALL_TYPES
+
+                    wt = DEFAULT_WALL_TYPES.get(el.type_id)
+                    if wt and wt.layers:
+                        layers = [L.model_dump() for L in wt.layers]
+                except Exception:  # noqa: BLE001
+                    layers = None
+            if layers and len(layers) >= 2:
+                # Offset successive layers from centerline (layered wall assembly)
+                total = sum(float(L.get("thickness_mm") or 0) for L in layers) or th
+                # walk from -total/2 outward
+                if length > 1e-3:
+                    nx, ny = -dy / length, dx / length
+                else:
+                    nx, ny = 0.0, 1.0
+                cursor = -total / 2.0
+                for L in layers:
+                    lt = float(L.get("thickness_mm") or 0)
+                    if lt < 1:
+                        continue
+                    mid = cursor + lt / 2.0
+                    ox, oy = nx * mid, ny * mid
+                    fn = str(L.get("function") or "structure").lower()
+                    key = {
+                        "structure": "wall_structure",
+                        "insulation": "wall_insulation",
+                        "finish": "wall_finish",
+                        "membrane": "wall_membrane",
+                    }.get(fn, "wall")
+                    p2, n2, i2 = _wall_box_mesh(
+                        x0 + ox, y0 + oy, x1 + ox, y1 + oy, lt, z0, z0 + ht
+                    )
+                    if p2:
+                        _append_mesh(_ensure(key), p2, n2, i2)
+                    cursor += lt
+                continue  # layers already appended
             pos, nrm, indices = _wall_box_mesh(x0, y0, x1, y1, th, z0, z0 + ht)
         elif el.category == "slab":
             pos, nrm, indices = _mesh_from_slab(el, model)

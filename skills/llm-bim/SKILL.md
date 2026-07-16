@@ -58,6 +58,33 @@ Or HTTP (optional): `llmbim serve --port 8000` → docs at `/docs`.
 9. **True version control (not chat):** after each meaningful edit batch,  
    `project.commit("message")`. Use `status` / `diff` / `log` / `checkout`.  
    Chat is not history — commits under `output/<project>/.llmbim/versions/` are.
+10. **Explicit product detail:** before large models, call  
+    `p.authoring_checklist("building_shell"|"mep_run"|"fab_part"|…)`  
+    and either ask the user for **required** fields or **state defaults in the reply**.  
+    After modeling: `p.validate_intent(...)`. See `recipes/explicit_build.md`.
+
+## Authoring contract (what the LLM must know)
+
+Vague user ask → **you** make parameters explicit. Never silently invent PE ratings or critical sizes.
+
+| Product | Required (minimum) | Recommended |
+|---------|-------------------|-------------|
+| Building shell | levels+elevations, plan L×W or wall loop, wall height + thickness **or** `type_id` | fire_rating, slab, grids, phase |
+| Openings | host wall id, offset, W×H, type_id | fire_rating, sill |
+| MEP run | level, start→end **or** `mep_route(from,to)`, size, system | material, z0_mm, orthogonal dogleg |
+| Structure | level, section `W10x33`, origin or beam ends | beam z0 (TOS) |
+| Fab part | name + solid feature(s) in mm | fillet selector, thread designation, GD&T, host knit |
+| Pack | `export_deliverables` | verify; give absolute paths to `index.html` + `viewer3d.html` |
+
+```python
+print(p.authoring_checklist("building_shell"))
+print(p.validate_intent("building_shell"))
+# MEP graph (auto pipe between fittings):
+p.mep_route(fit_a, fit_b, kind="pipe", nps="2", material="copper", orthogonal=True)
+# Layered wall assembly (plan bands + glTF wall_structure/insulation/finish):
+p.set_type(wall_id, "W-EXT-CMU")
+```
+
 
 ## Primary workflows
 
