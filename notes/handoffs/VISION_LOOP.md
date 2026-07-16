@@ -325,6 +325,9 @@ Further scheduled vision-loop fires should **stop** (pass_count ≥ 120). Overse
 | post-120 (3D studio ship `ccfcf0a` already on main) | Pass count ≥ 120 — **no code changes**; loop remains FINAL |
 | post-120 (mesh fidelity `face60f` on main) | Pass count ≥ 120 — **no code changes**; loop remains FINAL |
 | post-120 (detail mesh `059ec05` on main) | Pass count ≥ 120 — **no code changes**; loop remains FINAL |
+| post-120 (fab BREP `fc8a787` on main) | Pass count ≥ 120 — **no code changes**; loop remains FINAL |
+| post-120 (fab depth-2 `fce0333` on main) | Pass count ≥ 120 — **no code changes**; loop remains FINAL |
+| post-120 (fab depth-3 `1a83cdc` on main) | Pass count ≥ 120 — **no code changes**; loop remains FINAL |
 
 ## Rules for each scheduled pass
 
