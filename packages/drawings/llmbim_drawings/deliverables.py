@@ -537,34 +537,65 @@ def export_deliverables(
     except Exception as exc:  # noqa: BLE001
         errors.append({"step": "viewer3d", "error": str(exc)})
 
-    # Fab BREP parts → per-part STEP + GD&T drawings
+    # Fab BREP parts → per-part STEP + GD&T + ortho views; assemblies → compound STEP
     fab_parts = [el for el in work.elements if el.category == "fab_part" and el.params.get("features")]
-    if fab_parts:
+    fab_assemblies = [
+        el for el in work.elements if el.category == "fab_assembly" and el.params.get("instances")
+    ]
+    if fab_parts or fab_assemblies:
         fab_dir = out / "fab"
         fab_dir.mkdir(exist_ok=True)
         fab_exports: list[dict] = []
         for el in fab_parts:
             try:
-                from llmbim_core.fab import export_fab_part_step
+                from llmbim_core.fab import export_fab_ortho_views, export_fab_part_step
                 from llmbim_drawings.gdt_drawing import write_gdt_drawing
 
                 safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in (el.name or el.id))[:40]
                 step_p = fab_dir / f"{safe}_{el.id}.step"
                 svg_p = fab_dir / f"{safe}_{el.id}_gdt.svg"
                 info = export_fab_part_step(work, el.id, str(step_p))
-                write_gdt_drawing(work, el.id, svg_p)
+                write_gdt_drawing(work, el.id, svg_p, include_ortho=True)
+                try:
+                    ortho = export_fab_ortho_views(work, el.id, str(fab_dir / "views"))
+                except Exception:  # noqa: BLE001
+                    ortho = {}
                 fab_exports.append(
                     {
                         "element_id": el.id,
                         "name": el.name,
                         "step": str(step_p.relative_to(out).as_posix()),
                         "gdt_svg": str(svg_p.relative_to(out).as_posix()),
+                        "ortho": {
+                            k: str(Path(v).relative_to(out).as_posix())
+                            for k, v in (ortho.get("views") or {}).items()
+                        },
                         "volume_mm3": info.get("volume_mm3"),
                         "n_gdt": len(el.params.get("gdt") or []),
                     }
                 )
             except Exception as exc:  # noqa: BLE001
                 errors.append({"step": "fab_part", "element_id": el.id, "error": str(exc)})
+        for assy in fab_assemblies:
+            try:
+                from llmbim_core.fab import export_fab_assembly_step
+
+                safe = "".join(
+                    c if c.isalnum() or c in "-_" else "_" for c in (assy.name or assy.id)
+                )[:40]
+                ap = fab_dir / f"{safe}_{assy.id}_assy.step"
+                export_fab_assembly_step(work, assy.id, str(ap))
+                fab_exports.append(
+                    {
+                        "element_id": assy.id,
+                        "name": assy.name,
+                        "kind": "assembly",
+                        "step": str(ap.relative_to(out).as_posix()),
+                        "n_instances": len(assy.params.get("instances") or []),
+                    }
+                )
+            except Exception as exc:  # noqa: BLE001
+                errors.append({"step": "fab_assembly", "element_id": assy.id, "error": str(exc)})
         if fab_exports:
             result["fab_parts"] = fab_exports
             (fab_dir / "FAB_INDEX.json").write_text(

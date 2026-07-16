@@ -192,6 +192,143 @@ def fab_cut_box(
     )
 
 
+def fab_revolve(
+    model: ProjectModel,
+    element_id: str,
+    *,
+    radius_mm: float,
+    height_mm: float,
+    inner_radius_mm: float = 0.0,
+    origin_mm: list[float] | tuple[float, float, float] = (0, 0, 0),
+) -> dict[str, Any]:
+    """Lathe-style revolve (disk/tube) about Z."""
+    return fab_add_feature(
+        model,
+        element_id,
+        {
+            "op": "revolve",
+            "radius_mm": float(radius_mm),
+            "inner_radius_mm": float(inner_radius_mm),
+            "height_mm": float(height_mm),
+            "origin_mm": [float(x) for x in origin_mm],
+        },
+    )
+
+
+def fab_hole_pattern(
+    model: ProjectModel,
+    element_id: str,
+    *,
+    diameter_mm: float,
+    origin_mm: list[float] | tuple[float, float, float],
+    count_x: int = 2,
+    count_y: int = 1,
+    spacing_x_mm: float = 20.0,
+    spacing_y_mm: float = 20.0,
+    depth_mm: float | None = None,
+) -> dict[str, Any]:
+    """Rectangular bolt-hole pattern."""
+    feat: dict[str, Any] = {
+        "op": "hole_pattern",
+        "diameter_mm": float(diameter_mm),
+        "origin_mm": [float(x) for x in origin_mm],
+        "count_x": int(count_x),
+        "count_y": int(count_y),
+        "spacing_x_mm": float(spacing_x_mm),
+        "spacing_y_mm": float(spacing_y_mm),
+    }
+    if depth_mm is not None:
+        feat["depth_mm"] = float(depth_mm)
+    return fab_add_feature(model, element_id, feat)
+
+
+def create_fab_assembly(
+    model: ProjectModel,
+    *,
+    name: str = "FabAssembly",
+    level: str | None = None,
+) -> dict[str, Any]:
+    """Multi-body fab assembly (instances of fab_part with placements)."""
+    level_id = model.get_level(level).id if level else (model.levels[0].id if model.levels else None)
+    el = Element(
+        id=new_id("assy"),
+        category="fab_assembly",
+        name=name,
+        level_id=level_id,
+        type_id="FAB-ASSY",
+        params={
+            "instances": [],
+            "fidelity": "brep_cadquery",
+            "csi_code": "05 05 23",
+        },
+    )
+    model.add_element(el)
+    return {"element_id": el.id, "name": name}
+
+
+def fab_assembly_add(
+    model: ProjectModel,
+    assembly_id: str,
+    part_id: str,
+    *,
+    origin_mm: list[float] | tuple[float, float, float] = (0, 0, 0),
+    rotation_deg: list[float] | tuple[float, float, float] = (0, 0, 0),
+) -> dict[str, Any]:
+    assy = model.get_element(assembly_id)
+    if assy.category != "fab_assembly":
+        raise ValidationError("Not a fab_assembly", element_id=assembly_id)
+    part = _fab(model, part_id)
+    inst = {
+        "part_id": part.id,
+        "origin_mm": [float(x) for x in origin_mm],
+        "rotation_deg": [float(x) for x in rotation_deg],
+    }
+    assy.params.setdefault("instances", []).append(inst)
+    return {"assembly_id": assembly_id, "part_id": part_id, "n_instances": len(assy.params["instances"])}
+
+
+def export_fab_assembly_step(model: ProjectModel, assembly_id: str, path: str) -> dict[str, Any]:
+    from llmbim_geometry.fab_brep import export_fab_assembly_step as _export
+
+    assy = model.get_element(assembly_id)
+    if assy.category != "fab_assembly":
+        raise ValidationError("Not a fab_assembly", element_id=assembly_id)
+    members: list[dict[str, Any]] = []
+    for inst in assy.params.get("instances") or []:
+        part = model.get_element(str(inst["part_id"]))
+        members.append(
+            {
+                "features": list(part.params.get("features") or []),
+                "origin_mm": inst.get("origin_mm") or [0, 0, 0],
+                "rotation_deg": inst.get("rotation_deg") or [0, 0, 0],
+            }
+        )
+    out = _export(members, path)
+    return {"assembly_id": assembly_id, "path": str(out), "n_members": len(members)}
+
+
+def export_fab_ortho_views(model: ProjectModel, element_id: str, out_dir: str) -> dict[str, Any]:
+    """Write top/front/right SVG orthographics for a fab_part."""
+    from pathlib import Path
+
+    from llmbim_geometry.fab_brep import export_fab_ortho_svgs
+
+    el = _fab(model, element_id)
+    feats = list(el.params.get("features") or [])
+    if not feats:
+        raise ValidationError("fab_part has no features", element_id=element_id)
+    views = export_fab_ortho_svgs(feats)
+    dest = Path(out_dir)
+    dest.mkdir(parents=True, exist_ok=True)
+    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in (el.name or el.id))[:40]
+    paths: dict[str, str] = {}
+    for name, svg in views.items():
+        p = dest / f"{safe}_{name}.svg"
+        p.write_text(svg, encoding="utf-8")
+        paths[name] = str(p)
+    return {"element_id": element_id, "views": paths}
+
+
 def gdt_add_datum(
     model: ProjectModel,
     element_id: str,

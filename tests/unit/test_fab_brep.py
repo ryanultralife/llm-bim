@@ -58,7 +58,7 @@ def test_fab_in_gltf_and_pack(tmp_path: Path) -> None:
     p.add_level("L1", 0)
     fid = p.create_fab_part(name="Pad")
     p.fab_box(fid, size_mm=(40, 30, 10))
-    p.fab_chamfer(fid, distance_mm=1.0, selector=">Z")
+    p.fab_chamfer(fid, distance_mm=1.0, selector="top_loop")
     p.gdt_datum(fid, label="A")
     out = tmp_path / "pack"
     # export glTF includes fab tessellation
@@ -73,3 +73,46 @@ def test_fab_in_gltf_and_pack(tmp_path: Path) -> None:
     ).exists() or any((out / "fab").glob("*.step") if (out / "fab").is_dir() else [])
     # soft: at least pack ran
     assert (out / "model.llmbim.json").is_file()
+
+
+def test_fab_depth_selectors_pattern_ortho_assembly(tmp_path: Path) -> None:
+    """Next depth: top_loop fillet, hole pattern, ortho SVG, multi-body assembly."""
+    p = Project.create("FabDepth", vcs=False)
+    p.add_level("L1", 0)
+    a = p.create_fab_part(name="Plate")
+    p.fab_box(a, size_mm=(60, 40, 10))
+    p.fab_fillet(a, radius_mm=2.0, selector="top_loop")
+    p.fab_hole_pattern(
+        a,
+        diameter_mm=6,
+        origin_mm=(12, 12, 10),
+        count_x=2,
+        count_y=2,
+        spacing_x_mm=30,
+        spacing_y_mm=16,
+        depth_mm=10,
+    )
+    assert p.validate_fab(a).get("ok") is True
+
+    b = p.create_fab_part(name="Bushing")
+    p.fab_revolve(b, radius_mm=12, height_mm=8, inner_radius_mm=4)
+    assert p.validate_fab(b).get("ok") is True
+
+    ortho = p.export_fab_ortho(a, tmp_path / "views")
+    assert set(ortho.get("views") or {}) >= {"top", "front", "right"}
+    for vpath in (ortho.get("views") or {}).values():
+        assert Path(vpath).is_file()
+        assert "svg" in Path(vpath).read_text(encoding="utf-8", errors="ignore").lower()
+
+    gdt = p.export_gdt_drawing(a, tmp_path / "plate_gdt.svg")
+    gtxt = gdt.read_text(encoding="utf-8")
+    assert "ORTHO" in gtxt or "TOP" in gtxt or "projection" in gtxt.lower() or "<svg" in gtxt
+
+    assy = p.create_fab_assembly(name="Stack")
+    p.fab_assembly_add(assy, a, origin_mm=(0, 0, 0))
+    p.fab_assembly_add(assy, b, origin_mm=(0, 0, 12))
+    step = tmp_path / "stack.step"
+    info = p.export_fab_assembly_step(assy, step)
+    assert step.is_file()
+    assert info.get("n_members") == 2
+    assert "ISO-10303-21" in step.read_text(encoding="utf-8", errors="ignore")

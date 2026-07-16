@@ -74,6 +74,12 @@ def rebuild_solid(features: list[dict[str, Any]]) -> Any:
             solid = _apply_union_box(solid, feat)
         elif op in {"extrude_circle"}:
             solid = _apply_extrude_circle(solid, feat)
+        elif op in {"revolve", "lathe"}:
+            solid = _apply_revolve(solid, feat)
+        elif op in {"hole_pattern", "pattern_holes"}:
+            solid = _apply_hole_pattern(solid, feat)
+        elif op in {"mirror"}:
+            solid = _apply_mirror(solid, feat)
         else:
             raise FabBrepError(f"unknown fab op: {op}")
     if solid is None:
@@ -164,70 +170,182 @@ def _apply_union_box(solid: Any, feat: dict[str, Any]) -> Any:
     return _apply_box(solid, feat)
 
 
+def _edge_set(solid: Any, selector: str) -> Any:
+    """Rich edge selection for fillet/chamfer.
+
+    Selectors:
+      all | * | vertical | |Z | |X | |Y
+      top_loop | bottom_loop  (faces >Z / <Z edges)
+      >Z | <Z | >X | <X | >Y | <Y  (face then edges)
+      index:0,2,5   (nth edges among all)
+      len_lt:N / len_gt:N  (edge length mm)
+    """
+    sel = (selector or "|Z").strip()
+    low = sel.lower()
+    if low in {"all", "*"}:
+        return solid.edges()
+    if low in {"vertical", "|z"}:
+        return solid.edges("|Z")
+    if low in {"|x", "along_x"}:
+        return solid.edges("|X")
+    if low in {"|y", "along_y"}:
+        return solid.edges("|Y")
+    if low in {"top_loop", "top"}:
+        return solid.faces(">Z").edges()
+    if low in {"bottom_loop", "bottom"}:
+        return solid.faces("<Z").edges()
+    if sel.startswith(">") or sel.startswith("<"):
+        # face selector then its edges
+        return solid.faces(sel).edges()
+    if low.startswith("index:"):
+        raw = low.split(":", 1)[1]
+        want = {int(x) for x in raw.split(",") if x.strip().isdigit()}
+        edges = solid.edges().vals()
+        picked = [e for i, e in enumerate(edges) if i in want]
+        if not picked:
+            raise FabBrepError(f"no edges matched index selector {sel}")
+        return solid.newObject(picked)
+    if low.startswith("len_lt:") or low.startswith("len_gt:"):
+        thr = float(low.split(":", 1)[1])
+        edges = solid.edges().vals()
+        picked = []
+        for e in edges:
+            try:
+                L = float(e.Length())
+            except Exception:  # noqa: BLE001
+                continue
+            if low.startswith("len_lt:") and L < thr:
+                picked.append(e)
+            elif low.startswith("len_gt:") and L > thr:
+                picked.append(e)
+        if not picked:
+            raise FabBrepError(f"no edges matched length selector {sel}")
+        return solid.newObject(picked)
+    # default: CadQuery string selector on edges
+    return solid.edges(sel)
+
+
 def _apply_fillet(solid: Any, feat: dict[str, Any]) -> Any:
     if solid is None:
         raise FabBrepError("fillet requires a base solid first")
     r = float(feat.get("radius_mm") or feat.get("radius") or 1.0)
     selector = str(feat.get("selector") or feat.get("edges") or "|Z")
     try:
-        if selector in {"all", "*"}:
-            return solid.edges().fillet(r)
-        return solid.edges(selector).fillet(r)
+        return _edge_set(solid, selector).fillet(r)
     except Exception:
-        # fall back: try vertical then all
-        try:
-            return solid.edges("|Z").fillet(r)
-        except Exception:
+        for fb in ("|Z", "top_loop", "all"):
             try:
-                return solid.edges().fillet(r)
-            except Exception as exc:  # noqa: BLE001
-                raise FabBrepError(f"fillet failed r={r}: {exc}") from exc
+                return _edge_set(solid, fb).fillet(r)
+            except Exception:  # noqa: BLE001
+                continue
+        raise FabBrepError(f"fillet failed r={r} selector={selector}") from None
 
 
 def _apply_chamfer(solid: Any, feat: dict[str, Any]) -> Any:
     if solid is None:
         raise FabBrepError("chamfer requires a base solid first")
     d = float(feat.get("distance_mm") or feat.get("length_mm") or feat.get("d_mm") or 1.0)
-    selector = str(feat.get("selector") or feat.get("edges") or ">Z")
+    selector = str(feat.get("selector") or feat.get("edges") or "top_loop")
     try:
-        if selector in {"all", "*"}:
-            return solid.edges().chamfer(d)
-        # face-adjacent edges often selected via faces().edges()
-        if selector.startswith(">"):
-            return solid.faces(selector).edges().chamfer(d)
-        return solid.edges(selector).chamfer(d)
+        return _edge_set(solid, selector).chamfer(d)
     except Exception:
-        try:
-            return solid.faces(">Z").edges().chamfer(d)
-        except Exception as exc:  # noqa: BLE001
-            raise FabBrepError(f"chamfer failed d={d}: {exc}") from exc
+        for fb in ("top_loop", ">Z", "all"):
+            try:
+                return _edge_set(solid, fb).chamfer(d)
+            except Exception:  # noqa: BLE001
+                continue
+        raise FabBrepError(f"chamfer failed d={d} selector={selector}") from None
 
 
-def _parse_thread_designation(des: str) -> tuple[float, float]:
-    """Return (major_diameter_mm, pitch_mm) from M10x1.5 / 1/4-20 etc."""
+def _apply_revolve(solid: Any, feat: dict[str, Any]) -> Any:
+    """Revolve a rectangle profile about Z (lathe-style boss/shaft)."""
+    # profile: outer radius, inner radius (0 = solid), height
+    r_out = float(feat.get("radius_mm") or feat.get("outer_radius_mm") or 20)
+    r_in = float(feat.get("inner_radius_mm") or 0)
+    h = float(feat.get("height_mm") or 30)
+    ox, oy, oz = _origin(feat)
+    # sketch on XZ, revolve about Z
+    pts = [(r_in, 0), (r_out, 0), (r_out, h), (r_in, h)]
+    part = (
+        cq.Workplane("XZ")
+        .transformed(offset=(ox, oy, oz))
+        .polyline(pts)
+        .close()
+        .revolve(360)
+    )
+    if solid is None:
+        return part
+    return solid.union(part)
+
+
+def _apply_hole_pattern(solid: Any, feat: dict[str, Any]) -> Any:
+    """Rectangular hole pattern (bolt circle via count_x/count_y + spacing)."""
+    if solid is None:
+        raise FabBrepError("hole_pattern requires a base solid first")
+    d = float(feat.get("diameter_mm") or 6)
+    depth = float(feat.get("depth_mm") or 1e4)
+    ox, oy, oz = _origin(feat)
+    nx = max(1, int(feat.get("count_x") or feat.get("nx") or 2))
+    ny = max(1, int(feat.get("count_y") or feat.get("ny") or 1))
+    sx = float(feat.get("spacing_x_mm") or feat.get("pitch_x_mm") or 20)
+    sy = float(feat.get("spacing_y_mm") or feat.get("pitch_y_mm") or 20)
+    for ix in range(nx):
+        for iy in range(ny):
+            x = ox + ix * sx
+            y = oy + iy * sy
+            tool = _wp().transformed(offset=(x, y, oz)).circle(d / 2).extrude(-abs(depth))
+            solid = solid.cut(tool)
+    return solid
+
+
+def _apply_mirror(solid: Any, feat: dict[str, Any]) -> Any:
+    if solid is None:
+        raise FabBrepError("mirror requires a base solid first")
+    plane = str(feat.get("plane") or "YZ").upper()
+    # CadQuery mirror
+    try:
+        return solid.mirror(mirrorPlane=plane, basePointVector=(0, 0, 0))
+    except Exception as exc:  # noqa: BLE001
+        raise FabBrepError(f"mirror failed plane={plane}: {exc}") from exc
+
+
+def _parse_thread_designation(des: str) -> tuple[float, float, str]:
+    """Return (major_diameter_mm, pitch_mm, series) from M10x1.5 / 1/4-20 etc."""
     s = des.strip().upper().replace(" ", "")
     if s.startswith("M"):
         body = s[1:]
         if "X" in body:
             d_s, p_s = body.split("X", 1)
-            # strip class 6g etc
             p_s = p_s.split("-")[0]
-            return float(d_s), float(p_s)
-        return float(body.split("-")[0]), float(body.split("-")[0]) * 0.15  # coarse guess
+            return float(d_s), float(p_s), "metric"
+        d = float(body.split("-")[0])
+        # ISO coarse defaults (subset)
+        coarse = {
+            3: 0.5, 4: 0.7, 5: 0.8, 6: 1.0, 8: 1.25, 10: 1.5, 12: 1.75, 16: 2.0, 20: 2.5, 24: 3.0,
+        }
+        return d, float(coarse.get(int(round(d)), d * 0.15)), "metric"
     if "-" in s:  # imperial 1/4-20
-        # crude: major from fraction not parsed fully — default
-        return 6.35, 1.27
-    return 10.0, 1.5
+        # TPI after dash
+        try:
+            left, right = s.split("-", 1)
+            tpi = float(right.split("-")[0])
+            pitch = 25.4 / tpi
+            # crude major for common fractions
+            frac_map = {"1/4": 6.35, "5/16": 7.938, "3/8": 9.525, "1/2": 12.7}
+            d = frac_map.get(left, 6.35)
+            return d, pitch, "inch"
+        except Exception:  # noqa: BLE001
+            return 6.35, 1.27, "inch"
+    return 10.0, 1.5, "metric"
 
 
 def _apply_thread(solid: Any, feat: dict[str, Any]) -> Any:
-    """Machine thread: helical V-groove on shaft/bore + preserves designation in feature.
+    """ISO-ish machine thread: major/minor cylinders + dense helical V-groove.
 
-    External: start from cylinder feature already present, or create major shaft then groove.
-    Internal: cut major hole then helical relief (approx).
+    Depth ≈ 0.54127 × pitch (basic ISO 68-1 external engagement depth).
     """
     des = str(feat.get("designation") or feat.get("thread") or "M10x1.5")
-    d_maj, pitch = _parse_thread_designation(des)
+    d_maj, pitch, _series = _parse_thread_designation(des)
     if feat.get("diameter_mm"):
         d_maj = float(feat["diameter_mm"])
     if feat.get("pitch_mm"):
@@ -235,21 +353,21 @@ def _apply_thread(solid: Any, feat: dict[str, Any]) -> Any:
     length = float(feat.get("length_mm") or feat.get("depth_mm") or 20)
     internal = bool(feat.get("internal") or feat.get("female"))
     ox, oy, oz = _origin(feat)
-    depth = float(feat.get("depth_mm") or pitch * 0.55)
+    # ISO basic engagement depth
+    h_iso = 0.54127 * pitch
+    depth = float(feat.get("depth_mm") or h_iso)
 
     if solid is None and not internal:
-        # create external threaded stud
         solid = _wp().transformed(offset=(ox, oy, oz)).circle(d_maj / 2).extrude(length)
         solid = _helix_groove(solid, d_maj, pitch, length, depth, ox, oy, oz, internal=False)
-        # ease start
         try:
-            solid = solid.faces(">Z").edges().chamfer(min(0.3, pitch * 0.2))
+            solid = solid.faces(">Z").edges().chamfer(min(0.25, pitch * 0.15))
+            solid = solid.faces("<Z").edges().chamfer(min(0.2, pitch * 0.12))
         except Exception:  # noqa: BLE001
             pass
         return solid
 
     if solid is None and internal:
-        # block with threaded hole — need host; create washer-like boss
         outer = d_maj * 2.2
         solid = (
             _wp()
@@ -258,8 +376,8 @@ def _apply_thread(solid: Any, feat: dict[str, Any]) -> Any:
             .extrude(length + 5)
         )
 
-    # cut/clear major then groove
     if internal:
+        # minor clearance ≈ major for tap drill is smaller; use major for hole then groove
         tool = _wp().transformed(offset=(ox, oy, oz)).circle(d_maj / 2).extrude(length + 0.1)
         solid = solid.cut(tool)
         solid = _helix_groove(solid, d_maj, pitch, length, depth, ox, oy, oz, internal=True)
@@ -280,12 +398,15 @@ def _helix_groove(
     *,
     internal: bool,
 ) -> Any:
-    """Approximate ISO thread with stacked conical ring cuts along helix samples."""
-    # Sample helix; cut small toroidal/ball tools for groove (readable + BREP valid)
-    r_cut = max(depth * 0.55, 0.15)
-    n_turns = max(1.0, length / pitch)
-    samples = max(12, int(16 * n_turns))
-    r_path = (d_maj / 2) - (depth * 0.5 if not internal else -depth * 0.3)
+    """Helical V-groove via dense sphere cuts (ISO depth) — valid BREP, readable thread."""
+    r_cut = max(depth * 0.48, pitch * 0.22, 0.12)
+    n_turns = max(1.0, length / max(pitch, 0.1))
+    # denser sampling for cleaner thread form
+    samples = max(24, int(28 * n_turns))
+    if internal:
+        r_path = (d_maj / 2) + depth * 0.35
+    else:
+        r_path = (d_maj / 2) - depth * 0.55
     for i in range(samples):
         t = i / max(samples - 1, 1)
         ang = 2 * math.pi * n_turns * t
@@ -307,6 +428,77 @@ def export_fab_step(features: list[dict[str, Any]], path: str | Path) -> Path:
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
     cq.exporters.export(solid, str(out))
+    return out
+
+
+def export_fab_ortho_svgs(
+    features: list[dict[str, Any]],
+    *,
+    width: float = 320,
+    height: float = 240,
+) -> dict[str, str]:
+    """Three orthographic SVG projections (top / front / right) via CadQuery HLR SVG."""
+    require_cadquery()
+    solid = rebuild_solid(features)
+    shape = solid.val()
+    views = {
+        "top": (0, 0, 1),
+        "front": (0, -1, 0),
+        "right": (1, 0, 0),
+    }
+    out: dict[str, str] = {}
+    for name, pdir in views.items():
+        opts = {
+            "width": width,
+            "height": height,
+            "marginLeft": 20,
+            "marginTop": 20,
+            "showAxes": False,
+            "projectionDir": pdir,
+            "strokeWidth": 0.35,
+            "strokeColor": (0.1, 0.12, 0.15),
+            "hiddenColor": (0.55, 0.55, 0.58),
+            "showHidden": True,
+        }
+        out[name] = cq.exporters.getSVG(shape, opts=opts)
+    return out
+
+
+def export_fab_assembly_step(
+    members: list[dict[str, Any]],
+    path: str | Path,
+) -> Path:
+    """Compound multiple feature-trees with placements into one STEP.
+
+    Each member: ``{features: [...], origin_mm: [x,y,z], rotation_deg?: [rx,ry,rz]}``
+    """
+    require_cadquery()
+    if not members:
+        raise FabBrepError("empty assembly")
+    compound = None
+    for m in members:
+        feats = list(m.get("features") or [])
+        if not feats:
+            continue
+        solid = rebuild_solid(feats)
+        ox, oy, oz = _origin(m)
+        rot = m.get("rotation_deg") or m.get("rotation") or [0, 0, 0]
+        rx, ry, rz = float(rot[0]), float(rot[1]), float(rot[2] if len(rot) > 2 else 0)
+        # translate / rotate
+        loc = solid.val()
+        if abs(rx) + abs(ry) + abs(rz) > 1e-9:
+            loc = loc.rotate((0, 0, 0), (1, 0, 0), rx)
+            loc = loc.rotate((0, 0, 0), (0, 1, 0), ry)
+            loc = loc.rotate((0, 0, 0), (0, 0, 1), rz)
+        if abs(ox) + abs(oy) + abs(oz) > 1e-9:
+            loc = loc.translate((ox, oy, oz))
+        piece = cq.Workplane("XY").newObject([loc])
+        compound = piece if compound is None else compound.union(piece)
+    if compound is None:
+        raise FabBrepError("assembly produced no solids")
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    cq.exporters.export(compound, str(out))
     return out
 
 

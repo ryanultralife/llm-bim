@@ -12,6 +12,8 @@ All previously deferred “next depth” items implemented on `main`.
 | **Grid bubbles/lines** | Done | Plan dashed grids |
 | **Deeper rules** | Done | ADA door, equip clearance, dual egress, missing STEP ref |
 | **Dimension styles** | Done | Plan wall dimensions (m/mm labels) |
+| **Fab BREP + GD&T** | Done | `create_fab_part` + `fab_*` + `gdt_*`; optional `llmbim[fab]` (CadQuery/OCP) |
+| **Fab depth-2** | Done | edge selectors (`top_loop`, `index:…`), ISO-depth threads, hole patterns, revolve, multi-body assembly STEP, ortho top/front/right SVG on GD&T sheet |
 
 ## Commands
 

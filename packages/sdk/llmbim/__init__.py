@@ -1359,10 +1359,81 @@ class Project:
         return self.op("validate_fab", element_id=element_id)
 
     def export_gdt_drawing(self, element_id: str, path: str | Path) -> Path:
-        """Write machining SVG with feature list + GD&T callouts."""
+        """Write machining SVG with ortho BREP views + feature list + GD&T callouts."""
         from llmbim_drawings.gdt_drawing import write_gdt_drawing
 
         return write_gdt_drawing(self._model, element_id, path)
+
+    def fab_revolve(
+        self,
+        element_id: str,
+        *,
+        radius_mm: float,
+        height_mm: float,
+        inner_radius_mm: float = 0.0,
+        origin_mm: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    ) -> dict[str, Any]:
+        """Lathe revolve (disk/tube) about Z."""
+        return self.op(
+            "fab_revolve",
+            element_id=element_id,
+            radius_mm=radius_mm,
+            height_mm=height_mm,
+            inner_radius_mm=inner_radius_mm,
+            origin_mm=list(origin_mm),
+        )
+
+    def fab_hole_pattern(
+        self,
+        element_id: str,
+        *,
+        diameter_mm: float,
+        origin_mm: tuple[float, float, float],
+        count_x: int = 2,
+        count_y: int = 1,
+        spacing_x_mm: float = 20.0,
+        spacing_y_mm: float = 20.0,
+        depth_mm: float | None = None,
+    ) -> dict[str, Any]:
+        kw: dict[str, Any] = {
+            "element_id": element_id,
+            "diameter_mm": diameter_mm,
+            "origin_mm": list(origin_mm),
+            "count_x": count_x,
+            "count_y": count_y,
+            "spacing_x_mm": spacing_x_mm,
+            "spacing_y_mm": spacing_y_mm,
+        }
+        if depth_mm is not None:
+            kw["depth_mm"] = depth_mm
+        return self.op("fab_hole_pattern", **kw)
+
+    def create_fab_assembly(self, *, name: str = "FabAssembly", level: str | None = None) -> str:
+        r = self.op("create_fab_assembly", name=name, level=level)
+        return str(r["element_id"])
+
+    def fab_assembly_add(
+        self,
+        assembly_id: str,
+        part_id: str,
+        *,
+        origin_mm: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        rotation_deg: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    ) -> dict[str, Any]:
+        return self.op(
+            "fab_assembly_add",
+            assembly_id=assembly_id,
+            part_id=part_id,
+            origin_mm=list(origin_mm),
+            rotation_deg=list(rotation_deg),
+        )
+
+    def export_fab_assembly_step(self, assembly_id: str, path: str | Path) -> dict[str, Any]:
+        return self.op("export_fab_assembly_step", assembly_id=assembly_id, path=str(path))
+
+    def export_fab_ortho(self, element_id: str, out_dir: str | Path) -> dict[str, Any]:
+        """Write top/front/right SVG orthographics for a fab_part."""
+        return self.op("export_fab_ortho", element_id=element_id, out_dir=str(out_dir))
 
     def export_construction_set(
         self, out_dir: str | Path, *, plan_level: str | None = None, plan_scale: float = 0.02

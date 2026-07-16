@@ -630,6 +630,152 @@ if HAS_MCP:
         return _tool_result({"element_id": eid})
 
     @mcp.tool()
+    def create_fab_part(
+        project_id: str,
+        name: str = "FabPart",
+        material: str = "steel_A36",
+        level: str = "",
+    ) -> str:
+        """Create fab-grade BREP part (feature tree + GD&T). Requires cadquery."""
+        p = store.get(project_id)
+        eid = p.create_fab_part(name=name, material=material, level=level or None)
+        store.save(project_id)
+        return _tool_result({"element_id": eid})
+
+    @mcp.tool()
+    def fab_feature(
+        project_id: str,
+        element_id: str,
+        op: str,
+        size_x: float = 50,
+        size_y: float = 50,
+        size_z: float = 20,
+        origin_x: float = 0,
+        origin_y: float = 0,
+        origin_z: float = 0,
+        diameter_mm: float = 10,
+        radius_mm: float = 2,
+        selector: str = "|Z",
+        designation: str = "M10x1.5",
+        length_mm: float = 20,
+        internal: bool = False,
+        count_x: int = 2,
+        count_y: int = 1,
+        spacing_x_mm: float = 20,
+        spacing_y_mm: float = 20,
+    ) -> str:
+        """Add fab BREP feature. op: box|cylinder|hole|fillet|chamfer|thread|revolve|hole_pattern|cut_box."""
+        p = store.get(project_id)
+        o = (origin_x, origin_y, origin_z)
+        op_l = op.lower()
+        if op_l == "box":
+            r = p.fab_box(element_id, size_mm=(size_x, size_y, size_z), origin_mm=o)
+        elif op_l == "cylinder":
+            r = p.fab_cylinder(
+                element_id, diameter_mm=diameter_mm, height_mm=length_mm or size_z, origin_mm=o
+            )
+        elif op_l == "hole":
+            r = p.fab_hole(
+                element_id, diameter_mm=diameter_mm, origin_mm=o, depth_mm=length_mm or size_z
+            )
+        elif op_l == "fillet":
+            r = p.fab_fillet(element_id, radius_mm=radius_mm, selector=selector)
+        elif op_l == "chamfer":
+            r = p.fab_chamfer(element_id, distance_mm=radius_mm, selector=selector)
+        elif op_l == "thread":
+            r = p.fab_thread(
+                element_id,
+                designation=designation,
+                length_mm=length_mm,
+                origin_mm=o,
+                internal=internal,
+            )
+        elif op_l == "revolve":
+            r = p.fab_revolve(
+                element_id, radius_mm=diameter_mm / 2 or radius_mm, height_mm=length_mm, origin_mm=o
+            )
+        elif op_l in {"hole_pattern", "pattern"}:
+            r = p.fab_hole_pattern(
+                element_id,
+                diameter_mm=diameter_mm,
+                origin_mm=o,
+                count_x=count_x,
+                count_y=count_y,
+                spacing_x_mm=spacing_x_mm,
+                spacing_y_mm=spacing_y_mm,
+                depth_mm=length_mm or size_z,
+            )
+        elif op_l in {"cut_box", "pocket"}:
+            r = p.op(
+                "fab_cut_box",
+                element_id=element_id,
+                size_mm=[size_x, size_y, size_z],
+                origin_mm=list(o),
+            )
+        else:
+            return _tool_result({"ok": False, "error": f"unknown fab op {op}"})
+        store.save(project_id)
+        return _tool_result(r)
+
+    @mcp.tool()
+    def fab_gdt(
+        project_id: str,
+        element_id: str,
+        kind: str = "datum",
+        label: str = "A",
+        symbol: str = "position",
+        tolerance: float = 0.1,
+        datums: str = "",
+        diameter: bool = False,
+        nominal: float = 0,
+        tol_plus: float = 0.1,
+        dimension: str = "size",
+    ) -> str:
+        """GD&T on fab_part. kind: datum | fcf | size. datums pipe-separated e.g. A|B."""
+        p = store.get(project_id)
+        if kind == "datum":
+            r = p.gdt_datum(element_id, label=label)
+        elif kind == "fcf":
+            dlist = [d.strip() for d in datums.split("|") if d.strip()] if datums else []
+            r = p.gdt_fcf(
+                element_id,
+                symbol=symbol,
+                tolerance=tolerance,
+                datums=dlist,
+                diameter=diameter,
+            )
+        else:
+            r = p.gdt_size(
+                element_id, dimension=dimension, nominal=nominal, tol_plus=tol_plus
+            )
+        store.save(project_id)
+        return _tool_result(r)
+
+    @mcp.tool()
+    def export_fab(
+        project_id: str,
+        element_id: str,
+        out_dir: str,
+        kind: str = "step",
+    ) -> str:
+        """Export fab_part. kind: step | gdt | ortho | all."""
+        from pathlib import Path
+
+        p = store.get(project_id)
+        dest = Path(out_dir)
+        dest.mkdir(parents=True, exist_ok=True)
+        out: dict = {}
+        if kind in {"step", "all"}:
+            out["step"] = p.export_fab_step(element_id, dest / f"{element_id}.step")
+        if kind in {"gdt", "all"}:
+            path = p.export_gdt_drawing(element_id, dest / f"{element_id}_gdt.svg")
+            out["gdt"] = str(path)
+        if kind in {"ortho", "all"}:
+            out["ortho"] = p.export_fab_ortho(element_id, dest / "views")
+        store.save(project_id)
+        return _tool_result(out)
+
+    @mcp.tool()
     def place_beam(
         project_id: str,
         level: str,
