@@ -149,7 +149,7 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
   <h2><span class="step-tag">2</span>Cinematic</h2>
   <div class="row">
     <label for="bloom">Bloom (glow)</label>
-    <input type="checkbox" id="bloom" checked/>
+    <input type="checkbox" id="bloom"/>
   </div>
   <div class="row">
     <label for="edges">Crisp edges</label>
@@ -160,7 +160,7 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
     <input type="checkbox" id="shadows" checked/>
   </div>
   <div class="row">
-    <label for="ghostWalls">Ghost walls (see-through)</label>
+    <label for="ghostWalls">Ghost shells / walls (see-through)</label>
     <input type="checkbox" id="ghostWalls"/>
   </div>
   <div class="row">
@@ -633,7 +633,11 @@ async function boot() {
     setStatus(`Studio ready — ${layers.size} layers · section cut · cinematic · Imagine env`);
   } catch (e) {
     console.error(e);
-    setStatus(String(e.message || e) + ' — need network for Three.js CDN.', true);
+    const msg = String(e.message || e);
+    const tip = (location.protocol === 'file:')
+      ? ' Do not open this HTML as a file. Serve the pack folder (e.g. python -m http.server) and use http://localhost/…/viewer3d.html — ES modules + Three.js CDN need HTTP.'
+      : ' Need network for Three.js CDN (unpkg), or check console.';
+    setStatus(msg + tip, true);
   }
 }
 
