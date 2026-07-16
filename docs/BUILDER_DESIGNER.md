@@ -43,7 +43,7 @@ Pack now includes: `boq.json`, `clash_report.json`, `design_rules.json`, `views/
 
 ```bash
 llmbim pack model.llmbim.json --out output/my_pack
-# open output/my_pack/viewer3d.html  — orbit / pan / zoom, layer opacity toggles
+# open output/my_pack/viewer3d.html  — section cut · cinematic bloom · Imagine env · layers
 # or open output/my_pack/index.html  → "Open 3D orbit viewer"
 ```
 

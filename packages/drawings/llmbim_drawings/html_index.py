@@ -23,7 +23,7 @@ def write_pack_index(out_dir: str | Path) -> Path:
     if (out / "viewer3d.html").exists():
         threes.append(
             '<li><strong><a href="viewer3d.html">viewer3d.html</a></strong> — '
-            "orbit / pan / zoom 3D review with layer transparency toggles</li>"
+            "3D studio: section cut · cinematic bloom · Imagine sky/floor · layer opacity</li>"
         )
     for name in ("model.gltf", "model.ifc", "model.step", "model.llmbim.json", "PLOT_SET.pdf", "boq.json"):
         if (out / name).exists():
@@ -339,7 +339,7 @@ th{{background:#161b22}}
 <h1>{manifest.get("project", "Deliverables pack")}</h1>
 <p>Status: <span class="{"ok" if ok else "bad"}">{"OK" if ok else "CHECK VERIFY.json"}</span></p>
 <p>{manifest.get("honesty", "")}</p>
-{"<p><a href='viewer3d.html' style='font-size:1.05rem'>Open 3D orbit viewer</a> (walls ghosted by default — toggle layers &amp; opacity)</p>" if (out / "viewer3d.html").exists() else ""}
+{"<p><a href='viewer3d.html' style='font-size:1.05rem'>Open 3D Studio</a> — section cut · cinematic bloom · Imagine env · layer opacity</p>" if (out / "viewer3d.html").exists() else ""}
 <h2>3D / BIM</h2><ul>{"".join(threes)}</ul>
 <h2>Materials / takeoff / CSI</h2><ul>{"".join(data_links) or "<li>none — place fittings/parts then re-export</li>"}</ul>
 {csi_preview}

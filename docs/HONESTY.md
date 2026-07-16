@@ -12,7 +12,7 @@ That phrase described **geometry fidelity class**, not software incompleteness.
 | Accept open-ended domains via generic elements + ops | **Yes** |
 | Import DXF / IFC / STEP / CSV / JSON / scripts | **Yes** |
 | Export IFC / STEP / glTF / DXF / SVG / PDF / BOQ / ZIP | **Yes** |
-| Presentation 3D review (orbit, layers, transparency) | **Yes** (`viewer3d.html`) |
+| Presentation 3D studio (orbit, section cut, bloom, Imagine env, layers) | **Yes** (`viewer3d.html`) |
 | Builder tools (BOQ+CSI, clash, rules, phases) | **Yes** |
 | Designer tools (templates, types, notes, tags, grids) | **Yes** |
 | Extensible without core rewrite (`register` ops) | **Yes** |
