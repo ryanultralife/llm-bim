@@ -1,11 +1,11 @@
 # Vision ↔ codebase alignment loop
 
 **Started:** 2026-07-15 (session)  
-**Cadence:** every 5 minutes  
+**Cadence:** every 5 minutes (retired)  
 **Duration:** **10 hours** (~120 passes max)  
-**End:** stop after 120 passes or wall-clock ≥ start + 10h  
-**Scheduler:** 5m recurring `019f673f9283` + 10h hard-stop  
-**Overseer:** every **30m** — see `notes/handoffs/OVERSEER_LOOP.md` + `scripts/vision_overseer_check.py` → log `OVERSEER_LOG.md`
+**End:** **HARD STOP complete** — pass 120 met + 10h wall-clock task fired  
+**Scheduler:** 5m vision-loop **deleted** · 10h hard-stop **deleted** · overseer 30m **deleted**  
+**Overseer:** retired with hard stop (script remains: `scripts/vision_overseer_check.py`)
 
 **CSI upgrade (user):** every takeoff line should carry a **real MasterFormat** `csi_code` (e.g. `22 11 16`) plus a **locator** (level | X | Y | Z/height | NPS) so agents can find the item in the model — not vague divisions alone.
 
@@ -295,28 +295,82 @@
 145. ~~CLI place shell~~ (pass 120)
 146. **STOP** — pass 120 / 10h budget met
 
-## FINAL summary (pass 120 / 10h budget)
+## FINAL SUMMARY — 10-hour window HARD STOP
 
-**Status:** Vision alignment loop **complete** at pass **120**.
+**Status:** Vision alignment loop **ENDED** (pass count **120 / 120**, wall-clock hard stop executed).  
+**Ended:** 2026-07-16 (hard-stop task)  
+**Repo:** `C:\Users\ryanv\llm-bim` · branch `main`
 
-### What shipped (high level)
+### Totals
+
+| Metric | Value |
+|--------|--------|
+| Vision-loop passes | **120** (plus setup row 0) |
+| Post-budget fires | no-ops only (no further vision-loop commits) |
+| Registry ops at end | **~82** (incl. fab/GDT/MEP/openings) |
+| Unit tests (health) | **~183 passed** (fab BREP suite separate, slower CadQuery) |
+| Schedulers | **5m vision-loop deleted**; **10h hard-stop deleted**; overseer 30m may remain |
+
+### What shipped in the 10h loop (high level)
 
 | Area | Outcome |
 |------|---------|
-| Multi-trade MEP/structure | duct/conduit/tray/column/beam/pipe/riser/part; CSI MasterFormat + locators |
+| Multi-trade MEP/structure | duct/conduit/tray/column/beam/pipe/riser/part; CSI MasterFormat + locators (RM/XY/Z/NPS/FR/SYS) |
 | Architecture | wall/door/window (SVG/DXF/IFC/glTF/STEP/clash); room/slab/shell; grids; notes; type/phase |
-| Agent surfaces | SDK · CLI place · registry ~60 ops · MCP · skill/batch_ops |
-| Deliverables | full pack + doors/windows schedules + verify_pack signals + multi-trade smoke |
-| Honesty | no drafting GUI; no PE seals; envelopes + coordination grade |
+| Agent surfaces | SDK · CLI place · registry · MCP · skill/batch_ops |
+| Deliverables | full pack + schedules + verify_pack + multi-trade smoke |
+| Honesty | no drafting GUI; no PE seals; envelopes + coordination grade during loop |
 
-### Metrics at stop
+### Key commits (representative)
 
-- Unit tests: **181 passed**
-- Residual intentional gaps: true wall joins, full Fusion BREP, GD&T, full MEP routing/P&ID
+**Vision-loop climax**
 
-### Operating note
+- `aa212a4` vision-loop 120: CLI place shell + FINAL stop  
+- `ff73ce6` … `1acf74e` agent wiring: shell/delete, type/phase, room/slab/equip/grid/note, openings  
+- Earlier passes: CSI locators, MEP place/takeoff, IFC FlowSegment/Column/Beam, DXF openings, verify_pack  
 
-Further scheduled vision-loop fires should **stop** (pass_count ≥ 120). Overseer may still health-check.
+**Post-loop product depth (not vision-loop numbered, still on main)**
+
+- `c50d358`–`ccfcf0a` presentation 3D studio (orbit, cut, bloom, Imagine env)  
+- `face60f` solid PBR + round pipes  
+- `059ec05` wires/coils/bolts/flanges  
+- `fc8a787`–`1a83cdc` fab BREP + GD&T + mates + host knit (CadQuery/OCP)  
+- `4771120` opaque equipment materials (invisible-shell render fix)  
+- `3c9fea1` / `a1be8e0` overseer complete health  
+
+### Remaining backlog — top 10 (honest next work)
+
+1. **True wall joins / layered walls** (still ❌ in OUTPUT_MATRIX)  
+2. **MEP systems routing** (graph + auto-run between fittings; not only straight place)  
+3. **Structural analysis** (place+takeoff only today)  
+4. **Richer fab toolkit** (loft/sweep/patterns beyond current feature set)  
+5. **Fab drawing depth** (projected dimensions on ortho; full print set)  
+6. **Edit locked vendor STEP in-kernel** (still envelope + file ref — intentional)  
+7. **IFC MVD / certified interchange** (coordination export only)  
+8. **Clean uncommitted WIP** (`examples/proto10_separator.py`, notes/NOW)  
+9. **CI full suite** including slow fab BREP tests (overseer skips them)  
+10. **Agent end-to-end recipes** (office floor + AHU + baseplate fab smokes)
+
+### Honest vision-match score
+
+| Axis | Score (0–10) | Note |
+|------|--------------|------|
+| LLM-only authoring surface | **9** | SDK/CLI/MCP/ops — primary moat |
+| One model → deliverables pack | **8.5** | IFC/STEP/glTF/SVG/DXF/PDF/BOQ/ZIP |
+| Multi-trade + CSI locators | **8** | Real MF codes + findable locators |
+| Building geometry depth | **4** | Parametric envelopes; no wall joins |
+| Fab / Fusion-class BREP | **5.5** | Real OCC path; early vs full Fusion |
+| Presentation 3D | **7.5** | Studio viewer competitive for review |
+| MEP intelligence | **3.5** | Place/clash, not systems routing |
+| Overall vs “Revit+Fusion caliber, LLM UI” | **~5 / 10** | Strong kernel + agent path; depth still middle product |
+
+**Verdict:** 10h vision loop **succeeded** at agent surface + pack completeness + honesty. Product is a **real LLM-native BIM/fab kernel**, not a demo — **not** a Revit/Fusion replacement. Further growth is feature depth, not loop infrastructure.
+
+### Operating note (HARD STOP)
+
+- **Do not re-register** the 5-minute vision alignment loop without a new budget.  
+- Post-budget fires logged below were intentional no-ops.  
+- Overseer (30m) is optional health-check only — not a feature builder.
 
 ### Post-budget fire log
 
@@ -328,6 +382,11 @@ Further scheduled vision-loop fires should **stop** (pass_count ≥ 120). Overse
 | post-120 (fab BREP `fc8a787` on main) | Pass count ≥ 120 — **no code changes**; loop remains FINAL |
 | post-120 (fab depth-2 `fce0333` on main) | Pass count ≥ 120 — **no code changes**; loop remains FINAL |
 | post-120 (fab depth-3 `1a83cdc` on main) | Pass count ≥ 120 — **no code changes**; loop remains FINAL |
+| post-120 (overseer health fix `3c9fea1` on main) | Pass count ≥ 120 — **no code changes**; loop remains FINAL |
+| post-120 (scheduled fire after audit) | Pass count ≥ 120 — **no code changes**; loop remains FINAL |
+| post-120 (opaque equip fix `4771120` on main) | Pass count ≥ 120 — **no code changes**; loop remains FINAL |
+| post-120 (scheduled fire) | Pass count ≥ 120 — **no code changes**; loop remains FINAL |
+| **HARD STOP 10h** | FINAL SUMMARY rewritten; 5m vision-loop + hard-stop schedulers deleted |
 
 ## Rules for each scheduled pass
 
