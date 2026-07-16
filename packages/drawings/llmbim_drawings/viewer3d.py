@@ -118,7 +118,7 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
       <span class="badge">LLM-NATIVE</span>
     </div>
   </div>
-  <div class="sub">Three visual step-changes: <strong>section cut</strong>, <strong>cinematic look</strong>, <strong>studio environment</strong>. Walls ghosted so MEP stays readable.</div>
+  <div class="sub">Solid materials + round pipes by default. Toggle <strong>ghost walls</strong> only when you need see-through MEP review. Section cut · bloom · Imagine studio.</div>
 
   <h2><span class="step-tag">1</span>Section cut</h2>
   <div class="row">
@@ -160,8 +160,8 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
     <input type="checkbox" id="shadows" checked/>
   </div>
   <div class="row">
-    <label for="ghostWalls">Ghost walls</label>
-    <input type="checkbox" id="ghostWalls" checked/>
+    <label for="ghostWalls">Ghost walls (see-through)</label>
+    <input type="checkbox" id="ghostWalls"/>
   </div>
   <div class="row">
     <label for="exposure">Exposure</label>
@@ -337,24 +337,45 @@ function applyLayerStyle(name) {
   const ghostWalls = document.getElementById('ghostWalls').checked;
   const showEdges = document.getElementById('edges').checked;
   const globalA = Number(document.getElementById('globalAlpha').value) / 100;
+  const isGlass = name === 'window';
   for (const mat of L.mats) {
     let op = L.opacity * globalA;
     if (ghostWalls && (name === 'wall' || name === 'slab')) {
       op = Math.min(op, name === 'wall' ? WALL_GHOST : 0.32);
     }
-    mat.transparent = op < 0.999;
-    mat.opacity = Math.max(0.03, Math.min(1, op));
-    mat.depthWrite = op > 0.85;
+    // Preserve PBR from glTF; only adjust transparency when user ghosts / slides opacity
+    const opaque = op >= 0.995 && !isGlass;
+    mat.transparent = !opaque;
+    mat.opacity = isGlass ? Math.min(op, 0.55) : Math.max(0.03, Math.min(1, op));
+    // Solid layers must depth-write so meshes occlude correctly
+    mat.depthWrite = opaque || (op > 0.9 && !isGlass);
+    mat.depthTest = true;
+    mat.side = (mat.transparent || isGlass) ? THREE.DoubleSide : THREE.FrontSide;
+    // Metal layers pick up studio env
+    if (mat.envMapIntensity !== undefined) {
+      const metal = mat.metalness ?? 0;
+      mat.envMapIntensity = metal > 0.5 ? 1.35 : 0.85;
+    }
     mat.clippingPlanes = clipEnabled ? [clipPlane] : [];
     mat.clipShadows = clipEnabled;
     mat.needsUpdate = true;
   }
   for (const mesh of L.meshes) {
     mesh.visible = L.visible && L.opacity > 0.01;
+    // Openings sit slightly proud of host wall to avoid z-fight
+    if (name === 'door' || name === 'window') {
+      mesh.renderOrder = 1;
+      if (mesh.material && !Array.isArray(mesh.material)) {
+        mesh.material.polygonOffset = true;
+        mesh.material.polygonOffsetFactor = -1;
+        mesh.material.polygonOffsetUnits = -1;
+      }
+    }
   }
   for (const e of L.edges) {
     e.visible = showEdges && L.visible && L.opacity > 0.05;
     if (e.material) {
+      e.material.depthWrite = false;
       e.material.clippingPlanes = clipEnabled ? [clipPlane] : [];
       e.material.needsUpdate = true;
     }
@@ -526,23 +547,33 @@ function collectLayers(obj) {
     if (!child.isMesh) return;
     child.castShadow = true;
     child.receiveShadow = true;
+    // Smooth groups already in normals; keep geometry as exported
+    if (child.geometry && !child.geometry.attributes.normal) {
+      child.geometry.computeVertexNormals();
+    }
     const name = layerNameFromObject(child);
     const L = ensureLayer(name);
     L.meshes.push(child);
     const mats = Array.isArray(child.material) ? child.material : [child.material];
     const cloned = mats.map(src => {
       const m = src.clone();
-      m.side = THREE.DoubleSide;
-      m.envMapIntensity = 1.0;
+      // Keep FrontSide for opaque PBR so walls don't double-draw / show-through
+      const isGlass = name === 'window' || (m.opacity !== undefined && m.opacity < 0.99);
+      m.side = isGlass ? THREE.DoubleSide : THREE.FrontSide;
+      m.envMapIntensity = (m.metalness ?? 0) > 0.5 ? 1.35 : 0.9;
+      // Ensure metalness/roughness from glTF survive
+      if (m.metalness === undefined) m.metalness = 0.2;
+      if (m.roughness === undefined) m.roughness = 0.6;
       return m;
     });
     child.material = Array.isArray(child.material) ? cloned : cloned[0];
     L.mats.push(...cloned);
     try {
-      const edges = new THREE.EdgesGeometry(child.geometry, 25);
+      // Higher threshold → fewer facet edges on round pipes (cleaner silhouette)
+      const edges = new THREE.EdgesGeometry(child.geometry, name.startsWith('pipe') || name === 'conduit' ? 40 : 22);
       const line = new THREE.LineSegments(
         edges,
-        new THREE.LineBasicMaterial({ color: 0x0a0c10, transparent: true, opacity: 0.32 })
+        new THREE.LineBasicMaterial({ color: 0x0a0c10, transparent: true, opacity: 0.22, depthWrite: false })
       );
       line.renderOrder = 2;
       child.add(line);

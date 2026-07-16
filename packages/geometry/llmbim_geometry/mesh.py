@@ -187,42 +187,61 @@ def _cylinder_mesh(
     radius: float,
     *,
     vertical: bool = False,
-    segments: int = 14,
+    segments: int = 32,
+    caps: bool = True,
 ) -> tuple[list[float], list[float], list[int]]:
-    """Horizontal cylinder along plan start→end, or vertical at XY."""
-    segs = max(6, segments)
+    """Round cylinder with smooth radial normals (pipe/conduit presentation).
+
+    ``segments`` default 32 reads as circular under orbit review (was 14 faceted).
+    """
+    segs = max(12, int(segments))
+    r = max(float(radius), 1.0)
     pos: list[float] = []
     nrm: list[float] = []
     idx: list[int] = []
+
+    def _emit(gxyz: tuple[float, float, float], nxyz: tuple[float, float, float]) -> int:
+        vi = len(pos) // 3
+        pos.extend(gxyz)
+        nrm.extend(nxyz)
+        return vi
+
     if vertical:
         cx, cy = x0, y0
-        h0, h1 = z_bot, z_top
-        # rings at bottom and top
-        ring: list[list[tuple[float, float, float]]] = [[], []]
-        for ri, z in enumerate((h0, h1)):
-            for i in range(segs):
-                ang = 2 * math.pi * i / segs
-                px = cx + radius * math.cos(ang)
-                py = cy + radius * math.sin(ang)
-                ring[ri].append((px, py, z))
-        # side faces
-        vi = 0
+        h0, h1 = min(z_bot, z_top), max(z_bot, z_top)
+        # Shared ring verts with smooth normals (one normal per radial angle)
+        bot_i: list[int] = []
+        top_i: list[int] = []
+        for i in range(segs):
+            ang = 2 * math.pi * i / segs
+            cos_a, sin_a = math.cos(ang), math.sin(ang)
+            px = cx + r * cos_a
+            py = cy + r * sin_a
+            # glTF normal: plan radial → (nx, 0, ny)
+            ng = (cos_a, 0.0, sin_a)
+            bot_i.append(_emit(_mm_to_gltf(px, py, h0), ng))
+            top_i.append(_emit(_mm_to_gltf(px, py, h1), ng))
         for i in range(segs):
             j = (i + 1) % segs
-            b0, b1 = ring[0][i], ring[0][j]
-            t0, t1 = ring[1][i], ring[1][j]
-            # outward normal approx mid
-            mx = (b0[0] + b1[0]) / 2 - cx
-            my = (b0[1] + b1[1]) / 2 - cy
-            ln = math.hypot(mx, my) or 1.0
-            nx, ny = mx / ln, my / ln
-            for p in (b0, b1, t1, t0):
-                gx, gy, gz = _mm_to_gltf(p[0], p[1], p[2])
-                pos.extend([gx, gy, gz])
-                # normal in glTF: plan n → (nx, 0, ny)
-                nrm.extend([nx, 0.0, ny])
-            idx.extend([vi, vi + 1, vi + 2, vi, vi + 2, vi + 3])
-            vi += 4
+            a, b, c, d = bot_i[i], bot_i[j], top_i[j], top_i[i]
+            idx.extend([a, b, c, a, c, d])
+        if caps:
+            # flat end caps (hard normals along ±Y in glTF)
+            cb = _emit(_mm_to_gltf(cx, cy, h0), (0.0, -1.0, 0.0))
+            ct = _emit(_mm_to_gltf(cx, cy, h1), (0.0, 1.0, 0.0))
+            cap_bot: list[int] = []
+            cap_top: list[int] = []
+            for i in range(segs):
+                ang = 2 * math.pi * i / segs
+                cos_a, sin_a = math.cos(ang), math.sin(ang)
+                px = cx + r * cos_a
+                py = cy + r * sin_a
+                cap_bot.append(_emit(_mm_to_gltf(px, py, h0), (0.0, -1.0, 0.0)))
+                cap_top.append(_emit(_mm_to_gltf(px, py, h1), (0.0, 1.0, 0.0)))
+            for i in range(segs):
+                j = (i + 1) % segs
+                idx.extend([cb, cap_bot[j], cap_bot[i]])
+                idx.extend([ct, cap_top[i], cap_top[j]])
         return pos, nrm, idx
 
     # horizontal: axis along start→end at mid elevation
@@ -231,45 +250,48 @@ def _cylinder_mesh(
     if length < 1e-3:
         return [], [], []
     ux, uy = dx / length, dy / length
-    # perpendicular in plan
+    # unit vectors in plan: along axis, plan-perp, elev-up
     px, py = -uy, ux
     z_mid = (z_bot + z_top) / 2.0
-    r = radius
-    # build rings at start and end
-    rings: list[list[tuple[float, float, float]]] = [[], []]
-    for ri, (cx, cy) in enumerate(((x0, y0), (x1, y1))):
-        for i in range(segs):
-            ang = 2 * math.pi * i / segs
-            # circle in plane perpendicular to axis: mix elev + plan normal
-            # local: cos*perp_plan + sin*up
-            ox = px * math.cos(ang) * r
-            oy = py * math.cos(ang) * r
-            oz = math.sin(ang) * r
-            rings[ri].append((cx + ox, cy + oy, z_mid + oz))
-    vi = 0
+    start_i: list[int] = []
+    end_i: list[int] = []
+    for i in range(segs):
+        ang = 2 * math.pi * i / segs
+        cos_a, sin_a = math.cos(ang), math.sin(ang)
+        # radial offset in mm plan+elev
+        ox = px * cos_a * r
+        oy = py * cos_a * r
+        oz = sin_a * r
+        # smooth normal in glTF
+        nx, ny, nz = px * cos_a, sin_a, py * cos_a
+        ln = math.sqrt(nx * nx + ny * ny + nz * nz) or 1.0
+        ng = (nx / ln, ny / ln, nz / ln)
+        start_i.append(_emit(_mm_to_gltf(x0 + ox, y0 + oy, z_mid + oz), ng))
+        end_i.append(_emit(_mm_to_gltf(x1 + ox, y1 + oy, z_mid + oz), ng))
     for i in range(segs):
         j = (i + 1) % segs
-        s0, s1 = rings[0][i], rings[0][j]
-        e0, e1 = rings[1][i], rings[1][j]
-        # normal from radial direction at mid
-        mx = (s0[0] + e0[0]) / 2 - (x0 + x1) / 2
-        my = (s0[1] + e0[1]) / 2 - (y0 + y1) / 2
-        mz = (s0[2] + e0[2]) / 2 - z_mid
-        # better: use cos/sin of segment
-        ang = 2 * math.pi * (i + 0.5) / segs
-        n_plan_x = px * math.cos(ang)
-        n_plan_y = py * math.cos(ang)
-        n_up = math.sin(ang)
-        # glTF normal
-        gx_n, gy_n, gz_n = n_plan_x, n_up, n_plan_y
-        ln = math.sqrt(gx_n * gx_n + gy_n * gy_n + gz_n * gz_n) or 1.0
-        gx_n, gy_n, gz_n = gx_n / ln, gy_n / ln, gz_n / ln
-        for p in (s0, s1, e1, e0):
-            gx, gy, gz = _mm_to_gltf(p[0], p[1], p[2])
-            pos.extend([gx, gy, gz])
-            nrm.extend([gx_n, gy_n, gz_n])
-        idx.extend([vi, vi + 1, vi + 2, vi, vi + 2, vi + 3])
-        vi += 4
+        a, b, c, d = start_i[i], start_i[j], end_i[j], end_i[i]
+        idx.extend([a, b, c, a, c, d])
+    if caps:
+        # axis direction in glTF: plan (ux,0,uy)
+        n_start = (-ux, 0.0, -uy)
+        n_end = (ux, 0.0, uy)
+        cs = _emit(_mm_to_gltf(x0, y0, z_mid), n_start)
+        ce = _emit(_mm_to_gltf(x1, y1, z_mid), n_end)
+        cap_s: list[int] = []
+        cap_e: list[int] = []
+        for i in range(segs):
+            ang = 2 * math.pi * i / segs
+            cos_a, sin_a = math.cos(ang), math.sin(ang)
+            ox = px * cos_a * r
+            oy = py * cos_a * r
+            oz = sin_a * r
+            cap_s.append(_emit(_mm_to_gltf(x0 + ox, y0 + oy, z_mid + oz), n_start))
+            cap_e.append(_emit(_mm_to_gltf(x1 + ox, y1 + oy, z_mid + oz), n_end))
+        for i in range(segs):
+            j = (i + 1) % segs
+            idx.extend([cs, cap_s[j], cap_s[i]])
+            idx.extend([ce, cap_e[i], cap_e[j]])
     return pos, nrm, idx
 
 
@@ -290,7 +312,9 @@ def _mesh_from_origin_size(
         z0 = _level_z(model, el.level_id) + z0_off
         if shape == "cylinder":
             r = max(ly, hz, 30) / 2
-            return _cylinder_mesh(x0, y0, x0 + max(lx, 50), y0, z0, z0 + max(hz, ly, 30), r)
+            return _cylinder_mesh(
+                x0, y0, x0 + max(lx, 50), y0, z0, z0 + max(hz, ly, 30), r, segments=28
+            )
         # column: centered box
         if el.category == "column" or el.params.get("fitting_type") == "column":
             ht = float(el.params.get("height_mm") or hz or 3000)
@@ -321,7 +345,9 @@ def _mesh_from_pipe(el: Element, model: ProjectModel) -> tuple[list[float], list
             )
             r = max(od / 2, 15.0)
             if is_pipe or is_conduit:
-                return _cylinder_mesh(x, y, x, y, min(z_lo, z_hi), max(z_lo, z_hi), r, vertical=True)
+                return _cylinder_mesh(
+                    x, y, x, y, min(z_lo, z_hi), max(z_lo, z_hi), r, vertical=True, segments=32
+                )
             return _aabb_box_mesh(x - r, y - r, min(z_lo, z_hi), x + r, y + r, max(z_lo, z_hi))
         if "start_mm" in el.params and "end_mm" in el.params:
             s, e = el.params["start_mm"], el.params["end_mm"]
@@ -345,7 +371,7 @@ def _mesh_from_pipe(el: Element, model: ProjectModel) -> tuple[list[float], list
             od = float(el.params.get("width_mm") or od or 150)
         if is_pipe or is_conduit:
             r = max(od / 2, 12.0)
-            return _cylinder_mesh(x0, y0, x1, y1, z0, z0 + elev_h, r)
+            return _cylinder_mesh(x0, y0, x1, y1, z0, z0 + elev_h, r, segments=32)
         return _wall_box_mesh(x0, y0, x1, y1, od, z0, z0 + elev_h)
     except (KeyError, TypeError, ValueError, IndexError):
         return [], [], []
@@ -559,11 +585,14 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
     materials = []
     for key in mat_keys:
         rgba, metal, rough = _MATERIAL_PBR.get(key, _MATERIAL_PBR["default"])
+        # Only true glass/translucent layers use BLEND — walls must stay OPAQUE
+        # so solids occlude (no "blocks showing through each other").
+        is_trans = key == "window" or (len(rgba) > 3 and float(rgba[3]) < 0.99 and key != "wall")
         materials.append(
             {
                 "name": key,
-                "doubleSided": True,
-                "alphaMode": "BLEND" if (len(rgba) > 3 and rgba[3] < 0.99) or key in {"wall", "window"} else "OPAQUE",
+                "doubleSided": bool(is_trans),
+                "alphaMode": "BLEND" if is_trans else "OPAQUE",
                 "pbrMetallicRoughness": {
                     "baseColorFactor": list(rgba),
                     "metallicFactor": float(metal),

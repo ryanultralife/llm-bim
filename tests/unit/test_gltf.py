@@ -125,4 +125,13 @@ def test_gltf_system_material_colors(tmp_path: Path) -> None:
     legend = (data.get("extras") or {}).get("material_legend") or {}
     assert "duct" in legend
     assert (data.get("extras") or {}).get("layer_names")
+    # Walls/pipes opaque so solids occlude; only glass blends
+    by_name = {m["name"]: m for m in mats}
+    assert by_name["wall"].get("alphaMode", "OPAQUE") == "OPAQUE"
+    assert by_name["pipe_copper"].get("alphaMode", "OPAQUE") == "OPAQUE"
+    assert by_name["pipe_copper"]["pbrMetallicRoughness"]["metallicFactor"] > 0.5
+    # Round pipe: ≥32 side segments → well above old 14-facet boxes
+    pipe_mesh = next(m for m in data["meshes"] if m.get("name") == "pipe_copper")
+    pos_acc = data["accessors"][pipe_mesh["primitives"][0]["attributes"]["POSITION"]]
+    assert pos_acc["count"] >= 64  # 32 rings × 2 + caps
 
