@@ -34,17 +34,17 @@ _MATERIAL_PBR: dict[str, tuple[list[float], float, float]] = {
     "equipment": ([0.28, 0.52, 0.82, 1.0], 0.35, 0.45),
     # Equipment kinds — OPAQUE by default (viewer can ghost shells on demand).
     # Low alpha here made whole machines vanish on the dark studio background.
-    "equip_shell": ([0.55, 0.72, 0.88, 1.0], 0.55, 0.35),
-    "equip_yoke": ([0.35, 0.38, 0.42, 1.0], 0.75, 0.4),
-    "equip_magnet": ([0.15, 0.16, 0.2, 1.0], 0.35, 0.55),  # N42 dark solid ring
-    "equip_cartridge": ([0.85, 0.55, 0.25, 1.0], 0.05, 0.55),  # Ultem amber
-    "equip_flange": ([0.65, 0.68, 0.72, 1.0], 0.7, 0.35),
-    "equip_collector": ([0.55, 0.55, 0.58, 1.0], 0.85, 0.25),  # Mo
-    "equip_port": ([0.4, 0.75, 0.55, 1.0], 0.4, 0.4),  # KF / gland
-    "equip_spacer": ([0.75, 0.75, 0.7, 1.0], 0.1, 0.6),
-    "equip_pedestal": ([0.4, 0.42, 0.45, 1.0], 0.2, 0.7),
-    "equip_step_ref": ([0.55, 0.62, 0.78, 1.0], 0.1, 0.5),  # locked STEP bbox
-    "fab_ultem": ([0.92, 0.58, 0.22, 1.0], 0.05, 0.45),  # slotted cartridge BREP
+    "equip_shell": ([0.45, 0.78, 0.95, 1.0], 0.45, 0.35),  # bright Al cyan — readable on dark studio
+    "equip_yoke": ([0.55, 0.58, 0.62, 1.0], 0.7, 0.4),  # mild steel gray (not near-black)
+    "equip_magnet": ([0.25, 0.32, 0.55, 1.0], 0.45, 0.4),  # N42 deep blue-gray RING (was vanishing on bg)
+    "equip_cartridge": ([0.95, 0.62, 0.28, 1.0], 0.05, 0.5),  # Ultem amber
+    "equip_flange": ([0.75, 0.78, 0.82, 1.0], 0.65, 0.35),
+    "equip_collector": ([0.7, 0.72, 0.75, 1.0], 0.85, 0.25),  # Mo
+    "equip_port": ([0.35, 0.85, 0.55, 1.0], 0.35, 0.4),  # KF / gland
+    "equip_spacer": ([0.85, 0.82, 0.55, 1.0], 0.15, 0.55),
+    "equip_pedestal": ([0.5, 0.52, 0.55, 1.0], 0.2, 0.7),
+    "equip_step_ref": ([0.65, 0.7, 0.85, 1.0], 0.1, 0.5),  # locked STEP bbox
+    "fab_ultem": ([1.0, 0.55, 0.15, 1.0], 0.05, 0.4),  # slotted cartridge BREP — high contrast
     "pipe_copper": ([0.85, 0.42, 0.18, 1.0], 0.85, 0.28),
     "pipe_fire": ([0.12, 0.12, 0.14, 1.0], 0.7, 0.4),
     "pipe_process": ([0.55, 0.6, 0.65, 1.0], 0.9, 0.25),

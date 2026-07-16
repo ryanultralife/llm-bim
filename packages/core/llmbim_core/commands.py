@@ -447,6 +447,8 @@ class CreateEquipmentBox(Command):
     centered: bool = False
     z0_mm: float = 0.0
     shape: str = "box"  # box | cylinder
+    id_mm: float | None = None  # inner diameter for hollow tubes (magnets, shells)
+    wall_mm: float | None = None
     op: str = "create_equipment_box"
     _element_id: str | None = None
 
@@ -489,19 +491,24 @@ class CreateEquipmentBox(Command):
                 [x0, y0 + ly],
             ]
             origin_store = [x0, y0]
+        params: dict[str, Any] = {
+            "kind": self.kind,
+            "shape": shape,
+            "origin_mm": origin_store,
+            "size_mm": [lx, ly, hz],
+            "z0_mm": float(self.z0_mm),
+            "polygon_mm": poly,
+        }
+        if self.id_mm is not None and float(self.id_mm) > 0:
+            params["id_mm"] = float(self.id_mm)
+        if self.wall_mm is not None and float(self.wall_mm) > 0:
+            params["wall_mm"] = float(self.wall_mm)
         el = Element(
             id=eid,
             category="equipment",
             name=self.name,
             level_id=lv.id,
-            params={
-                "kind": self.kind,
-                "shape": shape,
-                "origin_mm": origin_store,
-                "size_mm": [lx, ly, hz],
-                "z0_mm": float(self.z0_mm),
-                "polygon_mm": poly,
-            },
+            params=params,
         )
         model.add_element(el)
         self._element_id = el.id

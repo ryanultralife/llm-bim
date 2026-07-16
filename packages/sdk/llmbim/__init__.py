@@ -345,8 +345,14 @@ class Project:
         centered: bool = False,
         z0_mm: float = 0.0,
         shape: str = "box",
+        id_mm: float | None = None,
+        wall_mm: float | None = None,
     ) -> str:
-        """Place equipment envelope: shape ``box`` or ``cylinder`` (along +X)."""
+        """Place equipment envelope: shape ``box`` or ``cylinder`` (along +X).
+
+        For hollow tubes (shell, magnet ring), pass ``id_mm`` (inner diameter)
+        or ``wall_mm`` so glTF exports a tube instead of a solid plug.
+        """
         result = self._log.execute(
             self._model,
             CreateEquipmentBox(
@@ -358,6 +364,8 @@ class Project:
                 centered=centered,
                 z0_mm=z0_mm,
                 shape=shape,
+                id_mm=id_mm,
+                wall_mm=wall_mm,
             ),
         )
         return str(result["result"]["element_id"])
