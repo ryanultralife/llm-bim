@@ -921,6 +921,26 @@ if HAS_MCP:
         return _tool_result({"element_id": gid, "axis": axis.upper(), "count": len(positions)})
 
     @mcp.tool()
+    def note_create(
+        project_id: str,
+        level: str,
+        text: str,
+        x: float = 0,
+        y: float = 0,
+        name: str = "",
+    ) -> str:
+        """Place plan text note at (x,y) mm — appears on plan SVG notes layer."""
+        p = store.get(project_id)
+        nid = p.create_note(
+            level=level,
+            text=text,
+            position=(x, y),
+            name=name or None,
+        )
+        store.save(project_id)
+        return _tool_result({"element_id": nid, "text": text[:80]})
+
+    @mcp.tool()
     def demo_house() -> str:
         """Create standard simple-house demo with entry door + window."""
         pid, p = store.create("Simple House (MCP demo)")

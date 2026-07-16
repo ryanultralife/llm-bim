@@ -221,6 +221,16 @@
       }
     },
     {
+      "name": "create_note",
+      "description": "Place plan text note at position_mm",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
       "name": "create_room",
       "description": "Create room space from boundary polygon (mm)",
       "mutates": true,
