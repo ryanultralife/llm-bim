@@ -61,6 +61,29 @@ def test_gltf_doors_and_windows(tmp_path: Path) -> None:
     assert data["accessors"][0]["count"] >= 24
 
 
+def test_viewer3d_html_written(tmp_path: Path) -> None:
+    """Pack 3D review page embeds glTF and layer-toggle UI (view-only)."""
+    from llmbim_drawings.viewer3d import write_viewer_3d
+
+    p = Project.create("G-view", vcs=False)
+    p.add_level("L1", 0)
+    p.create_wall(level="L1", start=(0, 0), end=(5000, 0), thickness_mm=200, height_mm=3000)
+    p.place_pipe(level="L1", nps="1", start=(0, 500), end=(4000, 500), material="copper")
+    pack = tmp_path / "pack"
+    pack.mkdir()
+    p.export_gltf(pack / "model.gltf")
+    path = write_viewer_3d(pack)
+    assert path is not None and path.is_file()
+    text = path.read_text(encoding="utf-8")
+    assert "OrbitControls" in text
+    assert "ghostWalls" in text
+    assert "GLTFLoader" in text
+    assert "pipe_copper" in text or "wall" in text  # embedded glTF layers
+    # also via SDK helper
+    path2 = p.export_viewer_3d(tmp_path / "pack2")
+    assert path2 is not None and path2.is_file()
+
+
 def test_gltf_system_material_colors(tmp_path: Path) -> None:
     """Copper / fire / duct / conduit get distinct glTF materials (coordination colors)."""
     import json
@@ -82,11 +105,14 @@ def test_gltf_system_material_colors(tmp_path: Path) -> None:
     assert "duct" in names
     assert "conduit" in names
     assert "wall" in names
-    # multi-primitive mesh
-    prims = data["meshes"][0]["primitives"]
-    assert len(prims) >= 4
-    # each primitive references a material
-    assert all("material" in pr for pr in prims)
+    # one mesh/node per layer (for 3D viewer layer toggles)
+    assert len(data.get("meshes") or []) >= 4
+    node_names = {n.get("name") for n in (data.get("nodes") or [])}
+    assert "wall" in node_names
+    assert "duct" in node_names or "pipe_copper" in node_names
+    for m in data["meshes"]:
+        assert m.get("primitives") and "material" in m["primitives"][0]
     legend = (data.get("extras") or {}).get("material_legend") or {}
     assert "duct" in legend
+    assert (data.get("extras") or {}).get("layer_names")
 

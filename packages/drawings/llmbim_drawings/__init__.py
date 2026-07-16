@@ -4,6 +4,7 @@ from llmbim_drawings.api import export_elevation_svg, export_plan_svg, export_se
 from llmbim_drawings.construction import export_construction_set
 from llmbim_drawings.deliverables import export_deliverables, verify_pack
 from llmbim_drawings.parts import export_part_pack
+from llmbim_drawings.viewer3d import write_viewer_3d
 
 __all__ = [
     "export_plan_svg",
@@ -13,4 +14,5 @@ __all__ = [
     "export_part_pack",
     "export_deliverables",
     "verify_pack",
+    "write_viewer_3d",
 ]

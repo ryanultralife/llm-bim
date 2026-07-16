@@ -143,6 +143,7 @@ def verify_pack(
         out / "schedules" / "window.csv"
     ).is_file()
     checks["has_index_html"] = (out / "index.html").is_file()
+    checks["has_viewer3d"] = (out / "viewer3d.html").is_file()
 
     # multi-trade materials takeoff signals
     for rel in (
@@ -527,6 +528,15 @@ def export_deliverables(
     if has_part_assign and not verification.get("has_materials_package"):
         verification["ok"] = False
         verification.setdefault("missing", []).append("materials/MATERIALS_AND_PARTS.json")
+    try:
+        from llmbim_drawings.viewer3d import write_viewer_3d
+
+        v3 = write_viewer_3d(out)
+        if v3 is not None:
+            result["viewer3d"] = v3.name
+    except Exception as exc:  # noqa: BLE001
+        errors.append({"step": "viewer3d", "error": str(exc)})
+
     try:
         from llmbim_drawings.html_index import write_pack_index
 

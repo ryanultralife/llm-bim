@@ -42,11 +42,12 @@ Pack now includes: `boq.json`, `clash_report.json`, `design_rules.json`, `views/
 ## Review (human)
 
 ```bash
-llmbim serve --port 8000
-# open project review: 3D glTF orbit + plan SVG + BOQ/clash badges
+llmbim pack model.llmbim.json --out output/my_pack
+# open output/my_pack/viewer3d.html  — orbit / pan / zoom, layer opacity toggles
+# or open output/my_pack/index.html  → "Open 3D orbit viewer"
 ```
 
-Still **no drafting UI** — review only.
+Still **no drafting UI** — review only (Three.js orbit viewer + transparency layers).
 
 ## Real program cases
 
