@@ -140,6 +140,7 @@
 | 114 | continue | verify doors/windows schedules | door.csv vs doors.csv mismatch | plural schedule names + verify signals | 179 unit | (this) |
 | 115 | continue | create_note agent wiring | notes SDK-only | registry/CLI/MCP create_note | 180 unit | (this) |
 | 116 | continue | multi-trade smoke openings | smoke lacked door/grid/equip | pack smoke openings+equip+grid+verify | 180 unit | (this) |
+| 117 | continue | set_type/set_phase ops | type/phase not in registry | registry+MCP set_type; registry set_phase | 180 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -285,7 +286,8 @@
 139. ~~verify_pack doors/windows schedules~~ (pass 114)
 140. ~~create_note registry/CLI/MCP~~ (pass 115)
 141. ~~multi-trade smoke openings/equip/grid~~ (pass 116)
-142. Keep closing residual gaps until pass 120 / 10h
+142. ~~set_type/set_phase registry+MCP~~ (pass 117)
+143. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 

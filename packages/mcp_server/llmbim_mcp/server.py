@@ -189,6 +189,22 @@ if HAS_MCP:
         return _tool_result({"element_id": element_id, "phase": phase})
 
     @mcp.tool()
+    def set_type(project_id: str, element_id: str, type_id: str) -> str:
+        """Set type mark e.g. W-EXT-CMU, D-HM-36 (walls may sync thickness from catalog)."""
+        p = store.get(project_id)
+        p.set_type(element_id, type_id)
+        store.save(project_id)
+        el = p.model.get_element(element_id)
+        return _tool_result(
+            {
+                "element_id": element_id,
+                "type_id": type_id,
+                "category": el.category,
+                "thickness_mm": el.params.get("thickness_mm"),
+            }
+        )
+
+    @mcp.tool()
     def project_commit(project_id: str, message: str, author: str = "agent") -> str:
         """Commit true model version (required after edits — not chat history)."""
         p = store.get(project_id)

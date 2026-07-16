@@ -571,6 +571,26 @@
       }
     },
     {
+      "name": "set_phase",
+      "description": "Set element phase new|existing|demo|temp (pack phase filters)",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
+      "name": "set_type",
+      "description": "Set element type_id (wall/door marks; may sync thickness)",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
       "name": "stats",
       "description": "Element counts",
       "mutates": false,

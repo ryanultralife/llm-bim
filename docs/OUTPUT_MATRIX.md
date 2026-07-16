@@ -103,8 +103,8 @@ Project.export_deliverables(out_dir)
 |---------|--------|
 | Python SDK `llmbim.Project` | ✅ |
 | CLI `llmbim` | ✅ pack, **schedule**, takeoff, place MEP/structure/**wall/door/window/room/slab/equipment/grid/note**, csi_instances, modules, VCS |
-| Registry ops + `ops.schema.json` | ✅ ~54 tools (**create_note/add_grid** + room/slab/equip/openings + MEP/structure) |
-| MCP stdio | ✅ query + takeoff + place openings/MEP/structure + **room/slab/equipment/grid/note** + schedule + **verify_pack** + modules |
+| Registry ops + `ops.schema.json` | ✅ ~56 tools (**set_type/set_phase/create_note/add_grid** + room/slab/equip/openings + MEP/structure) |
+| MCP stdio | ✅ query + takeoff + place openings/MEP/structure + **room/slab/equipment/grid/note** + **set_type/set_phase** + schedule + **verify_pack** + modules |
 | Skill `skills/llm-bim/SKILL.md` | ✅ |
 | Templates | ✅ office_bay, warehouse, hot_cell_bay, lab_bench |
 | Cases | ✅ intec, proto10, plumbing_loop, multi_trade, module_machine_host |
