@@ -860,6 +860,38 @@ def cmd_place(args: argparse.Namespace) -> int:
             "text": str(text)[:80],
             "position_mm": list(origin),
         }
+    elif kind in ("shell", "rect_shell"):
+        # origin = SW corner; --end = NE corner, or --width + --depth for size
+        x, y = origin
+        if args.end:
+            x1, y1 = _parse_xy(args.end)
+            x, y = min(origin[0], x1), min(origin[1], y1)
+            w = abs(x1 - origin[0])
+            d = abs(y1 - origin[1])
+        else:
+            w = float(args.width if args.width is not None else 10000)
+            d = float(getattr(args, "depth", None) if getattr(args, "depth", None) is not None else 8000)
+        ht = float(args.height if args.height is not None else 3000)
+        th = float(getattr(args, "thickness", None) if getattr(args, "thickness", None) is not None else 200)
+        prefix = (args.name or "W")[:8]
+        ids = p.create_rect_shell(
+            level=level,
+            x=x,
+            y=y,
+            w=w,
+            d=d,
+            height_mm=ht,
+            thickness_mm=th,
+            name_prefix=prefix,
+        )
+        result = {
+            "kind": "shell",
+            "wall_ids": ids,
+            "count": len(ids),
+            "footprint_mm": [x, y, w, d],
+            "height_mm": ht,
+            "thickness_mm": th,
+        }
     else:
         raise SystemExit(f"Unknown place kind: {kind}")
     # persist back to path
@@ -1204,7 +1236,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p_pl = sub.add_parser(
         "place",
-        help="Place fitting|pipe|riser|part|wall|door|window|room|slab|equipment|grid|note|MEP|structure",
+        help="Place fitting|pipe|riser|part|wall|door|window|room|slab|equipment|grid|note|shell|MEP|structure",
     )
     p_pl.add_argument("path", help="Project dir or model.llmbim.json")
     p_pl.add_argument(
@@ -1230,6 +1262,8 @@ def main(argv: list[str] | None = None) -> int:
             "equip",
             "grid",
             "note",
+            "shell",
+            "rect_shell",
         ],
         help="What to place",
     )
@@ -1278,6 +1312,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_pl.add_argument("--labels", default=None, help="Grid labels comma-separated e.g. 1,2,3 or A,B,C")
     p_pl.add_argument("--text", default=None, help="Note text (place --kind note)")
+    p_pl.add_argument(
+        "--thickness",
+        type=float,
+        default=None,
+        help="Wall thickness mm for shell (when footprint via --origin/--end)",
+    )
     p_pl.add_argument("--nps", default=None, help='Nominal pipe size e.g. 3/4 or 2')
     p_pl.add_argument("--fitting-type", default=None, help="elbow_90 | tee | ...")
     p_pl.add_argument("--section", default=None, help="Steel section for column e.g. W10x33")

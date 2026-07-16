@@ -61,6 +61,40 @@ def test_cli_place_riser_and_fitting(tmp_path: Path):
     assert any(e.category == "fitting" for e in p3.model.elements)
 
 
+def test_cli_place_shell(tmp_path: Path, capsys):
+    p = Project.create("cli-shell", vcs=False)
+    p.add_level("L1", 0)
+    model = tmp_path / "model.llmbim.json"
+    p.save(model)
+    rc = main(
+        [
+            "place",
+            str(model),
+            "--kind",
+            "shell",
+            "--level",
+            "L1",
+            "--origin",
+            "0,0",
+            "--end",
+            "10000,8000",
+            "--height",
+            "3000",
+            "--thickness",
+            "200",
+            "--name",
+            "B",
+        ]
+    )
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["kind"] == "shell"
+    assert out["count"] == 4
+    assert len(out["wall_ids"]) == 4
+    p2 = Project.open(model)
+    assert p2.stats().get("wall") == 4
+
+
 def test_cli_place_note(tmp_path: Path, capsys):
     p = Project.create("cli-note", vcs=False)
     p.add_level("L1", 0)

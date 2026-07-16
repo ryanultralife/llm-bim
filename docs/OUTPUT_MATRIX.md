@@ -102,7 +102,7 @@ Project.export_deliverables(out_dir)
 | Surface | Status |
 |---------|--------|
 | Python SDK `llmbim.Project` | ✅ |
-| CLI `llmbim` | ✅ pack, **schedule**, takeoff, place MEP/structure/**wall/door/window/room/slab/equipment/grid/note**, csi_instances, modules, VCS |
+| CLI `llmbim` | ✅ pack, **schedule**, takeoff, place MEP/structure/**shell/wall/door/window/room/slab/equipment/grid/note**, csi_instances, modules, VCS |
 | Registry ops + `ops.schema.json` | ✅ ~57 tools (**create_rect_shell/delete/set_type/set_phase** + room/slab/equip/openings + MEP) |
 | MCP stdio | ✅ place openings/MEP/structure + **shell_create/element_delete** + room/slab/equip/grid/note + set_type/phase + verify_pack + modules |
 | Skill `skills/llm-bim/SKILL.md` | ✅ |
