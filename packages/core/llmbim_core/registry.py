@@ -916,6 +916,77 @@ def _validate_fab(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     return validate_fab_part(model, p["element_id"])
 
 
+@register("fab_revolve", description="Add lathe revolve (disk/tube) to fab_part", mutates=True)
+def _fab_revolve(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import fab_revolve
+
+    origin = p.get("origin_mm") or p.get("origin") or [0, 0, 0]
+    return fab_revolve(
+        model,
+        p["element_id"],
+        radius_mm=float(p.get("radius_mm") or p.get("outer_radius_mm") or 20),
+        height_mm=float(p.get("height_mm") or 30),
+        inner_radius_mm=float(p.get("inner_radius_mm") or 0),
+        origin_mm=origin,
+    )
+
+
+@register("fab_hole_pattern", description="Add rectangular hole pattern to fab_part", mutates=True)
+def _fab_hole_pattern(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import fab_hole_pattern
+
+    origin = p.get("origin_mm") or p.get("origin") or [0, 0, 0]
+    return fab_hole_pattern(
+        model,
+        p["element_id"],
+        diameter_mm=float(p.get("diameter_mm") or 6),
+        origin_mm=origin,
+        count_x=int(p.get("count_x") or p.get("nx") or 2),
+        count_y=int(p.get("count_y") or p.get("ny") or 1),
+        spacing_x_mm=float(p.get("spacing_x_mm") or 20),
+        spacing_y_mm=float(p.get("spacing_y_mm") or 20),
+        depth_mm=float(p["depth_mm"]) if p.get("depth_mm") is not None else None,
+    )
+
+
+@register("create_fab_assembly", description="Create multi-body fab assembly", mutates=True)
+def _create_fab_assembly(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import create_fab_assembly
+
+    return create_fab_assembly(model, name=str(p.get("name") or "FabAssembly"), level=p.get("level"))
+
+
+@register("fab_assembly_add", description="Add fab_part instance to assembly with placement", mutates=True)
+def _fab_assembly_add(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import fab_assembly_add
+
+    origin = p.get("origin_mm") or p.get("origin") or [0, 0, 0]
+    rot = p.get("rotation_deg") or p.get("rotation") or [0, 0, 0]
+    return fab_assembly_add(
+        model,
+        p.get("assembly_id") or p["element_id"],
+        p["part_id"],
+        origin_mm=origin,
+        rotation_deg=rot,
+    )
+
+
+@register("export_fab_assembly_step", description="Export fab_assembly compound STEP", mutates=False)
+def _export_fab_assembly_step(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import export_fab_assembly_step
+
+    path = p.get("path") or p.get("out") or "fab_assembly.step"
+    return export_fab_assembly_step(model, p.get("assembly_id") or p["element_id"], str(path))
+
+
+@register("export_fab_ortho", description="Export fab_part top/front/right SVG views", mutates=False)
+def _export_fab_ortho(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import export_fab_ortho_views
+
+    out_dir = p.get("out_dir") or p.get("path") or "fab_views"
+    return export_fab_ortho_views(model, p["element_id"], str(out_dir))
+
+
 @register("place_flange", description="Place flange / joined material ring at a joint", mutates=True)
 def _place_flange(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.assignment import place_flange

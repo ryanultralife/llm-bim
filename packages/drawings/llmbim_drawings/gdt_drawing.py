@@ -35,15 +35,64 @@ def _fcf_text(g: dict[str, Any]) -> str:
     return f"|{sym}|{dia}{tol}{dats}|"
 
 
+def _embed_ortho_strip(
+    feats: list[dict[str, Any]],
+    *,
+    x0: float,
+    y0: float,
+    panel_w: float = 260,
+    panel_h: float = 180,
+) -> tuple[list[str], float]:
+    """Top/front/right ortho projections as foreignObject or linked group placeholders.
+
+    Returns (svg_fragments, next_y). Uses CadQuery getSVG when available.
+    """
+    frags: list[str] = []
+    try:
+        from llmbim_geometry.fab_brep import HAS_CADQUERY, export_fab_ortho_svgs
+
+        if not HAS_CADQUERY or not feats:
+            return frags, y0
+        views = export_fab_ortho_svgs(feats, width=panel_w - 20, height=panel_h - 28)
+    except Exception:  # noqa: BLE001
+        return frags, y0
+
+    labels = [("top", "TOP"), ("front", "FRONT"), ("right", "RIGHT")]
+    x = x0
+    frags.append(
+        f'<text x="{x0}" y="{y0}" fill="#5eb1ff" font-family="Segoe UI,system-ui,sans-serif" '
+        f'font-size="13" font-weight="600">ORTHO VIEWS (true BREP projection)</text>'
+    )
+    y_panel = y0 + 12
+    for key, label in labels:
+        svg = views.get(key) or ""
+        # strip xml header; wrap in group with translate
+        body = svg
+        if "?>" in body:
+            body = body.split("?>", 1)[1]
+        # scale into panel
+        frags.append(
+            f'<g transform="translate({x},{y_panel})">'
+            f'<rect x="0" y="0" width="{panel_w}" height="{panel_h}" fill="#121820" '
+            f'stroke="#30363d" stroke-width="1"/>'
+            f'<text x="8" y="16" fill="#8b97a8" font-family="Segoe UI,system-ui,sans-serif" '
+            f'font-size="11">{label}</text>'
+            f'<g transform="translate(4,22) scale(0.85)">{body}</g></g>'
+        )
+        x += panel_w + 12
+    return frags, y_panel + panel_h + 24
+
+
 def write_gdt_drawing(
     model: ProjectModel,
     element_id: str,
     path: str | Path,
     *,
-    width: int = 900,
-    height: int = 700,
+    width: int = 1100,
+    height: int = 920,
+    include_ortho: bool = True,
 ) -> Path:
-    """Emit a single-sheet SVG: title, feature history, GD&T FCFs, size dims."""
+    """Emit machining SVG: ortho BREP views + feature history + GD&T FCFs."""
     el = model.get_element(element_id)
     if el.category != "fab_part":
         raise ValueError(f"expected fab_part, got {el.category}")
@@ -63,13 +112,19 @@ def write_gdt_drawing(
         f'features={len(feats)} · gdt={len(gdt)}'
         + (f" · V={vol:.1f} mm³" if isinstance(vol, (int, float)) else "")
         + "</text>",
-        # border title block
         f'<rect x="20" y="80" width="{width - 40}" height="{height - 100}" fill="none" '
         f'stroke="#30363d" stroke-width="1.5"/>',
-        '<text x="36" y="110" fill="#5eb1ff" font-family="Segoe UI,system-ui,sans-serif" '
-        'font-size="13" font-weight="600">FEATURE TREE (parametric BREP)</text>',
     ]
-    y = 132
+    y = 100
+    if include_ortho and feats:
+        ortho, y = _embed_ortho_strip(feats, x0=36, y0=y)
+        lines.extend(ortho)
+
+    lines.append(
+        f'<text x="36" y="{y}" fill="#5eb1ff" font-family="Segoe UI,system-ui,sans-serif" '
+        f'font-size="13" font-weight="600">FEATURE TREE (parametric BREP)</text>'
+    )
+    y += 22
     for i, f in enumerate(feats):
         op = f.get("op", "?")
         detail = {k: v for k, v in f.items() if k != "op"}
@@ -89,10 +144,10 @@ def write_gdt_drawing(
             y += 20
             break
 
-    y = max(y + 20, 200)
+    y = max(y + 16, y)
     lines.append(
         f'<text x="36" y="{y}" fill="#5eb1ff" font-family="Segoe UI,system-ui,sans-serif" '
-        f'font-size="13" font-weight="600">GD&amp;T / TOLERANCES (ASME Y14.5 style callouts)</text>'
+        f'font-size="13" font-weight="600">GD&amp;T / TOLERANCES (ASME Y14.5 style · projected with views)</text>'
     )
     y += 24
     if not gdt:
