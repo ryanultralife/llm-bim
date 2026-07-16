@@ -680,6 +680,162 @@ def _tube_mesh(
     return _merge_meshes([outer, (ipos, inrm, flipped), (pos, nrm, idx)])
 
 
+def _parse_w_section(section: str | None) -> dict[str, float]:
+    """Approximate AISC W-shape dims (mm) from designation e.g. W10x33 / W12×26.
+
+    Coordination-grade I profile — not mill-certified plate thicknesses.
+    """
+    s = (section or "W10x33").upper().replace("×", "x").replace(" ", "")
+    d_in, weight = 10.0, 33.0
+    if s.startswith("W") and "X" in s:
+        try:
+            body = s[1:]
+            a, b = body.split("X", 1)
+            d_in = float(a)
+            weight = float(b.split("-")[0])
+        except ValueError:
+            pass
+    d = d_in * 25.4
+    # rough bf/tf/tw from depth + weight class (presentation, not AISC table)
+    bf = max(d * 0.55, d_in * 20.0)  # ~ half to 0.8 of depth
+    if d_in <= 8:
+        bf = max(bf, 100.0)
+    tf = max(d * 0.045, 8.0)
+    tw = max(d * 0.028, 6.0)
+    # heavier sections → thicker flanges
+    if weight > 40:
+        tf *= 1.15
+        tw *= 1.1
+        bf *= 1.05
+    return {"d_mm": d, "bf_mm": bf, "tf_mm": tf, "tw_mm": tw}
+
+
+def _w_column_mesh(
+    cx: float,
+    cy: float,
+    z0: float,
+    z1: float,
+    *,
+    d_mm: float,
+    bf_mm: float,
+    tf_mm: float,
+    tw_mm: float,
+    rotation_deg: float = 0.0,
+) -> tuple[list[float], list[float], list[int]]:
+    """Vertical wide-flange column (I extruded along elevation)."""
+    d, bf, tf, tw = float(d_mm), float(bf_mm), float(tf_mm), float(tw_mm)
+    # local plan: X = flange width, Y = depth; then rotate about Z
+    rot = math.radians(float(rotation_deg))
+    c, s = math.cos(rot), math.sin(rot)
+
+    def _r(lx: float, ly: float) -> tuple[float, float]:
+        return cx + lx * c - ly * s, cy + lx * s + ly * c
+
+    parts: list[tuple[list[float], list[float], list[int]]] = []
+    # bottom flange
+    x0, y0 = _r(-bf / 2, -d / 2)
+    x1, y1 = _r(bf / 2, -d / 2 + tf)
+    # axis-aligned AABB of rotated flange is wrong for 45° — build via corners
+    # Use unrotated boxes when rot~0; for general rot use three wall_box strips
+    if abs(rot) < 1e-6:
+        parts.append(_aabb_box_mesh(cx - bf / 2, cy - d / 2, z0, cx + bf / 2, cy - d / 2 + tf, z1))
+        parts.append(_aabb_box_mesh(cx - bf / 2, cy + d / 2 - tf, z0, cx + bf / 2, cy + d / 2, z1))
+        parts.append(_aabb_box_mesh(cx - tw / 2, cy - d / 2 + tf, z0, cx + tw / 2, cy + d / 2 - tf, z1))
+    else:
+        # three rectangular prisms along local axes via corner sets
+        def _prism(lx0: float, ly0: float, lx1: float, ly1: float) -> tuple:
+            corners = []
+            for lx, ly, z in (
+                (lx0, ly0, z0),
+                (lx1, ly0, z0),
+                (lx1, ly1, z0),
+                (lx0, ly1, z0),
+                (lx0, ly0, z1),
+                (lx1, ly0, z1),
+                (lx1, ly1, z1),
+                (lx0, ly1, z1),
+            ):
+                px, py = _r(lx, ly)
+                corners.append((px, py, z))
+            return _box_solid(corners)
+
+        parts.append(_prism(-bf / 2, -d / 2, bf / 2, -d / 2 + tf))
+        parts.append(_prism(-bf / 2, d / 2 - tf, bf / 2, d / 2))
+        parts.append(_prism(-tw / 2, -d / 2 + tf, tw / 2, d / 2 - tf))
+    return _merge_meshes(parts)
+
+
+def _w_beam_mesh(
+    x0: float,
+    y0: float,
+    x1: float,
+    y1: float,
+    z_bot: float,
+    *,
+    d_mm: float,
+    bf_mm: float,
+    tf_mm: float,
+    tw_mm: float,
+) -> tuple[list[float], list[float], list[int]]:
+    """Horizontal wide-flange beam along plan start→end (depth vertical)."""
+    d, bf, tf, tw = float(d_mm), float(bf_mm), float(tf_mm), float(tw_mm)
+    z_top = z_bot + d
+    parts = [
+        _wall_box_mesh(x0, y0, x1, y1, bf, z_bot, z_bot + tf),  # bottom flange
+        _wall_box_mesh(x0, y0, x1, y1, bf, z_top - tf, z_top),  # top flange
+        _wall_box_mesh(x0, y0, x1, y1, tw, z_bot + tf, z_top - tf),  # web
+    ]
+    return _merge_meshes(parts)
+
+
+def _wall_join_extensions(
+    model: ProjectModel,
+) -> dict[str, tuple[float, float]]:
+    """For each wall id → (extend_start_mm, extend_end_mm) so corners meet.
+
+    When wall endpoints coincide (within tol), extend each leg by the other wall's
+    half-thickness so 3D/plan bands don't leave corner gaps (Revit-like clean join).
+    """
+    walls = [el for el in model.elements if el.category == "wall"]
+    ext: dict[str, list[float]] = {el.id: [0.0, 0.0] for el in walls}
+    tol = 25.0  # mm
+
+    def _ends(el: Element) -> tuple[float, float, float, float, float] | None:
+        try:
+            s, e = el.params["start_mm"], el.params["end_mm"]
+            th = float(el.params.get("thickness_mm") or 200)
+            return float(s[0]), float(s[1]), float(e[0]), float(e[1]), th
+        except (KeyError, TypeError, ValueError, IndexError):
+            return None
+
+    parsed = [(el, _ends(el)) for el in walls]
+    parsed = [(el, ep) for el, ep in parsed if ep is not None]
+    for i, (el_a, a) in enumerate(parsed):
+        ax0, ay0, ax1, ay1, ath = a
+        for el_b, b in parsed[i + 1 :]:
+            bx0, by0, bx1, by1, bth = b
+            pairs = (
+                (0, (ax0, ay0), (bx0, by0), bth),
+                (0, (ax0, ay0), (bx1, by1), bth),
+                (1, (ax1, ay1), (bx0, by0), bth),
+                (1, (ax1, ay1), (bx1, by1), bth),
+                # also extend B when A meets
+            )
+            for end_i, pa, pb, other_th in pairs:
+                if math.hypot(pa[0] - pb[0], pa[1] - pb[1]) <= tol:
+                    ext[el_a.id][end_i] = max(ext[el_a.id][end_i], other_th / 2.0)
+            # reverse: B's ends against A
+            for end_i, pb, pa, other_th in (
+                (0, (bx0, by0), (ax0, ay0), ath),
+                (0, (bx0, by0), (ax1, ay1), ath),
+                (1, (bx1, by1), (ax0, ay0), ath),
+                (1, (bx1, by1), (ax1, ay1), ath),
+            ):
+                if math.hypot(pa[0] - pb[0], pa[1] - pb[1]) <= tol:
+                    ext[el_b.id][end_i] = max(ext[el_b.id][end_i], other_th / 2.0)
+    return {k: (v[0], v[1]) for k, v in ext.items()}
+
+
 def _mesh_from_origin_size(
     el: Element, model: ProjectModel
 ) -> tuple[list[float], list[float], list[int]]:
@@ -721,9 +877,23 @@ def _mesh_from_origin_size(
                     x0, y0, x1, y0, z0, z1, r, float(id_mm) / 2.0, segments=36
                 )
             return _cylinder_mesh(x0, y0, x1, y0, z0, z1, r, segments=28)
-        # column: centered box
+        # column: W-section I when section looks like W##x##
         if el.category == "column" or el.params.get("fitting_type") == "column":
             ht = float(el.params.get("height_mm") or hz or 3000)
+            sec = str(el.params.get("section") or "")
+            dims = el.params.get("section_dims_mm") or _parse_w_section(sec)
+            if str(sec).upper().startswith("W") or el.params.get("shape") == "w_section":
+                return _w_column_mesh(
+                    x0,
+                    y0,
+                    z0,
+                    z0 + ht,
+                    d_mm=float(dims.get("d_mm") or lx),
+                    bf_mm=float(dims.get("bf_mm") or ly),
+                    tf_mm=float(dims.get("tf_mm") or 12),
+                    tw_mm=float(dims.get("tw_mm") or 8),
+                    rotation_deg=float(el.params.get("rotation_deg") or 0),
+                )
             return _aabb_box_mesh(x0 - lx / 2, y0 - ly / 2, z0, x0 + lx / 2, y0 + ly / 2, z0 + ht)
         return _aabb_box_mesh(x0, y0, z0, x0 + max(lx, 50), y0 + max(ly, 30), z0 + max(hz, 30))
     except (KeyError, TypeError, ValueError, IndexError):
@@ -775,6 +945,20 @@ def _mesh_from_pipe(el: Element, model: ProjectModel) -> tuple[list[float], list
         elif is_beam:
             elev_h = float(el.params.get("height_mm") or el.params.get("depth_mm") or 300)
             od = float(el.params.get("width_mm") or od or 150)
+            sec = str(el.params.get("section") or "")
+            dims = el.params.get("section_dims_mm") or _parse_w_section(sec)
+            if str(sec).upper().startswith("W") or el.params.get("shape") == "w_section":
+                return _w_beam_mesh(
+                    x0,
+                    y0,
+                    x1,
+                    y1,
+                    z0,
+                    d_mm=float(dims.get("d_mm") or elev_h),
+                    bf_mm=float(dims.get("bf_mm") or od),
+                    tf_mm=float(dims.get("tf_mm") or 12),
+                    tw_mm=float(dims.get("tw_mm") or 8),
+                )
         if is_pipe or is_conduit:
             r = max(od / 2, 12.0)
             return _cylinder_mesh(x0, y0, x1, y1, z0, z0 + elev_h, r, segments=32)
@@ -924,6 +1108,7 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
         return buckets[key]
 
     wall_by_id = {el.id: el for el in model.elements if el.category == "wall"}
+    wall_ext = _wall_join_extensions(model)
 
     for el in model.elements:
         pos: list[float] = []
@@ -938,9 +1123,19 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
             except (KeyError, TypeError, ValueError):
                 continue
             z0 = _level_z(model, el.level_id)
-            pos, nrm, indices = _wall_box_mesh(
-                float(s[0]), float(s[1]), float(e[0]), float(e[1]), th, z0, z0 + ht
-            )
+            x0, y0 = float(s[0]), float(s[1])
+            x1, y1 = float(e[0]), float(e[1])
+            # Extend endpoints so L/T corners meet (coordination join)
+            ex0, ex1 = wall_ext.get(el.id, (0.0, 0.0))
+            dx, dy = x1 - x0, y1 - y0
+            length = math.hypot(dx, dy)
+            if length > 1e-3 and (ex0 > 0 or ex1 > 0):
+                ux, uy = dx / length, dy / length
+                x0 -= ux * ex0
+                y0 -= uy * ex0
+                x1 += ux * ex1
+                y1 += uy * ex1
+            pos, nrm, indices = _wall_box_mesh(x0, y0, x1, y1, th, z0, z0 + ht)
         elif el.category == "slab":
             pos, nrm, indices = _mesh_from_slab(el, model)
         elif el.category in {"door", "window"}:

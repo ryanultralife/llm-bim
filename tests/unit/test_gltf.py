@@ -136,6 +136,36 @@ def test_gltf_system_material_colors(tmp_path: Path) -> None:
     assert pos_acc["count"] >= 64  # 32 rings × 2 + caps
 
 
+def test_gltf_w_section_column_and_wall_joins(tmp_path: Path) -> None:
+    """W columns are multi-solid I meshes; corner walls extend (more verts than open ends)."""
+    import json
+
+    p = Project.create("W-join", vcs=False)
+    p.add_level("L1", 0)
+    # closed rectangle — joins at all 4 corners
+    p.create_wall(level="L1", start=(0, 0), end=(8000, 0), thickness_mm=200, height_mm=3000)
+    p.create_wall(level="L1", start=(8000, 0), end=(8000, 6000), thickness_mm=200, height_mm=3000)
+    p.create_wall(level="L1", start=(8000, 6000), end=(0, 6000), thickness_mm=200, height_mm=3000)
+    p.create_wall(level="L1", start=(0, 6000), end=(0, 0), thickness_mm=200, height_mm=3000)
+    p.place_column(level="L1", origin=(2000, 2000), section="W10x33", height_mm=3000)
+    p.place_beam(level="L1", start=(2000, 2000), end=(6000, 2000), section="W12x26", z0_mm=2800)
+    out = tmp_path / "w.gltf"
+    p.export_gltf(out)
+    data = json.loads(out.read_text(encoding="utf-8"))
+    names = {m.get("name") for m in (data.get("materials") or [])}
+    assert "column" in names
+    assert "beam" in names
+    assert "wall" in names
+    # I-section = 3 boxes × 24 verts/box-ish — well above single 24-vert box
+    col = next(m for m in data["meshes"] if m.get("name") == "column")
+    col_verts = data["accessors"][col["primitives"][0]["attributes"]["POSITION"]]["count"]
+    assert col_verts >= 48  # at least two solids worth
+    # walls with joins should have geometry
+    wall = next(m for m in data["meshes"] if m.get("name") == "wall")
+    wall_verts = data["accessors"][wall["primitives"][0]["attributes"]["POSITION"]]["count"]
+    assert wall_verts >= 24 * 4  # 4 walls
+
+
 def test_gltf_detail_wire_coil_bolt_flange(tmp_path: Path) -> None:
     """Wires, coils, bolts, joined flanges render as distinct glTF layers."""
     import json

@@ -297,7 +297,24 @@ def place_column(
     # for vertical column, size_mm is plan X, plan Y, height
     depth = float(size[0]) if size[0] > 10 else 250.0
     width = float(size[1]) if len(size) > 1 and size[1] > 10 else depth
+    # W-shape presentation dims for glTF I-section (approx AISC; not mill cert)
+    sec_u = str(section).upper().replace("×", "x").replace(" ", "")
+    sec_dims: dict[str, float] = {}
+    if sec_u.startswith("W") and "X" in sec_u:
+        try:
+            a, b = sec_u[1:].split("X", 1)
+            d_in = float(a)
+            wt = float(b.split("-")[0])
+            d_mm = d_in * 25.4
+            bf_mm = max(d_mm * 0.55, d_in * 20.0)
+            tf_mm = max(d_mm * 0.045, 8.0) * (1.15 if wt > 40 else 1.0)
+            tw_mm = max(d_mm * 0.028, 6.0) * (1.1 if wt > 40 else 1.0)
+            sec_dims = {"d_mm": d_mm, "bf_mm": bf_mm, "tf_mm": tf_mm, "tw_mm": tw_mm}
+            depth, width = d_mm, bf_mm
+        except ValueError:
+            sec_dims = {}
     level_id = model.get_level(level).id
+    shape = "w_section" if sec_u.startswith("W") else "box"
     el = Element(
         id=new_id("col"),
         category="column",
@@ -307,11 +324,12 @@ def place_column(
         params={
             "origin_mm": [float(origin[0]), float(origin[1])],
             "section": section,
+            "section_dims_mm": sec_dims,
             "height_mm": h,
             "length_m": h / 1000.0,
             "length_mm": h,
             "size_mm": [depth, width, h],
-            "shape": "box",
+            "shape": shape,
             "z0_mm": 0.0,
             "material_id": material_id,
             "part_id": pid if part else None,
@@ -365,9 +383,25 @@ def place_beam(
     size = list(part.default_size_mm) if part and part.default_size_mm else [300.0, 150.0, 300.0]
     depth = float(size[0]) if size and size[0] > 10 else 300.0
     width = float(size[1]) if len(size) > 1 and size[1] > 10 else 150.0
+    sec_u = str(section).upper().replace("×", "x").replace(" ", "")
+    sec_dims: dict[str, float] = {}
+    if sec_u.startswith("W") and "X" in sec_u:
+        try:
+            a, b = sec_u[1:].split("X", 1)
+            d_in = float(a)
+            wt = float(b.split("-")[0])
+            d_mm = d_in * 25.4
+            bf_mm = max(d_mm * 0.55, d_in * 20.0)
+            tf_mm = max(d_mm * 0.045, 8.0) * (1.15 if wt > 40 else 1.0)
+            tw_mm = max(d_mm * 0.028, 6.0) * (1.1 if wt > 40 else 1.0)
+            sec_dims = {"d_mm": d_mm, "bf_mm": bf_mm, "tf_mm": tf_mm, "tw_mm": tw_mm}
+            depth, width = d_mm, bf_mm
+        except ValueError:
+            sec_dims = {}
     # top of steel default near ceiling
     z = float(z0_mm) if z0_mm is not None else 3000.0 - depth
     level_id = model.get_level(level).id
+    shape = "w_section" if sec_u.startswith("W") else "box"
     el = Element(
         id=new_id("bm"),
         category="beam",
@@ -379,13 +413,14 @@ def place_beam(
             "end_mm": [x1, y1],
             "origin_mm": [x0, y0],
             "section": section,
+            "section_dims_mm": sec_dims,
             "length_mm": length_mm,
             "length_m": length_m,
             "width_mm": width,
             "height_mm": depth,
             "depth_mm": depth,
             "size_mm": [length_mm, width, depth],
-            "shape": "box",
+            "shape": shape,
             "z0_mm": z,
             "material_id": material_id,
             "part_id": pid if part else None,
