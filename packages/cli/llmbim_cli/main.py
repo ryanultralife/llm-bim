@@ -812,6 +812,38 @@ def cmd_place(args: argparse.Namespace) -> int:
             "size_mm": list(size),
             "shape": getattr(args, "shape", None) or "box",
         }
+    elif kind == "grid":
+        axis = (getattr(args, "axis", None) or "U").upper()
+        pos_arg = getattr(args, "positions", None)
+        if pos_arg:
+            positions = [float(x.strip()) for x in str(pos_arg).replace(";", ",").split(",") if x.strip()]
+        else:
+            # generate from origin count*spacing: --origin start --width spacing --offset count
+            start = origin[0] if axis == "U" else origin[1]
+            spacing = float(args.width if args.width is not None else 6000)
+            count = int(getattr(args, "offset", None) if getattr(args, "offset", None) is not None else 3)
+            if count < 2:
+                count = 2
+            positions = [start + i * spacing for i in range(count)]
+        if len(positions) < 2:
+            raise SystemExit("place grid requires --positions 0,6000,12000 or --width spacing + --offset count")
+        labels = None
+        lab_arg = getattr(args, "labels", None)
+        if lab_arg:
+            labels = [x.strip() for x in str(lab_arg).replace(";", ",").split(",") if x.strip()]
+        eid = p.add_grid(
+            axis=axis,
+            positions_mm=positions,
+            name=args.name,
+            labels=labels,
+        )
+        result = {
+            "element_id": eid,
+            "kind": "grid",
+            "axis": axis,
+            "positions_mm": positions,
+            "count": len(positions),
+        }
     else:
         raise SystemExit(f"Unknown place kind: {kind}")
     # persist back to path
@@ -1156,7 +1188,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p_pl = sub.add_parser(
         "place",
-        help="Place fitting|pipe|riser|part|wall|door|window|room|slab|equipment|MEP|structure",
+        help="Place fitting|pipe|riser|part|wall|door|window|room|slab|equipment|grid|MEP|structure",
     )
     p_pl.add_argument("path", help="Project dir or model.llmbim.json")
     p_pl.add_argument(
@@ -1180,6 +1212,7 @@ def main(argv: list[str] | None = None) -> int:
             "slab",
             "equipment",
             "equip",
+            "grid",
         ],
         help="What to place",
     )
@@ -1220,6 +1253,13 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Equipment origin is plan center (not min-corner)",
     )
+    p_pl.add_argument("--axis", default=None, help="Grid axis U (X) or V (Y)")
+    p_pl.add_argument(
+        "--positions",
+        default=None,
+        help="Grid positions mm e.g. 0,6000,12000 (or use --width spacing --offset count)",
+    )
+    p_pl.add_argument("--labels", default=None, help="Grid labels comma-separated e.g. 1,2,3 or A,B,C")
     p_pl.add_argument("--nps", default=None, help='Nominal pipe size e.g. 3/4 or 2')
     p_pl.add_argument("--fitting-type", default=None, help="elbow_90 | tee | ...")
     p_pl.add_argument("--section", default=None, help="Steel section for column e.g. W10x33")

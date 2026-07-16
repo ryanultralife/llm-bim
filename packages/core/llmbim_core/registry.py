@@ -375,6 +375,31 @@ def _create_equipment_box(model: ProjectModel, p: dict[str, Any]) -> dict[str, A
     return cmd.apply(model)
 
 
+@register(
+    "add_grid",
+    description="Add structural grid axis U (X) or V (Y) with positions_mm list",
+    mutates=True,
+)
+def _add_grid(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.commands import AddGrid
+
+    positions = p.get("positions_mm") or p.get("positions") or []
+    if isinstance(positions, str):
+        positions = [float(x.strip()) for x in positions.replace(";", ",").split(",") if x.strip()]
+    if len(positions) < 2:
+        raise ValueError("add_grid requires positions_mm with ≥2 values")
+    labels = p.get("labels")
+    if isinstance(labels, str):
+        labels = [x.strip() for x in labels.replace(";", ",").split(",") if x.strip()]
+    cmd = AddGrid(
+        axis=str(p.get("axis") or "U"),
+        positions_mm=[float(x) for x in positions],
+        name=str(p.get("name") or ""),
+        labels=list(labels) if labels else None,
+    )
+    return cmd.apply(model)
+
+
 @register("create_assembly", description="Group elements into named assembly", mutates=True)
 def _create_assembly(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.ids import new_id

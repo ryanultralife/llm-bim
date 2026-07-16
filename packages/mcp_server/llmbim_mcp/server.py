@@ -898,6 +898,29 @@ if HAS_MCP:
         return _tool_result({"level_id": lid})
 
     @mcp.tool()
+    def grid_add(
+        project_id: str,
+        axis: str = "U",
+        positions_json: str = "[0,6000,12000]",
+        name: str = "",
+        labels_json: str = "",
+    ) -> str:
+        """Add structural grid. axis U=const X (1,2,3), V=const Y (A,B,C). positions_json mm list."""
+        import json as _json
+
+        p = store.get(project_id)
+        positions = _json.loads(positions_json)
+        labels = _json.loads(labels_json) if labels_json.strip() else None
+        gid = p.add_grid(
+            axis=axis,
+            positions_mm=[float(x) for x in positions],
+            name=name or None,
+            labels=[str(x) for x in labels] if labels else None,
+        )
+        store.save(project_id)
+        return _tool_result({"element_id": gid, "axis": axis.upper(), "count": len(positions)})
+
+    @mcp.tool()
     def demo_house() -> str:
         """Create standard simple-house demo with entry door + window."""
         pid, p = store.create("Simple House (MCP demo)")
