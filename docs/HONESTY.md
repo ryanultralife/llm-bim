@@ -8,13 +8,17 @@ That phrase described **geometry fidelity class**, not software incompleteness.
 | Claim | Status |
 |-------|--------|
 | Full agent-operated BIM for buildings, sites, and equipment | **Yes** |
+| LLM-native authoring that GUI tools cannot match | **Yes — primary moat** |
 | Accept open-ended domains via generic elements + ops | **Yes** |
 | Import DXF / IFC / STEP / CSV / JSON / scripts | **Yes** |
 | Export IFC / STEP / glTF / DXF / SVG / PDF / BOQ / ZIP | **Yes** |
+| Presentation 3D review (orbit, layers, transparency) | **Yes** (`viewer3d.html`) |
 | Builder tools (BOQ+CSI, clash, rules, phases) | **Yes** |
 | Designer tools (templates, types, notes, tags, grids) | **Yes** |
 | Extensible without core rewrite (`register` ops) | **Yes** |
 | Real program fixtures (INTEC + Proto10) end-to-end | **Yes** |
+
+We are not a Revit clone. We are the **agent-first** BIM stack: same coordination deliverables, zero drafting UI, continuous model mutation by LLMs.
 
 ## What geometry means (precision class)
 

@@ -25,8 +25,9 @@ We win on the axis GUI tools cannot easily follow:
 | Extensibility | Steep plugins | Add a command → SDK + MCP + undo free |
 | Runtime | Desktop GUI | **Headless kernel**; CI and multi-agent |
 
-**Where we defer:** full MEP routing/hydraulics, advanced structural analysis, sealed CD depth, human canvas UI.  
-**Where we already ship multi-trade data:** fire/process/plumbing catalogs, steel/rebar, fixtures, CSI takeoffs (catalog + quantities — not PE design).
+**Where we defer:** full MEP routing/hydraulics, advanced structural analysis, sealed CD depth, human *authoring* canvas.  
+**Where we already ship multi-trade data:** fire/process/plumbing catalogs, steel/rebar, fixtures, CSI takeoffs (catalog + quantities — not PE design).  
+**Where we must win visually:** presentation 3D (orbit, PBR materials, layer ghosting) that makes coordination *obvious* — not a CAD grey box.
 
 ## Design principles
 
