@@ -147,13 +147,23 @@ def branch_status() -> dict:
     return {"branch": branch, "ahead": ahead, "behind": behind, "raw": out.splitlines()[0] if out else ""}
 
 
-def run_pytest(timeout: int = 180) -> dict:
+def run_pytest(timeout: int = 300) -> dict:
+    """Unit health check. Skips slow fab BREP suite (CadQuery) so overseer stays under budget;
+    fab tests remain in CI / full ``pytest tests/unit``."""
     py = ROOT / ".venv" / "Scripts" / "python.exe"
     if not py.is_file():
         py = Path(sys.executable)
     try:
         r = subprocess.run(
-            [str(py), "-m", "pytest", "tests/unit", "-q", "--tb=line"],
+            [
+                str(py),
+                "-m",
+                "pytest",
+                "tests/unit",
+                "-q",
+                "--tb=line",
+                "--ignore=tests/unit/test_fab_brep.py",
+            ],
             cwd=ROOT,
             capture_output=True,
             text=True,
