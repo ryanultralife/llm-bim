@@ -61,6 +61,35 @@ def test_cli_place_riser_and_fitting(tmp_path: Path):
     assert any(e.category == "fitting" for e in p3.model.elements)
 
 
+def test_cli_place_note(tmp_path: Path, capsys):
+    p = Project.create("cli-note", vcs=False)
+    p.add_level("L1", 0)
+    model = tmp_path / "model.llmbim.json"
+    p.save(model)
+    rc = main(
+        [
+            "place",
+            str(model),
+            "--kind",
+            "note",
+            "--level",
+            "L1",
+            "--origin",
+            "1500,2000",
+            "--text",
+            "Fire rating TBD",
+        ]
+    )
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["kind"] == "note"
+    assert "Fire" in out["text"]
+    p2 = Project.open(model)
+    notes = [e for e in p2.model.elements if e.category == "note"]
+    assert len(notes) == 1
+    assert notes[0].params.get("text") == "Fire rating TBD"
+
+
 def test_cli_place_grid(tmp_path: Path, capsys):
     p = Project.create("cli-grid", vcs=False)
     p.add_level("L1", 0)

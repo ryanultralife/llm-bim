@@ -400,6 +400,23 @@ def _add_grid(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     return cmd.apply(model)
 
 
+@register("create_note", description="Place plan text note at position_mm", mutates=True)
+def _create_note(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.annotations import CreateNote
+
+    pos = p.get("position") or p.get("position_mm") or p.get("origin") or [0, 0]
+    text = p.get("text") or p.get("note") or ""
+    if not str(text).strip():
+        raise ValueError("create_note requires text")
+    cmd = CreateNote(
+        level=p.get("level") or model.levels[0].name,
+        text=str(text),
+        position=(float(pos[0]), float(pos[1])),
+        name=str(p.get("name") or ""),
+    )
+    return cmd.apply(model)
+
+
 @register("create_assembly", description="Group elements into named assembly", mutates=True)
 def _create_assembly(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.ids import new_id

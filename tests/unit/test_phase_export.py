@@ -76,6 +76,7 @@ def test_mcp_export_pack_and_set_phase_signatures():
     assert "def slab_create" in src
     assert "def equipment_create" in src
     assert "def grid_add" in src
+    assert "def note_create" in src
     assert "fire_rating" in src
 
 

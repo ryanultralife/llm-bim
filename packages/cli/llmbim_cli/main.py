@@ -844,6 +844,22 @@ def cmd_place(args: argparse.Namespace) -> int:
             "positions_mm": positions,
             "count": len(positions),
         }
+    elif kind == "note":
+        text = getattr(args, "text", None) or args.name
+        if not text or not str(text).strip():
+            raise SystemExit("place note requires --text 'message'")
+        eid = p.create_note(
+            level=level,
+            text=str(text),
+            position=origin,
+            name=args.name if args.name and args.name != text else None,
+        )
+        result = {
+            "element_id": eid,
+            "kind": "note",
+            "text": str(text)[:80],
+            "position_mm": list(origin),
+        }
     else:
         raise SystemExit(f"Unknown place kind: {kind}")
     # persist back to path
@@ -1188,7 +1204,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p_pl = sub.add_parser(
         "place",
-        help="Place fitting|pipe|riser|part|wall|door|window|room|slab|equipment|grid|MEP|structure",
+        help="Place fitting|pipe|riser|part|wall|door|window|room|slab|equipment|grid|note|MEP|structure",
     )
     p_pl.add_argument("path", help="Project dir or model.llmbim.json")
     p_pl.add_argument(
@@ -1213,6 +1229,7 @@ def main(argv: list[str] | None = None) -> int:
             "equipment",
             "equip",
             "grid",
+            "note",
         ],
         help="What to place",
     )
@@ -1260,6 +1277,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Grid positions mm e.g. 0,6000,12000 (or use --width spacing --offset count)",
     )
     p_pl.add_argument("--labels", default=None, help="Grid labels comma-separated e.g. 1,2,3 or A,B,C")
+    p_pl.add_argument("--text", default=None, help="Note text (place --kind note)")
     p_pl.add_argument("--nps", default=None, help='Nominal pipe size e.g. 3/4 or 2')
     p_pl.add_argument("--fitting-type", default=None, help="elbow_90 | tee | ...")
     p_pl.add_argument("--section", default=None, help="Steel section for column e.g. W10x33")

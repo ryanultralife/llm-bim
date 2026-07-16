@@ -138,6 +138,7 @@
 | 112 | continue | HTML window schedule | index doors only | windows.csv sample table in pack index | 178 unit | (this) |
 | 113 | continue | add_grid agent wiring | grids SDK/HTTP only | registry/CLI/MCP add_grid | 179 unit | (this) |
 | 114 | continue | verify doors/windows schedules | door.csv vs doors.csv mismatch | plural schedule names + verify signals | 179 unit | (this) |
+| 115 | continue | create_note agent wiring | notes SDK-only | registry/CLI/MCP create_note | 180 unit | (this) |
 
 ## Backlog (living — pull highest impact each pass)
 
@@ -281,7 +282,8 @@
 137. ~~HTML window schedule sample~~ (pass 112)
 138. ~~add_grid registry/CLI/MCP~~ (pass 113)
 139. ~~verify_pack doors/windows schedules~~ (pass 114)
-140. Keep closing residual gaps until pass 120 / 10h
+140. ~~create_note registry/CLI/MCP~~ (pass 115)
+141. Keep closing residual gaps until pass 120 / 10h
 
 ## Rules for each scheduled pass
 
