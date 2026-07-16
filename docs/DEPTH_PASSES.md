@@ -14,6 +14,7 @@ All previously deferred “next depth” items implemented on `main`.
 | **Dimension styles** | Done | Plan wall dimensions (m/mm labels) |
 | **Fab BREP + GD&T** | Done | `create_fab_part` + `fab_*` + `gdt_*`; optional `llmbim[fab]` (CadQuery/OCP) |
 | **Fab depth-2** | Done | edge selectors (`top_loop`, `index:…`), ISO-depth threads, hole patterns, revolve, multi-body assembly STEP, ortho top/front/right SVG on GD&T sheet |
+| **Fab depth-3 (all 4)** | Done | named edge/face tags (`fab_tag` → `tag:name`); ISO 60° V-thread helix sweep; assembly mates (coincident/concentric/offset); knit fab BREP into building hosts (`fab_host_to_building`) |
 
 ## Commands
 

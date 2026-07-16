@@ -180,16 +180,25 @@ def fab_cut_box(
     *,
     size_mm: list[float] | tuple[float, float, float],
     origin_mm: list[float] | tuple[float, float, float],
+    rotate_z_deg: float = 0.0,
+    rotate_deg: list[float] | tuple[float, float, float] | None = None,
+    center: bool | None = None,
 ) -> dict[str, Any]:
-    return fab_add_feature(
-        model,
-        element_id,
-        {
-            "op": "cut_box",
-            "size_mm": [float(x) for x in size_mm],
-            "origin_mm": [float(x) for x in origin_mm],
-        },
-    )
+    """Cut a rectangular pocket. ``rotate_z_deg`` places radial slots on tubes."""
+    feat: dict[str, Any] = {
+        "op": "cut_box",
+        "size_mm": [float(x) for x in size_mm],
+        "origin_mm": [float(x) for x in origin_mm],
+    }
+    if rotate_deg is not None:
+        feat["rotate_deg"] = [float(x) for x in rotate_deg]
+    if rotate_z_deg:
+        feat["rotate_z_deg"] = float(rotate_z_deg)
+    if center is not None:
+        feat["center"] = bool(center)
+    elif rotate_z_deg or rotate_deg:
+        feat["center"] = True
+    return fab_add_feature(model, element_id, feat)
 
 
 def fab_revolve(
@@ -273,18 +282,149 @@ def fab_assembly_add(
     *,
     origin_mm: list[float] | tuple[float, float, float] = (0, 0, 0),
     rotation_deg: list[float] | tuple[float, float, float] = (0, 0, 0),
+    instance_id: str | None = None,
 ) -> dict[str, Any]:
     assy = model.get_element(assembly_id)
     if assy.category != "fab_assembly":
         raise ValidationError("Not a fab_assembly", element_id=assembly_id)
     part = _fab(model, part_id)
+    iid = instance_id or f"i{len(assy.params.get('instances') or []) + 1}"
     inst = {
         "part_id": part.id,
+        "instance_id": iid,
         "origin_mm": [float(x) for x in origin_mm],
         "rotation_deg": [float(x) for x in rotation_deg],
     }
     assy.params.setdefault("instances", []).append(inst)
-    return {"assembly_id": assembly_id, "part_id": part_id, "n_instances": len(assy.params["instances"])}
+    return {
+        "assembly_id": assembly_id,
+        "part_id": part_id,
+        "instance_id": iid,
+        "n_instances": len(assy.params["instances"]),
+    }
+
+
+def fab_mate(
+    model: ProjectModel,
+    assembly_id: str,
+    *,
+    mate_type: str,
+    a: str,
+    b: str,
+    a_face: str = "top",
+    b_face: str = "bottom",
+    gap_mm: float = 0.0,
+    offset_mm: list[float] | tuple[float, float, float] | None = None,
+) -> dict[str, Any]:
+    """Add mate constraint between assembly instances (coincident/concentric/offset).
+
+    ``a`` / ``b`` are instance_id values from fab_assembly_add.
+    """
+    assy = model.get_element(assembly_id)
+    if assy.category != "fab_assembly":
+        raise ValidationError("Not a fab_assembly", element_id=assembly_id)
+    mtype = mate_type.lower().strip()
+    allowed = {
+        "coincident",
+        "stack",
+        "against",
+        "concentric",
+        "align_axis",
+        "coaxial",
+        "offset",
+        "translate",
+        "fixed",
+        "ground",
+    }
+    if mtype not in allowed:
+        raise ValidationError("unknown mate type", mate_type=mate_type, allowed=sorted(allowed))
+    mate: dict[str, Any] = {
+        "type": mtype,
+        "a": str(a),
+        "b": str(b),
+        "a_face": a_face,
+        "b_face": b_face,
+        "gap_mm": float(gap_mm),
+    }
+    if offset_mm is not None:
+        mate["offset_mm"] = [float(x) for x in offset_mm]
+    assy.params.setdefault("mates", []).append(mate)
+    return {"assembly_id": assembly_id, "mate": mate, "n_mates": len(assy.params["mates"])}
+
+
+def fab_tag(
+    model: ProjectModel,
+    element_id: str,
+    *,
+    name: str,
+    selector: str,
+    kind: str = "edges",
+) -> dict[str, Any]:
+    """Name a set of edges/faces for later fillet/chamfer (selector='tag:name')."""
+    return fab_add_feature(
+        model,
+        element_id,
+        {
+            "op": "tag",
+            "name": name,
+            "tag": name,
+            "selector": selector,
+            "kind": kind,
+        },
+    )
+
+
+def fab_host_to_building(
+    model: ProjectModel,
+    element_id: str,
+    *,
+    level: str | None = None,
+    origin_mm: list[float] | tuple[float, float, float] = (0, 0, 0),
+    z0_mm: float | None = None,
+    host_id: str | None = None,
+    rotation_deg: list[float] | tuple[float, float, float] = (0, 0, 0),
+) -> dict[str, Any]:
+    """Knit fab_part into the building: place at level/XY/Z for glTF/STEP/host link.
+
+    When ``host_id`` is set (column/equipment/wall), origin is relative to host
+    origin if available; otherwise absolute plan mm + level elevation.
+    """
+    el = _fab(model, element_id)
+    if level:
+        el.level_id = model.get_level(level).id
+    ox, oy = float(origin_mm[0]), float(origin_mm[1])
+    oz = float(origin_mm[2]) if len(origin_mm) > 2 else 0.0
+    if z0_mm is not None:
+        oz = float(z0_mm)
+    # host-relative
+    if host_id:
+        host = model.get_element(host_id)
+        el.host_id = host_id
+        ho = host.params.get("origin_mm") or host.params.get("start_mm") or [0, 0]
+        ox = float(ho[0]) + ox
+        oy = float(ho[1]) + oy
+        if host.level_id and not level:
+            el.level_id = host.level_id
+    # world Z = level elevation + oz
+    level_z = 0.0
+    if el.level_id:
+        for lv in model.levels:
+            if lv.id == el.level_id:
+                level_z = float(lv.elevation_mm)
+                break
+    world = [ox, oy, level_z + oz]
+    el.params["building_origin_mm"] = world
+    el.params["building_rotation_deg"] = [float(x) for x in rotation_deg]
+    el.params["knit"] = True
+    el.params["origin_mm"] = [ox, oy, oz]  # local placement on level
+    el.params["z0_mm"] = oz
+    return {
+        "element_id": element_id,
+        "building_origin_mm": world,
+        "host_id": host_id,
+        "level_id": el.level_id,
+        "knit": True,
+    }
 
 
 def export_fab_assembly_step(model: ProjectModel, assembly_id: str, path: str) -> dict[str, Any]:
@@ -301,10 +441,18 @@ def export_fab_assembly_step(model: ProjectModel, assembly_id: str, path: str) -
                 "features": list(part.params.get("features") or []),
                 "origin_mm": inst.get("origin_mm") or [0, 0, 0],
                 "rotation_deg": inst.get("rotation_deg") or [0, 0, 0],
+                "instance_id": inst.get("instance_id") or inst.get("part_id"),
+                "part_id": inst.get("part_id"),
             }
         )
-    out = _export(members, path)
-    return {"assembly_id": assembly_id, "path": str(out), "n_members": len(members)}
+    mates = list(assy.params.get("mates") or [])
+    out = _export(members, path, mates=mates or None)
+    return {
+        "assembly_id": assembly_id,
+        "path": str(out),
+        "n_members": len(members),
+        "n_mates": len(mates),
+    }
 
 
 def export_fab_ortho_views(model: ProjectModel, element_id: str, out_dir: str) -> dict[str, Any]:

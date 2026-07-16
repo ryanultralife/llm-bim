@@ -843,13 +843,22 @@ def _fab_thread(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@register("fab_cut_box", description="Boolean cut box pocket from fab_part", mutates=True)
+@register("fab_cut_box", description="Boolean cut box pocket from fab_part (optional rotate_z_deg)", mutates=True)
 def _fab_cut_box(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.fab import fab_cut_box
 
     size = p.get("size_mm") or p.get("size") or [10, 10, 10]
     origin = p.get("origin_mm") or p.get("origin") or [0, 0, 0]
-    return fab_cut_box(model, p["element_id"], size_mm=size, origin_mm=origin)
+    rot = p.get("rotate_deg") or p.get("rotation_deg")
+    return fab_cut_box(
+        model,
+        p["element_id"],
+        size_mm=size,
+        origin_mm=origin,
+        rotate_z_deg=float(p.get("rotate_z_deg") or 0),
+        rotate_deg=rot,
+        center=p.get("center"),
+    )
 
 
 @register("gdt_datum", description="Add GD&T datum (A/B/C) to fab_part", mutates=True)
@@ -968,6 +977,7 @@ def _fab_assembly_add(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
         p["part_id"],
         origin_mm=origin,
         rotation_deg=rot,
+        instance_id=p.get("instance_id"),
     )
 
 
@@ -985,6 +995,58 @@ def _export_fab_ortho(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
 
     out_dir = p.get("out_dir") or p.get("path") or "fab_views"
     return export_fab_ortho_views(model, p["element_id"], str(out_dir))
+
+
+@register("fab_tag", description="Name edges/faces for later fillet (selector tag:name)", mutates=True)
+def _fab_tag(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import fab_tag
+
+    return fab_tag(
+        model,
+        p["element_id"],
+        name=str(p.get("name") or p.get("tag") or "named"),
+        selector=str(p.get("selector") or "|Z"),
+        kind=str(p.get("kind") or "edges"),
+    )
+
+
+@register("fab_mate", description="Mate assembly instances (coincident/concentric/offset)", mutates=True)
+def _fab_mate(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import fab_mate
+
+    off = p.get("offset_mm") or p.get("offset")
+    return fab_mate(
+        model,
+        p.get("assembly_id") or p["element_id"],
+        mate_type=str(p.get("mate_type") or p.get("type") or "coincident"),
+        a=str(p.get("a") or p.get("instance_a") or ""),
+        b=str(p.get("b") or p.get("instance_b") or ""),
+        a_face=str(p.get("a_face") or "top"),
+        b_face=str(p.get("b_face") or "bottom"),
+        gap_mm=float(p.get("gap_mm") or 0),
+        offset_mm=off,
+    )
+
+
+@register(
+    "fab_host_to_building",
+    description="Knit fab_part into building level/host for glTF+STEP placement",
+    mutates=True,
+)
+def _fab_host_to_building(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import fab_host_to_building
+
+    origin = p.get("origin_mm") or p.get("origin") or [0, 0, 0]
+    rot = p.get("rotation_deg") or p.get("rotation") or [0, 0, 0]
+    return fab_host_to_building(
+        model,
+        p["element_id"],
+        level=p.get("level"),
+        origin_mm=origin,
+        z0_mm=float(p["z0_mm"]) if p.get("z0_mm") is not None else None,
+        host_id=p.get("host_id") or p.get("host"),
+        rotation_deg=rot,
+    )
 
 
 @register("place_flange", description="Place flange / joined material ring at a joint", mutates=True)

@@ -292,10 +292,39 @@ def _opening_solid(
         return None
 
 
+def _fab_part_envelope_solid(
+    el: Element, model: ProjectModel
+) -> tuple[list, list] | None:
+    """AABB envelope of fab_part in building mm→m (knit or local)."""
+    try:
+        from llmbim_geometry.fab_brep import estimate_feature_bbox
+
+        bb = estimate_feature_bbox(list(el.params.get("features") or []))
+        # placement
+        if el.params.get("building_origin_mm"):
+            ox, oy, oz = [float(v) for v in el.params["building_origin_mm"][:3]]
+        else:
+            o = el.params.get("origin_mm") or [0, 0, 0]
+            ox, oy = float(o[0]), float(o[1])
+            oz = _level_z(model, el.level_id) + float(el.params.get("z0_mm") or 0)
+        # bbox is local part coords; when knit, building_origin is world placement of local 0
+        x0 = (ox + float(bb["xmin"])) / 1000.0
+        x1 = (ox + float(bb["xmax"])) / 1000.0
+        y0 = (oy + float(bb["ymin"])) / 1000.0
+        y1 = (oy + float(bb["ymax"])) / 1000.0
+        z0 = (oz + float(bb["zmin"])) / 1000.0
+        z1 = (oz + float(bb["zmax"])) / 1000.0
+        return _box_corners(x0, y0, z0, x1, y1, z1), _BOX_FACES
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _step_layer(el: Element) -> str:
     """Logical layer / system token for STEP PRODUCT names (CAD tree grouping)."""
     cat = el.category or ""
     ftype = str(el.params.get("fitting_type") or "")
+    if cat == "fab_part":
+        return "FAB"
     if cat == "wall":
         return "WALL"
     if cat == "door":
@@ -449,6 +478,11 @@ def export_step(
         elif el.category in {"coil", "bolt", "flange", "joint", "fastener"}:
             # presentation envelopes via equipment solid path (origin+size)
             solid = _equipment_solid(el, model, cyl_sides=cyl_sides)
+            if solid:
+                solids.append((pname, solid[0], solid[1]))
+        elif el.category == "fab_part" and el.params.get("features"):
+            # Building-frame envelope for knit fab (true BREP also in pack fab/*.step)
+            solid = _fab_part_envelope_solid(el, model)
             if solid:
                 solids.append((pname, solid[0], solid[1]))
         elif el.category in proxy_cats:

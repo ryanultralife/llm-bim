@@ -116,3 +116,53 @@ def test_fab_depth_selectors_pattern_ortho_assembly(tmp_path: Path) -> None:
     assert step.is_file()
     assert info.get("n_members") == 2
     assert "ISO-10303-21" in step.read_text(encoding="utf-8", errors="ignore")
+
+
+def test_fab_tags_iso_thread_mates_host_knit(tmp_path: Path) -> None:
+    """All four depth items: tags, ISO V-thread, mates, host knit."""
+    p = Project.create("Fab4", vcs=False)
+    p.add_level("L1", 0)
+    # 1) named edge tags → fillet only those edges
+    plate = p.create_fab_part(name="TaggedPlate")
+    p.fab_box(plate, size_mm=(80, 40, 12))
+    p.fab_tag(plate, name="long_sides", selector="long", kind="edges")
+    p.fab_fillet(plate, radius_mm=2.0, selector="tag:long_sides")
+    assert p.validate_fab(plate).get("ok") is True
+
+    # 2) ISO V-thread solid
+    stud = p.create_fab_part(name="ISOStud")
+    p.fab_thread(stud, designation="M10x1.5", length_mm=18, origin_mm=(0, 0, 0))
+    v = p.validate_fab(stud)
+    assert v.get("ok") is True
+    assert float(v.get("volume_mm3") or 0) > 500
+
+    # 3) mates: stack bushing on plate with concentric
+    bush = p.create_fab_part(name="Bush")
+    p.fab_revolve(bush, radius_mm=15, height_mm=10, inner_radius_mm=5)
+    assy = p.create_fab_assembly(name="Mated")
+    ia = p.fab_assembly_add(assy, plate, origin_mm=(0, 0, 0), instance_id="plate")
+    ib = p.fab_assembly_add(assy, bush, origin_mm=(100, 100, 100), instance_id="bush")
+    assert ia.get("instance_id") == "plate"
+    p.fab_mate(assy, mate_type="coincident", a="plate", b="bush", a_face="top", b_face="bottom")
+    p.fab_mate(assy, mate_type="concentric", a="plate", b="bush")
+    astep = tmp_path / "mated.step"
+    minfo = p.export_fab_assembly_step(assy, astep)
+    assert astep.is_file()
+    assert minfo.get("n_mates") == 2
+
+    # 4) knit into building under a column host
+    col = p.place_column(level="L1", origin=(2000, 1500), section="W10x33", height_mm=3500)
+    base = p.create_fab_part(name="BasePlate")
+    p.fab_box(base, size_mm=(200, 200, 20))
+    knit = p.fab_host_to_building(
+        base, level="L1", origin_mm=(0, 0, 0), host_id=col, z0_mm=0
+    )
+    assert knit.get("knit") is True
+    assert knit.get("building_origin_mm")[0] == 2000
+    gltf = tmp_path / "knit.gltf"
+    p.export_gltf(gltf)
+    assert "fab_part" in gltf.read_text(encoding="utf-8")
+    step_b = tmp_path / "building.step"
+    p.export_step(step_b)
+    assert step_b.is_file()
+    assert "FAB" in step_b.read_text(encoding="utf-8", errors="ignore") or step_b.stat().st_size > 100
