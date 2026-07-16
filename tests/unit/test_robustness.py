@@ -69,7 +69,7 @@ def test_verify_pack_vision_schedule_and_view_signals(tmp_path: Path) -> None:
     p = Project.create("verify-vision", vcs=False)
     p.add_level("L1", 0)
     p.add_level("L2", 3500)
-    p.create_wall(
+    wid = p.create_wall(
         level="L1",
         start=(0, 0),
         end=(8000, 0),
@@ -77,6 +77,22 @@ def test_verify_pack_vision_schedule_and_view_signals(tmp_path: Path) -> None:
         height_mm=3500,
         type_id="W-EXT-CMU",
         fire_rating="2-hr",
+    )
+    p.place_door(
+        host=wid,
+        offset_mm=2000,
+        width_mm=900,
+        height_mm=2100,
+        type_id="D-HM-36",
+        fire_rating="90 min",
+    )
+    p.place_window(
+        host=wid,
+        offset_mm=5000,
+        width_mm=1200,
+        height_mm=900,
+        sill_mm=900,
+        type_id="WIN-VIEW",
     )
     p.place_duct(level="L1", start=(0, 1000), end=(5000, 1000), width_mm=400, height_mm=250)
     p.place_column(level="L1", origin=(2000, 2000), section="W10x33", height_mm=3500)
@@ -88,6 +104,8 @@ def test_verify_pack_vision_schedule_and_view_signals(tmp_path: Path) -> None:
     assert v.get("has_materials_package") is True
     assert v.get("has_drawing_list") is True
     assert v.get("has_levels_schedule") is True
+    assert v.get("has_doors_schedule") is True
+    assert v.get("has_windows_schedule") is True
     assert v.get("has_index_html") is True
     assert v.get("has_elev_dxf") is True
     assert v.get("has_section_dxf") is True
@@ -99,3 +117,5 @@ def test_verify_pack_vision_schedule_and_view_signals(tmp_path: Path) -> None:
     # HTML documents new locator tokens
     html = (out / "index.html").read_text(encoding="utf-8")
     assert "FR" in html and "SYS" in html
+    assert "Door schedule" in html or "doors.csv" in html
+    assert "Window schedule" in html or "windows.csv" in html

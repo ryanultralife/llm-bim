@@ -122,6 +122,8 @@ def verify_pack(
         "schedules/connections.csv",
         "schedules/levels.csv",
         "schedules/drawing_list.csv",
+        "schedules/doors.csv",
+        "schedules/windows.csv",
         "schedules/duct.csv",
         "schedules/conduit.csv",
         "schedules/cable_tray.csv",
@@ -134,6 +136,12 @@ def verify_pack(
             checks["files"][rel] = {"size": p.stat().st_size, "ok": True}
     checks["has_drawing_list"] = (out / "schedules" / "drawing_list.csv").is_file()
     checks["has_levels_schedule"] = (out / "schedules" / "levels.csv").is_file()
+    checks["has_doors_schedule"] = (out / "schedules" / "doors.csv").is_file() or (
+        out / "schedules" / "door.csv"
+    ).is_file()
+    checks["has_windows_schedule"] = (out / "schedules" / "windows.csv").is_file() or (
+        out / "schedules" / "window.csv"
+    ).is_file()
     checks["has_index_html"] = (out / "index.html").is_file()
 
     # multi-trade materials takeoff signals
@@ -326,7 +334,19 @@ def export_deliverables(
                     else (
                         "cable_tray.csv"
                         if kind == "cable_tray"
-                        else ("levels.csv" if kind == "level" else f"{kind}.csv")
+                        else (
+                            "levels.csv"
+                            if kind == "level"
+                            else (
+                                "doors.csv"
+                                if kind == "door"
+                                else (
+                                    "windows.csv"
+                                    if kind == "window"
+                                    else f"{kind}.csv"
+                                )
+                            )
+                        )
                     )
                 )
             )

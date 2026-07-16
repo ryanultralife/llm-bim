@@ -81,6 +81,7 @@ Project.export_deliverables(out_dir)
 → boq.json · clash_report.json · design_rules.json
 → index.html (CSI/zone/connections/drawing list/**door+window schedules**/rules samples)
 → deliverables.zip · MANIFEST.json · VERIFY.json
+  (verify_pack: has_doors_schedule / has_windows_schedule + elev/section DXF + materials)
 ```
 
 ## Modules / blocks / machines
