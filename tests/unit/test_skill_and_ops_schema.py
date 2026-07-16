@@ -74,6 +74,8 @@ def test_registry_create_wall_place_door_window() -> None:
     assert "create_equipment_box" in names
     assert "add_grid" in names
     assert "create_note" in names
+    assert "set_type" in names
+    assert "set_phase" in names
 
     p = Project.create("reg-open", vcs=False)
     p.add_level("L1", 0)
@@ -178,3 +180,11 @@ def test_registry_create_wall_place_door_window() -> None:
     )
     assert note.get("element_id")
     assert any(e.category == "note" for e in p.model.elements)
+
+    # set_type / set_phase registry ops
+    st = dispatch(p.model, "set_type", {"id": host, "type_id": "W-INT-GYP"})
+    assert st.get("type_id") == "W-INT-GYP"
+    assert p.model.get_element(host).type_id == "W-INT-GYP"
+    sp = dispatch(p.model, "set_phase", {"id": host, "phase": "existing"})
+    assert sp.get("phase") == "existing"
+    assert p.model.get_element(host).params.get("phase") == "existing"

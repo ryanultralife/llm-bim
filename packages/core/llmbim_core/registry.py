@@ -417,6 +417,35 @@ def _create_note(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     return cmd.apply(model)
 
 
+@register("set_type", description="Set element type_id (wall/door marks; may sync thickness)", mutates=True)
+def _set_type(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.annotations import SetElementType
+
+    eid = p.get("id") or p.get("element_id") or p.get("host")
+    type_id = p.get("type_id") or p.get("type")
+    if not eid or not type_id:
+        raise ValueError("set_type requires id + type_id")
+    return SetElementType(element_id=str(eid), type_id=str(type_id)).apply(model)
+
+
+@register(
+    "set_phase",
+    description="Set element phase new|existing|demo|temp (pack phase filters)",
+    mutates=True,
+)
+def _set_phase(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.annotations import SetElementPhase
+
+    eid = p.get("id") or p.get("element_id") or p.get("host")
+    phase = p.get("phase") or "new"
+    if not eid:
+        raise ValueError("set_phase requires id")
+    allowed = {"new", "existing", "demo", "temp"}
+    if str(phase) not in allowed:
+        raise ValueError(f"phase must be one of {sorted(allowed)}")
+    return SetElementPhase(element_id=str(eid), phase=str(phase)).apply(model)
+
+
 @register("create_assembly", description="Group elements into named assembly", mutates=True)
 def _create_assembly(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.ids import new_id

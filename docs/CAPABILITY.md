@@ -57,6 +57,7 @@ JSON · IFC · glTF · STEP · SVG sheets · DXF · PDF plot set · BOQ (CSI) ·
 | Place equipment | `p.create_equipment_box` · op `create_equipment_box` · MCP `equipment_create` · CLI `place --kind equipment` |
 | Place grid | `p.add_grid` · op `add_grid` · MCP `grid_add` · CLI `place --kind grid` |
 | Place note | `p.create_note` · op `create_note` · MCP `note_create` · CLI `place --kind note --text` |
+| Set type / phase | `p.set_type` · `p.set_phase` · ops `set_type`/`set_phase` · MCP `set_type`/`set_phase` |
 | Count 90° copper by size | `p.fitting_takeoff(fitting_type="elbow_90", material="copper")` |
 | MEP takeoffs | `p.duct_takeoff()` · `conduit_takeoff()` · `cable_tray_takeoff()` · ops |
 | Schedules | `p.schedule("column")` · zone · duct · cable_tray · csi · door |
@@ -64,7 +65,7 @@ JSON · IFC · glTF · STEP · SVG sheets · DXF · PDF plot set · BOQ (CSI) ·
 | Export lists | `p.export_material_lists()` / pack `materials/` |
 | Verify pack | `p.verify_pack(out)` / MCP `project_verify_pack` |
 
-Ops: `create_wall`/`place_door`/`place_window`/`create_room`/`create_slab`/`create_equipment_box`/`add_grid`/`create_note`, `place_duct/conduit/cable_tray/column/beam`, takeoffs, `csi_takeoff`, `export_pack`, …
+Ops: `create_wall`/`place_door`/`place_window`/`create_room`/`create_slab`/`create_equipment_box`/`add_grid`/`create_note`/`set_type`/`set_phase`, `place_duct/conduit/cable_tray/column/beam`, takeoffs, `csi_takeoff`, `export_pack`, …
 
 ### Trade catalogs (~430 parts)
 
