@@ -832,7 +832,21 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
                 from llmbim_geometry.fab_brep import HAS_CADQUERY, tessellate_features
 
                 if HAS_CADQUERY:
-                    pos, nrm, indices = tessellate_features(list(el.params.get("features") or []))
+                    # knit into building: world origin (level Z included when host knit)
+                    b_origin = el.params.get("building_origin_mm")
+                    if b_origin is None and el.params.get("knit"):
+                        oz = float(el.params.get("z0_mm") or 0)
+                        o = el.params.get("origin_mm") or [0, 0, 0]
+                        b_origin = [
+                            float(o[0]),
+                            float(o[1]),
+                            _level_z(model, el.level_id) + oz,
+                        ]
+                    pos, nrm, indices = tessellate_features(
+                        list(el.params.get("features") or []),
+                        origin_mm=b_origin,
+                        rotation_deg=el.params.get("building_rotation_deg"),
+                    )
                 else:
                     pos, nrm, indices = [], [], []
             except Exception:  # noqa: BLE001

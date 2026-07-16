@@ -1269,6 +1269,29 @@ class Project:
             kw["depth_mm"] = depth_mm
         return self.op("fab_hole", **kw)
 
+    def fab_cut_box(
+        self,
+        element_id: str,
+        size_mm: tuple[float, float, float],
+        origin_mm: tuple[float, float, float],
+        *,
+        rotate_z_deg: float = 0.0,
+        rotate_deg: tuple[float, float, float] | None = None,
+        center: bool | None = None,
+    ) -> dict[str, Any]:
+        """Boolean pocket cut; use ``rotate_z_deg`` for radial slots on a tube."""
+        kw: dict[str, Any] = {
+            "element_id": element_id,
+            "size_mm": list(size_mm),
+            "origin_mm": list(origin_mm),
+            "rotate_z_deg": rotate_z_deg,
+        }
+        if rotate_deg is not None:
+            kw["rotate_deg"] = list(rotate_deg)
+        if center is not None:
+            kw["center"] = center
+        return self.op("fab_cut_box", **kw)
+
     def fab_fillet(
         self, element_id: str, *, radius_mm: float, selector: str = "|Z"
     ) -> dict[str, Any]:
@@ -1412,6 +1435,52 @@ class Project:
         r = self.op("create_fab_assembly", name=name, level=level)
         return str(r["element_id"])
 
+    def export_fab_assembly_step(self, assembly_id: str, path: str | Path) -> dict[str, Any]:
+        return self.op("export_fab_assembly_step", assembly_id=assembly_id, path=str(path))
+
+    def export_fab_ortho(self, element_id: str, out_dir: str | Path) -> dict[str, Any]:
+        """Write top/front/right SVG orthographics for a fab_part."""
+        return self.op("export_fab_ortho", element_id=element_id, out_dir=str(out_dir))
+
+    def fab_tag(
+        self,
+        element_id: str,
+        *,
+        name: str,
+        selector: str,
+        kind: str = "edges",
+    ) -> dict[str, Any]:
+        """Name edges/faces; later fillet with selector='tag:name'."""
+        return self.op(
+            "fab_tag", element_id=element_id, name=name, selector=selector, kind=kind
+        )
+
+    def fab_mate(
+        self,
+        assembly_id: str,
+        *,
+        mate_type: str,
+        a: str,
+        b: str,
+        a_face: str = "top",
+        b_face: str = "bottom",
+        gap_mm: float = 0.0,
+        offset_mm: tuple[float, float, float] | None = None,
+    ) -> dict[str, Any]:
+        """Mate assembly instances: coincident | concentric | offset."""
+        kw: dict[str, Any] = {
+            "assembly_id": assembly_id,
+            "mate_type": mate_type,
+            "a": a,
+            "b": b,
+            "a_face": a_face,
+            "b_face": b_face,
+            "gap_mm": gap_mm,
+        }
+        if offset_mm is not None:
+            kw["offset_mm"] = list(offset_mm)
+        return self.op("fab_mate", **kw)
+
     def fab_assembly_add(
         self,
         assembly_id: str,
@@ -1419,6 +1488,7 @@ class Project:
         *,
         origin_mm: tuple[float, float, float] = (0.0, 0.0, 0.0),
         rotation_deg: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        instance_id: str | None = None,
     ) -> dict[str, Any]:
         return self.op(
             "fab_assembly_add",
@@ -1426,14 +1496,30 @@ class Project:
             part_id=part_id,
             origin_mm=list(origin_mm),
             rotation_deg=list(rotation_deg),
+            instance_id=instance_id,
         )
 
-    def export_fab_assembly_step(self, assembly_id: str, path: str | Path) -> dict[str, Any]:
-        return self.op("export_fab_assembly_step", assembly_id=assembly_id, path=str(path))
-
-    def export_fab_ortho(self, element_id: str, out_dir: str | Path) -> dict[str, Any]:
-        """Write top/front/right SVG orthographics for a fab_part."""
-        return self.op("export_fab_ortho", element_id=element_id, out_dir=str(out_dir))
+    def fab_host_to_building(
+        self,
+        element_id: str,
+        *,
+        level: str | None = None,
+        origin_mm: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        z0_mm: float | None = None,
+        host_id: str | None = None,
+        rotation_deg: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    ) -> dict[str, Any]:
+        """Place fab BREP into the building (level/host) for glTF + model.step envelope."""
+        kw: dict[str, Any] = {
+            "element_id": element_id,
+            "level": level,
+            "origin_mm": list(origin_mm),
+            "host_id": host_id,
+            "rotation_deg": list(rotation_deg),
+        }
+        if z0_mm is not None:
+            kw["z0_mm"] = z0_mm
+        return self.op("fab_host_to_building", **kw)
 
     def export_construction_set(
         self, out_dir: str | Path, *, plan_level: str | None = None, plan_scale: float = 0.02
