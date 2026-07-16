@@ -688,6 +688,82 @@ def _place_cable_tray(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+@register("place_wire", description="Place thin wire/conductor run start→end", mutates=True)
+def _place_wire(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import place_wire
+
+    start = p.get("start") or p.get("start_mm") or [0, 0]
+    end = p.get("end") or p.get("end_mm") or [1000, 0]
+    return place_wire(
+        model,
+        level=p.get("level") or model.levels[0].name,
+        start=start,
+        end=end,
+        diameter_mm=float(p.get("diameter_mm") or p.get("wire_d_mm") or 6),
+        name=p.get("name"),
+        material_id=p.get("material_id") or p.get("material") or "copper",
+        system_tag=p.get("system") or "PWR",
+        z0_mm=float(p.get("z0_mm") or 2900),
+    )
+
+
+@register("place_coil", description="Place helical coil (wound conductor / spring)", mutates=True)
+def _place_coil(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import place_coil
+
+    origin = p.get("origin") or p.get("origin_mm") or [0, 0]
+    return place_coil(
+        model,
+        level=p.get("level") or model.levels[0].name,
+        origin=origin,
+        coil_radius_mm=float(p.get("coil_radius_mm") or p.get("radius_mm") or 80),
+        tube_radius_mm=float(p.get("tube_radius_mm") or 8),
+        turns=float(p.get("turns") or 6),
+        pitch_mm=float(p.get("pitch_mm") or 24),
+        name=p.get("name"),
+        material_id=p.get("material_id") or p.get("material") or "copper",
+        system_tag=p.get("system") or "PROC",
+        z0_mm=float(p.get("z0_mm") or 1000),
+        orientation=str(p.get("orientation") or p.get("axis") or "vertical"),
+    )
+
+
+@register("place_bolt", description="Place structural bolt (hex head + shank)", mutates=True)
+def _place_bolt(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import place_bolt
+
+    origin = p.get("origin") or p.get("origin_mm") or [0, 0]
+    return place_bolt(
+        model,
+        level=p.get("level") or model.levels[0].name,
+        origin=origin,
+        shank_d_mm=float(p.get("shank_d_mm") or p.get("diameter_mm") or 20),
+        shank_len_mm=float(p.get("shank_len_mm") or p.get("length_mm") or 60),
+        grade=str(p.get("grade") or "A325"),
+        name=p.get("name"),
+        z0_mm=float(p.get("z0_mm") or 0),
+        orientation=str(p.get("orientation") or "vertical"),
+    )
+
+
+@register("place_flange", description="Place flange / joined material ring at a joint", mutates=True)
+def _place_flange(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import place_flange
+
+    origin = p.get("origin") or p.get("origin_mm") or [0, 0]
+    return place_flange(
+        model,
+        level=p.get("level") or model.levels[0].name,
+        origin=origin,
+        od_mm=float(p.get("od_mm") or p.get("diameter_mm") or 150),
+        thickness_mm=float(p.get("thickness_mm") or 18),
+        name=p.get("name"),
+        material_id=p.get("material_id") or p.get("material") or "steel_A36",
+        system_tag=p.get("system") or "PROC",
+        z0_mm=float(p.get("z0_mm") or 1000),
+    )
+
+
 @register("place_column", description="Place structural steel column (W/HSS section)", mutates=True)
 def _place_column(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.assignment import place_column

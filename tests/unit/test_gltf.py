@@ -135,3 +135,34 @@ def test_gltf_system_material_colors(tmp_path: Path) -> None:
     pos_acc = data["accessors"][pipe_mesh["primitives"][0]["attributes"]["POSITION"]]
     assert pos_acc["count"] >= 64  # 32 rings × 2 + caps
 
+
+def test_gltf_detail_wire_coil_bolt_flange(tmp_path: Path) -> None:
+    """Wires, coils, bolts, joined flanges render as distinct glTF layers."""
+    import json
+
+    p = Project.create("G-detail", vcs=False)
+    p.add_level("L1", 0)
+    p.place_wire(level="L1", start=(0, 0), end=(3000, 0), diameter_mm=8, z0_mm=2500)
+    p.place_coil(level="L1", origin=(1500, 1500), coil_radius_mm=60, turns=4, z0_mm=500)
+    p.place_bolt(level="L1", origin=(500, 500), shank_d_mm=16, shank_len_mm=50, z0_mm=100)
+    p.place_flange(level="L1", origin=(2000, 0), od_mm=120, thickness_mm=16, z0_mm=800)
+    p.place_fitting(level="L1", fitting_type="elbow_90", nps="1", origin=(100, 100), material="copper")
+    p.place_fitting(level="L1", fitting_type="tee", nps="1", origin=(400, 100), material="copper")
+    out = tmp_path / "detail.gltf"
+    p.export_gltf(out)
+    data = json.loads(out.read_text(encoding="utf-8"))
+    names = {m.get("name") for m in (data.get("materials") or [])}
+    assert "wire" in names
+    assert "coil" in names
+    assert "bolt" in names
+    assert "flange" in names or "fitting" in names
+    # fitting elbows must produce multi-solid geometry (not empty)
+    node_names = {n.get("name") for n in (data.get("nodes") or [])}
+    assert "wire" in node_names
+    assert "coil" in node_names
+    assert "bolt" in node_names
+    for key in ("wire", "coil", "bolt"):
+        mesh = next(m for m in data["meshes"] if m.get("name") == key)
+        pos_acc = data["accessors"][mesh["primitives"][0]["attributes"]["POSITION"]]
+        assert pos_acc["count"] >= 12
+

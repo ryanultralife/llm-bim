@@ -17,7 +17,7 @@
 |-------------|--------|--------|--------|
 | Semantic BIM model | `.llmbim.json` | ✅ | `llmbim_core` |
 | Industry BIM interchange | IFC4 `.ifc` | ✅ walls/slabs/**IfcDoor/IfcWindow @ host** + **IfcSpace** + **IfcColumn/IfcBeam** + FlowSegment/Fitting + SpaceContents + Pset_CSIMasterFormat | `llmbim_ifc` |
-| 3D review mesh | glTF | ✅ walls + **doors/windows** + equipment + MEP + **per-layer nodes** + system colors | `llmbim_geometry.mesh` |
+| 3D review mesh | glTF | ✅ walls + openings + MEP + structure + **wire/coil/bolt/flange** + detailed fittings + **per-layer PBR** | `llmbim_geometry.mesh` |
 | 3D studio viewer | HTML | ✅ pan/tilt/zoom + **section cut plane** + **cinematic bloom/ACES** + **Imagine sky/floor** + layer opacity (walls ghosted) | `viewer3d.html` / `write_viewer_3d` |
 | 3D solid exchange | STEP AP203 | ✅ boxes/cylinders + MEP + **DOOR/WINDOW** + **LAYER:name** PRODUCT tags (PIPE-CU/FP/DUCT/…) | `llmbim_geometry.step_export` |
 | Floor plan | SVG | ✅ walls + openings + equip + **pipes/fittings/fixtures + riser circles + ducts** | `llmbim_drawings.plan` |
