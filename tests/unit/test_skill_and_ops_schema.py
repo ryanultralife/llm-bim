@@ -36,6 +36,10 @@ def test_skill_files_exist() -> None:
     assert "create_wall" in batch
     skill = (root / "skills" / "llm-bim" / "SKILL.md").read_text(encoding="utf-8")
     assert "fire_rating=90_min" in skill
+    assert "create_equipment_box" in skill or "place --kind equipment" in skill
+    assert "set_type" in skill and "set_phase" in skill
+    assert "doors.csv" in skill or "has_doors_schedule" in skill
+    assert "place --kind grid" in skill or "add_grid" in skill
 
 
 def test_assembly_op() -> None:

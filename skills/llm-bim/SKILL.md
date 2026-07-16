@@ -86,11 +86,18 @@ p.create_wall(level="L1", start=(0,0), end=(40,0), thickness=0.67, height=10, un
 w = p.create_wall(level="L1", start=(0,0), end=(8000,0), thickness_mm=200, height_mm=3000)
 p.place_door(host=w, offset_mm=2000, width_mm=900, height_mm=2100, type_id="D-HM-36", fire_rating="90 min")
 p.place_window(host=w, offset_mm=5000, width_mm=1200, height_mm=900, sill_mm=900, type_id="WIN-VIEW")
+p.create_slab(level="L1", polygon=[(0,0),(12000,0),(12000,9000),(0,9000)], thickness_mm=200)
+p.create_room(level="L1", name="Hall", boundary=[(0,0),(12000,0),(12000,9000),(0,9000)], height_mm=3500)
+p.add_grid(axis="U", positions_mm=[0,6000,12000], labels=["1","2","3"])
+p.create_equipment_box(level="L1", origin=(5000,4000), size=(2000,1000,1500), name="AHU-1", kind="ahu", centered=True)
 p.create_rect_shell(level="L1", x=0, y=0, w=12000, d=9000, height_mm=3500, thickness_mm=200, name_prefix="B")
-p.set_type(wall_id, "W-EXT-CMU")  # W-INT-GYP | W-SHIELD-CONC
+p.set_type(w, "W-EXT-CMU")  # W-INT-GYP | W-SHIELD-CONC — also op set_type / MCP set_type
+p.set_phase(w, "new")       # new|existing|demo|temp — pack --phases filter
 p.create_note(level="L1", text="Fire rating TBD", position=(1000, 1000))
 p.export_deliverables("out/pack")
-# openings also: MCP place_door/place_window · CLI place --kind wall|door|window · ops create_wall/place_door/place_window
+# agents: MCP place_door/window · room_create · slab_create · equipment_create · grid_add · note_create · set_type/set_phase
+# CLI: place --kind wall|door|window|room|slab|equipment|grid|note
+# ops: create_wall/place_door/place_window/create_room/create_slab/create_equipment_box/add_grid/create_note/set_type/set_phase
 ```
 
 ### C. Import whatever the user has
@@ -136,6 +143,9 @@ llmbim op stats --path model.llmbim.json
 ```python
 p.op("create_generic", category="duct", level="L1", name="SA-1", params={"diameter_mm": 600})
 p.op("set_param", id=eid, key="fire_rating", value="2-hr")
+p.op("set_type", id=wall_id, type_id="W-EXT-CMU")
+p.op("set_phase", id=wall_id, phase="existing")
+p.op("create_note", level="L1", text="See A-501", position=[1000, 1000])
 p.repair()
 ```
 
@@ -261,11 +271,19 @@ llmbim place model --kind riser --origin 4000,0 --to-level L2 --nps 2
 llmbim place model --kind wall --origin 0,0 --end 8000,0 --width 200 --height 3000 --fire-rating 2-hr
 llmbim place model --kind door --host <wall_id> --offset 2000 --width 900 --height 2100 --type-id D-HM-36 --fire-rating "90 min"
 llmbim place model --kind window --host <wall_id> --offset 5000 --sill 900 --type-id WIN-VIEW
+llmbim place model --kind room --origin 0,0 --end 8000,6000 --name Office --height 2700
+llmbim place model --kind slab --origin 0,0 --end 8000,6000 --width 200
+llmbim place model --kind equipment --origin 2000,2000 --size 1200,800,1500 --name Skid --part-kind shell
+llmbim place model --kind grid --axis U --positions 0,6000,12000 --labels 1,2,3
+llmbim place model --kind note --origin 500,500 --text "Coordination note"
+llmbim op set_type --path model --id <wall_id> --params '{"type_id":"W-EXT-CMU"}'
 llmbim takeoff model --kind duct
 llmbim takeoff model --kind conduit
 llmbim takeoff model --kind cable_tray
 llmbim schedule model --kind hvac_device
+llmbim schedule model --kind door
 llmbim query model "csi~26_05"
+llmbim verify output/pack --require-materials
 ```
 
 ### J. Modules / blocks / machines (import into one another)
@@ -327,10 +345,11 @@ llmbim script build.py --pack out/gen
 - `model.llmbim.json` — source of truth  
 - `model.ifc` · `model.step` · `model.gltf`  
 - `construction/` or `parts/` SVG sheets + `PLOT_SET.pdf`  
-- `views/*.dxf` · `boq.json` (CSI) · `clash_report.json` · `design_rules.json`  
-- `materials/` — assignments, exploded BOM, **fitting_takeoff**, pipe_takeoff  
-- `schedules/plumbing_takeoff.json` · fitting/pipe/part/material CSVs  
-- `index.html` · `deliverables.zip` · `MANIFEST.json`  
+- `views/*.dxf` (plan/elev/section) · `boq.json` (CSI) · `clash_report.json` · `design_rules.json`  
+- `materials/` — assignments, exploded BOM, **fitting/pipe/duct/conduit/steel/csi** takeoffs  
+- `schedules/` — doors.csv · windows.csv · levels · drawing_list · duct · column · CSI · zone_areas  
+- `index.html` (door/window schedule samples) · `deliverables.zip` · `MANIFEST.json` · `VERIFY.json`  
+- `verify_pack`: has_doors_schedule · has_windows_schedule · elev/section DXF · materials package  
 
 ## Wall types (catalog)
 
