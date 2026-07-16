@@ -343,14 +343,24 @@ function applyLayerStyle(name) {
     if (ghostWalls && (name === 'wall' || name === 'slab')) {
       op = Math.min(op, name === 'wall' ? WALL_GHOST : 0.32);
     }
+    // Ghost mode: walls + outer machine shells (see internals). Off by default.
+    const equipGhost = (
+      name === 'equip_shell' || name === 'equip_yoke' || name === 'equip_cartridge'
+      || name === 'equip_step_ref' || name === 'equipment'
+    );
+    if (ghostWalls && equipGhost) {
+      op = Math.min(op, name === 'equip_shell' || name === 'equip_step_ref' ? 0.22 : 0.35);
+    }
     // Preserve PBR from glTF; only adjust transparency when user ghosts / slides opacity
     const opaque = op >= 0.995 && !isGlass;
     mat.transparent = !opaque;
-    mat.opacity = isGlass ? Math.min(op, 0.55) : Math.max(0.03, Math.min(1, op));
+    mat.opacity = isGlass ? Math.min(op, 0.55) : Math.max(0.05, Math.min(1, op));
     // Solid layers must depth-write so meshes occlude correctly
-    mat.depthWrite = opaque || (op > 0.9 && !isGlass);
+    mat.depthWrite = opaque || (op > 0.85 && !isGlass);
     mat.depthTest = true;
-    mat.side = (mat.transparent || isGlass) ? THREE.DoubleSide : THREE.FrontSide;
+    // DoubleSide for thin tubes/shells so hollow rings don't disappear when viewed from inside
+    const tubeLike = name.startsWith('equip_') || name.startsWith('pipe') || name === 'conduit' || name === 'coil' || name === 'wire';
+    mat.side = (mat.transparent || isGlass || tubeLike) ? THREE.DoubleSide : THREE.FrontSide;
     // Metal layers pick up studio env
     if (mat.envMapIntensity !== undefined) {
       const metal = mat.metalness ?? 0;
