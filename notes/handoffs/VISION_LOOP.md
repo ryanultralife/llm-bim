@@ -318,6 +318,14 @@
 
 Further scheduled vision-loop fires should **stop** (pass_count ≥ 120). Overseer may still health-check.
 
+### Post-budget fire log
+
+| When | Action |
+|------|--------|
+| post-120 (3D studio ship `ccfcf0a` already on main) | Pass count ≥ 120 — **no code changes**; loop remains FINAL |
+| post-120 (mesh fidelity `face60f` on main) | Pass count ≥ 120 — **no code changes**; loop remains FINAL |
+| post-120 (detail mesh `059ec05` on main) | Pass count ≥ 120 — **no code changes**; loop remains FINAL |
+
 ## Rules for each scheduled pass
 
 1. Read this file + `docs/VISION.md` + `docs/CAPABILITY.md` + `docs/OUTPUT_MATRIX.md`

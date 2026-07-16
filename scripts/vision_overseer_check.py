@@ -221,8 +221,8 @@ def assess(include_pytest: bool) -> dict:
 
     if dirty:
         notes.append("Working tree has uncommitted changes")
-        # not always an issue — mid-pass is ok
-        if mins is not None and mins > 20:
+        # not always an issue — mid-pass is ok; ignore after budget (pass ≥ 120)
+        if mins is not None and mins > 20 and not done:
             issues.append("Dirty tree with no recent vision commit — possible abandoned pass")
             actions.append("Finish or stash WIP; commit if tests green")
 
