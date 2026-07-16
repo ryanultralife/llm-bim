@@ -196,9 +196,11 @@ def write_pack_index(out_dir: str | Path) -> Path:
         except Exception:  # noqa: BLE001
             draw_preview = ""
 
-    # door schedule sample (type + fire rating)
+    # door schedule sample (type + fire rating) — doors.csv preferred, door.csv legacy
     door_preview = ""
     door_path = out / "schedules" / "doors.csv"
+    if not door_path.is_file():
+        door_path = out / "schedules" / "door.csv"
     if door_path.is_file():
         try:
             import csv
@@ -218,10 +220,11 @@ def write_pack_index(out_dir: str | Path) -> Path:
                     "</tr>"
                 )
             if lines:
+                href = door_path.name
                 door_preview = (
                     "<h2>Door schedule (sample)</h2>"
                     "<p>Type marks + fire rating. Full: "
-                    "<a href=\"schedules/doors.csv\">doors.csv</a></p>"
+                    f"<a href=\"schedules/{href}\">{href}</a></p>"
                     "<table><tr><th>Name</th><th>Type</th><th>FR</th>"
                     "<th>W</th><th>H</th><th>Locator</th></tr>"
                     + "".join(lines)
@@ -230,9 +233,11 @@ def write_pack_index(out_dir: str | Path) -> Path:
         except Exception:  # noqa: BLE001
             door_preview = ""
 
-    # window schedule sample (type + sill)
+    # window schedule sample (type + sill) — windows.csv preferred, window.csv legacy
     window_preview = ""
     window_path = out / "schedules" / "windows.csv"
+    if not window_path.is_file():
+        window_path = out / "schedules" / "window.csv"
     if window_path.is_file():
         try:
             import csv
@@ -252,10 +257,11 @@ def write_pack_index(out_dir: str | Path) -> Path:
                     "</tr>"
                 )
             if lines:
+                href = window_path.name
                 window_preview = (
                     "<h2>Window schedule (sample)</h2>"
                     "<p>Type marks + sill height. Full: "
-                    "<a href=\"schedules/windows.csv\">windows.csv</a></p>"
+                    f"<a href=\"schedules/{href}\">{href}</a></p>"
                     "<table><tr><th>Name</th><th>Type</th>"
                     "<th>W</th><th>H</th><th>Sill</th><th>Locator</th></tr>"
                     + "".join(lines)
