@@ -340,10 +340,12 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
             mat_keys.append(key)
     materials = []
     for key in mat_keys:
-        rgba = _MATERIAL_RGBA.get(key, _MATERIAL_RGBA["default"])
+        rgba = list(_MATERIAL_RGBA.get(key, _MATERIAL_RGBA["default"]))
         materials.append(
             {
                 "name": key,
+                "doubleSided": True,
+                "alphaMode": "BLEND",
                 "pbrMetallicRoughness": {
                     "baseColorFactor": rgba,
                     "metallicFactor": 0.1,
@@ -375,7 +377,9 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
             "min": [min_x, min_y, min_z],
         }
     ]
-    primitives: list[dict] = []
+    # One mesh + node per layer so 3D viewers can toggle walls/MEP independently
+    meshes: list[dict] = []
+    nodes: list[dict] = []
     for key, pos_start, n_verts, idx_start, n_idx in prim_meta:
         pslice = all_pos[pos_start : pos_start + n_verts * 3]
         pos_acc = len(accessors)
@@ -400,14 +404,21 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
                 "type": "SCALAR",
             }
         )
-        primitives.append(
+        mesh_i = len(meshes)
+        meshes.append(
             {
-                "attributes": {"POSITION": pos_acc},
-                "indices": idx_acc,
-                "mode": 4,
-                "material": mat_index[key],
+                "name": key,
+                "primitives": [
+                    {
+                        "attributes": {"POSITION": pos_acc},
+                        "indices": idx_acc,
+                        "mode": 4,
+                        "material": mat_index[key],
+                    }
+                ],
             }
         )
+        nodes.append({"mesh": mesh_i, "name": key})
 
     gltf = {
         "asset": {"version": "2.0", "generator": "llm-bim"},
@@ -415,12 +426,13 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
         "bufferViews": buffer_views,
         "accessors": accessors,
         "materials": materials,
-        "meshes": [{"name": "llm-bim-model", "primitives": primitives}],
-        "nodes": [{"mesh": 0, "name": model.name}],
-        "scenes": [{"nodes": [0]}],
+        "meshes": meshes,
+        "nodes": nodes,
+        "scenes": [{"nodes": list(range(len(nodes))), "name": model.name or "llm-bim"}],
         "scene": 0,
         "extras": {
             "material_legend": {k: _MATERIAL_RGBA.get(k) for k in mat_keys},
+            "layer_names": list(mat_keys),
             "honesty": "ENGINEERING ESTIMATE coordination colors — not fabrication materials",
         },
     }

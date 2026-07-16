@@ -1065,6 +1065,18 @@ class Project:
 
         export_gltf_walls(self._model, path)
 
+    def export_viewer_3d(self, out_dir: str | Path, *, embed: bool = True) -> Path | None:
+        """Write model.gltf (if missing) + viewer3d.html orbit review with layer opacity toggles."""
+        from llmbim_drawings.viewer3d import write_viewer_3d
+        from llmbim_geometry.mesh import export_gltf_walls
+
+        out = Path(out_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        gltf = out / "model.gltf"
+        if not gltf.is_file():
+            export_gltf_walls(self._model, gltf)
+        return write_viewer_3d(out, embed=embed)
+
     def validate(self) -> list[dict[str, Any]]:
         from llmbim_core.validate import validate_model
 

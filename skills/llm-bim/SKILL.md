@@ -349,7 +349,8 @@ llmbim script build.py --pack out/gen
 - `views/*.dxf` (plan/elev/section) · `boq.json` (CSI) · `clash_report.json` · `design_rules.json`  
 - `materials/` — assignments, exploded BOM, **fitting/pipe/duct/conduit/steel/csi** takeoffs  
 - `schedules/` — doors.csv · windows.csv · levels · drawing_list · duct · column · CSI · zone_areas  
-- `index.html` (door/window schedule samples) · `deliverables.zip` · `MANIFEST.json` · `VERIFY.json`  
+- `index.html` (door/window schedule samples) · **`viewer3d.html`** (orbit pan/tilt/zoom + layer opacity)  
+- `deliverables.zip` · `MANIFEST.json` · `VERIFY.json`  
 - `verify_pack`: has_doors_schedule · has_windows_schedule · elev/section DXF · materials package  
 
 ## Wall types (catalog)
