@@ -231,6 +231,16 @@
       }
     },
     {
+      "name": "create_rect_shell",
+      "description": "Create four walls of a rectangular shell (x,y,w,d,height_mm)",
+      "mutates": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Op-specific parameters (see description)"
+      }
+    },
+    {
       "name": "create_room",
       "description": "Create room space from boundary polygon (mm)",
       "mutates": true,

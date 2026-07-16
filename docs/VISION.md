@@ -50,7 +50,7 @@ We win on the axis GUI tools cannot easily follow:
 - **M1 — Agent bridge** ✅: ops registry, MCP, CLI, SDK, skill pack, query language, scripts/bulk.
 - **M2 — Documentation** ✅: plans/sections/elevations SVG, construction sheets, PDF binder, schedules, HTML index, ZIP.
 - **M3 — Interop** ✅: IFC4 export, STEP export/import (locked), DXF, glTF; IFC import subset.
-- **M4 — Discipline growth** 🟡: multi-trade catalogs + **place_duct/conduit/cable_tray/column/beam**, CSI+locators (RM/XY/Z/NPS/section/FR/SYS), BOQ, clash, rules, phases, zone/levels/drawing_list schedules; wall joins & full MEP routing still light.
+- **M4 — Discipline growth** 🟡: multi-trade catalogs + **place_duct/conduit/cable_tray/column/beam** + openings/structure agent surfaces (door/window/room/slab/equipment/grid/note/shell), CSI+locators (RM/XY/Z/NPS/section/FR/SYS), BOQ, clash, rules, phases, zone/levels/drawing_list schedules; wall joins & full MEP routing still light.
 - **M5 — True model VCS** ✅: commit/log/checkout/diff/journal under `output/<project>/.llmbim/`.
 - **M6 — Nested modules** ✅: import drawings/machines as block|native|linked; ports + connect; explode/expand for export.
 - **M? — Optional human review UI**: view-only 3D/plan **if ever requested** — not authoring (parked).
