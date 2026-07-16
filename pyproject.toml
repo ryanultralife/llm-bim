@@ -55,6 +55,9 @@ packages = [
   "packages/server/llmbim_server",
   "packages/templates/llmbim_templates",
 ]
+# Imagine studio textures for presentation 3D viewer
+[tool.hatch.build.targets.wheel.force-include]
+"packages/drawings/llmbim_drawings/assets" = "llmbim_drawings/assets"
 
 [tool.hatch.build.targets.sdist]
 include = [

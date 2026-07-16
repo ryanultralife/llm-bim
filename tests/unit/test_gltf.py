@@ -62,7 +62,7 @@ def test_gltf_doors_and_windows(tmp_path: Path) -> None:
 
 
 def test_viewer3d_html_written(tmp_path: Path) -> None:
-    """Pack 3D review page embeds glTF and layer-toggle UI (view-only)."""
+    """Pack 3D review page embeds glTF + three look-and-feel step-changes."""
     from llmbim_drawings.viewer3d import write_viewer_3d
 
     p = Project.create("G-view", vcs=False)
@@ -79,6 +79,16 @@ def test_viewer3d_html_written(tmp_path: Path) -> None:
     assert "ghostWalls" in text
     assert "GLTFLoader" in text
     assert "pipe_copper" in text or "wall" in text  # embedded glTF layers
+    # Step 1 — interactive section cut
+    assert "localClippingEnabled" in text
+    assert "clipOn" in text
+    assert "clipAxis" in text
+    # Step 2 — cinematic bloom / ACES
+    assert "UnrealBloomPass" in text
+    assert "ACESFilmicToneMapping" in text
+    # Step 3 — Imagine studio sky + concrete floor (data-URI or toggle)
+    assert "studioSky" in text
+    assert "floor_concrete" in text or "data:image/jpeg;base64," in text
     # also via SDK helper
     path2 = p.export_viewer_3d(tmp_path / "pack2")
     assert path2 is not None and path2.is_file()
