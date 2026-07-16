@@ -54,6 +54,7 @@ We win on the axis GUI tools cannot easily follow:
 - **M4 — Discipline growth** 🟡: multi-trade catalogs + **place_duct/conduit/cable_tray/column/beam** + openings/structure agent surfaces (door/window/room/slab/equipment/grid/note/shell), CSI+locators (RM/XY/Z/NPS/section/FR/SYS), BOQ, clash, rules, phases, zone/levels/drawing_list schedules; wall joins & full MEP routing still light.
 - **M5 — True model VCS** ✅: commit/log/checkout/diff/journal under `output/<project>/.llmbim/`.
 - **M6 — Nested modules** ✅: import drawings/machines as block|native|linked; ports + connect; explode/expand for export.
+- **M7 — Fab BREP + GD&T** ✅ (optional `llmbim[fab]`): CadQuery/OCP feature trees — hole/fillet/chamfer/machine thread, true STEP, GD&T datums/FCFs, machining SVG.
 - **M? — Optional human review UI**: view-only 3D/plan **if ever requested** — not authoring (parked).
 
 ## Alignment

@@ -36,8 +36,13 @@ server = [
   "uvicorn[standard]>=0.30",
   "mcp>=1.0.0",
 ]
+# Fab-grade BREP + machine thread GD&T (OpenCascade via CadQuery)
+fab = [
+  "cadquery>=2.8",
+  "cadquery-ocp>=7.7",
+]
 all = [
-  "llmbim[dev,ifc,mcp,server]",
+  "llmbim[dev,ifc,mcp,server,fab]",
 ]
 
 [project.scripts]

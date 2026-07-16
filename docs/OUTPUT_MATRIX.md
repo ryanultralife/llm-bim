@@ -45,7 +45,8 @@
 | Part / assembly STEP | STEP | ✅ | step_export per equipment + assembly |
 | Locked Fusion STEP import | file ref + envelope | ✅ | `step_import` |
 | Full Fusion body fidelity (118 solids) | | ❌ | import STEP as locked; not authoring kernel |
-| Machining drawings w/ GD&T | | ❌ | future |
+| Fab BREP (CadQuery/OCP) | STEP + glTF | ✅ feature tree: box/cyl/hole/fillet/chamfer/thread | `llmbim_geometry.fab_brep` + `fab_*` ops |
+| GD&T callouts | SVG + model JSON | ✅ datum / FCF / size ±tol | `gdt_*` ops + `fab/*_gdt.svg` |
 
 ## Materials / multi-trade takeoff (CSI)
 

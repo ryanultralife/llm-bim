@@ -149,7 +149,9 @@ p.export_deliverables(out, phases="new")  # IFC/BOQ/views = new only; full model
 | Designer tools | Templates, types, notes, DXF |
 | Geometry kernel | Parametric solids sufficient for coordination & fabrication envelopes |
 
-**Not claimed:** replacing Revit families ecosystem, full BREP boolean kernel, or legal sealed CD certification. The system is built so **any new requirement is an op + params + export**, not a rewrite.
+**Fab BREP (with `pip install llmbim[fab]` / cadquery):** `create_fab_part` → `fab_box` / `fab_cylinder` / `fab_hole` / `fab_fillet` / `fab_chamfer` / `fab_thread` / `fab_cut_box` → `export_fab_step` (true OCC STEP) + glTF tessellation + `gdt_datum` / `gdt_fcf` / `gdt_size` machining SVG.
+
+**Not claimed:** replacing Revit families ecosystem, or legal sealed CD / PE certification. The system is built so **any new requirement is an op + params + export**, not a rewrite.
 
 ## Adding a new capability (for agents)
 
