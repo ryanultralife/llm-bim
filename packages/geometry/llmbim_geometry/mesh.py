@@ -32,6 +32,19 @@ _MATERIAL_PBR: dict[str, tuple[list[float], float, float]] = {
     "wall": ([0.78, 0.76, 0.72, 1.0], 0.02, 0.88),
     "slab": ([0.55, 0.55, 0.58, 1.0], 0.05, 0.82),
     "equipment": ([0.28, 0.52, 0.82, 1.0], 0.35, 0.45),
+    # Equipment kinds — OPAQUE by default (viewer can ghost shells on demand).
+    # Low alpha here made whole machines vanish on the dark studio background.
+    "equip_shell": ([0.55, 0.72, 0.88, 1.0], 0.55, 0.35),
+    "equip_yoke": ([0.35, 0.38, 0.42, 1.0], 0.75, 0.4),
+    "equip_magnet": ([0.15, 0.16, 0.2, 1.0], 0.35, 0.55),  # N42 dark solid ring
+    "equip_cartridge": ([0.85, 0.55, 0.25, 1.0], 0.05, 0.55),  # Ultem amber
+    "equip_flange": ([0.65, 0.68, 0.72, 1.0], 0.7, 0.35),
+    "equip_collector": ([0.55, 0.55, 0.58, 1.0], 0.85, 0.25),  # Mo
+    "equip_port": ([0.4, 0.75, 0.55, 1.0], 0.4, 0.4),  # KF / gland
+    "equip_spacer": ([0.75, 0.75, 0.7, 1.0], 0.1, 0.6),
+    "equip_pedestal": ([0.4, 0.42, 0.45, 1.0], 0.2, 0.7),
+    "equip_step_ref": ([0.55, 0.62, 0.78, 1.0], 0.1, 0.5),  # locked STEP bbox
+    "fab_ultem": ([0.92, 0.58, 0.22, 1.0], 0.05, 0.45),  # slotted cartridge BREP
     "pipe_copper": ([0.85, 0.42, 0.18, 1.0], 0.85, 0.28),
     "pipe_fire": ([0.12, 0.12, 0.14, 1.0], 0.7, 0.4),
     "pipe_process": ([0.55, 0.6, 0.65, 1.0], 0.9, 0.25),
@@ -596,6 +609,77 @@ def _cylinder_mesh(
     return pos, nrm, idx
 
 
+def _tube_mesh(
+    x0: float,
+    y0: float,
+    x1: float,
+    y1: float,
+    z_bot: float,
+    z_top: float,
+    r_outer: float,
+    r_inner: float,
+    *,
+    segments: int = 32,
+) -> tuple[list[float], list[float], list[int]]:
+    """Horizontal hollow tube (magnet ring / pressure shell) — outer + inner + annular caps."""
+    ro = max(float(r_outer), 2.0)
+    ri = max(min(float(r_inner), ro - 1.0), 0.5)
+    # Outer wall (caps off — annular ends added below)
+    outer = _cylinder_mesh(x0, y0, x1, y1, z_bot, z_top, ro, segments=segments, caps=False)
+    # Inner wall: reverse winding so normals face the bore
+    inner = _cylinder_mesh(x0, y0, x1, y1, z_bot, z_top, ri, segments=segments, caps=False)
+    # Flip inner indices (reverse each triangle)
+    ipos, inrm, iidx = inner
+    # invert normals
+    inrm = [-n for n in inrm]
+    flipped: list[int] = []
+    for t in range(0, len(iidx), 3):
+        flipped.extend([iidx[t], iidx[t + 2], iidx[t + 1]])
+    # Annular end caps at both ends
+    segs = max(12, int(segments))
+    dx, dy = x1 - x0, y1 - y0
+    length = math.hypot(dx, dy)
+    if length < 1e-3:
+        return _merge_meshes([outer, (ipos, inrm, flipped)])
+    ux, uy = dx / length, dy / length
+    px, py = -uy, ux
+    z_mid = (z_bot + z_top) / 2.0
+    pos: list[float] = []
+    nrm: list[float] = []
+    idx: list[int] = []
+
+    def _emit(gxyz: tuple[float, float, float], nxyz: tuple[float, float, float]) -> int:
+        vi = len(pos) // 3
+        pos.extend(gxyz)
+        nrm.extend(nxyz)
+        return vi
+
+    for end, nx_sign in ((0.0, -1.0), (1.0, 1.0)):
+        cx = x0 + ux * length * end
+        cy = y0 + uy * length * end
+        n_end = (nx_sign * ux, 0.0, nx_sign * uy)
+        ring_o: list[int] = []
+        ring_i: list[int] = []
+        for i in range(segs):
+            ang = 2 * math.pi * i / segs
+            cos_a, sin_a = math.cos(ang), math.sin(ang)
+            ox_o = px * cos_a * ro
+            oy_o = py * cos_a * ro
+            oz_o = sin_a * ro
+            ox_i = px * cos_a * ri
+            oy_i = py * cos_a * ri
+            oz_i = sin_a * ri
+            ring_o.append(_emit(_mm_to_gltf(cx + ox_o, cy + oy_o, z_mid + oz_o), n_end))
+            ring_i.append(_emit(_mm_to_gltf(cx + ox_i, cy + oy_i, z_mid + oz_i), n_end))
+        for i in range(segs):
+            j = (i + 1) % segs
+            if nx_sign > 0:
+                idx.extend([ring_i[i], ring_o[i], ring_o[j], ring_i[i], ring_o[j], ring_i[j]])
+            else:
+                idx.extend([ring_i[i], ring_o[j], ring_o[i], ring_i[i], ring_i[j], ring_o[j]])
+    return _merge_meshes([outer, (ipos, inrm, flipped), (pos, nrm, idx)])
+
+
 def _mesh_from_origin_size(
     el: Element, model: ProjectModel
 ) -> tuple[list[float], list[float], list[int]]:
@@ -612,10 +696,31 @@ def _mesh_from_origin_size(
         hz = float(size[2]) if len(size) > 2 else ly
         z0 = _level_z(model, el.level_id) + z0_off
         if shape == "cylinder":
-            r = max(ly, hz, 30) / 2
-            return _cylinder_mesh(
-                x0, y0, x0 + max(lx, 50), y0, z0, z0 + max(hz, ly, 30), r, segments=28
-            )
+            od = max(ly, hz, 30)
+            r = od / 2
+            # Inner diameter: explicit id_mm / inner_d_mm, or kind defaults for rings/tubes
+            id_mm = el.params.get("id_mm")
+            if id_mm is None:
+                id_mm = el.params.get("inner_d_mm")
+            if id_mm is None:
+                id_mm = el.params.get("bore_mm")
+            kind = str(el.params.get("kind") or "").lower()
+            if id_mm is None:
+                # magnets / shells / yoke / cartridge default to hollow when OD known
+                if kind in {"magnet", "mag_spacer"}:
+                    id_mm = od * 0.68  # typical N42 ring ID/OD ~340/500
+                elif kind in {"shell", "yoke", "cartridge"}:
+                    wall = float(el.params.get("wall_mm") or (10.0 if kind == "shell" else 25.0))
+                    if kind == "cartridge":
+                        wall = float(el.params.get("wall_mm") or 14.0)
+                    id_mm = max(od - 2 * wall, od * 0.5)
+            x1 = x0 + max(lx, 50)
+            z1 = z0 + od
+            if id_mm is not None and float(id_mm) > 1.0 and float(id_mm) < od - 1.0:
+                return _tube_mesh(
+                    x0, y0, x1, y0, z0, z1, r, float(id_mm) / 2.0, segments=36
+                )
+            return _cylinder_mesh(x0, y0, x1, y0, z0, z1, r, segments=28)
         # column: centered box
         if el.category == "column" or el.params.get("fitting_type") == "column":
             ht = float(el.params.get("height_mm") or hz or 3000)
@@ -737,7 +842,34 @@ def _gltf_material_key(el: Element) -> str:
     if cat == "window":
         return "window"
     if cat == "equipment":
+        kind = str(el.params.get("kind") or "").lower()
+        if kind in {"shell"}:
+            return "equip_shell"
+        if kind in {"yoke"}:
+            return "equip_yoke"
+        if kind in {"magnet"}:
+            return "equip_magnet"
+        if kind in {"cartridge"}:
+            return "equip_cartridge"
+        if kind in {"flange"}:
+            return "equip_flange"
+        if kind in {"collector"}:
+            return "equip_collector"
+        if kind in {"kf40_port", "kf25_port", "gland", "port"}:
+            return "equip_port"
+        if kind in {"mag_spacer", "spacer"}:
+            return "equip_spacer"
+        if kind in {"pedestal"}:
+            return "equip_pedestal"
+        if kind in {"step_ref", "step"}:
+            return "equip_step_ref"
         return "equipment"
+    if cat == "fab_part":
+        mat = str(el.params.get("material_id") or el.params.get("material_spec") or "").lower()
+        kind = str(el.params.get("kind") or "").lower()
+        if "ultem" in mat or "peek" in mat or "cartridge" in kind:
+            return "fab_ultem"
+        return "fab_part"
     if cat in {"duct", "hvac"} or ftype == "duct":
         return "duct"
     if cat == "conduit" or ftype == "conduit":
@@ -759,8 +891,6 @@ def _gltf_material_key(el: Element) -> str:
         return "wire"
     if cat in {"flange", "joint"} or ftype in {"flange", "joint"}:
         return "flange"
-    if cat == "fab_part":
-        return "fab_part"
     if cat in {"fixture", "accessory"}:
         return "fixture"
     if cat in {"module_instance", "module_root"}:
