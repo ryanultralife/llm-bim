@@ -40,6 +40,35 @@ def _wall_band(
     ]
 
 
+def _wall_join_extensions_plan(
+    walls: list[tuple[Element, tuple[float, float, float, float, float]]],
+) -> dict[str, tuple[float, float]]:
+    """Extend wall endpoints at shared corners (half of adjacent thickness)."""
+    ext: dict[str, list[float]] = {el.id: [0.0, 0.0] for el, _ in walls}
+    tol = 25.0
+    for i, (el_a, a) in enumerate(walls):
+        ax0, ay0, ax1, ay1, ath = a
+        for el_b, b in walls[i + 1 :]:
+            bx0, by0, bx1, by1, bth = b
+            for end_i, pa, pb, oth in (
+                (0, (ax0, ay0), (bx0, by0), bth),
+                (0, (ax0, ay0), (bx1, by1), bth),
+                (1, (ax1, ay1), (bx0, by0), bth),
+                (1, (ax1, ay1), (bx1, by1), bth),
+            ):
+                if math.hypot(pa[0] - pb[0], pa[1] - pb[1]) <= tol:
+                    ext[el_a.id][end_i] = max(ext[el_a.id][end_i], oth / 2.0)
+            for end_i, pb, pa, oth in (
+                (0, (bx0, by0), (ax0, ay0), ath),
+                (0, (bx0, by0), (ax1, ay1), ath),
+                (1, (bx1, by1), (ax0, ay0), ath),
+                (1, (bx1, by1), (ax1, ay1), ath),
+            ):
+                if math.hypot(pa[0] - pb[0], pa[1] - pb[1]) <= tol:
+                    ext[el_b.id][end_i] = max(ext[el_b.id][end_i], oth / 2.0)
+    return {k: (v[0], v[1]) for k, v in ext.items()}
+
+
 def _dim_line(
     x0: float,
     y0: float,
@@ -87,6 +116,20 @@ def render_plan_view(
         for el in model.query(category="wall", level=lvl.name)
         if (wp := _wall_endpoints(el)) is not None
     ]
+    # Corner joins: extend wall bands so L/T meetings don't leave gaps
+    _w_ext = _wall_join_extensions_plan(walls)
+    walls_draw: list[tuple[Element, tuple[float, float, float, float, float]]] = []
+    for el, (x0, y0, x1, y1, t) in walls:
+        ex0, ex1 = _w_ext.get(el.id, (0.0, 0.0))
+        dx, dy = x1 - x0, y1 - y0
+        L = math.hypot(dx, dy)
+        if L > 1e-3 and (ex0 > 0 or ex1 > 0):
+            ux, uy = dx / L, dy / L
+            x0e, y0e = x0 - ux * ex0, y0 - uy * ex0
+            x1e, y1e = x1 + ux * ex1, y1 + uy * ex1
+            walls_draw.append((el, (x0e, y0e, x1e, y1e, t)))
+        else:
+            walls_draw.append((el, (x0, y0, x1, y1, t)))
     doors = model.query(category="door", level=lvl.name)
     windows = model.query(category="window", level=lvl.name)
     rooms = model.query(category="room", level=lvl.name)
@@ -123,7 +166,7 @@ def render_plan_view(
 
     xs: list[float] = []
     ys: list[float] = []
-    for _el, (x0, y0, x1, y1, t) in walls:
+    for _el, (x0, y0, x1, y1, t) in walls_draw:
         for px, py in _wall_band(x0, y0, x1, y1, t) or [(x0, y0), (x1, y1)]:
             xs.append(px)
             ys.append(py)
@@ -183,7 +226,7 @@ def render_plan_view(
         f'  <g class="walls" fill="#c8c8c8" stroke="#1a1a1a" stroke-width="{fmt(sw)}" '
         f'stroke-linejoin="round">',
     ]
-    for _el, (x0, y0, x1, y1, t) in walls:
+    for _el, (x0, y0, x1, y1, t) in walls_draw:
         band = _wall_band(x0, y0, x1, y1, t)
         if not band:
             continue
@@ -196,7 +239,7 @@ def render_plan_view(
         f'stroke-dasharray="{fmt(60 * scale)} {fmt(40 * scale)}" fill="none">'
     )
     wall_by_id = {el.id: el for el, _ in walls}
-    for _el, (x0, y0, x1, y1, _t) in walls:
+    for _el, (x0, y0, x1, y1, _t) in walls_draw:
         px0, py0 = project(x0, y0)
         px1, py1 = project(x1, y1)
         parts.append(
@@ -368,32 +411,70 @@ def render_plan_view(
                 continue
             ox, oy = float(o[0]), float(o[1])
             sz = col.params.get("size_mm") or [250, 250, 3000]
-            half_x = float(sz[0]) / 2
-            half_y = float(sz[1]) / 2 if len(sz) > 1 else half_x
-            corners = [
-                (ox - half_x, oy - half_y),
-                (ox + half_x, oy - half_y),
-                (ox + half_x, oy + half_y),
-                (ox - half_x, oy + half_y),
-            ]
-            pts = " ".join(
-                f"{fmt(px)},{fmt(py)}"
-                for px, py in (project(float(p[0]), float(p[1])) for p in corners)
-            )
-            parts.append(f'    <polygon points="{pts}" fill="#eceff1"/>')
-            # X mark
-            a = project(ox - half_x * 0.6, oy - half_y * 0.6)
-            b = project(ox + half_x * 0.6, oy + half_y * 0.6)
-            c = project(ox - half_x * 0.6, oy + half_y * 0.6)
-            d = project(ox + half_x * 0.6, oy - half_y * 0.6)
-            parts.append(
-                f'    <line x1="{fmt(a[0])}" y1="{fmt(a[1])}" x2="{fmt(b[0])}" y2="{fmt(b[1])}"/>'
-            )
-            parts.append(
-                f'    <line x1="{fmt(c[0])}" y1="{fmt(c[1])}" x2="{fmt(d[0])}" y2="{fmt(d[1])}"/>'
-            )
-            sec = col.params.get("section") or col.name or "COL"
-            mx, my = project(ox, oy - half_y - 80)
+            dims = col.params.get("section_dims_mm") or {}
+            d = float(dims.get("d_mm") or sz[0])
+            bf = float(dims.get("bf_mm") or (sz[1] if len(sz) > 1 else sz[0]))
+            tw = float(dims.get("tw_mm") or max(d * 0.03, 6))
+            tf = float(dims.get("tf_mm") or max(d * 0.05, 8))
+            half_d, half_bf = d / 2, bf / 2
+            sec = str(col.params.get("section") or col.name or "COL")
+            # W-section I footprint when available
+            if sec.upper().replace("×", "x").startswith("W") or col.params.get("shape") == "w_section":
+                # bottom flange, web, top flange as plan polys (depth = Y, flange = X)
+                bands = [
+                    # bottom flange
+                    [
+                        (ox - half_bf, oy - half_d),
+                        (ox + half_bf, oy - half_d),
+                        (ox + half_bf, oy - half_d + tf),
+                        (ox - half_bf, oy - half_d + tf),
+                    ],
+                    # top flange
+                    [
+                        (ox - half_bf, oy + half_d - tf),
+                        (ox + half_bf, oy + half_d - tf),
+                        (ox + half_bf, oy + half_d),
+                        (ox - half_bf, oy + half_d),
+                    ],
+                    # web
+                    [
+                        (ox - tw / 2, oy - half_d + tf),
+                        (ox + tw / 2, oy - half_d + tf),
+                        (ox + tw / 2, oy + half_d - tf),
+                        (ox - tw / 2, oy + half_d - tf),
+                    ],
+                ]
+                for corners in bands:
+                    pts = " ".join(
+                        f"{fmt(px)},{fmt(py)}"
+                        for px, py in (project(float(p[0]), float(p[1])) for p in corners)
+                    )
+                    parts.append(f'    <polygon points="{pts}" fill="#cfd8dc"/>')
+            else:
+                half_x = float(sz[0]) / 2
+                half_y = float(sz[1]) / 2 if len(sz) > 1 else half_x
+                corners = [
+                    (ox - half_x, oy - half_y),
+                    (ox + half_x, oy - half_y),
+                    (ox + half_x, oy + half_y),
+                    (ox - half_x, oy + half_y),
+                ]
+                pts = " ".join(
+                    f"{fmt(px)},{fmt(py)}"
+                    for px, py in (project(float(p[0]), float(p[1])) for p in corners)
+                )
+                parts.append(f'    <polygon points="{pts}" fill="#eceff1"/>')
+                a = project(ox - half_x * 0.6, oy - half_y * 0.6)
+                b = project(ox + half_x * 0.6, oy + half_y * 0.6)
+                c = project(ox - half_x * 0.6, oy + half_y * 0.6)
+                dpt = project(ox + half_x * 0.6, oy - half_y * 0.6)
+                parts.append(
+                    f'    <line x1="{fmt(a[0])}" y1="{fmt(a[1])}" x2="{fmt(b[0])}" y2="{fmt(b[1])}"/>'
+                )
+                parts.append(
+                    f'    <line x1="{fmt(c[0])}" y1="{fmt(c[1])}" x2="{fmt(dpt[0])}" y2="{fmt(dpt[1])}"/>'
+                )
+            mx, my = project(ox, oy - half_d - 80)
             parts.append(
                 f'    <text x="{fmt(mx)}" y="{fmt(my)}" text-anchor="middle" '
                 f'font-size="{fmt(max(6, 9))}" fill="#263238" font-family="sans-serif">'
