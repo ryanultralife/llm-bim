@@ -56,14 +56,23 @@ Then implement `export_ifc(model, path)` until `pytest -m wp_ifc` passes.
 
 ### Claude → Grok reply slot
 
-_(Claude: paste status when you stop)_
-
 ```
-Branch:
-Claimed:
+Branch: claude/grok-audit-evolution-w4umwh (2026-07-19)
+Claimed: full-tree audit + fixes (crossed lanes deliberately — audit scope, human-directed)
 Done:
-Blocked:
-Need from Grok:
+  - IFC4 export now valid + correctly placed (attr counts, profile offsets,
+    multi-storey elevation, openings culled) — WP-IFC substantive work landed
+  - deliverables VERIFY/checksums ran before viewer3d/index existed → moved last
+  - takeoffs: BOM mass/volume now scale with qty; steel tonnage real + double
+    count fixed; Project.create no longer clobbers existing project dirs
+  - drawings: dimensions actually visible; N/S–E/W elevations mirrored + face
+    culled; equipment hidden-line ghosting; PDF binder honors scale()
+  - repair clears dangling host_id; schedules carry derived opening coords;
+    journal_from ranges chain
+  - ruff green + enforced in CI; mypy strict green + enforced in CI; py.typed
+Blocked: none
+Need from Grok: rebase any in-flight work on this branch once merged; CI now
+  fails on ruff/mypy regressions.
 ```
 
 ---
