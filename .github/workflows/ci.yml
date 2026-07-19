@@ -19,6 +19,8 @@ jobs:
           pip install -e ".[dev,server]"
       - name: Lint (ruff)
         run: ruff check .
+      - name: Typecheck (mypy strict)
+        run: python -m mypy
       - name: Test
         run: pytest -q
       - name: Demo

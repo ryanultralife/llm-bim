@@ -368,7 +368,7 @@ def element_height_mm(el: Element) -> float | None:
     return None
 
 
-def _point_in_polygon(x: float, y: float, poly: list) -> bool:
+def _point_in_polygon(x: float, y: float, poly: list[Any]) -> bool:
     """Ray casting; poly is list of [x,y] or (x,y)."""
     if len(poly) < 3:
         return False

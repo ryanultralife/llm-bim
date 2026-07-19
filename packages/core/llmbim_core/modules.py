@@ -21,7 +21,7 @@ import copy
 import json
 import math
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from llmbim_core.errors import NotFoundError, ValidationError
 from llmbim_core.ids import new_id
@@ -170,7 +170,7 @@ def _library(host: ProjectModel) -> dict[str, Any]:
     if not isinstance(lib, dict):
         host.meta["module_library"] = {}
         lib = host.meta["module_library"]
-    return lib
+    return cast(dict[str, Any], lib)
 
 
 def _connections(host: ProjectModel) -> list[dict[str, Any]]:
@@ -178,7 +178,7 @@ def _connections(host: ProjectModel) -> list[dict[str, Any]]:
     if not isinstance(con, list):
         host.meta["connections"] = []
         con = host.meta["connections"]
-    return con
+    return cast(list[dict[str, Any]], con)
 
 
 def extract_ports(model: ProjectModel) -> list[dict[str, Any]]:
