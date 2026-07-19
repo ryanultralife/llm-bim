@@ -11,7 +11,6 @@ from fastapi.testclient import TestClient
 os.environ["LLMBIM_DATA_DIR"] = os.path.join(os.environ.get("TEMP", "/tmp"), "llmbim-test-data")
 os.environ.pop("LLMBIM_API_KEY", None)
 
-from llmbim_server.app import app  # noqa: E402
 from llmbim_server.store import ProjectStore  # noqa: E402
 
 

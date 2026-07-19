@@ -274,8 +274,9 @@ def cmd_query(args: argparse.Namespace) -> int:
 
 
 def cmd_op(args: argparse.Namespace) -> int:
-    from llmbim import Project
     import json as _json
+
+    from llmbim import Project
 
     p = Project.open(args.path) if args.path else Project.create("op")
     params = _json.loads(args.params) if args.params else {}
@@ -358,7 +359,6 @@ def cmd_ops(args: argparse.Namespace) -> int:
     from llmbim_core.registry import list_ops, ops_schema, write_ops_schema
 
     if args.schema:
-        out = args.schema if args.schema != True and args.schema is not True else None
         # --schema alone → default path
         path = args.out or "skills/llm-bim/ops.schema.json"
         if isinstance(args.schema, str) and args.schema not in ("", "true"):

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from llmbim_core.ids import new_id
-from llmbim_core.model import Assembly, Element, ProjectModel
+from llmbim_core.model import Assembly, ProjectModel
 
 
 def create_design_option(

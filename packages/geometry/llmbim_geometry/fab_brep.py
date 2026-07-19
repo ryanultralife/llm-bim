@@ -688,7 +688,7 @@ def resolve_assembly_mates(
         if a not in placed or b not in placed:
             continue
         oa = placed[a]["origin_mm"]
-        ob = placed[b]["origin_mm"]
+        _ob = placed[b]["origin_mm"]
         ba, bb = _bbox(a), _bbox(b)
         if mtype in {"coincident", "stack", "against"}:
             # put B's bottom on A's top (world Z)

@@ -153,7 +153,7 @@ def build_multi_trade(out_dir: Path) -> Project:
 
 def main() -> None:
     out = Path("output/multi_trade")
-    p = build_multi_trade(out)
+    build_multi_trade(out)
     a = json.loads((out / "TRADE_ANSWERS.json").read_text(encoding="utf-8"))
     print(
         json.dumps(

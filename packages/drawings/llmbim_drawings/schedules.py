@@ -30,6 +30,32 @@ def _annotate_csi(model: ProjectModel, el, row: dict[str, Any]) -> dict[str, Any
         row["nps"] = info.get("nps") or row.get("nps")
     except Exception:  # noqa: BLE001
         pass
+    # Hosted openings (door/window) have no intrinsic origin, so csi_for_element
+    # leaves x/y/z blank. Derive the absolute opening-center coordinates from the
+    # host wall baseline + offset instead of shipping empty location cells.
+    if row.get("x_mm") is None and getattr(el, "host_id", None):
+        try:
+            import math
+
+            host = model.get_element(el.host_id)
+            s = host.params.get("start_mm")
+            e = host.params.get("end_mm")
+            if s and e:
+                x0, y0 = float(s[0]), float(s[1])
+                x1, y1 = float(e[0]), float(e[1])
+                length = math.hypot(x1 - x0, y1 - y0) or 1.0
+                ux, uy = (x1 - x0) / length, (y1 - y0) / length
+                center = float(el.params.get("offset_mm") or 0) + float(
+                    el.params.get("width_mm") or 0
+                ) / 2.0
+                row["x_mm"] = round(x0 + ux * center, 1)
+                row["y_mm"] = round(y0 + uy * center, 1)
+                if row.get("z_mm") is None:
+                    lv = next((L for L in model.levels if L.id == host.level_id), None)
+                    base = float(lv.elevation_mm) if lv else 0.0
+                    row["z_mm"] = round(base + float(el.params.get("sill_mm") or 0), 1)
+        except Exception:  # noqa: BLE001
+            pass
     return row
 
 

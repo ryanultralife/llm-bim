@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from llmbim_core.parts_catalog import PartType
+    pass
 
 # Shared NPS table (steel pipe OD approx — ASTM A53)
 STEEL_NPS: dict[str, dict[str, float]] = {

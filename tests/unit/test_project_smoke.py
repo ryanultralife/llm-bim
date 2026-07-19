@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from llmbim import Project
 from llmbim_core.errors import GeometryDegenerateError, NotFoundError
 

@@ -6,7 +6,7 @@ from typing import Any
 
 from llmbim_core.model import ProjectModel
 from llmbim_core.quantities import wall_area_m2
-from llmbim_core.validate import Issue, validate_model
+from llmbim_core.validate import validate_model
 
 
 def run_design_rules(model: ProjectModel) -> list[dict[str, Any]]:
@@ -469,7 +469,7 @@ def _mep_design_rules(model: ProjectModel) -> list[dict[str, Any]]:
         if el.params.get("kind") in ("machine", "separator_skid", "skid") and not ports:
             # check children for ports
             child_ports = any(
-                (c.params.get("ports") for c in model.elements if c.parent_id == el.id)
+                c.params.get("ports") for c in model.elements if c.parent_id == el.id
             )
             if not child_ports and not ports:
                 findings.append(

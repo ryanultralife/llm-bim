@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from llmbim import Project
 
 pytestmark = pytest.mark.wp_ifc

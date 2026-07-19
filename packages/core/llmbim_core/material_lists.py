@@ -263,7 +263,7 @@ def fitting_takeoff(
     Returns one row per (fitting_type, nps, material, system).
     """
     buckets: dict[tuple[str, str, str, str], dict[str, Any]] = {}
-    pipe_systems = {"plumbing", "fire", "process", "process_piping", "fire_protection"}
+    _pipe_systems = {"plumbing", "fire", "process", "process_piping", "fire_protection"}
 
     for el in model.elements:
         pid, part = _element_part_meta(el)
@@ -713,7 +713,7 @@ def csi_takeoff(model: ProjectModel, *, division: str | None = None) -> list[dic
             except Exception:  # noqa: BLE001
                 pass
     out = []
-    for code, b in buckets.items():
+    for _code, b in buckets.items():
         b["est_cost"] = round(b["est_cost"], 2)
         b["parts"] = sorted(b["parts"].values(), key=lambda x: -x["est_cost"])
         out.append(b)

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from llmbim_core.assignment import add_bom_line, assign_material, assign_part, set_element_bom
+from llmbim_core.assignment import assign_material, assign_part
 from llmbim_core.commands import Command
 from llmbim_core.errors import ValidationError
 from llmbim_core.model import ProjectModel

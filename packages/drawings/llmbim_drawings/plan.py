@@ -6,9 +6,10 @@ import math
 from pathlib import Path
 
 from llmbim_core.model import Element, ProjectModel
+from llmbim_geometry.primitives import point_along_segment
+
 from llmbim_drawings.svg_util import esc, fmt
 from llmbim_drawings.view import DrawingView
-from llmbim_geometry.primitives import point_along_segment
 
 
 def _wall_endpoints(el: Element) -> tuple[float, float, float, float, float] | None:
@@ -871,7 +872,7 @@ def render_plan_view(
                 reverse=True,
             )
             wall_budget = max(1, dim_budget * 2 // 3)
-            for el, (x0, y0, x1, y1, _t) in ranked[:wall_budget]:
+            for _el, (x0, y0, x1, y1, _t) in ranked[:wall_budget]:
                 length = math.hypot(x1 - x0, y1 - y0)
                 if length < 500:
                     continue

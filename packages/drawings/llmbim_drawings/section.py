@@ -7,6 +7,7 @@ from pathlib import Path
 
 from llmbim_core.errors import ValidationError
 from llmbim_core.model import Element, ProjectModel
+
 from llmbim_drawings.svg_util import esc, fmt
 
 

@@ -4,20 +4,19 @@ from __future__ import annotations
 
 import os
 import traceback
-from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
-from pydantic import BaseModel, Field
-
 from llmbim import __version__ as sdk_version
 from llmbim_core.errors import BimError
 from llmbim_core.validate import validate_model
 from llmbim_drawings import export_elevation_svg, export_plan_svg, export_section_svg
 from llmbim_drawings.schedules import export_schedule_csv, schedule_rows
 from llmbim_geometry.mesh import export_gltf_walls
+from pydantic import BaseModel, Field
+
 from llmbim_server.store import ProjectStore
 
 API_KEY = os.environ.get("LLMBIM_API_KEY", "")
