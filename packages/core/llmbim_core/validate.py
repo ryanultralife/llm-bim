@@ -57,7 +57,7 @@ def validate_model(model: ProjectModel) -> list[Issue]:
                 Issue(
                     "ORPHAN_LEVEL",
                     "error",
-                    f"Element references missing level_id",
+                    "Element references missing level_id",
                     element_id=el.id,
                     details={"level_id": el.level_id},
                 )

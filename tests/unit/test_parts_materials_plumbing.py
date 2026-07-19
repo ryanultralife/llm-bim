@@ -8,8 +8,6 @@ from llmbim import Project
 from llmbim_core.material_lists import (
     export_lists,
     fitting_takeoff,
-    pipe_takeoff,
-    plumbing_schedule,
 )
 from llmbim_core.parts_catalog import (
     PARTS,
@@ -129,7 +127,7 @@ def test_explode_bom_scales_mass_and_volume_by_qty():
     """mass_kg / volume_m3 must scale with instance_qty just like qty / est_cost.
     Regression: they previously stayed at the per-unit value, undercounting
     procurement mass on every multi-count / multi-meter part."""
-    from llmbim_core.parts_catalog import PARTS, explode_part_bom
+    from llmbim_core.parts_catalog import explode_part_bom
 
     part = next(
         p

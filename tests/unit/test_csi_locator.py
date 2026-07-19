@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from llmbim import Project
-from llmbim_core.csi import csi_for_element, csi_instance_schedule, normalize_csi_code, resolve_csi_code
+from llmbim_core.csi import (
+    csi_for_element,
+    csi_instance_schedule,
+    normalize_csi_code,
+    resolve_csi_code,
+)
 
 
 def test_normalize_and_resolve_real_codes():

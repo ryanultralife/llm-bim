@@ -46,7 +46,7 @@ def equipment_volume_m3(el) -> float:
 
 def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
     """Bill of quantities with optional catalog costs + CSI codes."""
-    from llmbim_core.csi import annotate_boq_with_csi, boq_by_csi_division
+    from llmbim_core.csi import annotate_boq_with_csi
     from llmbim_core.parts_catalog import get_part, part_unit_cost
 
     rows: list[dict[str, Any]] = []

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from llmbim_core.commands import Command, DeleteElement
 from llmbim_core.errors import ValidationError
 from llmbim_core.ids import new_id
 from llmbim_core.model import Element, ProjectModel
-from dataclasses import dataclass
 
 
 @dataclass

@@ -99,8 +99,8 @@ def _cylinder_corners(
         faces.append((i, j, n + j, n + i))
     # end caps (fan as triangle fans -> quads by taking consecutive)
     # bottom cap at x0: reverse winding
-    bottom = tuple(reversed(range(n)))
-    top = tuple(range(n, 2 * n))
+    _bottom = tuple(reversed(range(n)))
+    _top = tuple(range(n, 2 * n))
     # split caps into triangles for planarity
     for i in range(1, n - 1):
         faces.append((0, i + 1, i))  # bottom triangles - wrong for n-gon as non-planar if fan from 0? Actually planar circle

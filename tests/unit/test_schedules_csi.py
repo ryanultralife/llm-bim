@@ -82,3 +82,49 @@ def test_duct_and_conduit_schedule_rows(tmp_path: Path):
     export_schedule_csv(p.model, "conduit", tmp_path / "conduit.csv")
     assert "23 31 00" in (tmp_path / "duct.csv").read_text(encoding="utf-8")
     assert "26 05 33" in (tmp_path / "conduit.csv").read_text(encoding="utf-8")
+
+
+def test_opening_schedule_has_derived_coordinates(tmp_path):
+    """Door/window schedule rows must carry absolute x/y/z derived from the host
+    wall + offset instead of shipping blank location cells."""
+    from llmbim import Project
+    from llmbim_drawings.schedules import schedule_rows
+
+    p = Project.create("SchedCoords", vcs=False)
+    p.add_level("L1", 0)
+    w = p.create_wall(level="L1", start=(0, 0), end=(8000, 0), thickness_mm=200, height_mm=3000)
+    p.place_door(host=w, offset_mm=2000, width_mm=900, height_mm=2100)
+    p.place_window(host=w, offset_mm=5000, width_mm=1200, height_mm=900, sill_mm=900)
+    door = schedule_rows(p.model, "door")[0]
+    assert door["x_mm"] == 2450.0 and door["y_mm"] == 0.0
+    win = schedule_rows(p.model, "window")[0]
+    assert win["x_mm"] == 5600.0 and win["z_mm"] == 900.0
+
+
+def test_pdf_binder_honors_group_scale(tmp_path):
+    """A view scaled to fit a sheet emits translate()+scale(); the PDF binder
+    must apply the scale so large buildings do not overflow the page."""
+    import re
+
+    from llmbim import Project
+    from llmbim_drawings.construction import export_construction_set
+    from llmbim_drawings.pdf_binder import _parse_svg_drawing
+
+    p = Project.create("BigPDF", vcs=False)
+    p.add_level("L1", 0)
+    p.create_rect_shell(
+        level="L1", x=0, y=0, w=80000, d=60000, height_mm=6000, thickness_mm=300, name_prefix="B"
+    )
+    export_construction_set(p.model, tmp_path, plan_scale=0.02)
+    sheet = tmp_path / "A-101_plan.svg"
+    assert re.search(r"scale\(0?\.\d+\)", sheet.read_text()), "expected sub-1 embed scale"
+    _w, _h, ops = _parse_svg_drawing(sheet)
+    coords = [
+        (float(a), float(b))
+        for op in ops
+        for a, b in re.findall(r"(-?\d+\.\d+) (-?\d+\.\d+) (?:m|l|re)", op)
+    ]
+    xs = [c[0] for c in coords]
+    ys = [c[1] for c in coords]
+    # content stays within the 1100x850 sheet viewBox (a few units tolerance)
+    assert max(xs) <= 1102 and max(ys) <= 852, f"content overflows sheet: {max(xs)},{max(ys)}"

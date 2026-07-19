@@ -227,8 +227,8 @@ def _helix_coil_mesh(
             )
         else:
             # use mid elev span for horizontal cylinder API
-            z_lo = min(a[2], b[2]) - tr
-            z_hi = max(a[2], b[2]) + tr
+            _z_lo = min(a[2], b[2]) - tr
+            _z_hi = max(a[2], b[2]) + tr
             # better: place cylinder along plan projection with elev at midpoint
             zm = (a[2] + b[2]) / 2.0
             # if mostly plan-horizontal, standard horizontal cylinder

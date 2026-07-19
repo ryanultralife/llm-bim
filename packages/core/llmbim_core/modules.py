@@ -385,7 +385,7 @@ def import_module(
     mid = module_id or new_id("mod")
 
     if mode in ("block", "linked"):
-        reg = register_module_definition(
+        _reg = register_module_definition(
             host,
             src,
             module_id=mid,

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from llmbim import Project
 from llmbim_core.errors import ValidationError
 

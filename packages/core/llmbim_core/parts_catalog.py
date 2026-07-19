@@ -14,7 +14,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from llmbim_core.materials import MATERIALS, get_material, material_cost, material_mass_kg
+from llmbim_core.materials import get_material, material_cost, material_mass_kg
 
 Unit = Literal["ea", "m", "m2", "m3", "kg", "L", "set", "ft"]
 
