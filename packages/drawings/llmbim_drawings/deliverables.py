@@ -502,32 +502,6 @@ def export_deliverables(
         result["drawing_list"] = "schedules/drawing_list.csv"
         result["sheet_count"] = len(sheets)
 
-    # checksums
-    checksums: dict[str, str] = {}
-    for p in out.rglob("*"):
-        if p.is_file() and p.suffix.lower() in {
-            ".json",
-            ".ifc",
-            ".gltf",
-            ".step",
-            ".svg",
-            ".csv",
-        }:
-            try:
-                checksums[str(p.relative_to(out)).replace("\\", "/")] = _sha256(p)
-            except OSError:
-                pass
-
-    # Modern packs always write materials/; require it for vision pack completeness
-    has_part_assign = any(el.params.get("part_id") for el in work.elements)
-    verification = verify_pack(
-        out,
-        require_parts=has_equip,
-        require_materials=True,  # export_lists always runs above
-    )
-    if has_part_assign and not verification.get("has_materials_package"):
-        verification["ok"] = False
-        verification.setdefault("missing", []).append("materials/MATERIALS_AND_PARTS.json")
     try:
         from llmbim_drawings.viewer3d import write_viewer_3d
 
@@ -618,6 +592,40 @@ def export_deliverables(
         result["zip"] = zpath.name
     except Exception as exc:  # noqa: BLE001
         errors.append({"step": "zip_pack", "error": str(exc)})
+
+    # checksums + verification run LAST so late-written artifacts (viewer3d.html,
+    # fab STEP/GD&T, index.html) are actually present and counted. Running these
+    # earlier made VERIFY.json report has_index_html/has_viewer3d=false on packs
+    # that in fact contained them.
+    checksums: dict[str, str] = {}
+    for p in out.rglob("*"):
+        if p.is_file() and p.suffix.lower() in {
+            ".json",
+            ".ifc",
+            ".gltf",
+            ".step",
+            ".svg",
+            ".csv",
+            ".html",
+        }:
+            # never checksum the roll-up archive (contains everything else)
+            if p.suffix.lower() == ".zip":
+                continue
+            try:
+                checksums[str(p.relative_to(out)).replace("\\", "/")] = _sha256(p)
+            except OSError:
+                pass
+
+    # Modern packs always write materials/; require it for vision pack completeness
+    has_part_assign = any(el.params.get("part_id") for el in work.elements)
+    verification = verify_pack(
+        out,
+        require_parts=has_equip,
+        require_materials=True,  # export_lists always runs above
+    )
+    if has_part_assign and not verification.get("has_materials_package"):
+        verification["ok"] = False
+        verification.setdefault("missing", []).append("materials/MATERIALS_AND_PARTS.json")
 
     manifest = {
         "project": full_model.name,
