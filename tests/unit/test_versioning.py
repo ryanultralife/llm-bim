@@ -99,3 +99,20 @@ def test_create_does_not_clobber_existing_project(tmp_path, monkeypatch) -> None
     p2.add_level("L1", 0)
     man = p2.export_deliverables()
     assert Path(man["output_dir"]) == d2.resolve()
+
+
+def test_commit_journal_ranges_chain(tmp_path, monkeypatch) -> None:
+    """Each commit's journal range must start where the parent's ended, not at 0
+    (regression: journal_from was hardcoded 0 so every range spanned history)."""
+    monkeypatch.setenv("LLMBIM_OUTPUT_DIR", str(tmp_path / "output"))
+    p = Project.create("JournalRange", author="test")
+    p.add_level("L1", 0)
+    p.create_wall(level="L1", start=(0, 0), end=(5000, 0), thickness_mm=200, height_mm=3000)
+    c1 = p.commit("wall 1")
+    p.create_wall(level="L1", start=(0, 0), end=(0, 5000), thickness_mm=200, height_mm=3000)
+    c2 = p.commit("wall 2")
+    vcs = p._vcs
+    m1 = vcs.load_version(c1["version_id"])["commit"]
+    m2 = vcs.load_version(c2["version_id"])["commit"]
+    assert m2["journal_from"] == m1["journal_to"]
+    assert m2["journal_to"] >= m2["journal_from"]

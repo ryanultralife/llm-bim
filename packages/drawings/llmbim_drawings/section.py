@@ -436,6 +436,12 @@ def render_elevation_svg(
     depth_vals = _wys if d in {"N", "S"} else _wxs
     depth_mid = (min(depth_vals) + max(depth_vals)) / 2.0 if depth_vals else 0.0
 
+    # wall faces parallel to the view plane, with their depth — used to hide
+    # equipment standing behind a nearer facade (hidden-line treatment)
+    wall_faces: list[tuple[float, float, float, float, float]] = []  # h0,h1,z0,z1,depth
+    # equipment rendered in its own group (was drawn opaque inside the walls group)
+    equip_rects: list[tuple[float, float, float, float, float]] = []  # h0,h1,z0,z1,depth
+
     for el in model.elements:
         if el.category == "wall":
             ep = _wall_endpoints(el)
@@ -446,9 +452,15 @@ def render_elevation_svg(
             z1 = z0 + height
             if d in {"N", "S"}:
                 h0, h1 = x0, x1
+                parallel = abs(x1 - x0) >= abs(y1 - y0)
+                depth_c = (y0 + y1) / 2.0
             else:
                 h0, h1 = y0, y1
+                parallel = abs(y1 - y0) >= abs(x1 - x0)
+                depth_c = (x0 + x1) / 2.0
             segs.append((min(h0, h1), max(h0, h1), z0, z1))
+            if parallel:
+                wall_faces.append((min(h0, h1), max(h0, h1), z0, z1, depth_c))
         elif el.category in {"door", "window"}:
             host = wall_by_id.get(el.host_id or "")
             if not host:
@@ -519,16 +531,22 @@ def render_elevation_svg(
                 z1 = z0 + ly
                 if d in {"N", "S"}:
                     h0, h1 = x0, x0 + lx
+                    eq_depth = y0
                 else:
                     r = ly / 2
                     h0, h1 = y0 - r, y0 + r
+                    eq_depth = x0 + lx / 2
             else:
                 z1 = z0 + hz
                 if d in {"N", "S"}:
                     h0, h1 = x0, x0 + lx
+                    eq_depth = y0 + ly / 2
                 else:
                     h0, h1 = y0, y0 + ly
-            segs.append((min(h0, h1), max(h0, h1), z0, z1))
+                    eq_depth = x0 + lx / 2
+            # extents only — rendering happens in the equipment group below with
+            # hidden-line treatment, not as an opaque rect in the walls group
+            equip_rects.append((min(h0, h1), max(h0, h1), z0, z1, eq_depth))
         elif el.category == "column" or el.params.get("fitting_type") == "column":
             try:
                 o = el.params.get("origin_mm")
@@ -639,12 +657,15 @@ def render_elevation_svg(
         pipe_segs = [(-h1, -h0, z, st) for (h0, h1, z, st) in pipe_segs]
         riser_segs = [(-h, z0, z1, st) for (h, z0, z1, st) in riser_segs]
         col_labels = [(-h, zt, s) for (h, zt, s) in col_labels]
+        wall_faces = [(-h1, -h0, z0, z1, dp) for (h0, h1, z0, z1, dp) in wall_faces]
+        equip_rects = [(-h1, -h0, z0, z1, dp) for (h0, h1, z0, z1, dp) in equip_rects]
 
-    if segs:
-        min_h = min(s[0] for s in segs) - margin_mm
-        max_h = max(s[1] for s in segs) + margin_mm
-        min_z = min(s[2] for s in segs) - margin_mm * 0.1
-        max_z = max(s[3] for s in segs) + margin_mm * 0.1
+    extent_rects = segs + [(h0, h1, z0, z1) for (h0, h1, z0, z1, _dp) in equip_rects]
+    if extent_rects:
+        min_h = min(s[0] for s in extent_rects) - margin_mm
+        max_h = max(s[1] for s in extent_rects) + margin_mm
+        min_z = min(s[2] for s in extent_rects) - margin_mm * 0.1
+        max_z = max(s[3] for s in extent_rects) + margin_mm * 0.1
     else:
         min_h, max_h, min_z, max_z = 0.0, 10000.0, 0.0, 3000.0
 
@@ -703,6 +724,40 @@ def render_elevation_svg(
                 f'    <text x="{fmt(mx)}" y="{fmt(my - 2)}" font-size="{fmt(max(6, 9))}" '
                 f'fill="#0d47a1">{esc(lab[:18])}</text>'
             )
+        parts.append("  </g>")
+    if equip_rects:
+        # Hidden-line treatment: equipment standing behind a nearer parallel wall
+        # is drawn dashed/unfilled (ghost); only equipment actually visible from
+        # this side gets a solid rect. Previously interior equipment was painted
+        # opaque on top of the exterior facade.
+        near_low = d in {"S", "W"}
+        parts.append('  <g class="equipment-elev" stroke="#555" stroke-width="1">')
+        for h0, h1, z0, z1, eq_depth in equip_rects:
+            hidden = False
+            for wh0, wh1, wz0, wz1, w_depth in wall_faces:
+                nearer = w_depth < eq_depth - 1.0 if near_low else w_depth > eq_depth + 1.0
+                if not nearer:
+                    continue
+                h_overlap = min(h1, wh1) - max(h0, wh0)
+                z_overlap = min(z1, wz1) - max(z0, wz0)
+                if h_overlap >= 0.5 * (h1 - h0) and z_overlap >= 0.5 * (z1 - z0):
+                    hidden = True
+                    break
+            x, y = project(h0, z1)
+            w = (h1 - h0) * scale
+            h = (z1 - z0) * scale
+            if w < 0.1:
+                continue
+            if hidden:
+                parts.append(
+                    f'    <rect x="{fmt(x)}" y="{fmt(y)}" width="{fmt(w)}" height="{fmt(h)}" '
+                    f'fill="none" stroke-dasharray="3 3" opacity="0.55"/>'
+                )
+            else:
+                parts.append(
+                    f'    <rect x="{fmt(x)}" y="{fmt(y)}" width="{fmt(w)}" height="{fmt(h)}" '
+                    f'fill="#b9c2c9"/>'
+                )
         parts.append("  </g>")
     parts.append(
         f'  <g class="pipes-elev" stroke-width="{fmt(max(1.2, 20 * scale))}" fill="none">'

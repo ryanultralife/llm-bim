@@ -212,3 +212,26 @@ def test_opposite_elevations_differ_and_cull_far_openings(tmp_path: Path) -> Non
     # door leaf fill appears on S (near face) but not N (far face)
     assert s.count("#c8e6c9") == 1
     assert n.count("#c8e6c9") == 0
+
+
+def test_elevation_hides_equipment_behind_facade() -> None:
+    """Interior equipment must render as a dashed ghost on elevations, not as an
+    opaque rect painted over the exterior wall; equipment outside the facade
+    stays solid."""
+    import re
+
+    from llmbim_drawings.section import render_elevation_svg
+
+    p = Project.create("ElevOccl", vcs=False)
+    p.add_level("L1", 0)
+    p.create_rect_shell(
+        level="L1", x=0, y=0, w=12000, d=9000, height_mm=3500, thickness_mm=200, name_prefix="B"
+    )
+    p.create_equipment_box(level="L1", origin=(5000, 4000), size=(2000, 1000, 1500), name="AHU")
+    p.create_equipment_box(level="L1", origin=(2000, -3000), size=(1000, 1000, 1000), name="YARD")
+    svg = render_elevation_svg(p.model, "S", scale=0.02)
+    g = re.search(r'<g class="equipment-elev".*?</g>', svg, re.DOTALL)
+    assert g, "equipment group missing"
+    body = g.group(0)
+    assert body.count("stroke-dasharray") == 1, "interior AHU should be ghosted"
+    assert body.count('fill="#b9c2c9"') == 1, "yard equipment should stay solid"
