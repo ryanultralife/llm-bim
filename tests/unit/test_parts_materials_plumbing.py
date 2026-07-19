@@ -143,3 +143,23 @@ def test_explode_bom_scales_mass_and_volume_by_qty():
             assert r10["volume_m3"] == round(r1["volume_m3"] * 10, 6)
         assert r10["qty"] == r1["qty"] * 10
         assert r10["est_cost"] == round(r1["est_cost"] * 10, 2)
+
+
+def test_steel_takeoff_tonnage_and_no_double_count():
+    """steel_takeoff must emit weight_kg_m + mass_kg per section row (catalog
+    weight, else lb/ft from the W-designation) and must not count a placed
+    column twice (catalog rollup + bucket pass)."""
+    from llmbim_core.material_lists import steel_takeoff
+
+    p = Project.create("SteelTonnage", vcs=False)
+    p.add_level("L1", 0)
+    p.op("place_column", level="L1", section="W10x33", origin=[0, 0], height_mm=4000)
+    p.op("place_beam", level="L1", section="W16x40", start=[0, 0], end=[6000, 0], z0_mm=4000)
+    rows = steel_takeoff(p.model)
+    by_section = {}
+    for r in rows:
+        assert r["section"] not in by_section, f"duplicate row for {r['section']}"
+        by_section[r["section"]] = r
+    assert by_section["W10x33"]["qty"] == 4.0
+    assert by_section["W10x33"]["mass_kg"] == 196.4  # 4 m x 49.1 kg/m (catalog)
+    assert by_section["W16x40"]["mass_kg"] == 357.2  # 6 m x 40 lb/ft x 1.48816

@@ -170,6 +170,16 @@ class ModelVCS:
                 )
 
         journal = self.read_journal()
+        # this commit covers journal entries written since the parent commit
+        # (journal_from was previously hardcoded 0, so every commit's range
+        # spanned the entire history)
+        journal_from = 0
+        if parent:
+            try:
+                parent_meta = self.load_version(parent).get("commit") or {}
+                journal_from = int(parent_meta.get("journal_to") or 0)
+            except Exception:  # noqa: BLE001
+                journal_from = 0
         version_id = new_id("ver")
         meta = CommitMeta(
             version_id=version_id,
@@ -179,7 +189,7 @@ class ModelVCS:
             ts=_utc_now(),
             content_hash=content_hash,
             stats=model.stats(),
-            journal_from=0,
+            journal_from=journal_from,
             journal_to=len(journal),
         )
         payload = {
