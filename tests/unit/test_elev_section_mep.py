@@ -185,3 +185,30 @@ def test_section_svg_doors_and_windows(tmp_path: Path):
     assert 'class="openings-section"' in text
     assert "HM-36" in text or "D-HM" in text
     assert "WIN" in text or "VIEW" in text
+
+
+def test_opposite_elevations_differ_and_cull_far_openings(tmp_path: Path) -> None:
+    """N and S elevations must be distinct (mirror + near-face culling), and a
+    door on the south wall must appear on S but not N. Regression: opposite
+    elevations were byte-identical with far-face openings shown on both."""
+    import re
+
+    from llmbim_drawings.section import render_elevation_svg
+
+    p = Project.create("ElevFaces", vcs=False)
+    p.add_level("L1", 0)
+    south = p.create_wall(level="L1", start=(0, 0), end=(12000, 0), thickness_mm=200, height_mm=3500)
+    p.create_wall(level="L1", start=(0, 9000), end=(12000, 9000), thickness_mm=200, height_mm=3500)
+    p.create_wall(level="L1", start=(0, 0), end=(0, 9000), thickness_mm=200, height_mm=3500)
+    p.create_wall(level="L1", start=(12000, 0), end=(12000, 9000), thickness_mm=200, height_mm=3500)
+    p.place_door(host=south, offset_mm=2000, width_mm=900, height_mm=2100)
+
+    def strip_title(svg: str) -> str:
+        return re.sub(r"<title>.*?</title>", "", svg)
+
+    n = render_elevation_svg(p.model, "N", scale=0.02)
+    s = render_elevation_svg(p.model, "S", scale=0.02)
+    assert strip_title(n) != strip_title(s), "N and S elevations are identical"
+    # door leaf fill appears on S (near face) but not N (far face)
+    assert s.count("#c8e6c9") == 1
+    assert n.count("#c8e6c9") == 0

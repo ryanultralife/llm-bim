@@ -256,11 +256,17 @@ def render_section_svg(
         return (s - min_s) * scale, (max_z - z) * scale
 
     label = title or f"{model.name} — Section"
+    # reveal the storey-dimension band (anchored ~0.35*margin left of the geometry)
+    # via a negative-origin viewBox so it is not clipped off the left edge.
+    pad = max(16.0, 0.4 * margin_mm * scale + 12.0)
+    vb_w, vb_h = width + 2 * pad, height + 2 * pad
     parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {fmt(width)} {fmt(height)}" '
-        f'width="{fmt(width)}" height="{fmt(height)}">',
+        f'<svg xmlns="http://www.w3.org/2000/svg" '
+        f'viewBox="{fmt(-pad)} {fmt(-pad)} {fmt(vb_w)} {fmt(vb_h)}" '
+        f'width="{fmt(vb_w)}" height="{fmt(vb_h)}">',
         f"  <title>{esc(label)}</title>",
-        f'  <rect x="0" y="0" width="{fmt(width)}" height="{fmt(height)}" fill="#fff"/>',
+        f'  <rect x="{fmt(-pad)}" y="{fmt(-pad)}" width="{fmt(vb_w)}" height="{fmt(vb_h)}" '
+        f'fill="#fff"/>',
         '  <g class="cut-walls" fill="#aaa" stroke="#111" stroke-width="1">',
     ]
     for s0, z0, s1, z1 in rects:
@@ -416,6 +422,19 @@ def render_elevation_svg(
     pipe_segs: list[tuple[float, float, float, str]] = []  # h0, h1, z, stroke (horizontal)
     riser_segs: list[tuple[float, float, float, str]] = []  # h, z0, z1, stroke (vertical)
     wall_by_id = {el.id: el for el in model.elements if el.category == "wall"}
+
+    # building extent along the view's DEPTH axis (Y for N/S, X for E/W) — used to
+    # decide which face an opening is on so opposite elevations differ.
+    _wxs: list[float] = []
+    _wys: list[float] = []
+    for _w in wall_by_id.values():
+        _ep = _wall_endpoints(_w)
+        if _ep:
+            _wxs += [_ep[0], _ep[2]]
+            _wys += [_ep[1], _ep[3]]
+    depth_vals = _wys if d in {"N", "S"} else _wxs
+    depth_mid = (min(depth_vals) + max(depth_vals)) / 2.0 if depth_vals else 0.0
+
     for el in model.elements:
         if el.category == "wall":
             ep = _wall_endpoints(el)
@@ -446,6 +465,22 @@ def render_elevation_svg(
                 oh = float(el.params.get("height_mm") or (2100 if el.category == "door" else 1200))
                 sill = float(el.params.get("sill_mm") or 0)
                 ux, uy = (x1 - x0) / length, (y1 - y0) / length
+                # Face culling: show this opening only on the elevation that looks
+                # at its host wall's near face. A wall running parallel to the view
+                # would project the opening as a meaningless sliver -> skip it.
+                if d in {"N", "S"}:
+                    perpendicular = abs(ux) >= abs(uy)
+                    depth_c = (y0 + y1) / 2.0
+                else:
+                    perpendicular = abs(uy) >= abs(ux)
+                    depth_c = (x0 + x1) / 2.0
+                if not perpendicular:
+                    continue
+                near_low = d in {"S", "W"}  # near face is the low-coord side
+                if near_low and depth_c > depth_mid + 1.0:
+                    continue
+                if not near_low and depth_c < depth_mid - 1.0:
+                    continue
                 ax, ay = x0 + ux * off, y0 + uy * off
                 bx, by = x0 + ux * (off + width_o), y0 + uy * (off + width_o)
                 if d in {"N", "S"}:
@@ -592,6 +627,18 @@ def render_elevation_svg(
         h = float(o[0]) if d in {"N", "S"} else float(o[1])
         col_labels.append((h, z0 + ht, str(el.params.get("section") or "COL")))
 
+    # N and W are viewed from the opposite side of S and E, so their horizontal
+    # axis is mirrored. Flip every collected h so opposite elevations are proper
+    # mirror images (previously N was byte-identical to S).
+    if d in {"N", "W"}:
+        segs = [(-h1, -h0, z0, z1) for (h0, h1, z0, z1) in segs]
+        opening_rects = [
+            (-h1, -h0, zb, zt, f, lab) for (h0, h1, zb, zt, f, lab) in opening_rects
+        ]
+        pipe_segs = [(-h1, -h0, z, st) for (h0, h1, z, st) in pipe_segs]
+        riser_segs = [(-h, z0, z1, st) for (h, z0, z1, st) in riser_segs]
+        col_labels = [(-h, zt, s) for (h, zt, s) in col_labels]
+
     if segs:
         min_h = min(s[0] for s in segs) - margin_mm
         max_h = max(s[1] for s in segs) + margin_mm
@@ -607,11 +654,16 @@ def render_elevation_svg(
         return (h - min_h) * scale, (max_z - z) * scale
 
     label = title or f"{model.name} — Elevation {d}"
+    # negative-origin viewBox reveals the storey-dimension band on the left
+    pad = max(16.0, 0.4 * margin_mm * scale + 12.0)
+    vb_w, vb_h = width + 2 * pad, height + 2 * pad
     parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {fmt(width)} {fmt(height)}" '
-        f'width="{fmt(width)}" height="{fmt(height)}">',
+        f'<svg xmlns="http://www.w3.org/2000/svg" '
+        f'viewBox="{fmt(-pad)} {fmt(-pad)} {fmt(vb_w)} {fmt(vb_h)}" '
+        f'width="{fmt(vb_w)}" height="{fmt(vb_h)}">',
         f"  <title>{esc(label)}</title>",
-        f'  <rect width="{fmt(width)}" height="{fmt(height)}" fill="#fff"/>',
+        f'  <rect x="{fmt(-pad)}" y="{fmt(-pad)}" width="{fmt(vb_w)}" height="{fmt(vb_h)}" '
+        f'fill="#fff"/>',
         '  <g class="walls" fill="#d0d0d0" stroke="#222" stroke-width="1">',
     ]
     for h0, h1, z0, z1 in segs:

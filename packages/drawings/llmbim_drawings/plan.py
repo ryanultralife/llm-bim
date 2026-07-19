@@ -974,7 +974,12 @@ def render_plan_view(
             continue
     parts.append("  </g>")
 
-    return DrawingView(width=width, height=height, body="\n".join(parts), title=label)
+    # reveal the dimension band (offset 12 + text) and grid bubbles (radius br),
+    # which sit just outside the geometry extents, so they render on-canvas.
+    dim_pad = max(30.0, 130.0 * scale) if show_dimensions else max(4.0, 130.0 * scale)
+    return DrawingView(
+        width=width, height=height, body="\n".join(parts), title=label, pad=dim_pad
+    )
 
 
 def render_plan_svg(
