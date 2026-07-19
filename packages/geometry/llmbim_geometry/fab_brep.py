@@ -25,7 +25,7 @@ try:
 
     HAS_CADQUERY = True
 except Exception as exc:  # noqa: BLE001
-    cq = None  # type: ignore
+    cq = None
     HAS_CADQUERY = False
     _CQ_ERR = str(exc)
 

@@ -39,9 +39,11 @@ class Project:
         vcs_dir: str | Path | None = None,
         author: str = "agent",
     ) -> None:
+        from llmbim_core.versioning import ModelVCS
+
         self._model = model
         self._log = log or TransactionLog()
-        self._vcs = None
+        self._vcs: ModelVCS | None = None
         self._author = author
         if vcs_dir is not None:
             self.bind_vcs(vcs_dir)
@@ -1050,7 +1052,7 @@ class Project:
             from llmbim_core.query_lang import run_query
 
             return run_query(self._model, q)
-        return self._model.query(**filters)  # type: ignore[arg-type]
+        return self._model.query(**filters)
 
     def stats(self) -> dict[str, int]:
         return self._model.stats()
@@ -1141,7 +1143,8 @@ class Project:
         return str(r["assembly_id"])
 
     def assemblies(self) -> list[dict[str, Any]]:
-        return self.op("list_assemblies").get("assemblies", [])
+        result: list[dict[str, Any]] = self.op("list_assemblies").get("assemblies", [])
+        return result
 
     def design_option(
         self,

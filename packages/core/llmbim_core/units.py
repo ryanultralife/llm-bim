@@ -71,5 +71,7 @@ def point_to_mm(pt: Any, unit: str | None = "mm") -> tuple[float, float]:
     if isinstance(pt, dict):
         x = pt.get("x", pt.get(0))
         y = pt.get("y", pt.get(1))
+        if x is None or y is None:
+            raise ValueError(f"point dict needs x/y keys, got {sorted(pt.keys())!r}")
         return to_mm(float(x), unit), to_mm(float(y), unit)
     return to_mm(float(pt[0]), unit), to_mm(float(pt[1]), unit)
