@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from llmbim_core.materials import MATERIALS, get_material, material_cost, material_mass_kg
-from llmbim_core.model import ProjectModel
+from llmbim_core.model import Element, ProjectModel
 from llmbim_core.parts_catalog import PARTS, explode_part_bom, get_part, part_unit_cost
 from llmbim_core.quantities import slab_area_m2, wall_area_m2, wall_volume_m3
 
@@ -237,7 +237,7 @@ def material_summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(out, key=lambda x: -x["est_cost"])
 
 
-def _element_part_meta(el) -> tuple[str | None, Any]:
+def _element_part_meta(el: Element) -> tuple[str | None, Any]:
     """Return (part_id, PartType|None) for an element."""
     pid = el.params.get("part_id") or (
         el.type_id if el.type_id and el.type_id in PARTS else None
@@ -347,7 +347,7 @@ def fitting_takeoff(
             r["qty"] = round(float(r["qty"]), 3)
     nps_order = ["1/2", "3/4", "1", "1-1/4", "1-1/2", "2", "2-1/2", "3", "4", "6", "8"]
 
-    def _sk(r: dict[str, Any]) -> tuple:
+    def _sk(r: dict[str, Any]) -> tuple[str, str, int, str]:
         try:
             ni = nps_order.index(r["nps"])
         except ValueError:

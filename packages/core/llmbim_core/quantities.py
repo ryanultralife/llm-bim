@@ -5,38 +5,41 @@ from __future__ import annotations
 import csv
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from llmbim_core.model import ProjectModel
+from llmbim_core.model import Element, ProjectModel
+
+if TYPE_CHECKING:
+    from llmbim_core.parts_catalog import PartType
 from llmbim_core.types_catalog import DEFAULT_DOOR_TYPES, DEFAULT_WALL_TYPES, DEFAULT_WINDOW_TYPES
 
 
-def _wall_length_m(el) -> float:
+def _wall_length_m(el: Element) -> float:
     return float(el.params.get("length_mm") or 0) / 1000.0
 
 
-def _wall_height_m(el) -> float:
+def _wall_height_m(el: Element) -> float:
     return float(el.params.get("height_mm") or 0) / 1000.0
 
 
-def _wall_thickness_m(el) -> float:
+def _wall_thickness_m(el: Element) -> float:
     return float(el.params.get("thickness_mm") or 200) / 1000.0
 
 
-def wall_area_m2(el) -> float:
+def wall_area_m2(el: Element) -> float:
     return _wall_length_m(el) * _wall_height_m(el)
 
 
-def wall_volume_m3(el) -> float:
+def wall_volume_m3(el: Element) -> float:
     return wall_area_m2(el) * _wall_thickness_m(el)
 
 
-def slab_area_m2(el) -> float:
+def slab_area_m2(el: Element) -> float:
     area_mm2 = float(el.params.get("area_mm2") or 0)
     return area_mm2 / 1e6
 
 
-def equipment_volume_m3(el) -> float:
+def equipment_volume_m3(el: Element) -> float:
     try:
         s = el.params["size_mm"]
         return (float(s[0]) * float(s[1]) * float(s[2])) / 1e9
@@ -143,15 +146,15 @@ def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
 
     for el in model.query(category="window"):
         tid = el.type_id or "WIN-STD-48x48"
-        wt = DEFAULT_WINDOW_TYPES.get(tid)
-        cost = wt.unit_cost if wt else 800.0
+        win_t = DEFAULT_WINDOW_TYPES.get(tid)
+        cost = win_t.unit_cost if win_t else 800.0
         rows.append(
             {
                 "category": "window",
                 "id": el.id,
                 "name": el.name,
                 "type_id": tid,
-                "type_name": wt.name if wt else "",
+                "type_name": win_t.name if win_t else "",
                 "qty": 1,
                 "unit": "ea",
                 "secondary_qty": 0,
@@ -271,7 +274,7 @@ def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
     }
     seen_ids = {r["id"] for r in rows}
 
-    def _qty_and_unit(el, part) -> tuple[float, str]:
+    def _qty_and_unit(el: Element, part: PartType | None) -> tuple[float, str]:
         unit = "ea"
         if part and (part.specs or {}).get("unit"):
             unit = str(part.specs["unit"])
@@ -459,11 +462,12 @@ def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
             secondary_unit = "nps_in"
         else:
             cat = (part.category if part else el.category) or "part"
+            specs = (part.specs or {}) if part else {}
             secondary = (
                 el.params.get("section")
-                or (part.specs or {}).get("section")
+                or specs.get("section")
                 or el.params.get("bar_size")
-                or (part.specs or {}).get("bar_size")
+                or specs.get("bar_size")
                 or el.params.get("nps")
                 or ""
             )

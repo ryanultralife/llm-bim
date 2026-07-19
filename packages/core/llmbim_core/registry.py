@@ -11,6 +11,14 @@ from llmbim_core.model import ProjectModel
 Handler = Callable[[ProjectModel, dict[str, Any]], dict[str, Any]]
 
 
+def _num_param(p: dict[str, Any], key: str, alt: str, default: float) -> float:
+    """Numeric param lookup: p[key] if not None, else truthy p[alt], else default."""
+    v = p.get(key)
+    if v is not None:
+        return float(v)
+    return float(p.get(alt) or default)
+
+
 @dataclass
 class OpSpec:
     name: str
@@ -22,7 +30,9 @@ class OpSpec:
 _OPS: dict[str, OpSpec] = {}
 
 
-def register(name: str, *, description: str = "", mutates: bool = True):
+def register(
+    name: str, *, description: str = "", mutates: bool = True
+) -> Callable[[Handler], Handler]:
     def deco(fn: Handler) -> Handler:
         _OPS[name] = OpSpec(name=name, handler=fn, description=description, mutates=mutates)
         return fn
@@ -321,9 +331,9 @@ def _place_door(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("place_door requires host wall element id")
     cmd = PlaceDoor(
         host=str(host),
-        offset_mm=float(p.get("offset_mm") if p.get("offset_mm") is not None else p.get("offset") or 1000),
-        width_mm=float(p.get("width_mm") if p.get("width_mm") is not None else p.get("width") or 900),
-        height_mm=float(p.get("height_mm") if p.get("height_mm") is not None else p.get("height") or 2100),
+        offset_mm=_num_param(p, "offset_mm", "offset", 1000),
+        width_mm=_num_param(p, "width_mm", "width", 900),
+        height_mm=_num_param(p, "height_mm", "height", 2100),
         name=str(p.get("name") or ""),
         type_id=str(p.get("type_id") or ""),
         fire_rating=str(p.get("fire_rating") or ""),
@@ -340,10 +350,10 @@ def _place_window(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("place_window requires host wall element id")
     cmd = PlaceWindow(
         host=str(host),
-        offset_mm=float(p.get("offset_mm") if p.get("offset_mm") is not None else p.get("offset") or 1000),
-        width_mm=float(p.get("width_mm") if p.get("width_mm") is not None else p.get("width") or 1200),
-        height_mm=float(p.get("height_mm") if p.get("height_mm") is not None else p.get("height") or 1200),
-        sill_mm=float(p.get("sill_mm") if p.get("sill_mm") is not None else p.get("sill") or 900),
+        offset_mm=_num_param(p, "offset_mm", "offset", 1000),
+        width_mm=_num_param(p, "width_mm", "width", 1200),
+        height_mm=_num_param(p, "height_mm", "height", 1200),
+        sill_mm=_num_param(p, "sill_mm", "sill", 900),
         name=str(p.get("name") or ""),
         type_id=str(p.get("type_id") or ""),
     )
@@ -378,7 +388,9 @@ def _create_slab(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     if len(polygon) < 3:
         raise ValueError("create_slab requires polygon with ≥3 points [[x,y],...]")
     pts = [(float(pt[0]), float(pt[1])) for pt in polygon]
-    th = p.get("thickness_mm") if p.get("thickness_mm") is not None else p.get("thickness", 200)
+    th = p.get("thickness_mm")
+    if th is None:
+        th = p.get("thickness", 200)
     cmd = CreateSlab(
         level=p.get("level") or model.levels[0].name,
         polygon=pts,
@@ -1329,12 +1341,16 @@ def _material_lists(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     mutates=True,
 )
 def _import_module(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.errors import ValidationError
     from llmbim_core.modules import import_module
 
     origin = p.get("origin") or p.get("origin_mm") or [0, 0]
+    source = p["path"] if "path" in p else p.get("source")
+    if source is None:
+        raise ValidationError("import_module requires 'path' or 'source'")
     return import_module(
         model,
-        p["path"] if "path" in p else p.get("source"),
+        source,
         level=p.get("level") or (model.levels[0].name if model.levels else "L1"),
         origin=origin,
         mode=p.get("mode") or "native",

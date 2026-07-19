@@ -57,7 +57,7 @@ def fab_add_feature(model: ProjectModel, element_id: str, feature: dict[str, Any
     op = str(feature.get("op") or "").lower()
     if not op:
         raise ValidationError("feature.op required")
-    feats: list = el.params["features"]
+    feats: list[Any] = el.params["features"]
     feats.append(dict(feature))
     el.params["features"] = feats
     return {"element_id": element_id, "feature_index": len(feats) - 1, "op": op, "n_features": len(feats)}

@@ -23,7 +23,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from llmbim_core.ids import new_id
 from llmbim_core.model import ProjectModel
@@ -128,7 +128,7 @@ class ModelVCS:
         self.head_path.write_text(version_id + "\n", encoding="utf-8")
 
     def refs(self) -> dict[str, str]:
-        return json.loads(self.refs_path.read_text(encoding="utf-8"))
+        return cast(dict[str, str], json.loads(self.refs_path.read_text(encoding="utf-8")))
 
     def tag(self, name: str, version_id: str | None = None) -> dict[str, str]:
         vid = version_id or self.head()
@@ -252,7 +252,7 @@ class ModelVCS:
                 path = matches[0]
             else:
                 raise FileNotFoundError(f"Version not found: {version_id}")
-        return json.loads(path.read_text(encoding="utf-8"))
+        return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
     def checkout(self, version_id: str, *, author: str = "agent") -> ProjectModel:
         """Restore working tree to a committed version (destroys uncommitted changes)."""

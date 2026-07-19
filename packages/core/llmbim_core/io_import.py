@@ -126,7 +126,7 @@ def import_dxf_lines(model: ProjectModel, path: str | Path, *, level: str, as_wa
         i += 2
 
     entities = []
-    cur = None
+    cur: dict[str, Any] | None = None
     for code, val in pairs:
         if code == 0:
             if cur and cur.get("type") == "LINE":
