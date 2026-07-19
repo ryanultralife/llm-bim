@@ -53,6 +53,27 @@ def test_deliverables_pack(tmp_path: Path) -> None:
     assert m["project"] == "Mini Facility"
 
 
+def test_verify_reflects_late_written_artifacts(tmp_path: Path) -> None:
+    """VERIFY.json / checksums must run AFTER index.html + viewer3d.html are
+    written — a regression guard for the ordering bug where they were computed
+    before those files existed and reported has_index_html/has_viewer3d=false."""
+    import json
+
+    p = _mini_facility()
+    m = p.export_deliverables(tmp_path / "pack")
+    out = tmp_path / "pack"
+    assert (out / "index.html").is_file()
+    assert (out / "viewer3d.html").is_file()
+    verify = json.loads((out / "VERIFY.json").read_text(encoding="utf-8"))
+    assert verify["has_index_html"] is True
+    assert verify["has_viewer3d"] is True
+    # checksums cover the late-written HTML viewers, exclude the roll-up zip
+    ck = m["checksums_sha256"]
+    assert "index.html" in ck
+    assert "viewer3d.html" in ck
+    assert not any(k.endswith(".zip") for k in ck)
+
+
 def test_part_step_files(tmp_path: Path) -> None:
     p = Project.create("PartOnly")
     p.add_level("Bench", 0)
