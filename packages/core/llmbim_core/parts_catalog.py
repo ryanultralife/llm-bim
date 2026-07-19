@@ -665,8 +665,10 @@ def explode_part_bom(part: PartType, instance_qty: float = 1.0) -> list[dict[str
                 "description": line.description,
                 "qty": line.qty * instance_qty,
                 "unit": line.unit,
-                "volume_m3": round(vol, 6) if vol is not None else None,
-                "mass_kg": round(mass, 3) if mass is not None else None,
+                # mass/volume are per-unit from the BOM line; scale by instance_qty
+                # to match qty/est_cost (else multi-count parts undercount takeoff mass)
+                "volume_m3": round(vol * instance_qty, 6) if vol is not None else None,
+                "mass_kg": round(mass * instance_qty, 3) if mass is not None else None,
                 "est_cost": round(cost * instance_qty, 2),
                 "csi_hint": mat.csi_hint if mat else part.csi_code,
             }

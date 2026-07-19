@@ -39,3 +39,41 @@ def project_output_dir(name: str, *, create: bool = True) -> Path:
     if create:
         d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def _is_populated_project(d: Path) -> bool:
+    """True if ``d`` already holds a real project (committed history or a
+    non-empty working model) that must not be silently overwritten."""
+    versions = d / ".llmbim" / "versions"
+    if versions.is_dir() and any(versions.glob("ver_*.json")):
+        return True
+    model = d / "model.llmbim.json"
+    if model.is_file():
+        try:
+            import json
+
+            data = json.loads(model.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            return True  # unreadable but present — do not clobber
+        return bool(data.get("elements") or data.get("levels"))
+    return False
+
+
+def unique_project_dir(name: str) -> Path:
+    """output/<slug>/ for a NEW project, but never one that already holds work.
+
+    If the base slug dir already contains a populated project (a name collision
+    or a re-run of the same build script), fall back to ``<slug>-2``, ``-3`` …
+    so the new project gets its own space instead of destroying the old one.
+    """
+    base = output_root() / slugify(name)
+    if not _is_populated_project(base):
+        base.mkdir(parents=True, exist_ok=True)
+        return base
+    i = 2
+    while True:
+        cand = output_root() / f"{slugify(name)}-{i}"
+        if not _is_populated_project(cand):
+            cand.mkdir(parents=True, exist_ok=True)
+            return cand
+        i += 1
