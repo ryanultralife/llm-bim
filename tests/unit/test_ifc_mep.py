@@ -125,9 +125,15 @@ def test_ifc_door_window_host_placement(tmp_path: Path) -> None:
     text = out.read_text(encoding="utf-8")
     assert "IFCDOOR" in text
     assert "IFCWINDOW" in text
-    # placement should reference host wall coords (2000+offset, 3000) not only 0,0,0
-    assert "4500" in text or "4500." in text  # 2000 + 2500 door start
-    assert "3000" in text or "3000." in text
+    # openings are placed WALL-LOCAL (x=offset along baseline) under the host
+    # wall's placement at world (2000,3000) — the resolved position is
+    # start+offset without baking world coords into the opening point
+    assert "IFCCARTESIANPOINT((2500,0.," in text.replace(".0,", ",")  # door offset
+    assert "IFCCARTESIANPOINT((2000.0,3000.0," in text  # host wall start
+    # host relationship is explicit: hole punched + leaf fills it
+    assert "IFCOPENINGELEMENT" in text
+    assert "IFCRELVOIDSELEMENT" in text
+    assert "IFCRELFILLSELEMENT" in text
     assert "FR90" in text or "90min" in text or "D-HM" in text
 
 
