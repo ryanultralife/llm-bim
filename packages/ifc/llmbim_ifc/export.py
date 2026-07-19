@@ -46,6 +46,25 @@ def _esc(s: str) -> str:
     return (s or "").replace("'", "''")[:80]
 
 
+def _wall_join_extensions(
+    walls: list[tuple[str, float, float, float, float, float]],
+    tol: float = 25.0,
+) -> dict[str, tuple[float, float]]:
+    """Corner joins: (ext_start, ext_end) per wall id — extend each wall end that
+    meets another wall's end by half the *other* wall's thickness, so L/T corners
+    close instead of butting with a thickness/2 gap. Mirrors the plan renderer's
+    join logic (llmbim_drawings.plan)."""
+    ext: dict[str, list[float]] = {wid: [0.0, 0.0] for wid, *_ in walls}
+    for i, (id_a, ax0, ay0, ax1, ay1, ath) in enumerate(walls):
+        for id_b, bx0, by0, bx1, by1, bth in walls[i + 1 :]:
+            for end_a, pa in ((0, (ax0, ay0)), (1, (ax1, ay1))):
+                for end_b, pb in ((0, (bx0, by0)), (1, (bx1, by1))):
+                    if math.hypot(pa[0] - pb[0], pa[1] - pb[1]) <= tol:
+                        ext[id_a][end_a] = max(ext[id_a][end_a], bth / 2.0)
+                        ext[id_b][end_b] = max(ext[id_b][end_b], ath / 2.0)
+    return {k: (v[0], v[1]) for k, v in ext.items()}
+
+
 def _export_box_proxy(
     f: _Ifc,
     el,
@@ -460,8 +479,64 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
 
     wall_by_id = {el.id: el for el in model.elements if el.category == "wall"}
 
+    # Corner joins: extend wall solids where ends meet so corners close
+    wall_geo: list[tuple[str, float, float, float, float, float]] = []
+    for wel in wall_by_id.values():
+        try:
+            ws, we = wel.params["start_mm"], wel.params["end_mm"]
+            wth = float(wel.params.get("thickness_mm", 200))
+            wall_geo.append(
+                (wel.id, float(ws[0]), float(ws[1]), float(we[0]), float(we[1]), wth)
+            )
+        except (KeyError, TypeError, ValueError, IndexError):
+            continue
+    joins = _wall_join_extensions(wall_geo)
+
+    # First pass: walls — recorded so hosted openings can void them and place
+    # themselves in wall-local coordinates.
+    # wall element id -> (ifc wall id, wall IfcLocalPlacement id, thickness)
+    ifc_walls: dict[str, tuple[int, int, float]] = {}
     for el in model.elements:
-        if el.category == "room":
+        if el.category != "wall":
+            continue
+        storey = storey_ids.get(el.level_id or "", default_storey)
+        parent_local = storey_local.get(el.level_id or "", default_local)
+        try:
+            s = el.params["start_mm"]
+            e = el.params["end_mm"]
+            th = float(el.params.get("thickness_mm", 200))
+            ht = float(el.params.get("height_mm", 3000))
+        except (KeyError, TypeError, ValueError):
+            continue
+        x0, y0 = float(s[0]), float(s[1])
+        x1, y1 = float(e[0]), float(e[1])
+        length = math.hypot(x1 - x0, y1 - y0)
+        if length < 1:
+            continue
+        ang = math.degrees(math.atan2(y1 - y0, x1 - x0))
+        # placement at start, rotate Z
+        pt = f.add(f"IFCCARTESIANPOINT(({x0},{y0},0.0))")
+        rad = math.radians(ang)
+        dx_dir = f.add(f"IFCDIRECTION(({math.cos(rad)},{math.sin(rad)},0.))")
+        a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{dx_dir})")
+        loc = f.add(f"IFCLOCALPLACEMENT(#{parent_local},#{a3})")
+        # corner joins: solid spans [-ext0, length+ext1] in wall-local X so
+        # meeting walls close their corners; placement stays at the start point
+        # (opening offsets remain measured from the unextended start).
+        ext0, ext1 = joins.get(el.id, (0.0, 0.0))
+        total = ext0 + length + ext1
+        body = extrude_rect(total, th, ht, cx=total / 2.0 - ext0, cy=0.0)
+        prod = f.add(f"IFCPRODUCTDEFINITIONSHAPE($,$,(#{body}))")
+        wall = f.add(
+            f"IFCWALLSTANDARDCASE('{f.guid()}',#{owner},'{_esc(el.name or el.id)}',"
+            f"$,$,#{loc},#{prod},$,.STANDARD.)"
+        )
+        contained[storey].append(wall)
+        _attach_csi_pset(f, owner, wall, model, el)
+        ifc_walls[el.id] = (wall, loc, th)
+
+    for el in model.elements:
+        if el.category in {"room", "wall"}:
             continue  # already exported
         storey = storey_ids.get(el.level_id or "", default_storey)
         # Place elements RELATIVE to their storey's local placement so the storey
@@ -470,38 +545,7 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
         parent_local = storey_local.get(el.level_id or "", default_local)
         z_base = 0.0
 
-        if el.category == "wall":
-            try:
-                s = el.params["start_mm"]
-                e = el.params["end_mm"]
-                th = float(el.params.get("thickness_mm", 200))
-                ht = float(el.params.get("height_mm", 3000))
-            except (KeyError, TypeError, ValueError):
-                continue
-            x0, y0 = float(s[0]), float(s[1])
-            x1, y1 = float(e[0]), float(e[1])
-            length = math.hypot(x1 - x0, y1 - y0)
-            if length < 1:
-                continue
-            ang = math.degrees(math.atan2(y1 - y0, x1 - x0))
-            # placement at start, rotate Z
-            pt = f.add(f"IFCCARTESIANPOINT(({x0},{y0},{z_base}))")
-            # rotation around Z
-            rad = math.radians(ang)
-            dx_dir = f.add(f"IFCDIRECTION(({math.cos(rad)},{math.sin(rad)},0.))")
-            a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{dx_dir})")
-            loc = f.add(f"IFCLOCALPLACEMENT(#{parent_local},#{a3})")
-            # profile centered at (length/2, 0): runs start->end, centered on baseline thickness
-            body = extrude_rect(length, th, ht, cx=length / 2.0, cy=0.0)
-            prod = f.add(f"IFCPRODUCTDEFINITIONSHAPE($,$,(#{body}))")
-            wall = f.add(
-                f"IFCWALLSTANDARDCASE('{f.guid()}',#{owner},'{_esc(el.name or el.id)}',"
-                f"$,$,#{loc},#{prod},$,.STANDARD.)"
-            )
-            contained[storey].append(wall)
-            _attach_csi_pset(f, owner, wall, model, el)
-
-        elif el.category == "slab":
+        if el.category == "slab":
             try:
                 poly = el.params["polygon_mm"]
                 th = float(el.params.get("thickness_mm", 200))
@@ -587,52 +631,49 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
                 _attach_csi_pset(f, owner, eid, model, el)
 
         elif el.category in {"door", "window"}:
-            # Place opening at host wall offset (along baseline) with sill height
+            # Hosted openings: place the door/window in WALL-LOCAL coordinates
+            # (x = offset along baseline, y = 0 on centerline, z = sill), punch a
+            # real IfcOpeningElement through the host via IfcRelVoidsElement, and
+            # fill it with the door/window via IfcRelFillsElement — so importers
+            # see hosted openings with actual holes, not free-floating solids.
             kind = "IFCDOOR" if el.category == "door" else "IFCWINDOW"
             try:
                 w = float(el.params.get("width_mm", 900))
                 h = float(el.params.get("height_mm", 2100 if el.category == "door" else 1200))
                 sill = float(el.params.get("sill_mm") or 0)
                 off = float(el.params.get("offset_mm") or 0)
-                host = wall_by_id.get(el.host_id or "")
-                th = 100.0
-                if host is not None:
-                    hs = host.params.get("start_mm")
-                    he = host.params.get("end_mm")
-                    th = float(host.params.get("thickness_mm") or 100)
-                    if hs and he:
-                        hx0, hy0 = float(hs[0]), float(hs[1])
-                        hx1, hy1 = float(he[0]), float(he[1])
-                        wlen = math.hypot(hx1 - hx0, hy1 - hy0)
-                        if wlen >= 1:
-                            ux, uy = (hx1 - hx0) / wlen, (hy1 - hy0) / wlen
-                            # place at opening start along host (not mid)
-                            ox = hx0 + ux * off
-                            oy = hy0 + uy * off
-                            ang = math.degrees(math.atan2(uy, ux))
-                            rad = math.radians(ang)
-                            dx_dir = f.add(
-                                f"IFCDIRECTION(({math.cos(rad)},{math.sin(rad)},0.))"
-                            )
-                            pt = f.add(f"IFCCARTESIANPOINT(({ox},{oy},{z_base + sill}))")
-                            a3 = f.add(
-                                f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{dx_dir})"
-                            )
-                        else:
-                            pt = f.add(f"IFCCARTESIANPOINT((0.,0.,{sill}))")
-                            a3 = f.add(
-                                f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{axis_x})"
-                            )
-                    else:
-                        pt = f.add(f"IFCCARTESIANPOINT((0.,0.,{sill}))")
-                        a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{axis_x})")
+                host_ifc = ifc_walls.get(el.host_id or "")
+                if host_ifc is not None:
+                    host_wall_id, host_loc, th = host_ifc
+                    # opening solid: full wall depth (+2mm so the boolean fully
+                    # clears both faces), wall-local at (off, 0, sill)
+                    op_pt = f.add(f"IFCCARTESIANPOINT(({off},0.,{sill}))")
+                    op_a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{op_pt},#{axis_z},#{axis_x})")
+                    op_loc = f.add(f"IFCLOCALPLACEMENT(#{host_loc},#{op_a3})")
+                    op_body = extrude_rect(w, th + 2.0, h, cx=w / 2.0, cy=0.0)
+                    op_prod = f.add(f"IFCPRODUCTDEFINITIONSHAPE($,$,(#{op_body}))")
+                    opening = f.add(
+                        f"IFCOPENINGELEMENT('{f.guid()}',#{owner},"
+                        f"'{_esc((el.name or el.id) + '-OPN')}',$,$,#{op_loc},"
+                        f"#{op_prod},$,.OPENING.)"
+                    )
+                    f.add(
+                        f"IFCRELVOIDSELEMENT('{f.guid()}',#{owner},$,$,"
+                        f"#{host_wall_id},#{opening})"
+                    )
+                    # door/window leaf placed relative to the opening (origin)
+                    leaf_pt = f.add("IFCCARTESIANPOINT((0.,0.,0.))")
+                    leaf_a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{leaf_pt},#{axis_z},#{axis_x})")
+                    loc = f.add(f"IFCLOCALPLACEMENT(#{op_loc},#{leaf_a3})")
+                    body = extrude_rect(w, max(th, 50.0), h, cx=w / 2.0, cy=0.0)
                 else:
-                    pt = f.add(f"IFCCARTESIANPOINT((0.,0.,{sill}))")
+                    # hostless fallback: storey-local at origin with sill height
+                    th = 100.0
+                    pt = f.add(f"IFCCARTESIANPOINT((0.,0.,{z_base + sill}))")
                     a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{axis_x})")
-                loc = f.add(f"IFCLOCALPLACEMENT(#{parent_local},#{a3})")
-                # placement at opening start along baseline; offset so the leaf runs
-                # start->start+w and is centered on wall thickness (cy=0)
-                body = extrude_rect(w, max(th, 50.0), h, cx=w / 2.0, cy=0.0)
+                    loc = f.add(f"IFCLOCALPLACEMENT(#{parent_local},#{a3})")
+                    body = extrude_rect(w, max(th, 50.0), h, cx=w / 2.0, cy=0.0)
+                    opening = None
                 prod = f.add(f"IFCPRODUCTDEFINITIONSHAPE($,$,(#{body}))")
                 tag = ""
                 if el.type_id:
@@ -641,13 +682,18 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
                     fr = str(el.params["fire_rating"]).replace(" ", "")[:10]
                     tag = f"{tag}-FR{fr}" if tag else f"FR{fr}"
                 tag_attr = f"'{_esc(tag)}'" if tag else "$"
-                # IFC4 IfcDoor/IfcWindow have 13 attributes: append OverallHeight,
+                # IFC4 IfcDoor/IfcWindow have 13 attributes: OverallHeight,
                 # OverallWidth, PredefinedType, OperationType/PartitioningType,
-                # UserDefined... (previously only 9 were emitted → strict readers reject).
+                # UserDefined... appended after Tag.
                 ent = f.add(
                     f"{kind}('{f.guid()}',#{owner},'{_esc(el.name or el.id)}',"
                     f"$,$,#{loc},#{prod},{tag_attr},{h},{w},.NOTDEFINED.,.NOTDEFINED.,$)"
                 )
+                if opening is not None:
+                    f.add(
+                        f"IFCRELFILLSELEMENT('{f.guid()}',#{owner},$,$,"
+                        f"#{opening},#{ent})"
+                    )
                 contained[storey].append(ent)
                 _attach_csi_pset(f, owner, ent, model, el)
             except (KeyError, TypeError, ValueError, IndexError):

@@ -138,3 +138,62 @@ def test_export_ifc_optional_ifcopenshell(tmp_path: Path) -> None:
     p.export_ifc(out)
     f = ifcopenshell.open(str(out))
     assert f.by_type("IfcProject")
+
+
+def test_ifc_openings_void_and_fill(tmp_path: Path) -> None:
+    """Hosted doors/windows must punch a real IfcOpeningElement through the host
+    wall (IfcRelVoidsElement) and fill it (IfcRelFillsElement); openings must not
+    be contained in the spatial structure."""
+    import re
+
+    from llmbim_ifc import export_ifc
+
+    p = Project.create("Openings", vcs=False)
+    p.add_level("L1", 0)
+    w = p.create_wall(level="L1", start=(0, 0), end=(8000, 0), thickness_mm=200, height_mm=3000)
+    p.place_door(host=w, offset_mm=2000, width_mm=900, height_mm=2100)
+    p.place_window(host=w, offset_mm=5000, width_mm=1200, height_mm=900, sill_mm=900)
+    out = tmp_path / "m.ifc"
+    export_ifc(p.model, out)
+    ent = _parse_entities(out.read_text(encoding="utf-8"))
+
+    kinds = [t for t, _ in ent.values()]
+    assert kinds.count("IFCOPENINGELEMENT") == 2
+    assert kinds.count("IFCRELVOIDSELEMENT") == 2
+    assert kinds.count("IFCRELFILLSELEMENT") == 2
+    # voids: wall -> opening; fills: opening -> door/window
+    for i, (typ, body) in ent.items():
+        a = _top_level_args(body)
+        if typ == "IFCRELVOIDSELEMENT":
+            assert ent[int(a[4][1:])][0] == "IFCWALLSTANDARDCASE"
+            assert ent[int(a[5][1:])][0] == "IFCOPENINGELEMENT"
+        if typ == "IFCRELFILLSELEMENT":
+            assert ent[int(a[4][1:])][0] == "IFCOPENINGELEMENT"
+            assert ent[int(a[5][1:])][0] in {"IFCDOOR", "IFCWINDOW"}
+    # openings are related via voids, never contained in a storey
+    opn = {i for i, (t, _) in ent.items() if t == "IFCOPENINGELEMENT"}
+    for i, (typ, body) in ent.items():
+        if typ == "IFCRELCONTAINEDINSPATIALSTRUCTURE":
+            refs = {int(x) for x in re.findall(r"#(\d+)", body)}
+            assert not (refs & opn), "opening contained in spatial structure"
+
+
+def test_ifc_wall_corner_joins(tmp_path: Path) -> None:
+    """Walls meeting at a corner extend by half the adjacent wall's thickness so
+    the corner closes (L-join): 8000mm wall + 300/2 -> XDim 8150."""
+    from llmbim_ifc import export_ifc
+
+    p = Project.create("Corners", vcs=False)
+    p.add_level("L1", 0)
+    p.create_wall(level="L1", start=(0, 0), end=(8000, 0), thickness_mm=200, height_mm=3000)
+    p.create_wall(level="L1", start=(0, 0), end=(0, 6000), thickness_mm=300, height_mm=3000)
+    out = tmp_path / "m.ifc"
+    export_ifc(p.model, out)
+    ent = _parse_entities(out.read_text(encoding="utf-8"))
+    dims = set()
+    for _i, (typ, body) in ent.items():
+        if typ == "IFCRECTANGLEPROFILEDEF":
+            a = _top_level_args(body)
+            dims.add((float(a[3]), float(a[4])))
+    assert (8150.0, 200.0) in dims, f"wall A not extended: {dims}"
+    assert (6100.0, 300.0) in dims, f"wall B not extended: {dims}"
