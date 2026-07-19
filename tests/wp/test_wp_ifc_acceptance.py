@@ -162,7 +162,7 @@ def test_ifc_openings_void_and_fill(tmp_path: Path) -> None:
     assert kinds.count("IFCRELVOIDSELEMENT") == 2
     assert kinds.count("IFCRELFILLSELEMENT") == 2
     # voids: wall -> opening; fills: opening -> door/window
-    for i, (typ, body) in ent.items():
+    for _i, (typ, body) in ent.items():
         a = _top_level_args(body)
         if typ == "IFCRELVOIDSELEMENT":
             assert ent[int(a[4][1:])][0] == "IFCWALLSTANDARDCASE"
@@ -172,7 +172,7 @@ def test_ifc_openings_void_and_fill(tmp_path: Path) -> None:
             assert ent[int(a[5][1:])][0] in {"IFCDOOR", "IFCWINDOW"}
     # openings are related via voids, never contained in a storey
     opn = {i for i, (t, _) in ent.items() if t == "IFCOPENINGELEMENT"}
-    for i, (typ, body) in ent.items():
+    for _i, (typ, body) in ent.items():
         if typ == "IFCRELCONTAINEDINSPATIALSTRUCTURE":
             refs = {int(x) for x in re.findall(r"#(\d+)", body)}
             assert not (refs & opn), "opening contained in spatial structure"
