@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
+from typing import Any
 
 from llmbim_core.model import Element, ProjectModel
 
@@ -386,7 +387,7 @@ def _mesh_from_detail(
 
 
 def _append_mesh(
-    bucket: dict,
+    bucket: dict[str, Any],
     positions: list[float],
     normals: list[float],
     indices: list[int],
@@ -747,7 +748,9 @@ def _w_column_mesh(
         parts.append(_aabb_box_mesh(cx - tw / 2, cy - d / 2 + tf, z0, cx + tw / 2, cy + d / 2 - tf, z1))
     else:
         # three rectangular prisms along local axes via corner sets
-        def _prism(lx0: float, ly0: float, lx1: float, ly1: float) -> tuple:
+        def _prism(
+            lx0: float, ly0: float, lx1: float, ly1: float
+        ) -> tuple[list[float], list[float], list[int]]:
             corners = []
             for lx, ly, z in (
                 (lx0, ly0, z0),
@@ -812,8 +815,8 @@ def _wall_join_extensions(
         except (KeyError, TypeError, ValueError, IndexError):
             return None
 
-    parsed = [(el, _ends(el)) for el in walls]
-    parsed = [(el, ep) for el, ep in parsed if ep is not None]
+    raw = [(el, _ends(el)) for el in walls]
+    parsed = [(el, ep) for el, ep in raw if ep is not None]
     for i, (el_a, a) in enumerate(parsed):
         ax0, ay0, ax1, ay1, ath = a
         for el_b, b in parsed[i + 1 :]:
@@ -972,7 +975,7 @@ def _mesh_from_pipe(el: Element, model: ProjectModel) -> tuple[list[float], list
 
 
 def _mesh_from_opening(
-    el: Element, model: ProjectModel, wall_by_id: dict
+    el: Element, model: ProjectModel, wall_by_id: dict[str, Element]
 ) -> tuple[list[float], list[float], list[int]]:
     try:
         host = wall_by_id.get(el.host_id or "")
@@ -1104,9 +1107,9 @@ def _gltf_material_key(el: Element) -> str:
 
 def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
     """Write glTF 2.0 JSON with normals, per-layer nodes, presentation materials."""
-    buckets: dict[str, dict] = {}
+    buckets: dict[str, dict[str, Any]] = {}
 
-    def _ensure(key: str) -> dict:
+    def _ensure(key: str) -> dict[str, Any]:
         if key not in buckets:
             buckets[key] = {"pos": [], "nrm": [], "idx": [], "base": 0}
         return buckets[key]
@@ -1330,7 +1333,7 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
         {"buffer": 0, "byteOffset": off_idx, "byteLength": len(idx_bytes), "target": 34963},
     ]
 
-    accessors: list[dict] = [
+    accessors: list[dict[str, Any]] = [
         {
             "bufferView": 0,
             "byteOffset": 0,
@@ -1348,8 +1351,8 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
             "type": "VEC3",
         },
     ]
-    meshes: list[dict] = []
-    nodes: list[dict] = []
+    meshes: list[dict[str, Any]] = []
+    nodes: list[dict[str, Any]] = []
     for key, pos_start, n_verts, idx_start, n_idx in prim_meta:
         pslice = all_pos[pos_start : pos_start + n_verts * 3]
         pos_acc = len(accessors)
