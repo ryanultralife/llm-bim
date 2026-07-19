@@ -123,3 +123,25 @@ def test_deliverables_include_materials(tmp_path: Path):
     assert (tmp_path / "pack" / "schedules" / "plumbing_takeoff.json").is_file()
     data = fitting_takeoff(p.model)
     assert data[0]["qty"] == 1
+
+
+def test_explode_bom_scales_mass_and_volume_by_qty():
+    """mass_kg / volume_m3 must scale with instance_qty just like qty / est_cost.
+    Regression: they previously stayed at the per-unit value, undercounting
+    procurement mass on every multi-count / multi-meter part."""
+    from llmbim_core.parts_catalog import PARTS, explode_part_bom
+
+    part = next(
+        p
+        for p in PARTS.values()
+        if any(r.get("mass_kg") for r in explode_part_bom(p, 1.0))
+    )
+    one = explode_part_bom(part, 1.0)
+    ten = explode_part_bom(part, 10.0)
+    for r1, r10 in zip(one, ten):
+        if r1["mass_kg"] is not None:
+            assert r10["mass_kg"] == round(r1["mass_kg"] * 10, 3)
+        if r1["volume_m3"] is not None:
+            assert r10["volume_m3"] == round(r1["volume_m3"] * 10, 6)
+        assert r10["qty"] == r1["qty"] * 10
+        assert r10["est_cost"] == round(r1["est_cost"] * 10, 2)

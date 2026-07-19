@@ -60,10 +60,12 @@ class Project:
             pass
         p = cls(ProjectModel(name=name, units="mm"), author=author)
         if vcs:
-            from llmbim_core.paths import project_output_dir
+            from llmbim_core.paths import unique_project_dir
             from llmbim_core.versioning import init_vcs
 
-            d = project_output_dir(name)
+            # collision-safe: never overwrite an existing project's working model
+            # with this fresh empty one (name clash / build-script re-run).
+            d = unique_project_dir(name)
             p._vcs = init_vcs(d, p._model, message="initial commit")
             p._author = author
         return p
@@ -1022,7 +1024,9 @@ class Project:
         from llmbim_core.material_lists import export_lists
         from llmbim_core.paths import project_output_dir
 
-        dest = Path(out_dir) if out_dir else project_output_dir(self.name) / "materials"
+        dest = Path(out_dir) if out_dir else (
+            (self.vcs_dir or project_output_dir(self.name)) / "materials"
+        )
         return export_lists(self._model, dest)
 
     @classmethod
@@ -1561,7 +1565,9 @@ class Project:
         from llmbim_core.paths import project_output_dir
         from llmbim_drawings.deliverables import export_deliverables
 
-        dest = Path(out_dir) if out_dir else project_output_dir(self.name)
+        # default to the project's actual VCS dir (which may be slug-2 after a
+        # name collision) so the pack lands with the model it versions.
+        dest = Path(out_dir) if out_dir else (self.vcs_dir or project_output_dir(self.name))
         result = export_deliverables(
             self._model,
             dest,
