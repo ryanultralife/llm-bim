@@ -522,6 +522,76 @@ if HAS_MCP:
         return _tool_result({"element_id": eid})
 
     @mcp.tool()
+    def place_tube(
+        project_id: str,
+        level: str,
+        origin_x: float = 0,
+        origin_y: float = 0,
+        z0_mm: float = 0,
+        direction: str = "x",
+        length_mm: float = 100,
+        od_mm: float = 50,
+        id_mm: float = 0,
+        kind: str = "port",
+        system: str = "",
+        name: str = "",
+    ) -> str:
+        """Oriented tube/port from origin+z0 along direction. direction: x|y|z (± ok)
+        or JSON vector e.g. "[0,0.7,0.7]". id_mm>0 makes a hollow stub (KF port)."""
+        try:
+            p = store.get(project_id)
+            d: str | list[float] = direction
+            ds = direction.strip()
+            if ds.startswith("["):
+                d = [float(v) for v in json.loads(ds)]
+            eid = p.place_tube(
+                level=level,
+                origin=(origin_x, origin_y),
+                z0_mm=z0_mm,
+                direction=d,
+                length_mm=length_mm,
+                od_mm=od_mm,
+                id_mm=id_mm if id_mm > 0 else None,
+                kind=kind or "port",
+                system=system or None,
+                name=name or None,
+            )
+            store.save(project_id)
+            return _tool_result({"element_id": eid})
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def place_wire_path(
+        project_id: str,
+        level: str,
+        points_json: str,
+        diameter_mm: float = 6,
+        phase: str = "",
+        system: str = "",
+        wire_role: str = "coil",
+        name: str = "",
+    ) -> str:
+        """ONE 3D wire/hose polyline element. points_json = [[x,y,z],...] mm
+        (z above level). phase A|B|C colors it wire_phase_a/b/c in the viewer."""
+        try:
+            p = store.get(project_id)
+            pts = json.loads(points_json)
+            eid = p.place_wire_path(
+                level=level,
+                points_mm=[[float(v) for v in pt] for pt in pts],
+                diameter_mm=diameter_mm,
+                phase=phase or None,
+                system=system or None,
+                wire_role=wire_role or "coil",
+                name=name or None,
+            )
+            store.save(project_id)
+            return _tool_result({"element_id": eid})
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
     def place_duct(
         project_id: str,
         level: str,
@@ -1327,6 +1397,39 @@ if HAS_MCP:
         )
         store.save(project_id)
         return _tool_result({"element_id": eid, "kind": kind, "shape": shape})
+
+    @mcp.tool()
+    def auto_place(
+        project_id: str,
+        room: str,
+        items_json: str,
+        clearance_mm: float = 900,
+        aisle_mm: float = 1200,
+        strategy: str = "perimeter",
+    ) -> str:
+        """Requirements-driven equipment auto-placement — coordinates DERIVED from
+        room assignment, footprints, and clearances (deterministic; placed elements
+        tagged placement_basis for design review). room: room element id or name.
+        items_json: JSON list of {name, w_mm, d_mm, h_mm, kind?, clearance_front_mm?,
+        against_wall?}. strategy: perimeter (back-to-wall, skips door swings and
+        existing equipment) | grid (interior rows with aisle circulation). Items
+        that cannot fit are returned in result.unplaced with a reason."""
+        import json as _json
+
+        try:
+            p = store.get(project_id)
+            items = _json.loads(items_json)
+            r = p.auto_place(
+                room=room,
+                items=items,
+                clearance_mm=clearance_mm,
+                aisle_mm=aisle_mm,
+                strategy=strategy,
+            )
+            store.save(project_id)
+            return _tool_result(r)
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
 
     @mcp.tool()
     def level_add(project_id: str, name: str, elevation_mm: float) -> str:

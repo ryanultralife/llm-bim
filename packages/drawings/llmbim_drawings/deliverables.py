@@ -42,6 +42,179 @@ def _try(label: str, errors: list[dict], fn) -> Any:
         return None
 
 
+# glTF 2.0 componentType → byte size, and accessor type → component count.
+_GLTF_COMPONENT_SIZE = {5120: 1, 5121: 1, 5122: 2, 5123: 2, 5125: 4, 5126: 4}
+_GLTF_TYPE_COUNT = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4, "MAT2": 4, "MAT3": 9, "MAT4": 16}
+_GLTF_INDEX_FMT = {5121: "<B", 5123: "<H", 5125: "<I"}
+
+
+def _verify_gltf_strict(gltf_path: Path) -> dict[str, Any]:
+    """Strict structural validation of an exported glTF (hand-parsed, no deps).
+
+    Catches the "green VERIFY, black viewer" class of export bugs
+    (docs/EQUIPMENT_3D_AND_DEVICE_SSOT.md §2): for EVERY mesh primitive,
+    indices must be *local* to the primitive's POSITION accessor
+    (``0 <= i < position.count``); every accessor's byte range must fit its
+    bufferView and buffer; the overall scene bbox extent must be > 0; and the
+    model must actually carry meshes + materials.
+    """
+    import base64
+    import struct
+
+    failures: list[str] = []
+    res: dict[str, Any] = {
+        "gltf_valid": False,
+        "gltf_mesh_count": 0,
+        "gltf_index_errors": 0,
+        "gltf_bbox_extent_mm": 0.0,
+        "gltf_material_count": 0,
+        "failures": failures,
+    }
+    try:
+        data = json.loads(gltf_path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        failures.append(f"model.gltf: not parseable JSON ({exc})")
+        return res
+    if not isinstance(data, dict):
+        failures.append("model.gltf: top level is not a JSON object")
+        return res
+
+    # Decode buffers (embedded base64 data URIs; sidecar .bin also supported)
+    buffers: list[bytes] = []
+    for bi, buf in enumerate(data.get("buffers") or []):
+        uri = str(buf.get("uri") or "")
+        blob = b""
+        if uri.startswith("data:"):
+            try:
+                blob = base64.b64decode(uri.split(",", 1)[1])
+            except Exception:  # noqa: BLE001
+                failures.append(f"buffer {bi}: bad base64 data URI")
+        elif uri:
+            side = gltf_path.parent / uri
+            if side.is_file():
+                blob = side.read_bytes()
+            else:
+                failures.append(f"buffer {bi}: sidecar {uri!r} missing")
+        declared = int(buf.get("byteLength") or 0)
+        if declared > len(blob):
+            failures.append(f"buffer {bi}: declared byteLength {declared} > actual {len(blob)}")
+        buffers.append(blob)
+
+    accessors = data.get("accessors") or []
+    buffer_views = data.get("bufferViews") or []
+
+    def _accessor_offset(ai: int) -> tuple[int, bytes] | None:
+        """Absolute byte offset + backing blob for accessor ``ai``; None + failure on breakage."""
+        try:
+            acc = accessors[ai]
+            bv = buffer_views[int(acc["bufferView"])]
+            blob = buffers[int(bv.get("buffer", 0))]
+        except (IndexError, KeyError, TypeError, ValueError):
+            failures.append(f"accessor {ai}: broken bufferView/buffer reference")
+            return None
+        comp = _GLTF_COMPONENT_SIZE.get(int(acc.get("componentType", 0)))
+        n_comp = _GLTF_TYPE_COUNT.get(str(acc.get("type", "")))
+        if comp is None or n_comp is None:
+            failures.append(f"accessor {ai}: unknown componentType/type")
+            return None
+        span = int(acc.get("count", 0)) * comp * n_comp
+        a_off = int(acc.get("byteOffset", 0))
+        bv_off = int(bv.get("byteOffset", 0))
+        bv_len = int(bv.get("byteLength", 0))
+        if a_off + span > bv_len:
+            failures.append(
+                f"accessor {ai}: byte range {a_off}+{span} exceeds bufferView length {bv_len}"
+            )
+            return None
+        if bv_off + bv_len > len(blob):
+            failures.append(
+                f"accessor {ai}: bufferView escapes buffer ({bv_off}+{bv_len} > {len(blob)})"
+            )
+            return None
+        return bv_off + a_off, blob
+
+    # (b) every accessor's byte range must fit its bufferView and buffer
+    for ai in range(len(accessors)):
+        if isinstance(accessors[ai], dict) and "bufferView" in accessors[ai]:
+            _accessor_offset(ai)
+
+    # (a) per-primitive index checks + (c) scene bbox from POSITION min/max
+    index_errors = 0
+    mins = [float("inf")] * 3
+    maxs = [float("-inf")] * 3
+    meshes = data.get("meshes") or []
+    prim_count = 0
+    for mi, mesh in enumerate(meshes):
+        for pi, prim in enumerate(mesh.get("primitives") or []):
+            prim_count += 1
+            attrs = prim.get("attributes") or {}
+            if "POSITION" not in attrs:
+                failures.append(f"mesh {mi} primitive {pi}: no POSITION attribute")
+                index_errors += 1
+                continue
+            pos_i = int(attrs["POSITION"])
+            pos_acc = accessors[pos_i] if 0 <= pos_i < len(accessors) else {}
+            n_verts = int(pos_acc.get("count", 0)) if isinstance(pos_acc, dict) else 0
+            pos_loc = _accessor_offset(pos_i)
+            # bbox: prefer declared min/max; fall back to reading the floats
+            pmin, pmax = pos_acc.get("min"), pos_acc.get("max")
+            if isinstance(pmin, list) and isinstance(pmax, list) and len(pmin) == 3 == len(pmax):
+                for k in range(3):
+                    mins[k] = min(mins[k], float(pmin[k]))
+                    maxs[k] = max(maxs[k], float(pmax[k]))
+            elif pos_loc is not None and n_verts > 0:
+                off, blob = pos_loc
+                for v in range(n_verts):
+                    xyz = struct.unpack_from("<3f", blob, off + v * 12)
+                    for k in range(3):
+                        mins[k] = min(mins[k], xyz[k])
+                        maxs[k] = max(maxs[k], xyz[k])
+            if "indices" not in prim:
+                continue
+            idx_i = int(prim["indices"])
+            loc = _accessor_offset(idx_i)
+            if loc is None:
+                index_errors += 1
+                continue
+            off, blob = loc
+            idx_acc = accessors[idx_i]
+            fmt = _GLTF_INDEX_FMT.get(int(idx_acc.get("componentType", 0)))
+            if fmt is None:
+                failures.append(f"mesh {mi} primitive {pi}: invalid index componentType")
+                index_errors += 1
+                continue
+            size = _GLTF_COMPONENT_SIZE[int(idx_acc["componentType"])]
+            bad = 0
+            for k in range(int(idx_acc.get("count", 0))):
+                (val,) = struct.unpack_from(fmt, blob, off + k * size)
+                if val >= n_verts:
+                    bad += 1
+            if bad:
+                index_errors += bad
+                failures.append(
+                    f"mesh {mi} primitive {pi}: {bad} indices out of range "
+                    f"(valid 0..{n_verts - 1}) — indices must be local to the "
+                    "primitive's POSITION accessor"
+                )
+
+    res["gltf_mesh_count"] = len(meshes)
+    res["gltf_index_errors"] = index_errors
+    res["gltf_material_count"] = len(data.get("materials") or [])
+    if prim_count == 0:
+        failures.append("model.gltf: no mesh primitives — nothing to render")
+    if res["gltf_material_count"] == 0:
+        failures.append("model.gltf: materials array is empty")
+    extent_m = 0.0
+    if all(m != float("inf") for m in mins) and all(m != float("-inf") for m in maxs):
+        extent_m = max(maxs[k] - mins[k] for k in range(3))
+    res["gltf_bbox_extent_mm"] = round(extent_m * 1000.0, 3)  # glTF is metres
+    if prim_count > 0 and extent_m <= 0.0:
+        failures.append("model.gltf: scene bbox extent is 0 — degenerate/collapsed geometry")
+    failures[:] = list(dict.fromkeys(failures))  # dedupe repeat accessor findings
+    res["gltf_valid"] = not failures and index_errors == 0
+    return res
+
+
 def verify_pack(
     out_dir: str | Path,
     *,
@@ -62,7 +235,8 @@ def verify_pack(
         "model.step",
     ]
     missing = [r for r in required if not (out / r).is_file()]
-    checks: dict[str, Any] = {"missing": missing, "files": {}}
+    failures: list[str] = []
+    checks: dict[str, Any] = {"missing": missing, "failures": failures, "files": {}}
     for r in required + ["MANIFEST.json", "boq.json", "clash_report.json", "design_rules.json"]:
         p = out / r
         if p.is_file():
@@ -75,6 +249,16 @@ def verify_pack(
     if (out / "model.step").is_file():
         t = (out / "model.step").read_text(encoding="utf-8", errors="replace")
         checks["step_has_brep"] = "MANIFOLD_SOLID_BREP" in t
+    # Strict glTF validation — a green VERIFY with a black viewer is worse than
+    # a loud export error (docs/EQUIPMENT_3D_AND_DEVICE_SSOT.md §2.4)
+    if (out / "model.gltf").is_file():
+        g = _verify_gltf_strict(out / "model.gltf")
+        checks["gltf_valid"] = g["gltf_valid"]
+        checks["gltf_bbox_extent_mm"] = g["gltf_bbox_extent_mm"]
+        checks["gltf_mesh_count"] = g["gltf_mesh_count"]
+        checks["gltf_index_errors"] = g["gltf_index_errors"]
+        checks["gltf_material_count"] = g["gltf_material_count"]
+        failures.extend(g["failures"])
     if (out / "construction").is_dir():
         sheet_svgs = list((out / "construction").glob("*.svg"))
         checks["construction_sheets"] = len(sheet_svgs)
@@ -202,6 +386,10 @@ def verify_pack(
     if (out / "model.ifc").is_file() and not checks.get("ifc_has_project"):
         checks["ok"] = False
     if (out / "model.step").is_file() and not checks.get("step_has_brep"):
+        checks["ok"] = False
+    # SSOT §2.4: a green VERIFY with a black viewer is worse than a loud export
+    # error — strict glTF failure must fail the whole pack verification.
+    if (out / "model.gltf").is_file() and not checks.get("gltf_valid"):
         checks["ok"] = False
     if require_materials and not checks.get("has_materials_package"):
         checks["ok"] = False

@@ -80,6 +80,22 @@ python scripts/verify_all.py
 
 Open `examples/output/intec/index.html` in a browser to review (no install UI).
 
+## Viewing a pack (one tab, durable serve)
+
+```bash
+llmbim view output/<slug>          # serves the pack on 127.0.0.1, prints the
+                                   # URL, opens exactly ONE tab; Ctrl-C stops
+llmbim view output/<slug> --print-only   # agents: just the URL
+llmbim case intec --open-viewer          # build then view in one step
+```
+
+Small models embed their 3D data, so double-clicking `viewer3d.html`
+(`file://`) also works offline. Packs whose glTF exceeds ~3.5 MB fetch
+`model.gltf` instead — those need the HTTP serve above (`file://` cannot
+fetch; the viewer's error banner says exactly this). Never open
+`index.html` and `viewer3d.html` in separate tabs — `index.html` links
+the 3D studio.
+
 ## Decentralized product shape
 
 | You provide | They provide |

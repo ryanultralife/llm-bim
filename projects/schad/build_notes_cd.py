@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -141,7 +141,7 @@ def build(out: Path | None = None) -> Path:
     # JSON dumps for agents
     data = {
         "project": "2024-008 SCHAD",
-        "generated": datetime.now(timezone.utc).isoformat(),
+        "generated": datetime.now(UTC).isoformat(),
         "source": "projects/schad pure SSOT (no Revit, no llm-bim kernel)",
         "honesty": "[DESIGN DEVELOPMENT — NOT FOR CONSTRUCTION]",
         "scalars": basis.build_scalars(),
@@ -198,7 +198,7 @@ a {{ color: #0645ad; }}
 <h1>SCHAD 2024-008 — Note-driven CD pack</h1>
 <p class="badge">DESIGN DEVELOPMENT — NOT FOR CONSTRUCTION</p>
 <p>Generated from <code>projects/schad</code> pure SSOT — <strong>no Revit, no llm-bim kernel</strong>.</p>
-<p>{datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")} · Areas: {data["areas"]}</p>
+<p>{datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")} · Areas: {data["areas"]}</p>
 <div class="grid">
 <div class="card">
 <h2>Sheets ({len(sheet_files)})</h2>

@@ -374,3 +374,26 @@ Before saying “3D is done”:
 - Keep honesty language honest: presentation / fab-intent envelopes, Eigen-driven dimensions, not certified fab or PE packages.
 
 When implementing, prefer small PRs: (1) glTF tests + VERIFY, (2) path/oriented primitives, (3) DevicePack + recipe—without mixing IFC freezes or launch-stack churn unless claimed.
+
+---
+
+## 13. Status appendix (Claude, 2026-07-20 — response to this review)
+
+Cross-checked against `main` + branch `claude/grok-audit-evolution-w4umwh`:
+
+| Item | Status |
+|------|--------|
+| §2 glTF index bug | **Fixed on main** (PR #2): slice-local indices, uint16→uint32 promotion, per-element scene nodes with extras; accessor-validity unit tests in `tests/unit/test_viewer3d_rich.py` |
+| §2.4 VERIFY fails on invalid glTF | **In progress** (this branch): strict index/bbox/mesh checks in `verify_pack`, `ok=False` on violation |
+| §3 file:// + CDN | **Fixed harder than proposed** (PR #3): three.js r160 + addons bundled INLINE — viewer works offline from `file://`, zero network; boot errors show a visible banner. §3.3's HTTP-serve recipe is no longer required (still fine). |
+| §3 two tabs | **Fixed** (PR #3): output contract = one file (`index.html`); `llmbim view <pack>` one-shot opener in progress |
+| §3 layer-name collapse | **Fixed** (PR #2): per-element nodes + material-bucket layers |
+| §3 embedded glTF size | Open — embed threshold / fetch fallback not yet implemented |
+| §5.3.A oriented tube/port | **In progress** (this branch): `place_tube` with arbitrary axis, hollow id |
+| §5.3.B path wire | **In progress**: `place_wire_path` — one element per polyline, single tessellated tube mesh |
+| §5.3.C nps normalization | **In progress**: "1.5"→"1-1/2" + errors list allowed sizes |
+| §5.3.D frozen kind→material map | **In progress** per your table |
+| §6.2 DevicePack schema | **In progress**: `llmbim.device_pack/v1` dataclasses, `build_device()`, fixture, recipe |
+| §8 P3 camera presets + `llmbim view` | **In progress** |
+
+Also relevant since your session: hosted IFC openings + corner joins, IFC round-trip import, obstacle-avoiding `mep_autoroute` + tee-tapping, hydraulic sizing (`size_pipe/size_duct/size_route/validate_runs`), plan-vs-construction sets with EQ/N/C/H discipline sheets, requirements-driven `auto_place`, and generic `import_primitives` (`llmbim import site_params.json`). CI gates ruff + mypy --strict + 295 tests.

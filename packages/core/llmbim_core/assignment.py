@@ -10,8 +10,23 @@ from llmbim_core.model import Element, ProjectModel
 from llmbim_core.parts_catalog import (  # noqa: F401 — PARTS used in auto_assign
     PARTS,
     get_part,
+    known_nps_for_material,
+    normalize_nps,
     part_unit_cost,
 )
+
+
+def _unknown_nps_error(what: str, nps: str, material: str, **extra: Any) -> ValidationError:
+    """ValidationError whose message LISTS the catalog NPS labels for the family."""
+    known = known_nps_for_material(material)
+    listing = ", ".join(known) if known else "(no catalog sizes for this material)"
+    return ValidationError(
+        f"Unknown {what} nps {nps!r} for material {material!r} — known NPS: {listing}",
+        nps=nps,
+        material=material,
+        known_nps=known,
+        **extra,
+    )
 
 
 def assign_material(
@@ -464,14 +479,10 @@ def place_fitting(
     from llmbim_core.ids import new_id
     from llmbim_core.parts_catalog import resolve_fitting_part_id
 
+    nps = normalize_nps(nps)
     pid = resolve_fitting_part_id(fitting_type, nps, material=material)
     if not pid:
-        raise ValidationError(
-            "Unknown fitting",
-            fitting_type=fitting_type,
-            nps=nps,
-            material=material,
-        )
+        raise _unknown_nps_error("fitting", nps, material, fitting_type=fitting_type)
     part = get_part(pid)
     assert part is not None
     level_id = model.get_level(level).id
@@ -516,9 +527,10 @@ def place_pipe(
     from llmbim_core.ids import new_id
     from llmbim_core.parts_catalog import resolve_fitting_part_id
 
+    nps = normalize_nps(nps)
     pid = resolve_fitting_part_id("pipe", nps, material=material)
     if not pid:
-        raise ValidationError("Unknown pipe", nps=nps, material=material)
+        raise _unknown_nps_error("pipe", nps, material)
     part = get_part(pid)
     assert part is not None
     x0, y0 = float(start[0]), float(start[1])
@@ -581,9 +593,10 @@ def place_riser(
     from llmbim_core.ids import new_id
     from llmbim_core.parts_catalog import resolve_fitting_part_id
 
+    nps = normalize_nps(nps)
     pid = resolve_fitting_part_id("pipe", nps, material=material)
     if not pid:
-        raise ValidationError("Unknown pipe", nps=nps, material=material)
+        raise _unknown_nps_error("pipe", nps, material)
     part = get_part(pid)
     assert part is not None
     x, y = float(origin[0]), float(origin[1])
@@ -1057,3 +1070,196 @@ def place_flange(
     )
     model.add_element(el)
     return {"element_id": el.id, "od_mm": od, "thickness_mm": th}
+
+
+def _parse_direction(
+    direction: str | tuple[float, float, float] | list[float],
+) -> tuple[float, float, float]:
+    """``"x"|"y"|"z"`` (± prefix ok) or a (dx,dy,dz) vector → unit 3-vector.
+
+    Rejects zero-length vectors. Vector need not be pre-normalized.
+    """
+    import math
+
+    axes: dict[str, tuple[float, float, float]] = {
+        "x": (1.0, 0.0, 0.0),
+        "+x": (1.0, 0.0, 0.0),
+        "-x": (-1.0, 0.0, 0.0),
+        "y": (0.0, 1.0, 0.0),
+        "+y": (0.0, 1.0, 0.0),
+        "-y": (0.0, -1.0, 0.0),
+        "z": (0.0, 0.0, 1.0),
+        "+z": (0.0, 0.0, 1.0),
+        "-z": (0.0, 0.0, -1.0),
+    }
+    if isinstance(direction, str):
+        key = direction.strip().lower()
+        if key in axes:
+            return axes[key]
+        raise ValidationError(
+            "direction must be x|y|z (± prefix ok) or a (dx,dy,dz) vector",
+            direction=direction,
+        )
+    if len(direction) < 3:
+        raise ValidationError("direction vector needs 3 components", direction=list(direction))
+    dx, dy, dz = float(direction[0]), float(direction[1]), float(direction[2])
+    n = math.sqrt(dx * dx + dy * dy + dz * dz)
+    if n < 1e-9:
+        raise ValidationError("direction vector must be non-zero", direction=[dx, dy, dz])
+    return dx / n, dy / n, dz / n
+
+
+def place_tube(
+    model: ProjectModel,
+    *,
+    level: str,
+    origin: tuple[float, float] | list[float],
+    z0_mm: float,
+    direction: str | tuple[float, float, float] | list[float],
+    length_mm: float,
+    od_mm: float,
+    id_mm: float | None = None,
+    kind: str = "port",
+    name: str | None = None,
+    system: str | None = None,
+) -> dict[str, Any]:
+    """Oriented tube / radial port along an arbitrary axis (SSOT doc §5.3A).
+
+    ``origin`` + ``z0_mm`` is the axis START point (plan XY + elevation above
+    the level); the tube extends ``length_mm`` along ``direction``
+    ("x"|"y"|"z" or any (dx,dy,dz) vector — normalized, zero rejected).
+    ``id_mm`` makes it hollow (KF stubs, nozzles). Renders as an oriented
+    cylinder in glTF via the ``axis_dir`` param, so ports can lie along shell
+    normals instead of +X only.
+    """
+    from llmbim_core.ids import new_id
+
+    d = _parse_direction(direction)
+    L = float(length_mm)
+    od = float(od_mm)
+    if L <= 0:
+        raise ValidationError("length_mm must be positive", length_mm=length_mm)
+    if od <= 0:
+        raise ValidationError("od_mm must be positive", od_mm=od_mm)
+    if id_mm is not None and not (0 < float(id_mm) < od):
+        raise ValidationError("id_mm must satisfy 0 < id_mm < od_mm", id_mm=id_mm, od_mm=od)
+    x0, y0 = float(origin[0]), float(origin[1])
+    z0 = float(z0_mm)
+    x1, y1 = x0 + d[0] * L, y0 + d[1] * L
+    r = od / 2.0
+    xa, xb = min(x0, x1) - r, max(x0, x1) + r
+    ya, yb = min(y0, y1) - r, max(y0, y1) + r
+    level_id = model.get_level(level).id
+    params: dict[str, Any] = {
+        "kind": kind,
+        "shape": "cylinder",
+        "origin_mm": [x0, y0],
+        "z0_mm": z0,
+        "axis_dir": [d[0], d[1], d[2]],
+        "length_mm": L,
+        "od_mm": od,
+        "diameter_mm": od,
+        "size_mm": [L, od, od],
+        "polygon_mm": [[xa, ya], [xb, ya], [xb, yb], [xa, yb]],
+        "fitting_type": "tube",
+    }
+    if id_mm is not None:
+        params["id_mm"] = float(id_mm)
+    if system:
+        params["system"] = str(system)
+    el = Element(
+        id=new_id("tub"),
+        category="equipment",
+        name=name or f"Tube {kind} Ø{od:.0f}×{L:.0f}",
+        level_id=level_id,
+        params=params,
+    )
+    model.add_element(el)
+    return {
+        "element_id": el.id,
+        "kind": kind,
+        "axis_dir": [round(c, 6) for c in d],
+        "length_mm": L,
+        "od_mm": od,
+        "id_mm": float(id_mm) if id_mm is not None else None,
+    }
+
+
+def place_wire_path(
+    model: ProjectModel,
+    *,
+    level: str,
+    points_mm: list[list[float]] | list[tuple[float, float, float]],
+    diameter_mm: float,
+    phase: str | None = None,
+    system: str | None = None,
+    wire_role: str = "coil",
+    name: str | None = None,
+) -> dict[str, Any]:
+    """True 3D wire/hose polyline as ONE element (SSOT doc §5.3B).
+
+    ``points_mm`` is ``[[x, y, z], ...]`` (z above the level elevation). The
+    whole path becomes a single ``wire_path`` element tessellated as one
+    polyline tube mesh in glTF — no per-segment element explosion (kills the
+    ~1100-wire Proto-10 problem). ``phase`` A|B|C picks the per-phase
+    material key ``wire_phase_a/b/c``; hose/signal roles map to ``wire_lead``.
+    """
+    import math
+
+    from llmbim_core.ids import new_id
+
+    pts: list[list[float]] = []
+    for i, pt in enumerate(points_mm):
+        if len(pt) < 3:
+            raise ValidationError(
+                "points_mm entries need [x, y, z]", index=i, point=list(map(float, pt))
+            )
+        p3 = [float(pt[0]), float(pt[1]), float(pt[2])]
+        if not pts or math.dist(pts[-1], p3) > 1e-6:
+            pts.append(p3)
+    if len(pts) < 2:
+        raise ValidationError("points_mm needs at least 2 distinct points", count=len(pts))
+    d = max(float(diameter_mm), 0.5)
+    length_mm = sum(math.dist(a, b) for a, b in zip(pts[:-1], pts[1:], strict=True))
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    zs = [p[2] for p in pts]
+    ph = str(phase).strip().upper() if phase else None
+    if ph is not None and ph not in {"A", "B", "C"}:
+        raise ValidationError("phase must be A, B, C or None", phase=phase)
+    level_id = model.get_level(level).id
+    el = Element(
+        id=new_id("wpt"),
+        category="wire_path",
+        name=name or f"Wire path Ø{d:.0f} L={length_mm / 1000:.2f}m",
+        level_id=level_id,
+        params={
+            "points_mm": pts,
+            "diameter_mm": d,
+            "wire_d_mm": d,
+            "phase": ph,
+            "system": str(system) if system else None,
+            "wire_role": str(wire_role),
+            "shape": "wire_path",
+            "fitting_type": "wire_path",
+            "length_mm": length_mm,
+            "length_m": length_mm / 1000.0,
+            "origin_mm": [min(xs), min(ys)],
+            "z0_mm": min(zs),
+            "size_mm": [
+                max(max(xs) - min(xs), d),
+                max(max(ys) - min(ys), d),
+                max(max(zs) - min(zs), d),
+            ],
+            "material_id": "copper_C12200",
+            "csi_code": "26 05 19",
+        },
+    )
+    model.add_element(el)
+    return {
+        "element_id": el.id,
+        "points": len(pts),
+        "length_m": round(length_mm / 1000.0, 3),
+        "diameter_mm": d,
+        "phase": ph,
+    }

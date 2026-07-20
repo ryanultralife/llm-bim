@@ -1,0 +1,140 @@
+{
+  "schema": "llmbim.device_pack/v1",
+  "name": "Proto10 Mini Separator",
+  "units": "mm",
+  "origin_mode": "center",
+  "params": {
+    "bore_axis_z_mm": 900,
+    "shell_length_mm": 1200,
+    "shell_od_mm": 400,
+    "honesty": "engineering estimate envelopes from device SSOT, not fab CAD",
+    "ssot": "fixture — Proto-10 flavoured, no EIGEN_ROOT required"
+  },
+  "components": [
+    {
+      "id": "shell",
+      "name": "Separator shell",
+      "kind": "shell",
+      "shape": "tube",
+      "center_mm": [0, 0, 900],
+      "axis": "x",
+      "od_mm": 400,
+      "id_mm": 380,
+      "length_mm": 1200,
+      "system": "PROC",
+      "material_hint": "steel_304",
+      "attrs": {"end_a_x_mm": -600, "end_b_x_mm": 600}
+    },
+    {
+      "id": "port_kf40_gas",
+      "name": "KF40 gas feed port",
+      "kind": "kf40_port",
+      "shape": "tube",
+      "center_mm": [-450, 260, 900],
+      "axis": "y",
+      "od_mm": 55,
+      "id_mm": 41,
+      "length_mm": 120,
+      "system": "GAS",
+      "attrs": {"interface": "KF40", "end": "A", "role": "gas_feed"}
+    },
+    {
+      "id": "port_kf40_probe",
+      "name": "KF40 axial probe port",
+      "kind": "kf40_port",
+      "shape": "tube",
+      "center_mm": [300, 0, 1160],
+      "axis": "z",
+      "od_mm": 55,
+      "id_mm": 41,
+      "length_mm": 120,
+      "system": "SIG",
+      "attrs": {"interface": "KF40", "end": "B", "role": "axial_probe"}
+    },
+    {
+      "id": "magnet",
+      "name": "Yoke magnet",
+      "kind": "magnet",
+      "shape": "box",
+      "center_mm": [0, 0, 900],
+      "size_mm": [300, 520, 520],
+      "material_hint": "NdFeB",
+      "attrs": {"grade": "N52"}
+    },
+    {
+      "id": "pedestal",
+      "name": "Pedestal frame",
+      "kind": "pedestal",
+      "shape": "box",
+      "center_mm": [0, 0, 300],
+      "size_mm": [1400, 700, 600],
+      "material_hint": "steel_A36"
+    },
+    {
+      "id": "coil_a",
+      "name": "RMF coil A",
+      "kind": "coil",
+      "shape": "wire_path",
+      "phase": "A",
+      "system": "RMF_A",
+      "diameter_mm": 8,
+      "material_hint": "copper",
+      "points_mm": [
+        [-300, 0, 1130],
+        [-300, 230, 900],
+        [-300, 0, 670],
+        [-300, -230, 900],
+        [-300, 0, 1130]
+      ],
+      "attrs": {"role": "coil"}
+    },
+    {
+      "id": "coil_b",
+      "name": "RMF coil B",
+      "kind": "coil",
+      "shape": "wire_path",
+      "phase": "B",
+      "system": "RMF_B",
+      "diameter_mm": 8,
+      "material_hint": "copper",
+      "points_mm": [
+        [0, 0, 1130],
+        [0, 230, 900],
+        [0, 0, 670],
+        [0, -230, 900],
+        [0, 0, 1130]
+      ],
+      "attrs": {"role": "coil"}
+    },
+    {
+      "id": "coil_c",
+      "name": "RMF coil C",
+      "kind": "coil",
+      "shape": "wire_path",
+      "phase": "C",
+      "system": "RMF_C",
+      "diameter_mm": 8,
+      "material_hint": "copper",
+      "points_mm": [
+        [300, 0, 1130],
+        [300, 230, 900],
+        [300, 0, 670],
+        [300, -230, 900],
+        [300, 0, 1130]
+      ],
+      "attrs": {"role": "coil"}
+    },
+    {
+      "id": "turbo",
+      "name": "Turbo pump",
+      "kind": "turbo",
+      "shape": "cylinder",
+      "center_mm": [700, 0, 450],
+      "axis": "z",
+      "od_mm": 200,
+      "length_mm": 300,
+      "system": "VAC",
+      "attrs": {"interface": "ISO63", "pumping_speed_lps": 115}
+    }
+  ]
+}

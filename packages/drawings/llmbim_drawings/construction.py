@@ -15,10 +15,22 @@ from llmbim_drawings.plan import render_plan_view
 from llmbim_drawings.schedules import export_schedule_csv, schedule_rows
 from llmbim_drawings.section import render_elevation_svg, render_section_svg
 from llmbim_drawings.sheets import drawing_area, title_block_svg
+from llmbim_drawings.svg_util import esc
 from llmbim_drawings.view import DrawingView
 
 # rows per schedule sheet before paginating to A-601B, A-601C, …
 SCHEDULE_ROWS_PER_SHEET = 28
+
+# EQ series cap: per-room equipment arrangement sheets beyond this get a cover note
+MAX_EQ_SHEETS = 20
+
+# N-series wall fills: shield concrete red-brown, CMU grey, gyp light;
+# any other type renders with a diagonal hatch (see render_plan_view)
+SHIELD_WALL_FILLS = {
+    "W-SHIELD-CONC": "#8d4a3b",
+    "W-EXT-CMU": "#9e9e9e",
+    "W-INT-GYP": "#eceff1",
+}
 
 
 def _view_from_full_svg(svg: str, title: str = "") -> DrawingView:
@@ -134,6 +146,120 @@ def _is_raceway(el: Element) -> bool:
         el.category in {"conduit", "cable_tray"}
         or el.params.get("fitting_type") in {"conduit", "cable_tray"}
     )
+
+
+def _is_duct_run(el: Element) -> bool:
+    ft = str(el.params.get("fitting_type") or "")
+    return el.category in {"duct", "hvac"} or ft in {"duct", "flex_duct"}
+
+
+def _hvac_h_system(el: Element) -> str | None:
+    """H-series bucket: ``"HVS"`` (supply) / ``"HVE"`` (exhaust/return) / None.
+
+    Ducts route by system tag (HVS* / HVE*) or by name (supply / exhaust /
+    return); HVAC riser equipment (kind ``hvs_*_riser`` / ``hve_*_riser``)
+    rides along on the matching sheet.
+    """
+    name = str(el.name or "").lower()
+    if _is_duct_run(el):
+        system = str(el.params.get("system") or "").upper()
+        if system.startswith("HVS") or "supply" in name:
+            return "HVS"
+        if system.startswith("HVE") or "exhaust" in name or "return" in name:
+            return "HVE"
+        return None
+    if el.category == "equipment":
+        kind = str(el.params.get("kind") or "").lower()
+        if kind.endswith("_riser"):
+            if kind.startswith("hvs"):
+                return "HVS"
+            if kind.startswith("hve"):
+                return "HVE"
+    return None
+
+
+def _point_in_poly(x: float, y: float, poly: list) -> bool:
+    """Ray-cast point-in-polygon (plan mm)."""
+    inside = False
+    n = len(poly)
+    for i in range(n):
+        x1, y1 = float(poly[i][0]), float(poly[i][1])
+        x2, y2 = float(poly[(i + 1) % n][0]), float(poly[(i + 1) % n][1])
+        if (y1 > y) != (y2 > y):
+            xt = x1 + (y - y1) * (x2 - x1) / (y2 - y1)
+            if x < xt:
+                inside = not inside
+    return inside
+
+
+def _is_underground(el: Element) -> bool:
+    if el.category != "equipment":
+        return False
+    kind = str(el.params.get("kind") or "").lower()
+    return "underground" in kind or bool(el.params.get("underground"))
+
+
+def _room_suggests_shielding(el: Element) -> bool:
+    name = str(el.name or "").upper()
+    if any(key in name for key in ("SHIELD", "HOT CELL", "CONFINE")):
+        return True
+    return bool(el.params.get("shielded"))
+
+
+def _shield_legend_view(walls: list[Element]) -> DrawingView:
+    """N-sheet legend: wall type → color swatch → count → total length."""
+    stats: dict[str, tuple[int, float]] = {}
+    for el in walls:
+        tid = str(el.type_id or el.params.get("type_id") or "") or "(untyped)"
+        length = 0.0
+        try:
+            s, e = el.params["start_mm"], el.params["end_mm"]
+            length = math.hypot(float(e[0]) - float(s[0]), float(e[1]) - float(s[1]))
+        except (KeyError, TypeError, ValueError, IndexError):
+            pass
+        n, tot = stats.get(tid, (0, 0.0))
+        stats[tid] = (n + 1, tot + length)
+    lines = [
+        '<g class="legend legend-shield" font-family="sans-serif">',
+        '<text x="0" y="14" font-size="13" font-weight="bold" '
+        'letter-spacing="1">WALL SHIELDING</text>',
+        '<line x1="0" y1="20" x2="230" y2="20" stroke="#111" stroke-width="1"/>',
+    ]
+    y = 40
+    for tid in sorted(stats):
+        count, tot = stats[tid]
+        color = SHIELD_WALL_FILLS.get(tid)
+        if color:
+            lines.append(
+                f'<rect x="0" y="{y - 9}" width="20" height="11" fill="{color}" '
+                f'stroke="#333" stroke-width="0.7"/>'
+            )
+        else:
+            # unknown type: hatched swatch
+            lines.append(
+                f'<rect x="0" y="{y - 9}" width="20" height="11" fill="#f7f7f7" '
+                f'stroke="#333" stroke-width="0.7"/>'
+            )
+            lines.append(
+                f'<line x1="3" y1="{y + 2}" x2="10" y2="{y - 9}" '
+                f'stroke="#777" stroke-width="1"/>'
+            )
+            lines.append(
+                f'<line x1="10" y1="{y + 2}" x2="17" y2="{y - 9}" '
+                f'stroke="#777" stroke-width="1"/>'
+            )
+        lines.append(f'<text x="27" y="{y}" font-size="10">{esc(tid[:18])}</text>')
+        lines.append(
+            f'<text x="185" y="{y}" font-size="10" text-anchor="end" '
+            f'fill="#333">× {count}</text>'
+        )
+        lines.append(
+            f'<text x="230" y="{y}" font-size="10" text-anchor="end" '
+            f'fill="#333">{tot / 1000:.1f} m</text>'
+        )
+        y += 20
+    lines.append("</g>")
+    return DrawingView(width=240, height=max(y + 4, 70), body="\n".join(lines), title="Legend")
 
 
 def _discipline_legend(disc: str, els: list[Element]) -> list[tuple[str, str, int]]:
@@ -343,7 +469,10 @@ def export_construction_set(
       - ``"plan"``: permit-level sheets only — cover, floor plans per level,
         elevations, sections, room/door/window schedules.
       - ``"construction"`` (default): plan set plus content-driven discipline
-        sheets (S/M/P/E), wall types (A-401) and equipment schedule (A-501).
+        sheets (S/M/P/E), wall types (A-401), equipment schedule (A-501),
+        HVAC supply/exhaust splits (H-1xx), per-room equipment arrangements
+        (EQ-1xx), shielding & confinement (N-1xx) and site/underground
+        (C-1xx) — each emitted only when matching elements exist.
 
     ``date``: issue date stamped in every title block (default: today, ISO).
     """
@@ -354,10 +483,12 @@ def export_construction_set(
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     # drop stale sheets from a previous export (e.g. re-pack construction → plan),
-    # including paginated schedule pages (A-601B_…)
+    # including paginated schedule pages (A-601B_…) and two-letter disciplines (EQ-…)
     for pattern in (
-        "[GASMPE]-[0-9][0-9][0-9]_*.svg",
-        "[GASMPE]-[0-9][0-9][0-9][A-Z]_*.svg",
+        "[A-Z]-[0-9][0-9][0-9]_*.svg",
+        "[A-Z]-[0-9][0-9][0-9][A-Z]_*.svg",
+        "[A-Z][A-Z]-[0-9][0-9][0-9]_*.svg",
+        "[A-Z][A-Z]-[0-9][0-9][0-9][A-Z]_*.svg",
     ):
         for stale in out.glob(pattern):
             stale.unlink()
@@ -373,6 +504,7 @@ def export_construction_set(
         plan_levels = [plan_level or (model.levels[0].name if model.levels else "L1")]
     level = plan_level or plan_levels[0]
     sheets: list[dict] = []
+    cover_notes: list[str] = []
 
     def _level_els(lname: str) -> list[Element]:
         lid = level_ids.get(lname)
@@ -574,6 +706,22 @@ def export_construction_set(
     )
 
     if set_type == "construction":
+        # H-series assignment: which elements split out of M onto HVAC sheets.
+        # Tagged supply (HVS* / "supply") and exhaust/return (HVE* / "exhaust" /
+        # "return") ducts + hvs_/hve_ riser equipment. If no duct carries any
+        # system tag at all, fall back to all ducts on H-101 (no H-102 split).
+        h_assign: dict[str, str] = {}
+        for el in model.elements:
+            h_tag = _hvac_h_system(el)
+            if h_tag:
+                h_assign[el.id] = h_tag
+        if not h_assign:
+            all_ducts = [el for el in model.elements if _is_duct_run(el)]
+            if all_ducts and all(
+                not str(el.params.get("system") or "").strip() for el in all_ducts
+            ):
+                h_assign = {el.id: "HVS" for el in all_ducts}
+
         # Content-driven discipline plan sheets, per level (plan + legend cell)
         disciplines: list[tuple[str, str, str, Any, set[str]]] = [
             ("S", "structural", "Structural Plan", _is_column, {"grids", "columns", "beams"}),
@@ -583,9 +731,21 @@ def export_construction_set(
         ]
         emitted_p = False
         for disc, slug, disc_title, pred, include in disciplines:
+            # M keeps only non-H mechanical: HVS/HVE ducts + risers move to H-1xx
+            render_model = model
+            if disc == "M" and h_assign:
+                render_model = model.model_copy(
+                    update={
+                        "elements": [
+                            el for el in model.elements if el.id not in h_assign
+                        ]
+                    }
+                )
             n = 0
             for lname in plan_levels:
                 lvl_els = _level_els(lname)
+                if disc == "M":
+                    lvl_els = [el for el in lvl_els if el.id not in h_assign]
                 if disc == "S":
                     match = any(_is_column(el) or _is_beam(el) for el in lvl_els)
                 else:
@@ -595,7 +755,7 @@ def export_construction_set(
                 n += 1
                 sn = f"{disc}-1{n:02d}"
                 view = render_plan_view(
-                    model,
+                    render_model,
                     lname,
                     scale=plan_scale,
                     show_dimensions=True,
@@ -655,6 +815,288 @@ def export_construction_set(
                     discipline="P",
                 )
 
+        # ── H-1xx: HVAC supply / exhaust plans split out of M, per level
+        if h_assign:
+            h_titles = {"HVS": "HVAC Supply Plan", "HVE": "HVAC Exhaust / Return Plan"}
+            hn = 0
+            for lname in plan_levels:
+                lvl_els = _level_els(lname)
+                for h_tag in ("HVS", "HVE"):
+                    sel = [el for el in lvl_els if h_assign.get(el.id) == h_tag]
+                    if not sel:
+                        continue
+                    hn += 1
+                    sn = f"H-1{hn:02d}"
+                    sel_ids = {el.id for el in sel}
+                    sub = model.model_copy(
+                        update={
+                            "elements": [
+                                el
+                                for el in model.elements
+                                if el.id in sel_ids or el.category == "wall"
+                            ]
+                        }
+                    )
+                    view = render_plan_view(
+                        sub,
+                        lname,
+                        scale=plan_scale,
+                        show_dimensions=True,
+                        include={"grids", "ducts", "equipment"},
+                        ghost_walls=True,
+                        title=f"{model.name} — {h_titles[h_tag]} {lname}",
+                    )
+                    n_ducts = sum(1 for e in sel if _is_duct_run(e))
+                    n_risers = len(sel) - n_ducts
+                    h_entries: list[tuple[str, str, int]] = []
+                    duct_color = "#2e7d32" if h_tag == "HVS" else "#b71c1c"
+                    if n_ducts:
+                        h_entries.append((f"{h_tag} duct runs", duct_color, n_ducts))
+                    if n_risers:
+                        h_entries.append((f"{h_tag} risers", "#0b5cab", n_risers))
+                    legend = _legend_view(h_entries)
+                    sh = _multi_sheet(
+                        model,
+                        sheet_no=sn,
+                        title=f"{h_titles[h_tag]} — {lname}",
+                        cells=[
+                            (view, f"{h_titles[h_tag]} {lname}", nominal_scale, plan_scale),
+                            (legend, "Legend", ""),
+                        ],
+                        date=date,
+                        scale_note=nominal_scale,
+                        arrange="row",
+                        weights=[0.76, 0.24],
+                        north_arrow=True,
+                    )
+                    fname = f"{sn}_hvac.svg"
+                    (out / fname).write_text(sh, encoding="utf-8")
+                    sheets.append(
+                        {
+                            "no": sn,
+                            "title": f"{h_titles[h_tag]} {lname}",
+                            "file": fname,
+                            "discipline": "H",
+                        }
+                    )
+
+        # ── EQ-1xx: per-room equipment arrangements (enlarged, cropped plans)
+        eq_rooms: list[tuple[str, Element, list[Element]]] = []
+        for lname in plan_levels:
+            lid = level_ids.get(lname)
+            lvl_rooms = [
+                el for el in model.elements if el.category == "room" and el.level_id == lid
+            ]
+            lvl_eq = [
+                el
+                for el in model.elements
+                if el.category == "equipment" and el.level_id == lid
+            ]
+            for room in lvl_rooms:
+                boundary = room.params.get("boundary_mm") or []
+                if len(boundary) < 3:
+                    continue
+                contained = []
+                for eq in lvl_eq:
+                    o = eq.params.get("origin_mm")
+                    try:
+                        if o is not None and _point_in_poly(
+                            float(o[0]), float(o[1]), boundary
+                        ):
+                            contained.append(eq)
+                    except (TypeError, ValueError, IndexError):
+                        continue
+                if contained:
+                    eq_rooms.append((lname, room, contained))
+        for eq_i, (lname, room, contained) in enumerate(
+            eq_rooms[:MAX_EQ_SHEETS], start=1
+        ):
+            boundary = room.params.get("boundary_mm") or []
+            bxs = [float(p[0]) for p in boundary]
+            bys = [float(p[1]) for p in boundary]
+            crop = (
+                min(bxs) - 1000.0,
+                min(bys) - 1000.0,
+                max(bxs) + 1000.0,
+                max(bys) + 1000.0,
+            )
+            room_name = room.name or "Room"
+            view = render_plan_view(
+                model,
+                lname,
+                scale=plan_scale,
+                show_dimensions=False,
+                include={"equipment"},
+                ghost_walls=True,
+                crop_mm=crop,
+                title=f"{model.name} — Equipment Arrangement {room_name}",
+            )
+            eq_tbl_rows = [
+                [
+                    _fmt_cell(eq.name),
+                    _fmt_cell(eq.params.get("kind")),
+                    _fmt_cell(eq.params.get("size_mm")),
+                    _fmt_cell(eq.params.get("z0_mm")),
+                ]
+                for eq in contained
+            ]
+            tbl = table_view(
+                ["NAME", "KIND", "W×D×H mm", "Z0 mm"],
+                eq_tbl_rows,
+                title=f"Equipment — {room_name}",
+            )
+            sn = f"EQ-1{eq_i:02d}"
+            sh = _multi_sheet(
+                model,
+                sheet_no=sn,
+                title=f"Equipment Arrangement — {room_name}",
+                cells=[
+                    (view, f"Equipment Arrangement {room_name}", nominal_scale, plan_scale),
+                    (tbl, "Room Equipment", "NTS"),
+                ],
+                date=date,
+                scale_note=nominal_scale,
+                arrange="row",
+                weights=[0.64, 0.36],
+                north_arrow=True,
+            )
+            fname = f"{sn}_equipment_arrangement.svg"
+            (out / fname).write_text(sh, encoding="utf-8")
+            sheets.append(
+                {
+                    "no": sn,
+                    "title": f"Equipment Arrangement {room_name}",
+                    "file": fname,
+                    "discipline": "EQ",
+                }
+            )
+        if len(eq_rooms) > MAX_EQ_SHEETS:
+            cover_notes.append(
+                f"NOTE: {len(eq_rooms) - MAX_EQ_SHEETS} additional equipment room(s) "
+                f"beyond the {MAX_EQ_SHEETS}-sheet EQ series cap — not sheeted."
+            )
+
+        # ── N-1xx: shielding & confinement plan (walls color-coded by type)
+        has_shield_walls = any(
+            el.category == "wall"
+            and "SHIELD" in str(el.type_id or el.params.get("type_id") or "").upper()
+            for el in model.elements
+        )
+        has_shield_rooms = any(
+            el.category == "room" and _room_suggests_shielding(el)
+            for el in model.elements
+        )
+        if has_shield_walls or has_shield_rooms:
+            nn = 0
+            for lname in plan_levels:
+                lvl_walls = [el for el in _level_els(lname) if el.category == "wall"]
+                if not lvl_walls:
+                    continue
+                nn += 1
+                sn = f"N-1{nn:02d}"
+                view = render_plan_view(
+                    model,
+                    lname,
+                    scale=plan_scale,
+                    show_dimensions=True,
+                    include={"walls", "rooms", "grids"},
+                    room_tags=True,
+                    wall_fill_by_type=SHIELD_WALL_FILLS,
+                    title=f"{model.name} — Shielding & Confinement {lname}",
+                )
+                legend = _shield_legend_view(lvl_walls)
+                sh = _multi_sheet(
+                    model,
+                    sheet_no=sn,
+                    title=f"Shielding & Confinement Plan — {lname}",
+                    cells=[
+                        (
+                            view,
+                            f"Shielding & Confinement {lname}",
+                            nominal_scale,
+                            plan_scale,
+                        ),
+                        (legend, "Legend", ""),
+                    ],
+                    date=date,
+                    scale_note=nominal_scale,
+                    arrange="row",
+                    weights=[0.74, 0.26],
+                    north_arrow=True,
+                )
+                fname = f"{sn}_shielding.svg"
+                (out / fname).write_text(sh, encoding="utf-8")
+                sheets.append(
+                    {
+                        "no": sn,
+                        "title": f"Shielding & Confinement Plan {lname}",
+                        "file": fname,
+                        "discipline": "N",
+                    }
+                )
+
+        # ── C-1xx: site / underground plan (underground equipment + ghost shell)
+        underground = [el for el in model.elements if _is_underground(el)]
+        if underground:
+            cn = 0
+            for lname in plan_levels:
+                lid = level_ids.get(lname)
+                sel = [el for el in underground if el.level_id == lid]
+                if not sel:
+                    continue
+                cn += 1
+                sn = f"C-1{cn:02d}"
+                sel_ids = {el.id for el in sel}
+                sub = model.model_copy(
+                    update={
+                        "elements": [
+                            el
+                            for el in model.elements
+                            if el.id in sel_ids or el.category in {"wall", "slab"}
+                        ]
+                    }
+                )
+                view = render_plan_view(
+                    sub,
+                    lname,
+                    scale=plan_scale,
+                    show_dimensions=True,
+                    include={"equipment", "slabs"},
+                    ghost_walls=True,
+                    title=f"{model.name} — Site / Underground {lname}",
+                )
+                ug_by_name: dict[str, int] = {}
+                for el in sel:
+                    key = el.name or "(structure)"
+                    ug_by_name[key] = ug_by_name.get(key, 0) + 1
+                legend = _legend_view(
+                    [(nm, "#6d4c41", ct) for nm, ct in sorted(ug_by_name.items())]
+                )
+                sh = _multi_sheet(
+                    model,
+                    sheet_no=sn,
+                    title=f"Site / Underground Plan — {lname}",
+                    cells=[
+                        (view, f"Site / Underground {lname}", nominal_scale, plan_scale),
+                        (legend, "Legend", ""),
+                    ],
+                    date=date,
+                    scale_note=nominal_scale,
+                    arrange="row",
+                    weights=[0.76, 0.24],
+                    north_arrow=True,
+                )
+                fname = f"{sn}_site_underground.svg"
+                (out / fname).write_text(sh, encoding="utf-8")
+                sheets.append(
+                    {
+                        "no": sn,
+                        "title": f"Site / Underground Plan {lname}",
+                        "file": fname,
+                        "discipline": "C",
+                    }
+                )
+
     sched = out / "schedules"
     sched.mkdir(exist_ok=True)
     for kind in ("room", "door", "window", "wall"):
@@ -672,16 +1114,23 @@ def export_construction_set(
         [[s["no"], s.get("discipline", "A"), s["title"]] for s in sheets],
         title="Sheet Index",
     )
+    note_lines = "".join(
+        f'<text x="0" y="{92 + 14 * i}" font-size="10" font-family="sans-serif" '
+        f'fill="#555">{esc(note)}</text>\n'
+        for i, note in enumerate(cover_notes)
+    )
+    index_y = 96 + 14 * len(cover_notes)
     head = (
         f'<text x="0" y="34" font-size="26" font-family="sans-serif" '
         f'font-weight="bold">{model.name}</text>\n'
         f'<text x="0" y="58" font-size="14" font-family="sans-serif">{set_label}</text>\n'
         f'<text x="0" y="76" font-size="10" font-family="sans-serif" fill="#8a1a1a">'
         f"ENGINEERING ESTIMATE · LLM-BIM · issued {date}</text>\n"
-        f'<g transform="translate(0,96)">\n{index_view.body}\n</g>'
+        f"{note_lines}"
+        f'<g transform="translate(0,{index_y})">\n{index_view.body}\n</g>'
     )
     cover_view = DrawingView(
-        width=max(index_view.width, 560), height=96 + index_view.height, body=head
+        width=max(index_view.width, 560), height=index_y + index_view.height, body=head
     )
     cover = _sheet_from_view(
         model, sheet_no="G-001", title="Cover & Index", view=cover_view,

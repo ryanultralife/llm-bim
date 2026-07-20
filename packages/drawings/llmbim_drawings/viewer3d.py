@@ -214,6 +214,14 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
     <input type="checkbox" id="ghostWalls"/>
   </div>
   <div class="row">
+    <label for="autoRotate">Auto-rotate (turntable)</label>
+    <input type="checkbox" id="autoRotate"/>
+  </div>
+  <div class="row">
+    <label for="rotateSpeed">Rotate speed</label>
+    <input type="range" id="rotateSpeed" min="2" max="60" value="15"/>
+  </div>
+  <div class="row">
     <label for="exposure">Exposure</label>
     <input type="range" id="exposure" min="40" max="180" value="105"/>
   </div>
@@ -223,6 +231,10 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
   </div>
   <div class="btns">
     <button type="button" class="primary" id="btnFit">Fit</button>
+    <button type="button" id="btnIso">Iso</button>
+    <button type="button" id="btnEndA">End A</button>
+    <button type="button" id="btnEndB">End B</button>
+    <button type="button" id="btnTop">Top</button>
     <button type="button" id="btnReset">Reset cam</button>
     <button type="button" id="btnAll">All layers</button>
     <button type="button" id="btnNone">None</button>
@@ -319,6 +331,17 @@ const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerH
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.055;
+// Turntable: keeps orbiting once enabled; pan/tilt/zoom still work mid-spin
+// (OrbitControls resumes the spin after any drag). Speed slider is /10 deg-ish.
+const autoRotateEl = document.getElementById('autoRotate');
+const rotateSpeedEl = document.getElementById('rotateSpeed');
+function syncAutoRotate() {
+  controls.autoRotate = !!autoRotateEl.checked;
+  controls.autoRotateSpeed = Number(rotateSpeedEl.value) / 10.0;
+}
+autoRotateEl.addEventListener('change', syncAutoRotate);
+rotateSpeedEl.addEventListener('input', syncAutoRotate);
+syncAutoRotate();
 controls.screenSpacePanning = true;
 controls.minDistance = 0.5;
 controls.maxDistance = 5e6;
@@ -742,9 +765,15 @@ async function boot() {
     let gltfData = EMBEDDED;
     if (!gltfData) {
       setStatus('Fetching model.gltf…');
-      const r = await fetch('model.gltf');
-      if (!r.ok) throw new Error('Could not load model.gltf');
-      gltfData = await r.json();
+      try {
+        const r = await fetch('model.gltf');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        gltfData = await r.json();
+      } catch (e) {
+        throw new Error(
+          'Large model is not embedded and model.gltf could not be fetched (' + e.message + '). ' +
+          'Serve the pack over HTTP: run `llmbim view <pack_dir>` (file:// cannot fetch).');
+      }
     }
     const title = (gltfData.scenes?.[0]?.name) || 'LLM-BIM model';
     titleEl.textContent = title;
@@ -814,6 +843,31 @@ document.getElementById('btnReset').addEventListener('click', () => {
   controls.update();
 });
 document.getElementById('btnFit').addEventListener('click', () => fitCamera(root));
+
+// Camera presets (SSOT P3.11): iso / end views / top for equipment review.
+// Section-through-bore = preset + the existing cutaway plane controls.
+function presetCamera(dir) {
+  if (modelBox.isEmpty()) fitCamera(root);
+  if (modelBox.isEmpty()) return;
+  const size = modelBox.getSize(new THREE.Vector3());
+  const center = modelBox.getCenter(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z, 1);
+  const dist = maxDim * 1.6;
+  const offsets = {
+    iso: [0.9, 0.52, 0.72],
+    endA: [1.0, 0.12, 0.0],
+    endB: [-1.0, 0.12, 0.0],
+    top: [0.0, 1.0, 0.001],
+  };
+  const o = offsets[dir] || offsets.iso;
+  controls.target.copy(center);
+  camera.position.set(center.x + dist * o[0], center.y + dist * o[1], center.z + dist * o[2]);
+  controls.update();
+}
+document.getElementById('btnIso').addEventListener('click', () => presetCamera('iso'));
+document.getElementById('btnEndA').addEventListener('click', () => presetCamera('endA'));
+document.getElementById('btnEndB').addEventListener('click', () => presetCamera('endB'));
+document.getElementById('btnTop').addEventListener('click', () => presetCamera('top'));
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -1058,19 +1112,31 @@ boot();
 """
 
 
+# Above this size the glTF is not inlined into the HTML (multi-MB embeds parse
+# slowly, SSOT §3.2); the viewer fetches model.gltf instead — which needs the
+# pack served over HTTP (`llmbim view <pack>`), and says so in the error banner.
+_EMBED_MAX_BYTES = 3_500_000
+
+
 def write_viewer_3d(
     out_dir: str | Path,
     *,
     gltf_name: str = "model.gltf",
-    embed: bool = True,
+    embed: bool | str = "auto",
     wall_ghost: float = _WALL_GHOST,
 ) -> Path | None:
-    """Write ``viewer3d.html`` with section cut, cinematic bloom, Imagine studio assets."""
+    """Write ``viewer3d.html`` with section cut, cinematic bloom, Imagine studio assets.
+
+    ``embed``: True inlines the glTF, False always fetches it as a sidecar,
+    ``"auto"`` (default) inlines only when the glTF is under ~3.5 MB.
+    """
     out = Path(out_dir)
     gltf_path = out / gltf_name
     if not gltf_path.is_file():
         return None
 
+    if embed == "auto":
+        embed = gltf_path.stat().st_size <= _EMBED_MAX_BYTES
     embedded_js = "null"
     if embed:
         try:

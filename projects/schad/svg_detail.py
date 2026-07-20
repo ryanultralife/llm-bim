@@ -14,7 +14,6 @@ Scale: 12 = 1\"=1'-0\", 8 = 1-1/2\"=1'-0\", 16 = 3/4\"=1'-0\" (approx as px/ft).
 from __future__ import annotations
 
 import html
-import math
 import textwrap
 from typing import Any
 
