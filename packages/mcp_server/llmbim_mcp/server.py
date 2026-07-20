@@ -578,6 +578,63 @@ if HAS_MCP:
         return _tool_result({"element_id": eid})
 
     @mcp.tool()
+    def mep_autoroute(
+        project_id: str,
+        level: str,
+        start: str,
+        end: str,
+        kind: str = "pipe",
+        nps: str = "2",
+        material: str = "copper",
+        system: str = "CW",
+        z0_mm: str = "",
+        z1_mm: str = "",
+        clearance_mm: float = 150,
+        grid_mm: float = 250,
+        width_mm: float = 400,
+        height_mm: float = 250,
+        trade_size: str = "3/4",
+        name: str = "",
+    ) -> str:
+        """Obstacle-avoiding orthogonal MEP route around walls/equipment.
+        start/end: element id or "x,y" mm. kind: pipe|duct|conduit.
+        Elbows placed at bends; z1_mm adds a vertical riser at the end.
+        Falls back to plain dogleg when no clear path (result.fallback)."""
+
+        def _ep(v: str) -> str | list[float]:
+            if "," in v:
+                a, b = v.split(",", 1)
+                try:
+                    return [float(a), float(b)]
+                except ValueError:
+                    return v
+            return v
+
+        try:
+            p = store.get(project_id)
+            r = p.mep_autoroute(
+                level=level,
+                start=_ep(start),
+                end=_ep(end),
+                kind=kind,
+                nps=nps,
+                material=material,
+                system=system,
+                z0_mm=float(z0_mm) if z0_mm.strip() else None,
+                z1_mm=float(z1_mm) if z1_mm.strip() else None,
+                clearance_mm=clearance_mm,
+                grid_mm=grid_mm,
+                width_mm=width_mm,
+                height_mm=height_mm,
+                trade_size=trade_size,
+                name=name,
+            )
+            store.save(project_id)
+            return _tool_result(r)
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
     def place_cable_tray(
         project_id: str,
         level: str,

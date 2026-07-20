@@ -1767,6 +1767,51 @@ class Project:
             name=name,
         )
 
+    def mep_autoroute(
+        self,
+        *,
+        level: str,
+        start: str | tuple[float, float] | list[float],
+        end: str | tuple[float, float] | list[float],
+        kind: str = "pipe",
+        nps: str = "2",
+        material: str = "copper",
+        system: str = "CW",
+        z0_mm: float | None = None,
+        z1_mm: float | None = None,
+        clearance_mm: float = 150.0,
+        grid_mm: float = 250.0,
+        width_mm: float = 400.0,
+        height_mm: float = 250.0,
+        trade_size: str = "3/4",
+        name: str = "",
+    ) -> dict[str, Any]:
+        """Obstacle-avoiding orthogonal MEP route between (x, y) points or fitting ids.
+
+        Routes around wall footprints and equipment boxes (Manhattan A* grid),
+        places pipe/duct/conduit per segment with elbow_90 at each bend, and
+        records a mep_graph edge. z1_mm inserts a vertical riser at the end.
+        Falls back to a plain dogleg when no clear path (result["fallback"]).
+        """
+        return self.op(
+            "mep_autoroute",
+            level=level,
+            start=start if isinstance(start, str) else list(start),
+            end=end if isinstance(end, str) else list(end),
+            kind=kind,
+            nps=nps,
+            material=material,
+            system=system,
+            z0_mm=z0_mm,
+            z1_mm=z1_mm,
+            clearance_mm=clearance_mm,
+            grid_mm=grid_mm,
+            width_mm=width_mm,
+            height_mm=height_mm,
+            trade_size=trade_size,
+            name=name,
+        )
+
     def mep_graph(self) -> list[dict[str, Any]]:
         return list(self.op("mep_graph").get("edges") or [])
 
