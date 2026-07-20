@@ -1097,6 +1097,43 @@ def _mep_graph(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
 
 
 @register(
+    "mep_autoroute",
+    description="Obstacle-avoiding orthogonal MEP route (grid A* around walls/equipment, elbows at bends, optional riser)",
+    mutates=True,
+)
+def _mep_autoroute(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.errors import ValidationError
+    from llmbim_core.mep_route import mep_autoroute
+
+    def _endpoint(key: str) -> str | tuple[float, float]:
+        v = p.get(key)
+        if isinstance(v, str) and v:
+            return v
+        if isinstance(v, (list, tuple)) and len(v) >= 2:
+            return (float(v[0]), float(v[1]))
+        raise ValidationError("Endpoint must be [x, y] mm or an element id", param=key, value=v)
+
+    return mep_autoroute(
+        model,
+        level=str(p.get("level") or (model.levels[0].name if model.levels else "L1")),
+        start=_endpoint("start"),
+        end=_endpoint("end"),
+        kind=str(p.get("kind") or p.get("route_kind") or "pipe"),
+        nps=str(p.get("nps") or "2"),
+        material=str(p.get("material") or "copper"),
+        system=str(p.get("system") or "CW"),
+        z0_mm=float(p["z0_mm"]) if p.get("z0_mm") is not None else None,
+        z1_mm=float(p["z1_mm"]) if p.get("z1_mm") is not None else None,
+        clearance_mm=float(p["clearance_mm"]) if p.get("clearance_mm") is not None else 150.0,
+        grid_mm=float(p["grid_mm"]) if p.get("grid_mm") is not None else 250.0,
+        width_mm=float(p.get("width_mm") or 400),
+        height_mm=float(p.get("height_mm") or 250),
+        trade_size=str(p.get("trade_size") or p.get("nps") or "3/4"),
+        name=str(p.get("name") or ""),
+    )
+
+
+@register(
     "authoring_checklist",
     description="Required/recommended fields so LLM collects explicit detail before modeling",
     mutates=False,

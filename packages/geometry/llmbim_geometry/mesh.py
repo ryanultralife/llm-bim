@@ -1105,14 +1105,85 @@ def _gltf_material_key(el: Element) -> str:
     return "default"
 
 
+# Params surfaced into per-element glTF node extras (inspection / filtering).
+_EXTRA_PARAM_KEYS: tuple[str, ...] = (
+    "system",
+    "nps",
+    "section",
+    "kind",
+    "fitting_type",
+    "material_id",
+    "trade_size",
+    "part_id",
+    "width_mm",
+    "height_mm",
+    "thickness_mm",
+    "length_mm",
+    "diameter_mm",
+    "od_mm",
+)
+
+
+def _element_extras(
+    el: Element, level_names: dict[str, str], layer_keys: list[str]
+) -> dict[str, Any]:
+    """Node extras carrying source-element identity for the 3D viewer."""
+    extras: dict[str, Any] = {
+        "id": el.id,
+        "name": el.name or f"{el.category or 'element'} {el.id[-6:]}",
+        "category": el.category or "element",
+        "layer": layer_keys[0] if layer_keys else "default",
+    }
+    if el.level_id and el.level_id in level_names:
+        extras["level"] = level_names[el.level_id]
+    params: dict[str, Any] = {}
+    for k in _EXTRA_PARAM_KEYS:
+        v = el.params.get(k)
+        if isinstance(v, bool):
+            params[k] = v
+        elif isinstance(v, (int, float)):
+            params[k] = round(float(v), 3)
+        elif isinstance(v, str) and v:
+            params[k] = v
+    if params:
+        extras["params"] = params
+    return extras
+
+
 def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
-    """Write glTF 2.0 JSON with normals, per-layer nodes, presentation materials."""
+    """Write glTF 2.0 JSON with normals, per-layer nodes, presentation materials.
+
+    Scene nodes are **per element** so viewers can pick / filter individual
+    elements; each carries ``extras`` (id, name, category, level, key params).
+    Aggregate per-layer meshes+nodes are still emitted (outside the scene) for
+    layer-level consumers and back-compat.
+    """
     buckets: dict[str, dict[str, Any]] = {}
 
     def _ensure(key: str) -> dict[str, Any]:
         if key not in buckets:
             buckets[key] = {"pos": [], "nrm": [], "idx": [], "base": 0}
         return buckets[key]
+
+    # per element: list of (mat_key, vert_start_in_bucket, n_verts, idx_start_in_bucket, n_idx)
+    element_parts: list[tuple[Element, list[tuple[str, int, int, int, int]]]] = []
+    level_names: dict[str, str] = {lv.id: lv.name for lv in model.levels}
+
+    def _record(
+        el_parts: list[tuple[str, int, int, int, int]],
+        key: str,
+        pos: list[float],
+        nrm: list[float],
+        indices: list[int],
+    ) -> None:
+        if not pos or not indices:
+            return
+        b = _ensure(key)
+        v0 = int(b["base"])
+        i0 = len(b["idx"])
+        _append_mesh(b, pos, nrm, indices)
+        if int(b["base"]) > v0:
+            el_parts.append((key, v0, int(b["base"]) - v0, i0, len(b["idx"]) - i0))
 
     wall_by_id = {el.id: el for el in model.elements if el.category == "wall"}
     wall_ext = _wall_join_extensions(model)
@@ -1121,6 +1192,7 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
         pos: list[float] = []
         nrm: list[float] = []
         indices: list[int] = []
+        parts: list[tuple[str, int, int, int, int]] = []
         if el.category == "wall":
             try:
                 s = el.params["start_mm"]
@@ -1177,9 +1249,10 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
                     p2, n2, i2 = _wall_box_mesh(
                         x0 + ox, y0 + oy, x1 + ox, y1 + oy, lt, z0, z0 + ht
                     )
-                    if p2:
-                        _append_mesh(_ensure(key), p2, n2, i2)
+                    _record(parts, key, p2, n2, i2)
                     cursor += lt
+                if parts:
+                    element_parts.append((el, parts))
                 continue  # layers already appended
             pos, nrm, indices = _wall_box_mesh(x0, y0, x1, y1, th, z0, z0 + ht)
         elif el.category == "slab":
@@ -1239,7 +1312,9 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
         if not pos:
             continue
         key = _gltf_material_key(el)
-        _append_mesh(_ensure(key), pos, nrm, indices)
+        _record(parts, key, pos, nrm, indices)
+        if parts:
+            element_parts.append((el, parts))
 
     if not buckets:
         # tiny fallback triangle
@@ -1258,29 +1333,60 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
     all_idx: list[int] = []
     # (mat_key, pos_float_offset, n_verts, idx_start, n_idx)
     prim_meta: list[tuple[str, int, int, int, int]] = []
+    bucket_vert0: dict[str, int] = {}  # mat_key → global vertex start of bucket
     vert_base = 0
     for key, b in buckets.items():
-        pos = b["pos"]
-        nrm = b["nrm"]
-        idx = b["idx"]
-        if not pos or not idx:
+        bpos = b["pos"]
+        bnrm = b["nrm"]
+        bidx = b["idx"]
+        if not bpos or not bidx:
             continue
-        if len(nrm) != len(pos):
+        if len(bnrm) != len(bpos):
             # safety: flat up normals
-            nrm = [0.0, 1.0, 0.0] * (len(pos) // 3)
+            bnrm = [0.0, 1.0, 0.0] * (len(bpos) // 3)
         pos_start = len(all_pos)
-        n_verts = len(pos) // 3
-        all_pos.extend(pos)
-        all_nrm.extend(nrm)
+        n_verts = len(bpos) // 3
+        all_pos.extend(bpos)
+        all_nrm.extend(bnrm)
         idx_start = len(all_idx)
-        for i in idx:
-            all_idx.append(vert_base + i)
-        prim_meta.append((key, pos_start, n_verts, idx_start, len(idx)))
+        for i in bidx:
+            # bucket-local: index values are relative to the per-layer slice accessors
+            all_idx.append(int(i))
+        prim_meta.append((key, pos_start, n_verts, idx_start, len(bidx)))
+        bucket_vert0[key] = vert_base
         vert_base += n_verts
+
+    # Per-element index stream (element-local values, relative to element slice accessors)
+    el_idx: list[int] = []
+    # per element: (extras, [(mat_key, global_vert_start, n_verts, el_idx_start, n_idx)])
+    el_meta: list[tuple[dict[str, Any], list[tuple[str, int, int, int, int]]]] = []
+    for el, eparts in element_parts:
+        prims: list[tuple[str, int, int, int, int]] = []
+        for pkey, v0, nv, i0, ni in eparts:
+            if pkey not in bucket_vert0:
+                continue
+            gstart = bucket_vert0[pkey] + v0
+            estart = len(el_idx)
+            src_idx = buckets[pkey]["idx"]
+            for i in src_idx[i0 : i0 + ni]:
+                el_idx.append(int(i) - v0)
+            prims.append((pkey, gstart, nv, estart, ni))
+        if prims:
+            el_meta.append(
+                (_element_extras(el, level_names, [p[0] for p in prims]), prims)
+            )
+
+    # uint16 unless some layer bucket exceeds it (large models / BREP tessellation)
+    max_local = max((int(b["base"]) for b in buckets.values()), default=0)
+    use_u32 = max_local > 65535
+    idx_fmt = "<I" if use_u32 else "<H"
+    idx_ctype = 5125 if use_u32 else 5123
+    idx_size = 4 if use_u32 else 2
 
     pos_bytes = b"".join(struct.pack("<f", float(v)) for v in all_pos)
     nrm_bytes = b"".join(struct.pack("<f", float(v)) for v in all_nrm)
-    idx_bytes = b"".join(struct.pack("<H", int(i)) for i in all_idx)
+    idx_bytes = b"".join(struct.pack(idx_fmt, int(i)) for i in all_idx)
+    el_idx_bytes = b"".join(struct.pack(idx_fmt, int(i)) for i in el_idx)
     # align
     def _pad(b: bytes) -> bytes:
         p = (4 - (len(b) % 4)) % 4
@@ -1289,7 +1395,7 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
     pos_bytes_p = _pad(pos_bytes)
     nrm_bytes_p = _pad(nrm_bytes)
     idx_bytes_p = _pad(idx_bytes)
-    blob = pos_bytes_p + nrm_bytes_p + idx_bytes_p
+    blob = pos_bytes_p + nrm_bytes_p + idx_bytes_p + _pad(el_idx_bytes)
     b64 = base64.b64encode(blob).decode("ascii")
     uri = f"data:application/octet-stream;base64,{b64}"
 
@@ -1327,11 +1433,21 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
 
     off_nrm = len(pos_bytes_p)
     off_idx = off_nrm + len(nrm_bytes_p)
+    off_el_idx = off_idx + len(idx_bytes_p)
     buffer_views = [
         {"buffer": 0, "byteOffset": 0, "byteLength": len(pos_bytes), "target": 34962},
         {"buffer": 0, "byteOffset": off_nrm, "byteLength": len(nrm_bytes), "target": 34962},
         {"buffer": 0, "byteOffset": off_idx, "byteLength": len(idx_bytes), "target": 34963},
     ]
+    if el_idx_bytes:
+        buffer_views.append(
+            {
+                "buffer": 0,
+                "byteOffset": off_el_idx,
+                "byteLength": len(el_idx_bytes),
+                "target": 34963,
+            }
+        )
 
     accessors: list[dict[str, Any]] = [
         {
@@ -1381,8 +1497,8 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
         accessors.append(
             {
                 "bufferView": 2,
-                "byteOffset": idx_start * 2,
-                "componentType": 5123,
+                "byteOffset": idx_start * idx_size,
+                "componentType": idx_ctype,
                 "count": n_idx,
                 "type": "SCALAR",
             }
@@ -1403,6 +1519,60 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
         )
         nodes.append({"mesh": mesh_i, "name": key})
 
+    # Per-element scene nodes with extras (id / name / category / level / params).
+    agg_node_count = len(nodes)
+    scene_nodes: list[int] = []
+    for extras, prims in el_meta:
+        prim_list: list[dict[str, Any]] = []
+        for pkey, gstart, nv, estart, ni in prims:
+            pslice = all_pos[gstart * 3 : (gstart + nv) * 3]
+            pos_acc = len(accessors)
+            accessors.append(
+                {
+                    "bufferView": 0,
+                    "byteOffset": gstart * 12,
+                    "componentType": 5126,
+                    "count": nv,
+                    "type": "VEC3",
+                    "max": [max(pslice[0::3]), max(pslice[1::3]), max(pslice[2::3])],
+                    "min": [min(pslice[0::3]), min(pslice[1::3]), min(pslice[2::3])],
+                }
+            )
+            nrm_acc = len(accessors)
+            accessors.append(
+                {
+                    "bufferView": 1,
+                    "byteOffset": gstart * 12,
+                    "componentType": 5126,
+                    "count": nv,
+                    "type": "VEC3",
+                }
+            )
+            idx_acc = len(accessors)
+            accessors.append(
+                {
+                    "bufferView": 3,
+                    "byteOffset": estart * idx_size,
+                    "componentType": idx_ctype,
+                    "count": ni,
+                    "type": "SCALAR",
+                }
+            )
+            prim_list.append(
+                {
+                    "attributes": {"POSITION": pos_acc, "NORMAL": nrm_acc},
+                    "indices": idx_acc,
+                    "mode": 4,
+                    "material": mat_index[pkey],
+                }
+            )
+        mesh_i = len(meshes)
+        meshes.append({"name": str(extras["name"]), "primitives": prim_list})
+        scene_nodes.append(len(nodes))
+        nodes.append({"mesh": mesh_i, "name": str(extras["name"]), "extras": extras})
+    if not scene_nodes:
+        scene_nodes = list(range(agg_node_count))
+
     gltf = {
         "asset": {"version": "2.0", "generator": "llm-bim-presentation"},
         "buffers": [{"byteLength": len(blob), "uri": uri}],
@@ -1411,11 +1581,12 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
         "materials": materials,
         "meshes": meshes,
         "nodes": nodes,
-        "scenes": [{"nodes": list(range(len(nodes))), "name": model.name or "llm-bim"}],
+        "scenes": [{"nodes": scene_nodes, "name": model.name or "llm-bim"}],
         "scene": 0,
         "extras": {
             "material_legend": {k: _MATERIAL_RGBA.get(k) for k in mat_keys},
             "layer_names": list(mat_keys),
+            "levels": [lv.name for lv in model.levels],
             "units": "metres",
             "up": "Y",
             "honesty": "Presentation envelopes — coordination grade, not PE-stamped fabrication",

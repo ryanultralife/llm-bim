@@ -1,6 +1,6 @@
 # TEAM STATUS — live coordination board
 
-**Last updated:** 2026-07-15 by **Grok** (Claude may be rate-limited — IFC still reserved)  
+**Last updated:** 2026-07-19 by **Claude** (audit merged to main as PR #1; WP-IFC done; MEP autoroute + rich viewer in progress)  
 **Canonical “who does what right now”:** [`notes/handoffs/NOW.md`](notes/handoffs/NOW.md) ← **read first**
 
 Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
@@ -11,8 +11,8 @@ Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
 
 | Agent | Owns now | Next | Stay out of |
 |-------|----------|------|-------------|
-| **Grok** | Launch stack: server, CLI, MCP, Docker/Railway/CI, docs/LAUNCH | Land uncommitted launch on `main`, keep API green | `packages/ifc/**` once Claude claims it |
-| **Claude** | **WP-IFC** (claim this) | `feature/wp-ifc` → IFC4 export | `packages/server/**`, `cli/**`, `mcp_server/**`, `core/**`, `geometry/**`, Dockerfile, railway, CI |
+| **Grok** | Launch stack: server, CLI, Docker/Railway, docs/LAUNCH | Keep API green; rebase on merged PR #1 (CI now gates ruff + mypy strict) | `core/mep_route.py`, `drawings/viewer3d.py`, `geometry/mesh.py` while Claude's WP-MEP-ROUTE / WP-VIEWER-RICH are claimed |
+| **Claude** | **WP-MEP-ROUTE** + **WP-VIEWER-RICH** (branch `claude/grok-audit-evolution-w4umwh`) | PR to main when green | `packages/server/**`, `cli/**`, Dockerfile, railway |
 
 **Rule:** One agent per freeze zone. Claim in this file before coding. Announce next step in `notes/handoffs/NOW.md` when you change direction.
 
@@ -24,9 +24,12 @@ Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
 |----|-------|--------|--------|----------------|
 | **LAUNCH** | **Grok** | `main` | **done** | server/cli/mcp/docker — Grok maintains |
 | **LAUNCH-POLISH** | **Grok** | `main` | **done** | validate, glTF, import JSON, schedule/elev downloads |
-| **WP-IFC** | *(open for Claude — still reserved while AFK)* | `feature/wp-ifc` | **ready — Claude claim when free** | `packages/ifc/**` only — **Grok will not take this** |
-| WP-DRAWINGS MVP | Grok | `main` | **done** | shipped; Claude only if WP-DRAWINGS-V2 later |
-| WP-DRAWINGS-V2 | — | — | optional later | improve drawings quality; do not block IFC |
+| **WP-IFC** | **Claude** | `main` (PR #1) | **done** | openings/joins/multi-storey — see WORK_PACKAGES.md |
+| WP-DRAWINGS MVP | Grok | `main` | **done** | shipped |
+| WP-DRAWINGS-V2 | Claude | `main` (PR #1) | **done** | dims on-canvas, elevation mirror/culling, hidden-line |
+| AUDIT-2026-07 | Claude | `main` (PR #1) | **done** | takeoff/data-loss/CI fixes across tree — see PR #1 |
+| **WP-MEP-ROUTE** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **claimed** | `core/mep_route.py` + registry/SDK/MCP wiring |
+| **WP-VIEWER-RICH** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **claimed** | `drawings/viewer3d.py`, `geometry/mesh.py` |
 | core/commands/elements | Grok | `main` | **done** | Claude: do not reimplement |
 
 ### Claude claim recipe

@@ -38,8 +38,10 @@ llmbim op repair --path model.llmbim.json --save model.llmbim.json
 Always available via `export_deliverables` / `llmbim pack`:
 
 JSON · IFC · glTF · STEP · SVG sheets · DXF · PDF plot set · BOQ (CSI) · clash · rules · ZIP  
+**IFC4:** valid strict-reader files — hosted openings (IfcRelVoids/Fills), wall corner joins, multi-storey placement chain  
 **Materials package:** `materials/fitting_takeoff.*` · `pipe_takeoff.*` · exploded BOM · part assignments  
-**Plumbing:** `schedules/plumbing_takeoff.json` — copper 90° elbows counted by NPS
+**Plumbing:** `schedules/plumbing_takeoff.json` — copper 90° elbows counted by NPS  
+**Steel:** `steel_takeoff` rows carry `weight_kg_m` + `mass_kg` (catalog or W-designation lb/ft) — real tonnage
 
 ## Parts & materials BIM
 
