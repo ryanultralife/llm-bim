@@ -139,20 +139,20 @@ PDF binder honors `scale()`, opening schedules carry derived coordinates.
 
 ---
 
-## WP-MEP-TAP — multi-run systems + tee-tapping (**claimed — Claude, in progress**)
+## WP-MEP-TAP — multi-run systems + tee-tapping (**DONE — Claude**)
 
 `mep_tap` (split an existing run at the nearest point, insert a catalog tee,
 autoroute the branch to a target) and `mep_trunk_branch` (trunk + N taps).
 Freeze: `core/mep_route.py` + registry/SDK/MCP wiring, `tests/unit/test_mep_tap.py`.
 
-## WP-IFC-IMPORT — round-trip import (**claimed — Claude, in progress**)
+## WP-IFC-IMPORT — round-trip import (**DONE — Claude**)
 
 Real geometry recovery from our IFC4 files (levels, walls, hosted openings via
 RelVoids/Fills, slabs, equipment, spaces, flow segments) replacing the
 placeholder subset importer. Freeze: `packages/ifc/**`, `core/io_import.py`,
 `tests/unit/test_ifc_roundtrip.py`.
 
-## WP-MEP-SIZING — hydraulic pipe + duct sizing (**claimed — Claude, in progress**)
+## WP-MEP-SIZING — hydraulic pipe + duct sizing (**DONE — Claude**)
 
 Flow/WSFU-based pipe NPS selection (velocity + Hazen-Williams), equal-friction
 duct sizing with rectangular equivalents, run validation reports. Engineering
