@@ -20,9 +20,10 @@ MCP client) — a browser-only chat cannot run the kernel and therefore cannot
 produce output. This is a harness requirement, not a model-capability tier.
 Entry context files per harness: `CLAUDE.md` (Claude Code), `GEMINI.md`
 (Gemini CLI), this file (`AGENTS.md` — Codex/Grok and the shared protocol).
-No local machine needed — see [`docs/MOBILE.md`](docs/MOBILE.md) for
-phone-only paths (Claude Code web, `@gemini-cli` Actions trigger, Jules,
-Codespaces).
+No local machine, no API keys — see [`docs/MOBILE.md`](docs/MOBILE.md):
+chat apps run the kernel from the repo ZIP in their own code sandbox
+(`import bootstrap`, pure-stdlib kernel), and vendor-hosted agents
+(claude.ai/code, Jules, Codex, Copilot) work with login only.
 
 ## Tempo (read this first)
 
