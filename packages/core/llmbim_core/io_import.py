@@ -193,9 +193,29 @@ def import_dxf_lines(model: ProjectModel, path: str | Path, *, level: str, as_wa
 
 
 def import_ifc_subset(model: ProjectModel, path: str | Path) -> dict[str, Any]:
-    """Import a subset of IFC4 SPF: storeys, walls (extruded if simple), spaces by name.
+    """Import IFC4 SPF with real geometry recovery (storeys, walls, hosted
+    doors/windows, slabs, equipment, pipes, spaces) via ``llmbim_ifc.import_``.
 
-    Not a full IFC kernel — extracts usable placement/name for coordination.
+    Falls back to the legacy name-only placeholder scan if the geometry parser
+    is unavailable or hard-fails on the file.
+    """
+    try:
+        from llmbim_ifc.import_ import import_ifc
+    except ImportError as exc:  # llmbim_ifc not installed alongside core
+        return _import_ifc_placeholder(model, path, reason=str(exc))
+    try:
+        return import_ifc(model, path)
+    except Exception as exc:  # noqa: BLE001 — any parser hard-fail → placeholder
+        return _import_ifc_placeholder(model, path, reason=str(exc))
+
+
+def _import_ifc_placeholder(
+    model: ProjectModel, path: str | Path, reason: str = ""
+) -> dict[str, Any]:
+    """Legacy IFC subset scan: storey names/elevations, wall/space names only.
+
+    Geometry is NOT recovered — walls/spaces are laid out as placeholders.
+    Kept only as the fallback path for ``import_ifc_subset``.
     """
     text = Path(path).read_text(encoding="utf-8", errors="replace")
     # IfcBuildingStorey names + elevation
@@ -285,12 +305,15 @@ def import_ifc_subset(model: ProjectModel, path: str | Path) -> dict[str, Any]:
         model.add_element(el)
         created_spaces += 1
 
-    return {
+    out: dict[str, Any] = {
         "levels": created_levels,
         "walls": created_walls,
         "spaces": created_spaces,
         "note": "IFC import is coordination-grade; walls/spaces may be placeholders if geometry not extruded in SPF text",
     }
+    if reason:
+        out["fallback_reason"] = reason
+    return out
 
 
 def auto_import(model: ProjectModel, path: str | Path, **kwargs: Any) -> dict[str, Any]:
