@@ -6,6 +6,21 @@ No drafting GUI. No required cloud host. Your LLM (Claude, Grok, Cursor, local, 
 
 [![CI](https://github.com/ryanultralife/llm-bim/actions/workflows/ci.yml/badge.svg)](https://github.com/ryanultralife/llm-bim/actions/workflows/ci.yml)
 
+## No computer? No install? Still works.
+
+The modeling kernel is **pure standard-library Python** — no pip, no API
+keys. From a phone: download the repo ZIP (**Code → Download ZIP**), attach
+it to any LLM chat that can run Python (ChatGPT, Gemini, Claude), and paste:
+
+> You are operating the llm-bim kernel in this ZIP. Unzip it, `import
+> bootstrap` from its root (no pip install — pure stdlib Python 3.11+), read
+> `skills/llm-bim/SKILL.md`, and follow it exactly. Build what I describe,
+> run validate/rules/clash, `export_deliverables`, and give me the output
+> folder. Hand me exactly one entry file: `index.html`.
+
+Vendor-hosted agents (claude.ai/code, Jules, Codex, Copilot) work with just a
+login — connect the repo and chat. All paths: [`docs/MOBILE.md`](docs/MOBILE.md).
+
 ## 60-second start
 
 ```bash

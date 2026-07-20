@@ -36,11 +36,10 @@ instance: `llmbim case schad`.
 
 ## From a phone / no local CLI
 
-See `docs/MOBILE.md`. Fastest Gemini path: a collaborator comments
-`@gemini-cli <request>` on any issue/PR — `.github/workflows/gemini-assist.yml`
-runs Gemini CLI in Actions with the kernel installed (requires the
-`GEMINI_API_KEY` repo secret). Jules (jules.google.com) also works from a
-mobile browser.
+See `docs/MOBILE.md` — no API keys anywhere. Gemini app with the repo ZIP
+attached runs the kernel in its own code sandbox (`import bootstrap`, pure
+stdlib — no pip). Or use Jules (jules.google.com): connect the repo from a
+mobile browser and chat.
 
 ## MCP (optional)
 
