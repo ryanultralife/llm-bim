@@ -18,8 +18,11 @@ it to any LLM chat that can run Python (ChatGPT, Gemini, Claude), and paste:
 > run validate/rules/clash, `export_deliverables`, and give me the output
 > folder. Hand me exactly one entry file: `index.html`.
 
-Vendor-hosted agents (claude.ai/code, Jules, Codex, Copilot) work with just a
-login — connect the repo and chat. All paths: [`docs/MOBILE.md`](docs/MOBILE.md).
+**This repo asks nothing of you.** MIT-licensed, public, no accounts here, no
+API keys, no telemetry, no server of ours in the loop. Your own LLM — whatever
+you already pay for or run locally — does the work against the instructions
+and framework in this repo, on your device or in your LLM's sandbox. Reading,
+cloning, and the ZIP are all anonymous. All paths: [`docs/MOBILE.md`](docs/MOBILE.md).
 
 ## 60-second start
 
