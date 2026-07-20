@@ -257,9 +257,9 @@ def render_section_svg(
         return (s - min_s) * scale, (max_z - z) * scale
 
     label = title or f"{model.name} — Section"
-    # reveal the storey-dimension band (anchored ~0.35*margin left of the geometry)
-    # via a negative-origin viewBox so it is not clipped off the left edge.
-    pad = max(16.0, 0.4 * margin_mm * scale + 12.0)
+    # reveal the storey + overall dimension bands (anchored up to ~0.7*margin
+    # left of the geometry) via a negative-origin viewBox so nothing clips.
+    pad = max(16.0, 0.7 * margin_mm * scale + 16.0)
     vb_w, vb_h = width + 2 * pad, height + 2 * pad
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" '
@@ -333,18 +333,21 @@ def render_section_svg(
                 f'x2="{fmt(pb[0])}" y2="{fmt(pb[1])}" stroke-dasharray="4 3" '
                 f'stroke-width="0.7" opacity="0.7"/>'
             )
+            # datum label at the right sheet edge: "L2 · EL. +3.500 m"
             parts.append(
-                f'    <text x="{fmt(pa[0] + 2)}" y="{fmt(pa[1] - 2)}" '
-                f'font-size="{fmt(max(7, 9))}" fill="#444">{esc(lv.name)} '
-                f"EL {z / 1000:.2f}m</text>"
+                f'    <text x="{fmt(pb[0] + pad - 2)}" y="{fmt(pb[1] - 2)}" '
+                f'text-anchor="end" class="level-datum" '
+                f'font-size="{fmt(max(7, 9))}" fill="#444">{esc(lv.name)} · '
+                f"EL. {z / 1000:+.3f} m</text>"
             )
         dim_s = min_s - margin_mm * 0.35
+        z_top = max_z - margin_mm * 0.2
         for i, lv in enumerate(levels):
             z0 = float(lv.elevation_mm)
             if i + 1 < len(levels):
                 z1 = float(levels[i + 1].elevation_mm)
             else:
-                z1 = max_z - margin_mm * 0.2 if max_z > z0 + 500 else z0 + 3000
+                z1 = z_top if max_z > z0 + 500 else z0 + 3000
             if z1 - z0 < 100:
                 continue
             p0, p1 = project(dim_s, z0), project(dim_s, z1)
@@ -362,6 +365,27 @@ def render_section_svg(
             parts.append(
                 f'    <text x="{fmt(p0[0] - 6)}" y="{fmt(mid_y)}" text-anchor="end" '
                 f'font-size="{fmt(max(7, 9))}" class="storey-height">{esc(lab)}</text>'
+            )
+        # overall height dimension (lowest level → top) further left
+        z_lo = float(levels[0].elevation_mm)
+        if z_top - z_lo >= 100:
+            dim_s2 = min_s - margin_mm * 0.7
+            p0o, p1o = project(dim_s2, z_lo), project(dim_s2, z_top)
+            parts.append(
+                f'    <line x1="{fmt(p0o[0])}" y1="{fmt(p0o[1])}" '
+                f'x2="{fmt(p1o[0])}" y2="{fmt(p1o[1])}" stroke-width="1.2"/>'
+            )
+            for pt in (p0o, p1o):
+                parts.append(
+                    f'    <line x1="{fmt(pt[0] - 4)}" y1="{fmt(pt[1])}" '
+                    f'x2="{fmt(pt[0] + 4)}" y2="{fmt(pt[1])}" stroke-width="1.2"/>'
+                )
+            mid_y = (p0o[1] + p1o[1]) / 2
+            parts.append(
+                f'    <text x="{fmt(p0o[0] - 4)}" y="{fmt(mid_y)}" text-anchor="middle" '
+                f'class="overall-height" font-size="{fmt(max(7, 9))}" '
+                f'transform="rotate(-90 {fmt(p0o[0] - 4)} {fmt(mid_y)})">'
+                f"{(z_top - z_lo) / 1000:.2f} m</text>"
             )
         parts.append("  </g>")
     parts.append("</svg>")
@@ -676,8 +700,8 @@ def render_elevation_svg(
         return (h - min_h) * scale, (max_z - z) * scale
 
     label = title or f"{model.name} — Elevation {d}"
-    # negative-origin viewBox reveals the storey-dimension band on the left
-    pad = max(16.0, 0.4 * margin_mm * scale + 12.0)
+    # negative-origin viewBox reveals the storey + overall dim bands (left)
+    pad = max(16.0, 0.7 * margin_mm * scale + 16.0)
     vb_w, vb_h = width + 2 * pad, height + 2 * pad
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" '
@@ -802,20 +826,23 @@ def render_elevation_svg(
                 f'x2="{fmt(pb[0])}" y2="{fmt(pb[1])}" stroke-dasharray="4 3" '
                 f'stroke-width="0.7" opacity="0.7"/>'
             )
+            # datum label at the right sheet edge: "L2 · EL. +3.500 m"
             parts.append(
-                f'    <text x="{fmt(pa[0] + 2)}" y="{fmt(pa[1] - 2)}" '
-                f'font-size="{fmt(max(7, 9))}" fill="#444">{esc(lv.name)} '
-                f"EL {z / 1000:.2f}m</text>"
+                f'    <text x="{fmt(pb[0] + pad - 2)}" y="{fmt(pb[1] - 2)}" '
+                f'text-anchor="end" class="level-datum" '
+                f'font-size="{fmt(max(7, 9))}" fill="#444">{esc(lv.name)} · '
+                f"EL. {z / 1000:+.3f} m</text>"
             )
         # vertical dim between consecutive levels (and to top of highest wall if only one)
         dim_x = min_h - margin_mm * 0.35
+        z_top = max_z - margin_mm * 0.1
         for i, lv in enumerate(levels):
             z0 = float(lv.elevation_mm)
             if i + 1 < len(levels):
                 z1 = float(levels[i + 1].elevation_mm)
             else:
                 # single storey: dim to max wall top on elev
-                z1 = max_z - margin_mm * 0.1 if max_z > z0 + 500 else z0 + 3000
+                z1 = z_top if max_z > z0 + 500 else z0 + 3000
             if z1 - z0 < 100:
                 continue
             p0, p1 = project(dim_x, z0), project(dim_x, z1)
@@ -834,6 +861,27 @@ def render_elevation_svg(
             parts.append(
                 f'    <text x="{fmt(p0[0] - 6)}" y="{fmt(mid_y)}" text-anchor="end" '
                 f'font-size="{fmt(max(7, 9))}" class="storey-height">{esc(lab)}</text>'
+            )
+        # overall height dimension (lowest level → top) further left
+        z_lo = float(levels[0].elevation_mm)
+        if z_top - z_lo >= 100:
+            dim_x2 = min_h - margin_mm * 0.7
+            p0o, p1o = project(dim_x2, z_lo), project(dim_x2, z_top)
+            parts.append(
+                f'    <line x1="{fmt(p0o[0])}" y1="{fmt(p0o[1])}" '
+                f'x2="{fmt(p1o[0])}" y2="{fmt(p1o[1])}" stroke-width="1.2"/>'
+            )
+            for pt in (p0o, p1o):
+                parts.append(
+                    f'    <line x1="{fmt(pt[0] - 4)}" y1="{fmt(pt[1])}" '
+                    f'x2="{fmt(pt[0] + 4)}" y2="{fmt(pt[1])}" stroke-width="1.2"/>'
+                )
+            mid_y = (p0o[1] + p1o[1]) / 2
+            parts.append(
+                f'    <text x="{fmt(p0o[0] - 4)}" y="{fmt(mid_y)}" text-anchor="middle" '
+                f'class="overall-height" font-size="{fmt(max(7, 9))}" '
+                f'transform="rotate(-90 {fmt(p0o[0] - 4)} {fmt(mid_y)})">'
+                f"{(z_top - z_lo) / 1000:.2f} m</text>"
             )
         parts.append("  </g>")
 

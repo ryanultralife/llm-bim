@@ -29,7 +29,9 @@ class DrawingView:
             f"{self.body}\n</svg>\n"
         )
 
-    def scaled_to_fit(self, max_w: float, max_h: float, pad: float = 10.0) -> tuple[float, str]:
+    def scaled_to_fit(
+        self, max_w: float, max_h: float, pad: float = 10.0, max_scale: float = 1.0
+    ) -> tuple[float, str]:
         """Return (scale_factor, transformed body) fitting inside max box.
 
         Accounts for ``self.pad``: the body's content spans ``[-pad, width+pad]``
@@ -37,6 +39,11 @@ class DrawingView:
         fit uses the padded extent and the translate shifts the content's real
         top-left ``(-pad, -pad)`` to ``(pad, pad)`` — otherwise those annotations
         clip off the sheet frame.
+
+        ``max_scale``: upper bound on the fit factor. The default ``1.0`` never
+        upscales (legacy behavior); sheet composers pass more so small scaled
+        views fill their drawing area (the graphic scale bar stays honest since
+        it is computed from the actual ``view scale × fit factor``).
         """
         p = self.pad
         content_w = self.width + 2 * p
@@ -45,8 +52,9 @@ class DrawingView:
         usable_h = max(max_h - 2 * pad, 1.0)
         if content_w <= 0 or content_h <= 0:
             return 1.0, self.body
-        s = min(usable_w / content_w, usable_h / content_h, 1.0)
-        tx = pad + p * s
-        ty = pad + p * s
+        s = min(usable_w / content_w, usable_h / content_h, max_scale)
+        # center the fitted content inside the usable box
+        tx = pad + p * s + max(0.0, (usable_w - content_w * s) / 2)
+        ty = pad + p * s + max(0.0, (usable_h - content_h * s) / 2)
         body = f'<g transform="translate({tx:.3f},{ty:.3f}) scale({s})">\n{self.body}\n</g>'
         return s, body
