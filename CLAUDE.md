@@ -46,7 +46,7 @@ llmbim pack path.llmbim.json --out output/name
 - Mutations only via SDK / CLI / MCP / `project.op`.
 - Do not invent geometry in prose.
 - Run `validate`, `rules`, `clash` before calling work “done”.
-- Tell the user the **folder path** with drawings (`index.html`, `PLOT_SET.pdf`, `construction/`, etc.).
+- Hand the user **exactly one path**: `output/<slug>/index.html` — the 3D viewer, PDF, sheets, and schedules are linked from it. Never open/point to `viewer3d.html` separately (duplicate tabs).
 - **Version control (mandatory):** after each meaningful batch of model edits,  
   `p.commit("clear message of what changed")`.  
   Check `p.status()` — do not say “done” while dirty unless the user said not to commit.  

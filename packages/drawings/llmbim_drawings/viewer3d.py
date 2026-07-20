@@ -260,22 +260,31 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
   Click = inspect element · double-click = focus<br/>
   Measure mode: two clicks = distance · Esc clears
 </div>
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+<div id="bootError" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99;background:#7a1f1f;color:#fff;font:13px/1.5 sans-serif;padding:10px 16px;white-space:pre-wrap"></div>
+<!-- three.js r160 + addons bundled inline (MIT) — fully offline, no CDN. -->
+<script>__THREE_BUNDLE__</script>
+<script>
+// Any failure surfaces as a visible banner instead of a silent black page.
+(function () {
+  function show(msg) {
+    var el = document.getElementById('bootError');
+    if (!el) return;
+    el.style.display = 'block';
+    el.textContent = 'Viewer error — ' + msg +
+      '\nTry: regenerate the pack with the latest llm-bim (git pull; re-export).';
   }
-}
+  window.addEventListener('error', function (e) { show(e.message || String(e.error || e)); });
+  window.addEventListener('unhandledrejection', function (e) { show(String(e.reason)); });
+  window.__LLMBIM_SHOW_ERROR__ = show;
+})();
 </script>
-<script type="module">
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+<script>
+'use strict';
+if (!window.__LLMBIM_THREE__) {
+  window.__LLMBIM_SHOW_ERROR__('embedded three.js bundle missing');
+  throw new Error('three bundle missing');
+}
+const { THREE, OrbitControls, GLTFLoader, RoomEnvironment, EffectComposer, RenderPass, UnrealBloomPass } = window.__LLMBIM_THREE__;
 
 const EMBEDDED = __EMBEDDED_GLTF__;
 const WALL_GHOST = __WALL_GHOST__;
@@ -1093,7 +1102,21 @@ def write_viewer_3d(
         .replace("__SKY_URI__", json.dumps(sky))
         .replace("__FLOOR_URI__", json.dumps(floor))
         .replace("__BRAND_URI__", json.dumps(brand))
+        # bundle inlined LAST so other placeholder replaces never scan it
+        .replace("__THREE_BUNDLE__", _three_bundle_js())
     )
     path = out / "viewer3d.html"
     path.write_text(html, encoding="utf-8")
     return path
+
+
+def _three_bundle_js() -> str:
+    """Vendored three.js r160 + addons (MIT), IIFE exposing window.__LLMBIM_THREE__.
+
+    Inlined into viewer3d.html so the viewer is fully self-contained: no CDN,
+    works offline and from file:// (module imports from file:// are blocked by
+    CORS, and a blocked/unavailable CDN used to mean a silent black page).
+    ``</script`` is escaped so the inline <script> cannot terminate early.
+    """
+    raw = (_ASSETS / "three_bundle.js").read_text(encoding="utf-8")
+    return raw.replace("</script", "<\\/script")
