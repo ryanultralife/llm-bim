@@ -33,6 +33,8 @@ Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
 | WP-MEP-TAP | Claude | branch | **done** | tee-tapping + trunk_branch |
 | WP-IFC-IMPORT | Claude | branch | **done** | real round-trip importer |
 | WP-MEP-SIZING | Claude | branch | **done** | pipe/duct sizing + surface |
+| **GROK-SSOT-P0/P1** | **Claude** | branch | **claimed** | `geometry/mesh.py`, `drawings/deliverables.py` (VERIFY glTF), viewer3d, machine primitives — per docs/EQUIPMENT_3D_AND_DEVICE_SSOT.md §8 |
+| **GROK-SSOT-P2** | **Claude** | branch | **claimed** | NEW `core/device_pack.py` + fixture + recipe |
 | core/commands/elements | Grok | `main` | **done** | Claude: do not reimplement |
 
 ### Claude claim recipe
