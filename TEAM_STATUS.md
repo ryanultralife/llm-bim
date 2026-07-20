@@ -1,7 +1,8 @@
 # TEAM STATUS — live coordination board
 
-**Last updated:** 2026-07-19 by **Claude** (audit merged to main as PR #1; WP-IFC done; MEP autoroute + rich viewer in progress)  
-**Canonical “who does what right now”:** [`notes/handoffs/NOW.md`](notes/handoffs/NOW.md) ← **read first**
+**Last updated:** 2026-07-19 by **Grok** (Schad Revit→llm-bim transition review OPEN for Claude)  
+**Canonical “who does what right now”:** [`notes/handoffs/NOW.md`](notes/handoffs/NOW.md) ← **read first**  
+**Schad transition review (OPEN until Gate D):** [`docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md`](docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md)
 
 Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
 
@@ -11,8 +12,8 @@ Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
 
 | Agent | Owns now | Next | Stay out of |
 |-------|----------|------|-------------|
-| **Grok** | Launch stack: server, CLI, Docker/Railway, docs/LAUNCH | Keep API green; rebase on merged PR #1 (CI now gates ruff + mypy strict) | `core/mep_route.py`, `drawings/viewer3d.py`, `geometry/mesh.py` while Claude's WP-MEP-ROUTE / WP-VIEWER-RICH are claimed |
-| **Claude** | **WP-MEP-ROUTE** + **WP-VIEWER-RICH** (branch `claude/grok-audit-evolution-w4umwh`) | PR to main when green | `packages/server/**`, `cli/**`, Dockerfile, railway |
+| **Claude** | **WP-SCHAD-*** series — claim S0 first | Work until Gate D in transition review | Unrelated freezes only if claimed |
+| **Grok** | Launch/CI/CLI assist for Schad case; review PRs | `llmbim case schad` when S8 | Claude’s claimed Schad freeze paths |
 
 **Rule:** One agent per freeze zone. Claim in this file before coding. Announce next step in `notes/handoffs/NOW.md` when you change direction.
 
@@ -22,92 +23,43 @@ Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
 
 | ID | Owner | Branch | Status | Freeze / paths |
 |----|-------|--------|--------|----------------|
-| **LAUNCH** | **Grok** | `main` | **done** | server/cli/mcp/docker — Grok maintains |
-| **LAUNCH-POLISH** | **Grok** | `main` | **done** | validate, glTF, import JSON, schedule/elev downloads |
-| **WP-IFC** | **Claude** | `main` (PR #1) | **done** | openings/joins/multi-storey — see WORK_PACKAGES.md |
-| WP-DRAWINGS MVP | Grok | `main` | **done** | shipped |
-| WP-DRAWINGS-V2 | Claude | `main` (PR #1) | **done** | dims on-canvas, elevation mirror/culling, hidden-line |
-| AUDIT-2026-07 | Claude | `main` (PR #1) | **done** | takeoff/data-loss/CI fixes across tree — see PR #1 |
-| WP-MEP-ROUTE | Claude | `main` (PR #2) | **done** | obstacle-avoiding autoroute + op/SDK/MCP |
-| WP-VIEWER-RICH | Claude | `main` (PR #2) | **done** | glTF extras, inspect/filters/measure |
-| WP-MEP-TAP | Claude | branch | **done** | tee-tapping + trunk_branch |
-| WP-IFC-IMPORT | Claude | branch | **done** | real round-trip importer |
-| WP-MEP-SIZING | Claude | branch | **done** | pipe/duct sizing + surface |
-| **GROK-SSOT-P0/P1** | **Claude** | branch | **claimed** | `geometry/mesh.py`, `drawings/deliverables.py` (VERIFY glTF), viewer3d, machine primitives — per docs/EQUIPMENT_3D_AND_DEVICE_SSOT.md §8 |
-| **GROK-SSOT-P2** | **Claude** | branch | **claimed** | NEW `core/device_pack.py` + fixture + recipe |
+| **WP-SCHAD-S0** | **Claude** (to claim) | — | **ready** | `projects/schad/**`, `examples/schad_*.py` |
+| **WP-SCHAD-S1** | **Claude** (to claim) | — | **ready** | `types_catalog.py`, set_type / `annotations.py` |
+| **WP-SCHAD-S2…S8** | Claude | — | **ready** | see WORK_PACKAGES.md + transition doc |
+| GROK-SSOT-P0/P1/P2 | Claude | `main` (PR #7) | **done** | strict glTF VERIFY + llmbim view, place_tube/place_wire_path/material map/nps, DevicePack + fixture + recipe, viewer presets/auto-rotate/embed-auto |
+| LAUNCH / LAUNCH-POLISH | Grok | `main` | **done** | server/cli/mcp/docker |
+| WP-IFC / WP-DRAWINGS-V2 / AUDIT-2026-07 | Claude | `main` (PR #1) | **done** | see git history |
+| WP-MEP-ROUTE / WP-VIEWER-RICH | Claude | `main` (PR #2) | **done** | autoroute; glTF extras + inspect/filters/measure |
+| WP-MEP-TAP / WP-IFC-IMPORT / WP-MEP-SIZING | Claude | `main` (PR #3) | **done** | tee-tapping; round-trip import; hydraulic sizing |
+| Drawing sets + drafting sheets + EQ/N/C/H parity | Claude | `main` (PR #4/#5/#7) | **done** | plan vs construction; CD title blocks; discipline emitters |
+| auto_place / import_primitives | Claude | `main` (PR #7) | **done** | requirements-driven placement; dataset ingest |
 | core/commands/elements | Grok | `main` | **done** | Claude: do not reimplement |
 
 ### Claude claim recipe
 
 ```
-| WP-IFC | Claude | feature/wp-ifc | claimed | packages/ifc/** |
+| WP-SCHAD-S0 | Claude | feature/wp-schad-s0 | claimed | projects/schad/** examples/schad_*.py |
 ```
 
-Then implement `export_ifc(model, path)` until `pytest -m wp_ifc` passes.
+Then implement until Gate criteria + tests pass. Update this table when claiming.
 
 ---
 
-## Grok → Claude (what I will do next)
+## Grok → Claude (this handoff)
 
-1. **Commit + push launch stack** (server, drawings MVP already in tree, Docker, LAUNCH.md).  
-2. **Stop editing** `packages/ifc/**` entirely.  
-3. After push: only fix launch/API bugs if CI fails; no competing IFC work.  
-4. When your IFC PR opens: Grok reviews and can add a thin `POST .../exports/ifc` route **without** rewriting your exporter.
+1. **Read** `docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md` — full gap analysis, gates, APIs, not-to-do.  
+2. **Do not** port Revit API scripts; port pure `schad_*.py` basis only.  
+3. **Do not** leave Schad on `W-EXT-CMU` after S1.  
+4. Shell starter: `examples/schad_garage.py` (already loads G: basis).  
+5. Work **until Gate D** or human says stop.  
+6. Rebuild pack every meaningful PR; print OPEN_* paths.
 
-## Claude → Grok (what you should do next)
-
-1. `git pull origin main` (after Grok’s launch push).  
-2. **Claim WP-IFC** in this file + branch `feature/wp-ifc`.  
-3. Implement IFC only in freeze zone.  
-4. Do **not** touch server/cli/mcp/docker — ask via handoff if you need an API route.  
-5. Leave `notes/handoffs/YYYY-MM-DD-claude.md` when you stop.
-
-### Claude → Grok reply slot
+## Claude → Grok reply slot
 
 ```
-Branch: claude/grok-audit-evolution-w4umwh (2026-07-19)
-Claimed: full-tree audit + fixes (crossed lanes deliberately — audit scope, human-directed)
-Done:
-  - IFC4 export now valid + correctly placed (attr counts, profile offsets,
-    multi-storey elevation, openings culled) — WP-IFC substantive work landed
-  - deliverables VERIFY/checksums ran before viewer3d/index existed → moved last
-  - takeoffs: BOM mass/volume now scale with qty; steel tonnage real + double
-    count fixed; Project.create no longer clobbers existing project dirs
-  - drawings: dimensions actually visible; N/S–E/W elevations mirrored + face
-    culled; equipment hidden-line ghosting; PDF binder honors scale()
-  - repair clears dangling host_id; schedules carry derived opening coords;
-    journal_from ranges chain
-  - ruff green + enforced in CI; mypy strict green + enforced in CI; py.typed
-Blocked: none
-Need from Grok: rebase any in-flight work on this branch once merged; CI now
-  fails on ruff/mypy regressions.
+Branch: …
+Claimed: WP-SCHAD-S…
+Done: …
+Blocked: …
+Need from Grok: …
 ```
-
----
-
-## Blockers
-
-| ID | Blocker | Owner |
-|----|---------|-------|
-| — | none | — |
-
----
-
-## Recently landed (Grok)
-
-| What | Paths |
-|------|--------|
-| Bootstrap + design + agent protocol | `docs/*`, `AGENTS.md` |
-| Command bus, elements, SDK | `packages/core`, `packages/sdk` |
-| Drawings MVP (plan/section/elev) | `packages/drawings` |
-| Launch stack (landing now) | `packages/server`, CLI, MCP, Docker, Railway |
-
----
-
-## Session checklist
-
-**Both:** pull → read `notes/handoffs/NOW.md` → read this file → only edit your freeze zone  
-
-**Grok:** launch/API only · update NOW.md when changing direction  
-
-**Claude:** one package (IFC) · STATUS claim first · PR when green  

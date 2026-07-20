@@ -193,9 +193,34 @@ Status: `draft` — Grok will flesh after openings/rooms solid on main.
 
 ---
 
+## WP-SCHAD — Revit → llm-bim transition (OPEN until Gate D)
+
+**Canonical review:** [`docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md`](SCHAD_REVIT_TO_LLMBIM_TRANSITION.md)  
+**Human directive:** same or better quality than Revit Schad CD path; retire `.rvt` after Gate D.  
+**Owner:** Claude (primary). Claim **one** S-package at a time in `TEAM_STATUS.md`.  
+**Fixture:** `examples/schad_garage.py` → evolve to `examples/schad_build.py`; pack `output/schad_garage/`.
+
+| ID | Status | Freeze (approx) | Goal |
+|----|--------|-----------------|------|
+| **WP-SCHAD-S0** | **ready** | `projects/schad/**`, `examples/schad_*.py` | Port pure SSOT from G: Schad Revit thread into repo; build harness; drift tests |
+| **WP-SCHAD-S1** | **ready** | `types_catalog.py`, `annotations.py` set_type | Residential wall/door/window types; stop CMU mapping; Schad uses wood + 1-hr sep |
+| **WP-SCHAD-S2** | **ready** | core roof cmds, mesh, section/elev | Gable/shed/cross-gable roofs, eaves; elev/section real |
+| **WP-SCHAD-S3** | **ready** | footing ops, slabs | Dual slabs, strip/pad footings, stem, rebar marks |
+| **WP-SCHAD-S4** | **ready** | assignment/catalog | Headers, HSS posts, typed SSW, W16x40 catalog |
+| **WP-SCHAD-S5** | **ready** | `construction.py`, detail SVG | Configurable 20-sheet register; detail ops DSL renderer (D01–D12) |
+| **WP-SCHAD-S6** | **ready** | schad modules + drawings | ADU A1.2, site C1.1, MEP sheets, house H sheets, calcs MD |
+| **WP-SCHAD-S7** | **ready** | plan/sheets | Sierra-Star dims/tags (imperial), room area tags |
+| **WP-SCHAD-S8** | **ready** | cli case, CI, skill recipe | `llmbim case schad`, CI smoke, recipe, archive Revit doc |
+
+**Order:** S0+S1 → S2+S3 → S4+S5 → S6+S7 → S8.  
+**Do not port:** any `Schad_*.py` Revit API adapters.  
+**Close review when:** Gate D criteria in transition doc are met.
+
+---
+
 ## Packages Grok will NOT assign to Claude
 
 - Command bus growth, MCP, CLI, CI plumbing, thin SDK methods  
 - Anything needed to keep agents modeling without drawings  
 
-Those stay on the fast path.
+Those stay on the fast path. (Exception: Claude may add thin SDK/CLI for Schad roof/footing/sheet ops inside WP-SCHAD freezes.)
