@@ -836,6 +836,62 @@ def rebar_takeoff(model: ProjectModel) -> list[dict[str, Any]]:
     return system_takeoff(model, "rebar")
 
 
+def shear_wall_schedule(model: ProjectModel) -> list[dict[str, Any]]:
+    """Manufactured shear panel schedule: mark, model, size, locations, count.
+
+    Data-carry only (design development): rows aggregate placed shear panels
+    (``params.kind == 'shear_panel'`` or category ``shear_wall``) by their
+    registered ``ShearWallType``. No capacity or code claims — anchorage and
+    final placement are the EOR's.
+    """
+    from llmbim_core.types_catalog import DEFAULT_SHEARWALL_TYPES
+
+    buckets: dict[str, dict[str, Any]] = {}
+    for el in model.elements:
+        is_panel = (
+            str(el.params.get("kind") or "") == "shear_panel" or el.category == "shear_wall"
+        )
+        if not is_panel:
+            continue
+        model_name = str(el.type_id or el.params.get("model") or "")
+        swt = DEFAULT_SHEARWALL_TYPES.get(model_name)
+        mark = str(el.params.get("mark") or (swt.mark if swt else "") or model_name or "SSW")
+        key = model_name or mark
+        if key not in buckets:
+            if swt:
+                size = (
+                    f"{swt.width_mm:.0f} x {swt.height_mm:.0f} x {swt.thickness_mm:.0f} mm"
+                )
+            else:
+                sz = el.params.get("size_mm") or []
+                size = (
+                    f"{float(sz[0]):.0f} x {float(sz[2]):.0f} x {float(sz[1]):.0f} mm"
+                    if isinstance(sz, list) and len(sz) >= 3
+                    else ""
+                )
+            buckets[key] = {
+                "mark": mark,
+                "model": model_name or None,
+                "size": size,
+                "count": 0,
+                "locations": [],
+                "element_ids": [],
+            }
+        b = buckets[key]
+        b["count"] = int(b["count"]) + 1
+        origin = el.params.get("origin_mm") or el.params.get("position_mm") or [0.0, 0.0]
+        b["locations"].append(
+            {
+                "name": el.name or el.id,
+                "x_mm": float(origin[0]),
+                "y_mm": float(origin[1]),
+                "pos_assumed": bool(el.params.get("pos_assumed")),
+            }
+        )
+        b["element_ids"].append(el.id)
+    return sorted(buckets.values(), key=lambda r: str(r["mark"]))
+
+
 def fire_takeoff(model: ProjectModel) -> dict[str, Any]:
     """Fire protection: pipe + fittings + heads."""
     fits = fitting_takeoff(model, system="fire")
