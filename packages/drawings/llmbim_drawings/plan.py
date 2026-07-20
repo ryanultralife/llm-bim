@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping, Sequence
+from itertools import pairwise
 from pathlib import Path
+from typing import Any
 
 from llmbim_core.model import Element, ProjectModel
 from llmbim_geometry.primitives import point_along_segment
@@ -88,6 +91,25 @@ def _plan_group(el: Element) -> str:
     return "pipes"
 
 
+def _room_centroid_area(room: Element) -> tuple[float, float, float] | None:
+    """(cx, cy, area_mm2) of a room boundary; shoelace fallback for area."""
+    boundary = room.params.get("boundary_mm") or []
+    if len(boundary) < 3:
+        return None
+    cx = sum(float(p[0]) for p in boundary) / len(boundary)
+    cy = sum(float(p[1]) for p in boundary) / len(boundary)
+    area_mm2 = room.params.get("area_mm2")
+    if area_mm2 is None:
+        a = 0.0
+        n = len(boundary)
+        for i in range(n):
+            x1, y1 = float(boundary[i][0]), float(boundary[i][1])
+            x2, y2 = float(boundary[(i + 1) % n][0]), float(boundary[(i + 1) % n][1])
+            a += x1 * y2 - x2 * y1
+        area_mm2 = abs(a) / 2.0
+    return cx, cy, float(area_mm2)
+
+
 def _dim_line(
     x0: float,
     y0: float,
@@ -129,6 +151,9 @@ def render_plan_view(
     max_dimensions: int = 24,
     include: set[str] | None = None,
     ghost_walls: bool = False,
+    grid_dims: bool = False,
+    room_tags: bool = False,
+    section_marks: Sequence[Mapping[str, Any]] | None = None,
 ) -> DrawingView:
     """Build a plan DrawingView (inner body + size).
 
@@ -137,6 +162,14 @@ def render_plan_view(
     pipes, ducts, conduit, cable_tray``. ``None`` (default) draws everything
     exactly as before. ``ghost_walls`` draws wall outlines light grey with no
     fill (context for discipline plans) regardless of ``include``.
+
+    Drafting extras (all additive, default off so existing output is
+    unchanged): ``grid_dims`` draws running dimension chains between grid
+    positions (top for the U axis, left for the V axis) plus the overall
+    dimension; ``room_tags`` replaces plain room labels with boxed
+    name + area tags; ``section_marks`` draws section cut markers — each item
+    a mapping with ``p0``/``p1`` plan points (mm), ``label`` (e.g. ``"A"``)
+    and ``sheet`` reference (e.g. ``"A-301"``).
     """
 
     def _on(group: str) -> bool:
@@ -907,7 +940,7 @@ def render_plan_view(
         f'  <g class="labels" fill="#333" font-size="{fmt(font)}" '
         f'font-family="sans-serif" text-anchor="middle">'
     )
-    for room in rooms if _on("rooms") else []:
+    for room in rooms if (_on("rooms") and not room_tags) else []:
         boundary = room.params.get("boundary_mm") or []
         if len(boundary) < 3:
             continue
@@ -952,10 +985,50 @@ def render_plan_view(
         )
     parts.append("  </g>")
 
+    # Boxed room tags: NAME / area m² centered in the boundary
+    if room_tags and _on("rooms"):
+        tag_font = max(8.0, min(14.0, 300 * scale))
+        parts.append(
+            f'  <g class="room-tags" font-family="sans-serif" font-size="{fmt(tag_font)}" '
+            f'text-anchor="middle">'
+        )
+        for room in rooms:
+            ca = _room_centroid_area(room)
+            if ca is None:
+                continue
+            cx, cy, area_mm2 = ca
+            px, py = project(cx, cy)
+            name = (room.name or "ROOM").upper()
+            area_txt = f"{area_mm2 / 1e6:.1f} m²"
+            box_w = max(len(name), len(area_txt)) * tag_font * 0.62 + 14
+            box_h = 2 * tag_font + 12
+            parts.append(
+                f'    <rect x="{fmt(px - box_w / 2)}" y="{fmt(py - box_h / 2)}" '
+                f'width="{fmt(box_w)}" height="{fmt(box_h)}" fill="#ffffff" '
+                f'fill-opacity="0.85" stroke="#1a1a1a" stroke-width="1"/>'
+            )
+            parts.append(
+                f'    <line x1="{fmt(px - box_w / 2)}" y1="{fmt(py)}" '
+                f'x2="{fmt(px + box_w / 2)}" y2="{fmt(py)}" stroke="#1a1a1a" '
+                f'stroke-width="0.5"/>'
+            )
+            parts.append(
+                f'    <text x="{fmt(px)}" y="{fmt(py - 4)}" font-weight="bold">'
+                f"{esc(name)}</text>"
+            )
+            parts.append(
+                f'    <text x="{fmt(px)}" y="{fmt(py + tag_font + 2)}">'
+                f"{esc(area_txt)}</text>"
+            )
+        parts.append("  </g>")
+
     if show_dimensions:
         parts.append('  <g class="dimensions">')
         dim_budget = max_dimensions
-        if walls and _on("walls") and not ghost_walls:
+        # grid dim chains carry the wall/overall dims — skip the per-wall
+        # midspan dims then (they collide with section markers and chains)
+        _has_grid_chains = grid_dims and _on("grids") and bool(model.grids)
+        if walls and _on("walls") and not ghost_walls and not _has_grid_chains:
             ranked = sorted(
                 walls,
                 key=lambda t: math.hypot(t[1][2] - t[1][0], t[1][3] - t[1][1]),
@@ -1054,6 +1127,153 @@ def render_plan_view(
                 )
     parts.append("  </g>")
 
+    # Grid dimension chains: running dims between consecutive grid positions
+    # (top band for the U axis, left band for the V axis) + overall dimension.
+    _gd_br = max(8.0, 120 * scale)  # grid bubble radius (chains sit outside it)
+    if grid_dims and _on("grids") and model.grids:
+        u_pos = sorted(
+            float(p)
+            for g in model.grids
+            if g.params.get("axis", "U") == "U"
+            for p in (g.params.get("positions_mm") or [])
+        )
+        v_pos = sorted(
+            float(p)
+            for g in model.grids
+            if g.params.get("axis", "U") == "V"
+            for p in (g.params.get("positions_mm") or [])
+        )
+        parts.append(
+            '  <g class="grid-dims" stroke="#333" stroke-width="0.8" fill="#111" '
+            'font-family="sans-serif" font-size="9">'
+        )
+
+        def _tick(x: float, y: float) -> str:
+            return (
+                f'    <line x1="{fmt(x - 3)}" y1="{fmt(y + 3)}" '
+                f'x2="{fmt(x + 3)}" y2="{fmt(y - 3)}" stroke-width="1.1"/>'
+            )
+
+        if len(u_pos) >= 2:
+            y_run = -(_gd_br + 12)
+            y_all = -(_gd_br + 28)
+            px_of = {p: project(p, max_y)[0] for p in u_pos}
+            for p in u_pos:  # extension lines up through both chains
+                parts.append(
+                    f'    <line x1="{fmt(px_of[p])}" y1="{fmt(-_gd_br)}" '
+                    f'x2="{fmt(px_of[p])}" y2="{fmt(y_all - 3)}" '
+                    f'stroke-width="0.5" opacity="0.6"/>'
+                )
+            for a, b in pairwise(u_pos):
+                xa, xb = px_of[a], px_of[b]
+                parts.append(
+                    f'    <line x1="{fmt(xa)}" y1="{fmt(y_run)}" '
+                    f'x2="{fmt(xb)}" y2="{fmt(y_run)}"/>'
+                )
+                parts.append(_tick(xa, y_run))
+                parts.append(_tick(xb, y_run))
+                parts.append(
+                    f'    <text x="{fmt((xa + xb) / 2)}" y="{fmt(y_run - 3)}" '
+                    f'text-anchor="middle">{b - a:.0f}</text>'
+                )
+            x0, x1 = px_of[u_pos[0]], px_of[u_pos[-1]]
+            parts.append(
+                f'    <line x1="{fmt(x0)}" y1="{fmt(y_all)}" x2="{fmt(x1)}" y2="{fmt(y_all)}"/>'
+            )
+            parts.append(_tick(x0, y_all))
+            parts.append(_tick(x1, y_all))
+            parts.append(
+                f'    <text x="{fmt((x0 + x1) / 2)}" y="{fmt(y_all - 3)}" '
+                f'text-anchor="middle" font-weight="bold">{u_pos[-1] - u_pos[0]:.0f}</text>'
+            )
+        if len(v_pos) >= 2:
+            x_run = -(_gd_br + 12)
+            x_all = -(_gd_br + 28)
+            py_of = {p: project(min_x, p)[1] for p in v_pos}
+            for p in v_pos:
+                parts.append(
+                    f'    <line x1="{fmt(-_gd_br)}" y1="{fmt(py_of[p])}" '
+                    f'x2="{fmt(x_all - 3)}" y2="{fmt(py_of[p])}" '
+                    f'stroke-width="0.5" opacity="0.6"/>'
+                )
+            for a, b in pairwise(v_pos):
+                ya, yb = py_of[a], py_of[b]
+                parts.append(
+                    f'    <line x1="{fmt(x_run)}" y1="{fmt(ya)}" '
+                    f'x2="{fmt(x_run)}" y2="{fmt(yb)}"/>'
+                )
+                parts.append(_tick(x_run, ya))
+                parts.append(_tick(x_run, yb))
+                my = (ya + yb) / 2
+                parts.append(
+                    f'    <text x="{fmt(x_run - 3)}" y="{fmt(my)}" text-anchor="middle" '
+                    f'transform="rotate(-90 {fmt(x_run - 3)} {fmt(my)})">{b - a:.0f}</text>'
+                )
+            y0p, y1p = py_of[v_pos[0]], py_of[v_pos[-1]]
+            parts.append(
+                f'    <line x1="{fmt(x_all)}" y1="{fmt(y0p)}" x2="{fmt(x_all)}" y2="{fmt(y1p)}"/>'
+            )
+            parts.append(_tick(x_all, y0p))
+            parts.append(_tick(x_all, y1p))
+            my = (y0p + y1p) / 2
+            parts.append(
+                f'    <text x="{fmt(x_all - 3)}" y="{fmt(my)}" text-anchor="middle" '
+                f'font-weight="bold" transform="rotate(-90 {fmt(x_all - 3)} {fmt(my)})">'
+                f"{v_pos[-1] - v_pos[0]:.0f}</text>"
+            )
+        parts.append("  </g>")
+
+    # Section cut markers (flag symbols with sheet reference at the cut ends)
+    if section_marks:
+        parts.append('  <g class="section-marks" font-family="sans-serif">')
+        for mark in section_marks:
+            mp0 = mark.get("p0")
+            mp1 = mark.get("p1")
+            if not mp0 or not mp1:
+                continue
+            ax, ay = project(float(mp0[0]), float(mp0[1]))
+            bx, by = project(float(mp1[0]), float(mp1[1]))
+            # clamp the cut line onto the content box (cuts extend past extents)
+            ax = min(max(ax, 0.0), width)
+            bx = min(max(bx, 0.0), width)
+            ay = min(max(ay, 0.0), height)
+            by = min(max(by, 0.0), height)
+            lab = str(mark.get("label") or "A")
+            ref = str(mark.get("sheet") or "")
+            parts.append(
+                f'    <line x1="{fmt(ax)}" y1="{fmt(ay)}" x2="{fmt(bx)}" y2="{fmt(by)}" '
+                f'stroke="#1a1a1a" stroke-width="1.3" stroke-dasharray="14 5 3 5"/>'
+            )
+            dx, dy = bx - ax, by - ay
+            dl = math.hypot(dx, dy) or 1.0
+            nx, ny = -dy / dl, dx / dl  # viewing direction (perpendicular)
+            r = 12.0
+            for cx_, cy_ in ((ax, ay), (bx, by)):
+                parts.append(
+                    f'    <polygon points="{fmt(cx_ + nx * r * 1.9)},{fmt(cy_ + ny * r * 1.9)} '
+                    f'{fmt(cx_ + nx * r * 0.9 - dx / dl * r * 0.55)},'
+                    f'{fmt(cy_ + ny * r * 0.9 - dy / dl * r * 0.55)} '
+                    f'{fmt(cx_ + nx * r * 0.9 + dx / dl * r * 0.55)},'
+                    f'{fmt(cy_ + ny * r * 0.9 + dy / dl * r * 0.55)}" fill="#1a1a1a"/>'
+                )
+                parts.append(
+                    f'    <circle cx="{fmt(cx_)}" cy="{fmt(cy_)}" r="{fmt(r)}" '
+                    f'fill="#ffffff" stroke="#1a1a1a" stroke-width="1.5"/>'
+                )
+                parts.append(
+                    f'    <line x1="{fmt(cx_ - r)}" y1="{fmt(cy_)}" x2="{fmt(cx_ + r)}" '
+                    f'y2="{fmt(cy_)}" stroke="#1a1a1a" stroke-width="0.8"/>'
+                )
+                parts.append(
+                    f'    <text x="{fmt(cx_)}" y="{fmt(cy_ - 2.5)}" text-anchor="middle" '
+                    f'font-size="8.5" font-weight="bold">{esc(lab)}</text>'
+                )
+                parts.append(
+                    f'    <text x="{fmt(cx_)}" y="{fmt(cy_ + 8.5)}" text-anchor="middle" '
+                    f'font-size="6">{esc(ref)}</text>'
+                )
+        parts.append("  </g>")
+
     # Notes
     parts.append('  <g class="notes" fill="#a30" font-family="sans-serif" font-size="10">')
     for note in notes if _on("notes") else []:
@@ -1070,6 +1290,9 @@ def render_plan_view(
     # reveal the dimension band (offset 12 + text) and grid bubbles (radius br),
     # which sit just outside the geometry extents, so they render on-canvas.
     dim_pad = max(30.0, 130.0 * scale) if show_dimensions else max(4.0, 130.0 * scale)
+    if grid_dims and _on("grids") and model.grids:
+        # grid dim chains sit outside the grid bubbles: bubble radius + 2 chains
+        dim_pad = max(dim_pad, _gd_br + 44.0)
     return DrawingView(
         width=width, height=height, body="\n".join(parts), title=label, pad=dim_pad
     )
