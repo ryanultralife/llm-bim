@@ -70,6 +70,24 @@ def _wall_join_extensions_plan(
     return {k: (v[0], v[1]) for k, v in ext.items()}
 
 
+# Point-placed HVAC device fitting types (drawn in the fittings pass)
+_HVAC_DEVICE_TYPES = {"vav", "fire_damper", "smoke_damper", "diffuser", "grille"}
+
+
+def _plan_group(el: Element) -> str:
+    """Category group an MEP-ish element belongs to for ``include`` filtering."""
+    ft = str(el.params.get("fitting_type") or "")
+    if el.category == "conduit" or ft == "conduit":
+        return "conduit"
+    if el.category == "cable_tray" or ft == "cable_tray":
+        return "cable_tray"
+    if el.category == "beam" or ft == "beam":
+        return "beams"
+    if el.category in {"duct", "hvac"} or ft in {"duct", "flex_duct"} or ft in _HVAC_DEVICE_TYPES:
+        return "ducts"
+    return "pipes"
+
+
 def _dim_line(
     x0: float,
     y0: float,
@@ -109,8 +127,32 @@ def render_plan_view(
     title: str | None = None,
     show_dimensions: bool = True,
     max_dimensions: int = 24,
+    include: set[str] | None = None,
+    ghost_walls: bool = False,
 ) -> DrawingView:
-    """Build a plan DrawingView (inner body + size)."""
+    """Build a plan DrawingView (inner body + size).
+
+    ``include``: optional set of category groups to draw — any of
+    ``walls, openings, rooms, equipment, columns, beams, grids, notes,
+    pipes, ducts, conduit, cable_tray``. ``None`` (default) draws everything
+    exactly as before. ``ghost_walls`` draws wall outlines light grey with no
+    fill (context for discipline plans) regardless of ``include``.
+    """
+
+    def _on(group: str) -> bool:
+        return include is None or group in include
+
+    def _eq_on(eq: Element) -> bool:
+        """Equipment filter: mechanical plans keep HVAC equipment only."""
+        if include is None or "equipment" in include:
+            return True
+        if "ducts" in include:
+            return str(eq.params.get("kind") or "").lower() in {"duct", "hvac", "ahu"}
+        return False
+
+    def _mep_on(el: Element) -> bool:
+        return include is None or _plan_group(el) in include
+
     lvl = model.get_level(level)
     walls = [
         (el, wp)
@@ -224,102 +266,122 @@ def render_plan_view(
     parts: list[str] = [
         f'  <title>{esc(label)}</title>',
         f'  <rect x="0" y="0" width="{fmt(width)}" height="{fmt(height)}" fill="#ffffff"/>',
-        f'  <g class="walls" fill="#c8c8c8" stroke="#1a1a1a" stroke-width="{fmt(sw)}" '
-        f'stroke-linejoin="round">',
     ]
-    layer_fills = {
-        "structure": "#b0b0b0",
-        "insulation": "#f0e68c",
-        "finish": "#e8e8e8",
-        "membrane": "#4a5568",
-    }
-    for el, (x0, y0, x1, y1, t) in walls_draw:
-        layers = el.params.get("wall_layers")
-        if not layers and el.type_id:
-            try:
-                from llmbim_core.types_catalog import DEFAULT_WALL_TYPES
-
-                wt = DEFAULT_WALL_TYPES.get(el.type_id)
-                if wt and wt.layers:
-                    layers = [L.model_dump() for L in wt.layers]
-            except Exception:  # noqa: BLE001
-                layers = None
-        if layers and len(layers) >= 2:
-            total = sum(float(L.get("thickness_mm") or 0) for L in layers) or t
-            dx, dy = x1 - x0, y1 - y0
-            length = math.hypot(dx, dy) or 1.0
-            nx, ny = -dy / length, dx / length
-            cursor = -total / 2.0
-            for L in layers:
-                lt = float(L.get("thickness_mm") or 0)
-                if lt < 1:
-                    continue
-                mid = cursor + lt / 2.0
-                ox, oy = nx * mid, ny * mid
-                band = _wall_band(x0 + ox, y0 + oy, x1 + ox, y1 + oy, lt)
-                if not band:
-                    continue
-                fill = layer_fills.get(str(L.get("function") or "structure"), "#c8c8c8")
-                pts = " ".join(
-                    f"{fmt(px)},{fmt(py)}" for px, py in (project(x, y) for x, y in band)
-                )
-                parts.append(f'    <polygon points="{pts}" fill="{fill}"/>')
-                cursor += lt
-        else:
+    wall_by_id = {el.id: el for el, _ in walls}
+    if ghost_walls:
+        # context-only walls: light grey outline, no fill, no annotations
+        parts.append(
+            f'  <g class="walls walls-ghost" fill="none" stroke="#c9c9c9" '
+            f'stroke-width="{fmt(sw)}" stroke-linejoin="round">'
+        )
+        for _el, (x0, y0, x1, y1, t) in walls_draw:
             band = _wall_band(x0, y0, x1, y1, t)
             if not band:
                 continue
             pts = " ".join(f"{fmt(px)},{fmt(py)}" for px, py in (project(x, y) for x, y in band))
             parts.append(f'    <polygon points="{pts}"/>')
-    parts.append("  </g>")
-
-    parts.append(
-        f'  <g class="centerlines" stroke="#8a1a1a" stroke-width="{fmt(max(0.3, 8 * scale))}" '
-        f'stroke-dasharray="{fmt(60 * scale)} {fmt(40 * scale)}" fill="none">'
-    )
-    wall_by_id = {el.id: el for el, _ in walls}
-    for _el, (x0, y0, x1, y1, _t) in walls_draw:
-        px0, py0 = project(x0, y0)
-        px1, py1 = project(x1, y1)
+        parts.append("  </g>")
+    elif _on("walls"):
         parts.append(
-            f'    <line x1="{fmt(px0)}" y1="{fmt(py0)}" x2="{fmt(px1)}" y2="{fmt(py1)}"/>'
+            f'  <g class="walls" fill="#c8c8c8" stroke="#1a1a1a" stroke-width="{fmt(sw)}" '
+            f'stroke-linejoin="round">'
         )
-    parts.append("  </g>")
+        layer_fills = {
+            "structure": "#b0b0b0",
+            "insulation": "#f0e68c",
+            "finish": "#e8e8e8",
+            "membrane": "#4a5568",
+        }
+        for el, (x0, y0, x1, y1, t) in walls_draw:
+            layers = el.params.get("wall_layers")
+            if not layers and el.type_id:
+                try:
+                    from llmbim_core.types_catalog import DEFAULT_WALL_TYPES
 
-    # Wall type marks (type_id) + optional fire_rating at midspan
-    parts.append(
-        '  <g class="wall-types" fill="#333" font-family="sans-serif" '
-        f'font-size="{fmt(max(6, 9))}">'
-    )
-    for el, (x0, y0, x1, y1, _t) in walls:
-        tid = el.type_id or el.params.get("type_id") or ""
-        fr = el.params.get("fire_rating") or ""
-        if not tid and not fr:
-            continue
-        # short mark e.g. W-EXT-CMU → EXT or last token
-        short = str(tid) if tid else ""
-        if short.startswith("W-") and len(short) > 4:
-            short = short[2:]  # drop W-
-        if len(short) > 12:
-            short = short[:12]
-        if fr:
-            fr_s = str(fr).replace(" min", "m").replace("-hr", "HR").replace(" hr", "HR")
-            if len(fr_s) > 8:
-                fr_s = fr_s[:8]
-            short = f"{short} {fr_s}".strip() if short else fr_s
-        mx, my = project((x0 + x1) / 2, (y0 + y1) / 2)
+                    wt = DEFAULT_WALL_TYPES.get(el.type_id)
+                    if wt and wt.layers:
+                        layers = [L.model_dump() for L in wt.layers]
+                except Exception:  # noqa: BLE001
+                    layers = None
+            if layers and len(layers) >= 2:
+                total = sum(float(L.get("thickness_mm") or 0) for L in layers) or t
+                dx, dy = x1 - x0, y1 - y0
+                length = math.hypot(dx, dy) or 1.0
+                nx, ny = -dy / length, dx / length
+                cursor = -total / 2.0
+                for L in layers:
+                    lt = float(L.get("thickness_mm") or 0)
+                    if lt < 1:
+                        continue
+                    mid = cursor + lt / 2.0
+                    ox, oy = nx * mid, ny * mid
+                    band = _wall_band(x0 + ox, y0 + oy, x1 + ox, y1 + oy, lt)
+                    if not band:
+                        continue
+                    fill = layer_fills.get(str(L.get("function") or "structure"), "#c8c8c8")
+                    pts = " ".join(
+                        f"{fmt(px)},{fmt(py)}" for px, py in (project(x, y) for x, y in band)
+                    )
+                    parts.append(f'    <polygon points="{pts}" fill="{fill}"/>')
+                    cursor += lt
+            else:
+                band = _wall_band(x0, y0, x1, y1, t)
+                if not band:
+                    continue
+                pts = " ".join(
+                    f"{fmt(px)},{fmt(py)}" for px, py in (project(x, y) for x, y in band)
+                )
+                parts.append(f'    <polygon points="{pts}"/>')
+        parts.append("  </g>")
+
+    if _on("walls") and not ghost_walls:
         parts.append(
-            f'    <text class="wall-type" x="{fmt(mx)}" y="{fmt(my - 4)}" text-anchor="middle" '
-            f'fill="#1a1a1a">{esc(short)}</text>'
+            f'  <g class="centerlines" stroke="#8a1a1a" stroke-width="{fmt(max(0.3, 8 * scale))}" '
+            f'stroke-dasharray="{fmt(60 * scale)} {fmt(40 * scale)}" fill="none">'
         )
-    parts.append("  </g>")
+        for _el, (x0, y0, x1, y1, _t) in walls_draw:
+            px0, py0 = project(x0, y0)
+            px1, py1 = project(x1, y1)
+            parts.append(
+                f'    <line x1="{fmt(px0)}" y1="{fmt(py0)}" x2="{fmt(px1)}" y2="{fmt(py1)}"/>'
+            )
+        parts.append("  </g>")
+
+        # Wall type marks (type_id) + optional fire_rating at midspan
+        parts.append(
+            '  <g class="wall-types" fill="#333" font-family="sans-serif" '
+            f'font-size="{fmt(max(6, 9))}">'
+        )
+        for el, (x0, y0, x1, y1, _t) in walls:
+            tid = el.type_id or el.params.get("type_id") or ""
+            fr = el.params.get("fire_rating") or ""
+            if not tid and not fr:
+                continue
+            # short mark e.g. W-EXT-CMU → EXT or last token
+            short = str(tid) if tid else ""
+            if short.startswith("W-") and len(short) > 4:
+                short = short[2:]  # drop W-
+            if len(short) > 12:
+                short = short[:12]
+            if fr:
+                fr_s = str(fr).replace(" min", "m").replace("-hr", "HR").replace(" hr", "HR")
+                if len(fr_s) > 8:
+                    fr_s = fr_s[:8]
+                short = f"{short} {fr_s}".strip() if short else fr_s
+            mx, my = project((x0 + x1) / 2, (y0 + y1) / 2)
+            parts.append(
+                f'    <text class="wall-type" x="{fmt(mx)}" y="{fmt(my - 4)}" text-anchor="middle" '
+                f'fill="#1a1a1a">{esc(short)}</text>'
+            )
+        parts.append("  </g>")
 
     parts.append(
         f'  <g class="openings" stroke="#0066aa" stroke-width="{fmt(max(0.4, 10 * scale))}">'
     )
     door_num = 0
     win_num = 0
-    for opening in list(doors) + list(windows):
+    openings_src = (list(doors) + list(windows)) if _on("openings") else []
+    for opening in openings_src:
         host = wall_by_id.get(opening.host_id or "")
         if not host:
             continue
@@ -404,6 +466,8 @@ def render_plan_view(
         f'stroke="#0b5cab" stroke-width="{fmt(max(0.4, 8 * scale))}">'
     )
     for eq in equipment:
+        if not _eq_on(eq):
+            continue
         if eq.params.get("shape") == "cylinder":
             try:
                 o = eq.params["origin_mm"]
@@ -439,11 +503,12 @@ def render_plan_view(
     parts.append("  </g>")
 
     # Structural columns as plan crosses / squares
-    parts.append(
-        f'  <g class="columns" fill="none" stroke="#37474f" '
-        f'stroke-width="{fmt(max(0.6, 10 * scale))}">'
-    )
-    for col in columns:
+    if _on("columns"):
+        parts.append(
+            f'  <g class="columns" fill="none" stroke="#37474f" '
+            f'stroke-width="{fmt(max(0.6, 10 * scale))}">'
+        )
+    for col in columns if _on("columns") else []:
         try:
             o = col.params.get("origin_mm")
             if not o:
@@ -521,15 +586,19 @@ def render_plan_view(
             )
         except (KeyError, TypeError, ValueError, IndexError):
             continue
-    parts.append("  </g>")
+    if _on("columns"):
+        parts.append("  </g>")
 
     # Structural beams as centerlines
-    parts.append(
-        f'  <g class="beams" stroke="#546e7a" stroke-width="{fmt(max(1.0, 18 * scale))}" '
-        f'fill="none" stroke-linecap="butt">'
-    )
+    if _on("beams"):
+        parts.append(
+            f'  <g class="beams" stroke="#546e7a" stroke-width="{fmt(max(1.0, 18 * scale))}" '
+            f'fill="none" stroke-linecap="butt">'
+        )
     for el in mep_els:
         if el.category != "beam" and el.params.get("fitting_type") != "beam":
+            continue
+        if not _on("beams"):
             continue
         try:
             s, e = el.params["start_mm"], el.params["end_mm"]
@@ -551,20 +620,25 @@ def render_plan_view(
             )
         except (KeyError, TypeError, ValueError, IndexError):
             continue
-    parts.append("  </g>")
+    if _on("beams"):
+        parts.append("  </g>")
 
     # MEP: pipes (lines) + fittings/fixtures (markers)
     pipe_sw = max(1.2, 25 * scale)
-    parts.append(
-        f'  <g class="pipes" stroke="#c45c26" stroke-width="{fmt(pipe_sw)}" '
-        f'fill="none" stroke-linecap="round">'
-    )
+    pipes_group = include is None or bool({"pipes", "conduit"} & include)
+    if pipes_group:
+        parts.append(
+            f'  <g class="pipes" stroke="#c45c26" stroke-width="{fmt(pipe_sw)}" '
+            f'fill="none" stroke-linecap="round">'
+        )
     for el in mep_els:
         is_conduit = el.category == "conduit" or el.params.get("fitting_type") == "conduit"
         if (
             el.category not in {"pipe", "plumbing_pipe", "conduit"}
             and el.params.get("fitting_type") not in {"pipe", "conduit"}
         ):
+            continue
+        if not _mep_on(el):
             continue
         try:
             mid = str(el.params.get("material_id") or "")
@@ -622,15 +696,19 @@ def render_plan_view(
                 )
         except (KeyError, TypeError, ValueError, IndexError):
             continue
-    parts.append("  </g>")
+    if pipes_group:
+        parts.append("  </g>")
 
     # HVAC ducts as parallel plan lines (width)
-    parts.append(
-        f'  <g class="ducts" stroke="#2e7d32" stroke-width="{fmt(max(0.8, 12 * scale))}" '
-        f'fill="none" stroke-linecap="butt">'
-    )
+    if _on("ducts"):
+        parts.append(
+            f'  <g class="ducts" stroke="#2e7d32" stroke-width="{fmt(max(0.8, 12 * scale))}" '
+            f'fill="none" stroke-linecap="butt">'
+        )
     for el in mep_els:
         if el.category not in {"duct", "hvac"} and el.params.get("fitting_type") != "duct":
+            continue
+        if not _on("ducts"):
             continue
         try:
             s, e = el.params["start_mm"], el.params["end_mm"]
@@ -667,15 +745,19 @@ def render_plan_view(
             )
         except (KeyError, TypeError, ValueError, IndexError):
             continue
-    parts.append("  </g>")
+    if _on("ducts"):
+        parts.append("  </g>")
 
     # Cable trays as dashed parallel plan lines
-    parts.append(
-        f'  <g class="cable-trays" stroke="#6a1b9a" stroke-width="{fmt(max(0.8, 10 * scale))}" '
-        f'fill="none" stroke-dasharray="{fmt(max(2, 40 * scale))},{fmt(max(1, 20 * scale))}">'
-    )
+    if _on("cable_tray"):
+        parts.append(
+            f'  <g class="cable-trays" stroke="#6a1b9a" stroke-width="{fmt(max(0.8, 10 * scale))}" '
+            f'fill="none" stroke-dasharray="{fmt(max(2, 40 * scale))},{fmt(max(1, 20 * scale))}">'
+        )
     for el in mep_els:
         if el.category != "cable_tray" and el.params.get("fitting_type") != "cable_tray":
+            continue
+        if not _on("cable_tray"):
             continue
         try:
             s, e = el.params["start_mm"], el.params["end_mm"]
@@ -703,16 +785,21 @@ def render_plan_view(
             )
         except (KeyError, TypeError, ValueError, IndexError):
             continue
-    parts.append("  </g>")
+    if _on("cable_tray"):
+        parts.append("  </g>")
 
-    parts.append(
-        f'  <g class="fittings" fill="#fff3e0" stroke="#c45c26" '
-        f'stroke-width="{fmt(max(0.5, 8 * scale))}">'
-    )
+    fittings_group = include is None or bool({"pipes", "ducts"} & include)
+    if fittings_group:
+        parts.append(
+            f'  <g class="fittings" fill="#fff3e0" stroke="#c45c26" '
+            f'stroke-width="{fmt(max(0.5, 8 * scale))}">'
+        )
     for el in mep_els:
         ftype0 = str(el.params.get("fitting_type") or "")
         # linear runs drawn elsewhere; keep point-placed HVAC devices (VAV, dampers)
         if el.category in {"pipe", "plumbing_pipe", "conduit", "cable_tray"}:
+            continue
+        if not _mep_on(el):
             continue
         if el.category in {"duct"} or ftype0 in {"pipe", "duct", "flex_duct", "cable_tray"}:
             continue
@@ -812,14 +899,15 @@ def render_plan_view(
                 )
         except (KeyError, TypeError, ValueError, IndexError):
             continue
-    parts.append("  </g>")
+    if fittings_group:
+        parts.append("  </g>")
 
     font = max(8.0, min(28.0, 350 * scale))
     parts.append(
         f'  <g class="labels" fill="#333" font-size="{fmt(font)}" '
         f'font-family="sans-serif" text-anchor="middle">'
     )
-    for room in rooms:
+    for room in rooms if _on("rooms") else []:
         boundary = room.params.get("boundary_mm") or []
         if len(boundary) < 3:
             continue
@@ -847,6 +935,8 @@ def render_plan_view(
             f'    <text class="room-label" x="{fmt(px)}" y="{fmt(py)}">{esc(label)}</text>'
         )
     for eq in equipment:
+        if not _eq_on(eq):
+            continue
         poly = eq.params.get("polygon_mm") or []
         if not eq.name:
             continue
@@ -865,7 +955,7 @@ def render_plan_view(
     if show_dimensions:
         parts.append('  <g class="dimensions">')
         dim_budget = max_dimensions
-        if walls:
+        if walls and _on("walls") and not ghost_walls:
             ranked = sorted(
                 walls,
                 key=lambda t: math.hypot(t[1][2] - t[1][0], t[1][3] - t[1][1]),
@@ -887,6 +977,8 @@ def render_plan_view(
         # MEP run lengths (pipe / duct / conduit) — longest first
         mep_runs: list[tuple[float, float, float, float, float, str]] = []
         for el in mep_els:
+            if not _mep_on(el):
+                continue
             if el.params.get("vertical") or el.params.get("orientation") == "vertical":
                 continue
             if "start_mm" not in el.params or "end_mm" not in el.params:
@@ -928,7 +1020,7 @@ def render_plan_view(
 
     # Grid lines + bubble labels (A,B,C… / 1,2,3…)
     parts.append('  <g class="grids" stroke="#888" stroke-width="0.6" fill="none">')
-    for g in model.grids:
+    for g in model.grids if _on("grids") else []:
         axis = g.params.get("axis", "U")
         labels = g.params.get("labels") or []
         positions = g.params.get("positions_mm") or []
@@ -964,7 +1056,7 @@ def render_plan_view(
 
     # Notes
     parts.append('  <g class="notes" fill="#a30" font-family="sans-serif" font-size="10">')
-    for note in notes:
+    for note in notes if _on("notes") else []:
         try:
             pos = note.params["position_mm"]
             text = str(note.params.get("text", ""))
