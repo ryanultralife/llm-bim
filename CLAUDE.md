@@ -61,6 +61,14 @@ If the user has MCP: run `llmbim mcp` with cwd = this repo. Tools: `project_crea
 
 See `skills/llm-bim/recipes/`. Templates: `office_bay`, `warehouse`, `hot_cell_bay`, `lab_bench`.
 
+For a **complete plan/CD set** (building, addition, facility): follow
+`skills/llm-bim/recipes/design_program.md` — design-basis module as the only
+number source (engineering/rooms/loads developed in parallel with coordinates),
+staged harness with model-VCS commits, occupancy-matched types (residential
+work never uses `W-EXT-CMU`), explicit `sheets=[...]` register with
+`units="imperial"` where appropriate, drift-pin tests. Worked instance:
+`llmbim case schad` + `recipes/schad_cd.md`.
+
 ## Materials / parts / plumbing
 
 ```python

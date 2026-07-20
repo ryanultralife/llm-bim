@@ -73,7 +73,10 @@ Vague user ask → **you** make parameters explicit. Never silently invent PE ra
 | Openings | host wall id, offset, W×H, type_id | fire_rating, sill |
 | MEP run | level, start→end **or** `mep_route(from,to)`, size, system | material, z0_mm, orthogonal dogleg |
 | Structure | level, section `W10x33`, origin or beam ends | beam z0 (TOS) |
+| Roof | level, footprint, pitch + plate height (or both plate heights for shed) | ridge axis/offset, overhang, thickness |
+| Foundation | level, footing W×D, slab thickness | rebar callouts (carried data), stem walls, marks F1/S1 |
 | Fab part | name + solid feature(s) in mm | fillet selector, thread designation, GD&T, host knit |
+| Full plan/CD set | design-basis module (ALL numbers), explicit sheet register | drift-pin tests, staged VCS commits — see `recipes/design_program.md` |
 | Pack | `export_deliverables` | verify; hand over exactly ONE path: `<abs>/index.html` |
 
 ```python
@@ -129,7 +132,7 @@ p.create_room(level="L1", name="Hall", boundary=[(0,0),(12000,0),(12000,9000),(0
 p.add_grid(axis="U", positions_mm=[0,6000,12000], labels=["1","2","3"])
 p.create_equipment_box(level="L1", origin=(5000,4000), size=(2000,1000,1500), name="AHU-1", kind="ahu", centered=True)
 p.create_rect_shell(level="L1", x=0, y=0, w=12000, d=9000, height_mm=3500, thickness_mm=200, name_prefix="B")
-p.set_type(w, "W-EXT-CMU")  # W-INT-GYP | W-SHIELD-CONC — also op set_type / MCP set_type
+p.set_type(w, "W-EXT-CMU")  # industrial; residential → W-EXT-2x6-BNB | W-INT-2x4 | W-1HR-GAR-ADU (see Wall types) — also op set_type / MCP set_type
 p.set_phase(w, "new")       # new|existing|demo|temp — pack --phases filter
 p.create_note(level="L1", text="Fire rating TBD", position=(1000, 1000))
 p.export_deliverables("out/pack")
@@ -137,6 +140,68 @@ p.export_deliverables("out/pack")
 # CLI: place --kind shell|wall|door|window|room|slab|equipment|grid|note
 # ops: create_rect_shell/create_wall/place_door/window/create_room/slab/equipment/add_grid/create_note/set_type/set_phase/delete
 ```
+
+### B2. Structure, roofs, foundations (residential + heavy)
+
+```python
+# Roofs — one element per plane set; ridge/valley/eave math stored in params, never re-derived
+p.create_gable_roof(level="L1", footprint=[(0,0),(14630,0),(14630,9754),(0,9754)],
+                    ridge_axis="x", plate_mm=3048, pitch=6/12, overhang_mm=457)
+p.create_shed_roof(level="L1", footprint=..., high_side="N", plate_low_mm=3048, plate_high_mm=3658)
+# Foundations — rebar callouts are CARRIED design data, not calculations
+p.create_strip_footing(level="L1", under_wall=w, width_mm=457, depth_mm=305,
+                       rebar={"long": "(2) #4 CONT"}, mark="F1")
+p.create_stem_wall(level="L1", path=[(0,0),(14630,0)], height_mm=900, thickness_mm=203)
+p.create_pad_footing(level="L1", origin=(3000,3000), w_mm=914, d_mm=914, depth_mm=762, mark="F2")
+p.create_slab_on_grade(level="L1", rect=(0,0,14630,9754), thickness_mm=102, mark="SOG-4")
+print(p.rebar_schedule())                    # rows by mark/type/spec
+# Structural: catalog sections (W16x40, HSS6x6x1/4, ...), typed headers + shear panels
+p.place_beam(level="L1", start=(0,0), end=(6100,0), section="W16x40")
+p.op("create_generic", category="header", level="L1", params={"type_id": "HDR-2"})  # LVL headers
+from llmbim_core.material_lists import shear_wall_schedule
+print(shear_wall_schedule(p.model))          # typed SSW panels (set_type + mark params)
+# Tall walls on purpose (garage / balloon framing): declare it, or rules will flag
+p.op("set_param", id=wall_id, key="multi_plate", value=True)  # WALL_EXCEEDS_STORY → info, not error
+# MCP: roof_gable_create · roof_shed_create · footing_strip_create · footing_pad_create ·
+#      stem_wall_create · slab_on_grade_create · rebar_schedule
+```
+
+### B3. Sheet sets: plan vs construction, custom register, imperial
+
+`export_deliverables` emits the default register. For a **deliverable set**,
+control it explicitly:
+
+```python
+from llmbim_drawings.construction import export_construction_set
+export_construction_set(p.model, out, set_type="plan")          # permit/plan set
+export_construction_set(p.model, out, set_type="construction")  # full CD default register
+export_construction_set(p.model, out, units="imperial", sheets=[   # custom register
+    {"no": "A0.1", "title": "COVER SHEET",   "kind": "cover"},
+    {"no": "A1.1", "title": "FLOOR PLAN",    "kind": "plan", "level": "L1", "tags": True},
+    {"no": "A2.1", "title": "ELEVATIONS S/N","kind": "elevations", "pair": ["S", "N"]},
+    {"no": "A3.1", "title": "SECTIONS",      "kind": "sections"},
+    {"no": "A4.1", "title": "SCHEDULES",     "kind": "schedule", "schedule": ["door", "window"]},
+    {"no": "S3.1", "title": "DETAILS",       "kind": "details",
+     "details": [{"id": "D01", "title": "FOOTING", "scale": 16, "ops": [...]}]},  # ops DSL, 4-up
+    {"no": "H2.1", "title": "GENERAL NOTES", "kind": "doc", "text": notes_md},
+])
+```
+
+- `units="imperial"` → feet-inches dims (`24'-0"`), `EL. +0'-0"` datums, SF areas,
+  architectural scale notes; per-sheet or export-wide. Metric is the default.
+- `tags: True` on plan sheets → door/window tag bubbles from element `mark` params.
+- Detail `ops` DSL (`llmbim_drawings.detail_ops`): `l`/`d` lines, `r` rect, `c` circle,
+  `h` hatch, `t` text, `dim` — data in, drafted SVG out. Never freehand SVG.
+- CLI: `llmbim pack ... --set plan|construction`.
+
+### B4. Full design program (a complete plan/CD set from a brief)
+
+Follow **`recipes/design_program.md`**: all numbers in a design-basis module
+(engineering, room types, loads developed in parallel with coordinates; never
+retype a number), staged build harness with model-VCS commits, registered
+types matching occupancy, explicit sheet register, drift-pin tests, honesty
+stamps. Worked instance: `recipes/schad_cd.md` (`llmbim case schad` → 21-sheet
+imperial CD set, CI-guarded).
 
 ### C. Import whatever the user has
 
@@ -407,14 +472,25 @@ llmbim script build.py --pack out/gen
 
 ## Wall types (catalog)
 
-| id | Use |
-|----|-----|
-| W-EXT-CMU | Exterior industrial |
-| W-INT-GYP | Interior partitions |
-| W-SHIELD-CONC | Hot-cell / tunnel shield |
-| W-GENERIC-200 | Default |
+**Match types to occupancy.** Industrial types on residential work (or vice
+versa) is a modeling error — pick from the right family, or register a new
+type via `llmbim_core.types_catalog` (`register_wall_type` / `register_door_type`
+/ `register_window_type`).
 
-Door types: `D-HM-36`, `D-HM-72`, `D-SHIELD-PLUG`.
+| id | Family | Use |
+|----|--------|-----|
+| W-EXT-CMU | industrial | Exterior industrial |
+| W-INT-GYP | industrial | Interior partitions (commercial/industrial) |
+| W-SHIELD-CONC | industrial | Hot-cell / tunnel shield |
+| W-EXT-2x6-BNB | residential | Wood-framed exterior (board & batten) |
+| W-INT-2x4 | residential | Wood-framed interior partition |
+| W-1HR-GAR-ADU | residential | 1-hr fire separation (garage/dwelling) |
+| W-GENERIC-200 | — | Default |
+
+Door types: `D-HM-36`, `D-HM-72`, `D-SHIELD-PLUG` (industrial) ·
+`D-SC-36-ADA`, `D-HM-30`, `D-OH-12x9`, `D-OH-12x12` overhead (residential).
+Window: `WIN-CASE-48x48`. Headers: `HDR-1`, `HDR-2` (LVL). Shear panels:
+`SSW24x9`, `SSW24x12`.
 
 ## Recovery protocol
 
@@ -434,6 +510,7 @@ Door types: `D-HM-36`, `D-HM-72`, `D-SHIELD-PLUG`.
 ## Reference files in repo
 
 - `skills/llm-bim/ops.schema.json` — op catalog (regenerate: `llmbim ops --schema`)  
-- `skills/llm-bim/recipes/` — worked examples  
-- `docs/CAPABILITY.md` · `docs/HONESTY.md` · `docs/LOCAL.md`  
-- `examples/intec_site.py` · `examples/proto10_separator.py`  
+- `skills/llm-bim/recipes/` — worked examples; **`design_program.md`** = full
+  plan/CD-set workflow, **`schad_cd.md`** = worked residential CD instance  
+- `docs/CAPABILITY.md` · `docs/HONESTY.md` · `docs/LOCAL.md` · `docs/RETIRING_REVIT_SCHAD.md`  
+- `examples/intec_site.py` · `examples/proto10_separator.py` · `examples/schad_build.py`  
