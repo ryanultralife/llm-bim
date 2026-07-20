@@ -513,6 +513,10 @@ def export_construction_set(
     set_type: str = "construction",
     date: str | None = None,
     units: str = "metric",
+    dim_tiers: bool = False,
+    fractional_grids: bool = False,
+    key_plan: bool = False,
+    room_areas: bool = False,
     sheets: list[dict] | None = None,
 ) -> dict:
     """Write a drawing package with proper view fitting.
@@ -534,6 +538,13 @@ def export_construction_set(
     architectural (``1/4" = 1'-0"``) when the ratio maps cleanly. Applies to
     the default register and is the fallback for custom register entries.
 
+    CD anatomy options (WP-CD-ANATOMY slice A — all default off; applied to
+    the default-register floor plans and the fallback for custom ``plan``
+    entries): ``dim_tiers`` (three-tier dimension chains outside the plan),
+    ``fractional_grids`` (fractional intermediate grid bubbles, skip-I
+    lettering), ``key_plan`` (reduced building outline block per plan sheet),
+    ``room_areas`` (room name / boxed number / area tag anatomy).
+
     ``sheets``: optional custom sheet register. When provided it REPLACES the
     default register entirely — one entry per sheet, in order::
 
@@ -550,7 +561,10 @@ def export_construction_set(
     - ``"plan"``      — floor plan. opts: ``level``, ``include`` (category
                         groups), ``crop`` ((x0, y0, x1, y1) mm),
                         ``ghost_walls``, ``room_tags``, ``tags`` (marked
-                        door/window tag bubbles), ``dimensions``.
+                        door/window tag bubbles + wall-type diamonds +
+                        equipment leader tags), ``dimensions``, ``dim_tiers``,
+                        ``fractional_grids``, ``key_plan``, ``room_areas``
+                        (each overriding the export-level default).
     - ``"elevations"``— paired elevations. opts: ``pair`` e.g. ``["S", "N"]``.
     - ``"sections"``  — the two default building sections (A-A / B-B).
     - ``"schedule"``  — ruled schedule table(s). opts: ``schedule`` — a
@@ -602,6 +616,10 @@ def export_construction_set(
             set_type=set_type,
             date=date,
             units=units,
+            dim_tiers=dim_tiers,
+            fractional_grids=fractional_grids,
+            key_plan=key_plan,
+            room_areas=room_areas,
         )
 
     nominal_scale = _scale_note_for(plan_scale, units)
@@ -640,6 +658,10 @@ def export_construction_set(
             room_tags=True,
             units=units,
             section_marks=section_marks,
+            dim_tiers=dim_tiers,
+            fractional_grids=fractional_grids,
+            key_plan=key_plan,
+            room_areas=room_areas,
         )
         plan_sheet = _sheet_from_view(
             model,
@@ -1423,11 +1445,17 @@ def _export_custom_register(
     set_type: str,
     date: str,
     units: str = "metric",
+    dim_tiers: bool = False,
+    fractional_grids: bool = False,
+    key_plan: bool = False,
+    room_areas: bool = False,
 ) -> dict:
     """Emit a caller-defined sheet register (replaces the default A-1xx… set).
 
     ``units`` is the export-level default; each entry may override it with a
-    per-sheet ``units`` opt (``"metric"``/``"imperial"``).
+    per-sheet ``units`` opt (``"metric"``/``"imperial"``). Likewise the CD
+    anatomy defaults ``dim_tiers`` / ``fractional_grids`` / ``key_plan`` /
+    ``room_areas`` may be overridden per ``plan`` entry.
     """
     specs = [_require_register_entry(s) for s in register]
     level_ids = {lvl.name: lvl.id for lvl in model.levels}
@@ -1494,6 +1522,10 @@ def _export_custom_register(
                 include=include,
                 ghost_walls=bool(spec.get("ghost_walls", False)),
                 crop_mm=crop,  # type: ignore[arg-type]
+                dim_tiers=bool(spec.get("dim_tiers", dim_tiers)),
+                fractional_grids=bool(spec.get("fractional_grids", fractional_grids)),
+                key_plan=bool(spec.get("key_plan", key_plan)),
+                room_areas=bool(spec.get("room_areas", room_areas)),
                 title=f"{model.name} — {title}",
             )
             svg = _sheet_from_view(
