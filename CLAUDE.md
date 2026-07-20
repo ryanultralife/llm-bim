@@ -67,7 +67,7 @@ number source (engineering/rooms/loads developed in parallel with coordinates),
 staged harness with model-VCS commits, occupancy-matched types (residential
 work never uses `W-EXT-CMU`), explicit `sheets=[...]` register with
 `units="imperial"` where appropriate, drift-pin tests. Worked instance:
-`llmbim case schad` + `recipes/schad_cd.md`.
+`llmbim case schad` + `skills/llm-bim/recipes/schad_cd.md`.
 
 ## Materials / parts / plumbing
 
