@@ -59,6 +59,16 @@ Prefer merging Grok small PRs continuously; Claude lands larger isolated PRs.
    - Description must list files touched and tests run
    - Do not force-push `main`
 
+## Operating principle: autonomy inside gates
+
+Each agent picks its own method — the repo prescribes **outcomes**, not steps.
+Recipes (`skills/llm-bim/recipes/`) are proven patterns, not mandates. What is
+non-negotiable is the gate set: CI (`pytest` / `ruff` / `mypy` /
+`scripts/verify_all.py`), `verify_pack` on every deliverable, drift-pin tests
+on golden cases, and the honesty rules (traceable numbers, flagged
+assumptions, no PE claims). Work that passes the gates stands on its own;
+work that doesn't isn't done, regardless of how it was produced.
+
 ## Hard product rules
 
 1. **No human drafting frontend.** Headless exports only (IFC, glTF, SVG, PDF).
