@@ -8,13 +8,12 @@ from pathlib import Path
 from llmbim import Project
 from llmbim_drawings.construction import export_construction_set
 
+# A-201 = Elevations I (N+S), A-202 = Elevations II (E+W), A-301 = two sections
 PERMIT_SHEETS = {
     "G-001",
     "A-101",
     "A-201",
     "A-202",
-    "A-203",
-    "A-204",
     "A-301",
     "A-601",
     "A-602",
