@@ -9,14 +9,15 @@ from pathlib import Path
 from typing import Any
 
 from llmbim_core.model import ProjectModel
+from llmbim_geometry.mesh import export_gltf_walls
+from llmbim_geometry.step_export import export_step
+from llmbim_ifc.export import export_ifc
+
 from llmbim_drawings.construction import export_construction_set
 from llmbim_drawings.parts import export_part_pack
 from llmbim_drawings.plan import write_plan_svg
 from llmbim_drawings.schedules import export_schedule_csv
 from llmbim_drawings.section import write_elevation_svg, write_section_svg
-from llmbim_geometry.mesh import export_gltf_walls
-from llmbim_geometry.step_export import export_step
-from llmbim_ifc.export import export_ifc
 
 
 def _sha256(path: Path) -> str:
@@ -390,6 +391,7 @@ def export_deliverables(
     from llmbim_core.clash import find_clashes
     from llmbim_core.quantities import export_boq_csv, export_boq_json
     from llmbim_core.rules import rules_summary, run_design_rules
+
     from llmbim_drawings.dxf_export import export_plan_dxf
 
     _try("boq_json", errors, lambda: export_boq_json(work, out / "boq.json"))
@@ -502,32 +504,6 @@ def export_deliverables(
         result["drawing_list"] = "schedules/drawing_list.csv"
         result["sheet_count"] = len(sheets)
 
-    # checksums
-    checksums: dict[str, str] = {}
-    for p in out.rglob("*"):
-        if p.is_file() and p.suffix.lower() in {
-            ".json",
-            ".ifc",
-            ".gltf",
-            ".step",
-            ".svg",
-            ".csv",
-        }:
-            try:
-                checksums[str(p.relative_to(out)).replace("\\", "/")] = _sha256(p)
-            except OSError:
-                pass
-
-    # Modern packs always write materials/; require it for vision pack completeness
-    has_part_assign = any(el.params.get("part_id") for el in work.elements)
-    verification = verify_pack(
-        out,
-        require_parts=has_equip,
-        require_materials=True,  # export_lists always runs above
-    )
-    if has_part_assign and not verification.get("has_materials_package"):
-        verification["ok"] = False
-        verification.setdefault("missing", []).append("materials/MATERIALS_AND_PARTS.json")
     try:
         from llmbim_drawings.viewer3d import write_viewer_3d
 
@@ -549,6 +525,7 @@ def export_deliverables(
         for el in fab_parts:
             try:
                 from llmbim_core.fab import export_fab_ortho_views, export_fab_part_step
+
                 from llmbim_drawings.gdt_drawing import write_gdt_drawing
 
                 safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in (el.name or el.id))[:40]
@@ -618,6 +595,40 @@ def export_deliverables(
         result["zip"] = zpath.name
     except Exception as exc:  # noqa: BLE001
         errors.append({"step": "zip_pack", "error": str(exc)})
+
+    # checksums + verification run LAST so late-written artifacts (viewer3d.html,
+    # fab STEP/GD&T, index.html) are actually present and counted. Running these
+    # earlier made VERIFY.json report has_index_html/has_viewer3d=false on packs
+    # that in fact contained them.
+    checksums: dict[str, str] = {}
+    for p in out.rglob("*"):
+        if p.is_file() and p.suffix.lower() in {
+            ".json",
+            ".ifc",
+            ".gltf",
+            ".step",
+            ".svg",
+            ".csv",
+            ".html",
+        }:
+            # never checksum the roll-up archive (contains everything else)
+            if p.suffix.lower() == ".zip":
+                continue
+            try:
+                checksums[str(p.relative_to(out)).replace("\\", "/")] = _sha256(p)
+            except OSError:
+                pass
+
+    # Modern packs always write materials/; require it for vision pack completeness
+    has_part_assign = any(el.params.get("part_id") for el in work.elements)
+    verification = verify_pack(
+        out,
+        require_parts=has_equip,
+        require_materials=True,  # export_lists always runs above
+    )
+    if has_part_assign and not verification.get("has_materials_package"):
+        verification["ok"] = False
+        verification.setdefault("missing", []).append("materials/MATERIALS_AND_PARTS.json")
 
     manifest = {
         "project": full_model.name,

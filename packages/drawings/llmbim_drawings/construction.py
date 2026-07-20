@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from llmbim_core.model import ProjectModel
+
 from llmbim_drawings.plan import render_plan_view
 from llmbim_drawings.schedules import export_schedule_csv, schedule_rows
 from llmbim_drawings.section import render_elevation_svg, render_section_svg
@@ -18,13 +19,19 @@ def _view_from_full_svg(svg: str, title: str = "") -> DrawingView:
     # Prefer not nesting full SVG — extract content between first > of svg and </svg>
     import re
 
-    w, h = 800.0, 600.0
-    m = re.search(r'viewBox="0 0 ([0-9.]+) ([0-9.]+)"', svg)
+    w, h, pad = 800.0, 600.0, 0.0
+    m = re.search(
+        r'viewBox="(-?[0-9.]+) (-?[0-9.]+) ([0-9.]+) ([0-9.]+)"', svg
+    )
     if m:
-        w, h = float(m.group(1)), float(m.group(2))
+        vx, vy, vw, vh = (float(g) for g in m.groups())
+        # a negative-origin viewBox encodes a screen-space pad around the geometry
+        # (dimension band); recover geometry size + pad so the sheet fit accounts for it
+        pad = max(-vx, -vy, 0.0)
+        w, h = vw - 2 * pad, vh - 2 * pad
     body_m = re.search(r"<svg[^>]*>(.*)</svg>", svg, re.DOTALL | re.IGNORECASE)
     body = body_m.group(1) if body_m else svg
-    return DrawingView(width=w, height=h, body=body, title=title)
+    return DrawingView(width=w, height=h, body=body, title=title, pad=pad)
 
 
 def _sheet_from_view(

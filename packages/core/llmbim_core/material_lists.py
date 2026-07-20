@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from llmbim_core.materials import MATERIALS, get_material, material_cost, material_mass_kg
-from llmbim_core.model import ProjectModel
+from llmbim_core.model import Element, ProjectModel
 from llmbim_core.parts_catalog import PARTS, explode_part_bom, get_part, part_unit_cost
 from llmbim_core.quantities import slab_area_m2, wall_area_m2, wall_volume_m3
 
@@ -237,7 +237,7 @@ def material_summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(out, key=lambda x: -x["est_cost"])
 
 
-def _element_part_meta(el) -> tuple[str | None, Any]:
+def _element_part_meta(el: Element) -> tuple[str | None, Any]:
     """Return (part_id, PartType|None) for an element."""
     pid = el.params.get("part_id") or (
         el.type_id if el.type_id and el.type_id in PARTS else None
@@ -263,7 +263,7 @@ def fitting_takeoff(
     Returns one row per (fitting_type, nps, material, system).
     """
     buckets: dict[tuple[str, str, str, str], dict[str, Any]] = {}
-    pipe_systems = {"plumbing", "fire", "process", "process_piping", "fire_protection"}
+    _pipe_systems = {"plumbing", "fire", "process", "process_piping", "fire_protection"}
 
     for el in model.elements:
         pid, part = _element_part_meta(el)
@@ -347,7 +347,7 @@ def fitting_takeoff(
             r["qty"] = round(float(r["qty"]), 3)
     nps_order = ["1/2", "3/4", "1", "1-1/4", "1-1/2", "2", "2-1/2", "3", "4", "6", "8"]
 
-    def _sk(r: dict[str, Any]) -> tuple:
+    def _sk(r: dict[str, Any]) -> tuple[str, str, int, str]:
         try:
             ni = nps_order.index(r["nps"])
         except ValueError:
@@ -713,7 +713,7 @@ def csi_takeoff(model: ProjectModel, *, division: str | None = None) -> list[dic
             except Exception:  # noqa: BLE001
                 pass
     out = []
-    for code, b in buckets.items():
+    for _code, b in buckets.items():
         b["est_cost"] = round(b["est_cost"], 2)
         b["parts"] = sorted(b["parts"].values(), key=lambda x: -x["est_cost"])
         out.append(b)
@@ -738,8 +738,31 @@ def csi_takeoff(model: ProjectModel, *, division: str | None = None) -> list[dic
     return sorted(out, key=lambda x: x["csi_code"])
 
 
+def _section_weight_kg_m(section: str) -> float | None:
+    """kg/m for a steel section: catalog specs first, then the imperial
+    designation itself (W10x33 / HSS… → the trailing number is lb/ft)."""
+    sec = (section or "").strip()
+    if not sec:
+        return None
+    try:
+        from llmbim_core.parts_catalog import PARTS
+
+        for part in PARTS.values():
+            specs = getattr(part, "specs", None) or {}
+            if str(specs.get("section") or "") == sec and specs.get("weight_kg_m"):
+                return float(specs["weight_kg_m"])
+    except Exception:  # noqa: BLE001
+        pass
+    import re
+
+    m = re.fullmatch(r"[Ww]\s?\d+[xX×](\d+(?:\.\d+)?)", sec)
+    if m:
+        return round(float(m.group(1)) * 1.48816, 2)  # lb/ft -> kg/m
+    return None
+
+
 def steel_takeoff(model: ProjectModel) -> list[dict[str, Any]]:
-    """Structural steel by section (meters × weight).
+    """Structural steel by section: meters, kg/m, and total mass per row.
 
     Includes catalog part_summary rollup **plus** placed columns/beams so
     place_column / place_beam always appear even without part catalog hits.
@@ -760,6 +783,12 @@ def steel_takeoff(model: ProjectModel) -> list[dict[str, Any]]:
         if not is_col and not is_beam:
             continue
         if el.id in seen_ids:
+            continue
+        # elements with an assigned catalog part are already in the
+        # system_takeoff/part_summary rollup above — counting them again here
+        # doubled the steel quantities (rollup rows carry no element_ids, so the
+        # seen_ids guard never fired for them)
+        if el.params.get("part_id"):
             continue
         section = str(el.params.get("section") or el.type_id or ("COL" if is_col else "BM"))
         length_m = float(el.params.get("length_m") or 0)
@@ -791,6 +820,14 @@ def steel_takeoff(model: ProjectModel) -> list[dict[str, Any]]:
     for b in buckets.values():
         b["qty"] = round(float(b["qty"]), 3)
         rows.append(b)
+    # tonnage: attach weight_kg_m + mass_kg to every per-meter row with a section
+    for r in rows:
+        if r.get("mass_kg") or str(r.get("unit") or "") != "m":
+            continue
+        kg_m = _section_weight_kg_m(str(r.get("section") or ""))
+        if kg_m:
+            r["weight_kg_m"] = kg_m
+            r["mass_kg"] = round(kg_m * float(r.get("qty") or 0), 1)
     return rows
 
 

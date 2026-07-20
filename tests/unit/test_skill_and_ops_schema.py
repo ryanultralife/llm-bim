@@ -67,7 +67,7 @@ def test_design_option_clone() -> None:
 def test_registry_create_wall_place_door_window() -> None:
     """create_wall / place_door / place_window registered for project_op / bulk."""
     from llmbim import Project
-    from llmbim_core.registry import dispatch, list_ops
+    from llmbim_core.registry import dispatch
 
     names = {o["name"] for o in list_ops()}
     assert "create_wall" in names

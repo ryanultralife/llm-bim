@@ -197,7 +197,6 @@ TYPE_CSI: dict[str, str] = {
     "bolt": "05 12 23",
     "wire": "26 05 19",
     "coil": "23 82 16",
-    "flange": "40 05 13",
     "joint": "40 05 13",
     "elbow_90": "22 11 16",
     "elbow_45": "22 11 16",
@@ -369,7 +368,7 @@ def element_height_mm(el: Element) -> float | None:
     return None
 
 
-def _point_in_polygon(x: float, y: float, poly: list) -> bool:
+def _point_in_polygon(x: float, y: float, poly: list[Any]) -> bool:
     """Ray casting; poly is list of [x,y] or (x,y)."""
     if len(poly) < 3:
         return False

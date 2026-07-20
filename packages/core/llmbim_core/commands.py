@@ -6,10 +6,11 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
+from llmbim_geometry.primitives import wall_length_mm
+
 from llmbim_core.errors import ValidationError
 from llmbim_core.ids import new_id
 from llmbim_core.model import Element, ProjectModel
-from llmbim_geometry.primitives import wall_length_mm
 
 
 class Command(ABC):

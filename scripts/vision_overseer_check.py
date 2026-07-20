@@ -17,11 +17,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,7 +34,7 @@ WINDOW_HOURS = 10
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _git(*args: str, timeout: int = 60) -> tuple[int, str]:
@@ -116,8 +115,8 @@ def minutes_since_last_vision_commit(commits: list[dict]) -> float | None:
             raw = re.sub(r"([+-]\d{2})(\d{2})$", r"\1:\2", raw)
             dt = datetime.fromisoformat(raw)
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            return (_utc_now() - dt.astimezone(timezone.utc)).total_seconds() / 60.0
+                dt = dt.replace(tzinfo=UTC)
+            return (_utc_now() - dt.astimezone(UTC)).total_seconds() / 60.0
         except Exception:  # noqa: BLE001
             continue
     return None

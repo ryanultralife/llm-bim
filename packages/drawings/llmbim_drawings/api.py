@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from llmbim_core.model import ProjectModel
+
 from llmbim_drawings.plan import write_plan_svg
 from llmbim_drawings.section import write_elevation_svg, write_section_svg
 

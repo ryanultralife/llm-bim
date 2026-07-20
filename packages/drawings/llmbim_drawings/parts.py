@@ -6,9 +6,10 @@ import json
 from pathlib import Path
 
 from llmbim_core.model import Element, ProjectModel
+from llmbim_geometry.step_export import export_step_part
+
 from llmbim_drawings.sheets import title_block_svg
 from llmbim_drawings.svg_util import esc, fmt
-from llmbim_geometry.step_export import export_step_part
 
 
 def _part_views_svg(el: Element, *, scale: float = 0.5) -> str:

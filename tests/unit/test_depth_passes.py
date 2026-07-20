@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from llmbim import Project
+from llmbim_drawings.pdf_binder import export_pdf_binder
 from llmbim_geometry.step_export import export_step
 from llmbim_geometry.step_import import parse_step_bbox
-from llmbim_drawings.pdf_binder import export_pdf_binder
 
 
 def test_cylindrical_step_has_many_faces(tmp_path: Path) -> None:

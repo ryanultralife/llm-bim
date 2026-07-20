@@ -8,8 +8,6 @@ from llmbim import Project
 from llmbim_core.material_lists import (
     export_lists,
     fitting_takeoff,
-    pipe_takeoff,
-    plumbing_schedule,
 )
 from llmbim_core.parts_catalog import (
     PARTS,
@@ -123,3 +121,45 @@ def test_deliverables_include_materials(tmp_path: Path):
     assert (tmp_path / "pack" / "schedules" / "plumbing_takeoff.json").is_file()
     data = fitting_takeoff(p.model)
     assert data[0]["qty"] == 1
+
+
+def test_explode_bom_scales_mass_and_volume_by_qty():
+    """mass_kg / volume_m3 must scale with instance_qty just like qty / est_cost.
+    Regression: they previously stayed at the per-unit value, undercounting
+    procurement mass on every multi-count / multi-meter part."""
+    from llmbim_core.parts_catalog import explode_part_bom
+
+    part = next(
+        p
+        for p in PARTS.values()
+        if any(r.get("mass_kg") for r in explode_part_bom(p, 1.0))
+    )
+    one = explode_part_bom(part, 1.0)
+    ten = explode_part_bom(part, 10.0)
+    for r1, r10 in zip(one, ten):
+        if r1["mass_kg"] is not None:
+            assert r10["mass_kg"] == round(r1["mass_kg"] * 10, 3)
+        if r1["volume_m3"] is not None:
+            assert r10["volume_m3"] == round(r1["volume_m3"] * 10, 6)
+        assert r10["qty"] == r1["qty"] * 10
+        assert r10["est_cost"] == round(r1["est_cost"] * 10, 2)
+
+
+def test_steel_takeoff_tonnage_and_no_double_count():
+    """steel_takeoff must emit weight_kg_m + mass_kg per section row (catalog
+    weight, else lb/ft from the W-designation) and must not count a placed
+    column twice (catalog rollup + bucket pass)."""
+    from llmbim_core.material_lists import steel_takeoff
+
+    p = Project.create("SteelTonnage", vcs=False)
+    p.add_level("L1", 0)
+    p.op("place_column", level="L1", section="W10x33", origin=[0, 0], height_mm=4000)
+    p.op("place_beam", level="L1", section="W16x40", start=[0, 0], end=[6000, 0], z0_mm=4000)
+    rows = steel_takeoff(p.model)
+    by_section = {}
+    for r in rows:
+        assert r["section"] not in by_section, f"duplicate row for {r['section']}"
+        by_section[r["section"]] = r
+    assert by_section["W10x33"]["qty"] == 4.0
+    assert by_section["W10x33"]["mass_kg"] == 196.4  # 4 m x 49.1 kg/m (catalog)
+    assert by_section["W16x40"]["mass_kg"] == 357.2  # 6 m x 40 lb/ft x 1.48816

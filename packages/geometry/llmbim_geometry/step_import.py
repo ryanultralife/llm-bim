@@ -15,7 +15,6 @@ from typing import Any
 from llmbim_core.ids import new_id
 from llmbim_core.model import Element, ProjectModel
 
-
 _POINT_RE = re.compile(
     r"CARTESIAN_POINT\s*\(\s*'[^']*'\s*,\s*\(\s*([-+eE0-9.]+)\s*,\s*([-+eE0-9.]+)\s*,\s*([-+eE0-9.]+)\s*\)\s*\)",
     re.IGNORECASE,

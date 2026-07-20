@@ -7,7 +7,11 @@ from typing import Any
 from llmbim_core.errors import ValidationError
 from llmbim_core.materials import MATERIALS, get_material
 from llmbim_core.model import Element, ProjectModel
-from llmbim_core.parts_catalog import PARTS, get_part, part_unit_cost  # noqa: F401 — PARTS used in auto_assign
+from llmbim_core.parts_catalog import (  # noqa: F401 — PARTS used in auto_assign
+    PARTS,
+    get_part,
+    part_unit_cost,
+)
 
 
 def assign_material(
