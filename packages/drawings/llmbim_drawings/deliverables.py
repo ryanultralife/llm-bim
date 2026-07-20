@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re as _re
 import traceback
 from pathlib import Path
 from typing import Any
@@ -264,7 +265,11 @@ def verify_pack(
         checks["construction_sheets"] = len(sheet_svgs)
         by_disc: dict[str, int] = {}
         for sheet in sheet_svgs:
-            disc = sheet.name.split("-", 1)[0]
+            stem = sheet.name.split("-", 1)[0]
+            # alpha discipline prefix: "A-101" → A, "A0-1" (custom A0.1) → A,
+            # "EQ-101" → EQ, "MEP-101" → MEP, "S3-1" → S
+            m = _re.match(r"[A-Za-z]+", stem)
+            disc = m.group(0) if m else stem
             by_disc[disc] = by_disc.get(disc, 0) + 1
         checks["sheet_count_by_discipline"] = by_disc
     if (out / "parts").is_dir():

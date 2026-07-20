@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import datetime as _dt
+import inspect
 import json
 import math
+import re
+import textwrap
 from pathlib import Path
 from typing import Any
 
+from llmbim_core.errors import ValidationError
 from llmbim_core.model import Element, ProjectModel
 
+from llmbim_drawings.detail_ops import imperial_scale_note, render_detail_sheet
 from llmbim_drawings.layout import compose_sheet, table_view
 from llmbim_drawings.plan import render_plan_view
 from llmbim_drawings.schedules import export_schedule_csv, schedule_rows
@@ -31,6 +36,24 @@ SHIELD_WALL_FILLS = {
     "W-EXT-CMU": "#9e9e9e",
     "W-INT-GYP": "#eceff1",
 }
+
+
+def _scale_note_for(plan_scale: float, units: str) -> str:
+    """Title-block scale note: ``1:50`` (metric) or the architectural note
+    (``1/4" = 1'-0"``) when imperial AND the ratio maps cleanly; otherwise the
+    numeric note is kept (correctness over cosmetics)."""
+    numeric = f"1:{max(1, round(1 / plan_scale))}"
+    if units == "imperial":
+        note = imperial_scale_note(1.0 / plan_scale)
+        if note:
+            return note
+    return numeric
+
+
+def _check_set_units(units: str) -> str:
+    if units not in {"metric", "imperial"}:
+        raise ValidationError("units must be 'metric' or 'imperial'", units=units)
+    return units
 
 
 def _view_from_full_svg(svg: str, title: str = "") -> DrawingView:
@@ -110,6 +133,33 @@ def _multi_sheet(
         north_arrow=north_arrow,
         date=date,
     )
+
+
+def _building_cuts(
+    model: ProjectModel,
+) -> tuple[tuple[tuple[float, float], tuple[float, float]],
+           tuple[tuple[float, float], tuple[float, float]]]:
+    """Two default section cuts from building extents: (A-A transverse, B-B longitudinal)."""
+    xs: list[float] = []
+    ys: list[float] = []
+    for el in model.elements:
+        if el.category == "wall" and "start_mm" in el.params:
+            xs += [float(el.params["start_mm"][0]), float(el.params["end_mm"][0])]
+            ys += [float(el.params["start_mm"][1]), float(el.params["end_mm"][1])]
+        if el.category == "equipment" and "origin_mm" in el.params:
+            xs.append(float(el.params["origin_mm"][0]))
+            ys.append(float(el.params["origin_mm"][1]))
+    mid_x = (min(xs) + max(xs)) / 2 if xs else 0.0
+    mid_y = (min(ys) + max(ys)) / 2 if ys else 0.0
+    x0 = (min(xs) - 2000) if xs else -5000
+    x1 = (max(xs) + 2000) if xs else 5000
+    y0 = (min(ys) - 2000) if ys else -5000
+    y1 = (max(ys) + 2000) if ys else 5000
+    # A-A: transverse cut (through mid X, looking along Y extent)
+    cut_a = ((mid_x, y0), (mid_x, y1))
+    # B-B: longitudinal cut (through mid Y, along the X extent)
+    cut_b = ((x0, mid_y), (x1, mid_y))
+    return cut_a, cut_b
 
 
 def _is_column(el: Element) -> bool:
@@ -462,6 +512,8 @@ def export_construction_set(
     plan_scale: float = 0.02,
     set_type: str = "construction",
     date: str | None = None,
+    units: str = "metric",
+    sheets: list[dict] | None = None,
 ) -> dict:
     """Write a drawing package with proper view fitting.
 
@@ -475,25 +527,84 @@ def export_construction_set(
         (C-1xx) — each emitted only when matching elements exist.
 
     ``date``: issue date stamped in every title block (default: today, ISO).
+
+    ``units``: ``"metric"`` (default — output unchanged) or ``"imperial"``:
+    plan/section/elevation dimension text renders as feet-inches to the
+    nearest 1/2" (``24'-0"``; 1 ft = 304.8 mm) and plan scale notes become
+    architectural (``1/4" = 1'-0"``) when the ratio maps cleanly. Applies to
+    the default register and is the fallback for custom register entries.
+
+    ``sheets``: optional custom sheet register. When provided it REPLACES the
+    default register entirely — one entry per sheet, in order::
+
+        {"no": "A1.1", "title": "FLOOR PLAN", "kind": "plan", ...opts}
+
+    Common keys: ``no``/``title``/``kind`` (required), ``scale_note`` (title
+    block text), ``discipline`` (default: alpha prefix of ``no``), ``scale``
+    (per-sheet plan scale override, px/mm), ``units`` (per-sheet
+    ``"metric"``/``"imperial"`` override of the export-level default; honored
+    by ``plan``/``elevations``/``sections``). Kinds + kind options:
+
+    - ``"cover"``     — cover with the index of THIS register.
+                        opts: ``notes`` (list[str]), ``subtitle``.
+    - ``"plan"``      — floor plan. opts: ``level``, ``include`` (category
+                        groups), ``crop`` ((x0, y0, x1, y1) mm),
+                        ``ghost_walls``, ``room_tags``, ``tags`` (marked
+                        door/window tag bubbles), ``dimensions``.
+    - ``"elevations"``— paired elevations. opts: ``pair`` e.g. ``["S", "N"]``.
+    - ``"sections"``  — the two default building sections (A-A / B-B).
+    - ``"schedule"``  — ruled schedule table(s). opts: ``schedule`` — a
+                        schedule kind (see ``schedule_rows``) or list of
+                        kinds composed onto one sheet.
+    - ``"details"``   — up to 4 detail-ops dicts 4-up. opts: ``details``
+                        (list of ``{id, title, scale, ops}``, see
+                        ``llmbim_drawings.detail_ops``).
+    - ``"custom_svg"``— pre-rendered content. opts: ``view`` (DrawingView or
+                        full SVG string) or ``provider`` (callable, optionally
+                        taking the model, returning either).
+    - ``"doc"``       — markdown-ish text sheet (calc/spec placeholders).
+                        opts: ``text``.
+
+    Filenames come from the sanitized sheet no (``A0.1`` -> ``A0-1_cover.svg``)
+    and ``SHEET_INDEX.json`` + the cover reflect the custom register.
     """
     if set_type not in {"plan", "construction"}:
         raise ValueError(f"unknown set_type: {set_type!r} (use 'plan' or 'construction')")
+    units = _check_set_units(units)
     if date is None:
         date = _dt.date.today().isoformat()
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     # drop stale sheets from a previous export (e.g. re-pack construction → plan),
-    # including paginated schedule pages (A-601B_…) and two-letter disciplines (EQ-…)
+    # including paginated schedule pages (A-601B_…), two-letter disciplines (EQ-…)
+    # and custom-register names (A0-1_…, S3-1B_…, MEP-101_…)
     for pattern in (
         "[A-Z]-[0-9][0-9][0-9]_*.svg",
         "[A-Z]-[0-9][0-9][0-9][A-Z]_*.svg",
         "[A-Z][A-Z]-[0-9][0-9][0-9]_*.svg",
         "[A-Z][A-Z]-[0-9][0-9][0-9][A-Z]_*.svg",
+        "[A-Z][0-9]-[0-9]_*.svg",
+        "[A-Z][0-9]-[0-9][A-Z]_*.svg",
+        "[A-Z][0-9][0-9]-[0-9]_*.svg",
+        "[A-Z][A-Z][A-Z]-[0-9][0-9][0-9]_*.svg",
+        "[A-Z][A-Z][A-Z]-[0-9][0-9][0-9][A-Z]_*.svg",
     ):
         for stale in out.glob(pattern):
             stale.unlink()
 
-    nominal_scale = f"1:{max(1, round(1 / plan_scale))}"
+    if sheets is not None:
+        return _export_custom_register(
+            model,
+            out,
+            register=sheets,
+            plan_level=plan_level,
+            plan_scale=plan_scale,
+            set_type=set_type,
+            date=date,
+            units=units,
+        )
+
+    nominal_scale = _scale_note_for(plan_scale, units)
     level_ids = {lvl.name: lvl.id for lvl in model.levels}
     plan_levels = [
         lvl.name
@@ -511,25 +622,7 @@ def export_construction_set(
         return [el for el in model.elements if el.level_id == lid]
 
     # ── building extents + the two A-301 section cuts (marked on floor plans)
-    xs: list[float] = []
-    ys: list[float] = []
-    for el in model.elements:
-        if el.category == "wall" and "start_mm" in el.params:
-            xs += [float(el.params["start_mm"][0]), float(el.params["end_mm"][0])]
-            ys += [float(el.params["start_mm"][1]), float(el.params["end_mm"][1])]
-        if el.category == "equipment" and "origin_mm" in el.params:
-            xs.append(float(el.params["origin_mm"][0]))
-            ys.append(float(el.params["origin_mm"][1]))
-    mid_x = (min(xs) + max(xs)) / 2 if xs else 0.0
-    mid_y = (min(ys) + max(ys)) / 2 if ys else 0.0
-    x0 = (min(xs) - 2000) if xs else -5000
-    x1 = (max(xs) + 2000) if xs else 5000
-    y0 = (min(ys) - 2000) if ys else -5000
-    y1 = (max(ys) + 2000) if ys else 5000
-    # A-A: transverse cut (through mid X, looking along Y extent)
-    cut_a = ((mid_x, y0), (mid_x, y1))
-    # B-B: longitudinal cut (through mid Y, along the X extent)
-    cut_b = ((x0, mid_y), (x1, mid_y))
+    cut_a, cut_b = _building_cuts(model)
     section_marks = [
         {"p0": cut_a[0], "p1": cut_a[1], "label": "A", "sheet": "A-301"},
         {"p0": cut_b[0], "p1": cut_b[1], "label": "B", "sheet": "A-301"},
@@ -545,6 +638,7 @@ def export_construction_set(
             show_dimensions=True,
             grid_dims=True,
             room_tags=True,
+            units=units,
             section_marks=section_marks,
         )
         plan_sheet = _sheet_from_view(
@@ -571,7 +665,7 @@ def export_construction_set(
     for sn, sheet_title, pair in elev_pairs:
         cells: list[tuple] = []
         for direction, cell_title in pair:
-            elev_svg = render_elevation_svg(model, direction, scale=plan_scale)
+            elev_svg = render_elevation_svg(model, direction, scale=plan_scale, units=units)
             view = _view_from_full_svg(elev_svg, cell_title)
             cells.append((view, cell_title, nominal_scale, plan_scale))
         sh = _multi_sheet(
@@ -585,7 +679,8 @@ def export_construction_set(
     sec_cells: list[tuple] = []
     for (p0, p1), lab in ((cut_a, "A"), (cut_b, "B")):
         sec_svg = render_section_svg(
-            model, p0, p1, scale=plan_scale, title=f"{model.name} — Section {lab}-{lab}"
+            model, p0, p1, scale=plan_scale, units=units,
+            title=f"{model.name} — Section {lab}-{lab}",
         )
         sec_view = _view_from_full_svg(sec_svg, f"Section {lab}-{lab}")
         sec_cells.append((sec_view, f"Section {lab}-{lab}", nominal_scale, plan_scale))
@@ -761,6 +856,7 @@ def export_construction_set(
                     show_dimensions=True,
                     include=include,
                     ghost_walls=True,
+                    units=units,
                     title=f"{model.name} — {disc_title} {lname}",
                 )
                 legend = _legend_view(_discipline_legend(disc, lvl_els))
@@ -844,6 +940,7 @@ def export_construction_set(
                         show_dimensions=True,
                         include={"grids", "ducts", "equipment"},
                         ghost_walls=True,
+                        units=units,
                         title=f"{model.name} — {h_titles[h_tag]} {lname}",
                     )
                     n_ducts = sum(1 for e in sel if _is_duct_run(e))
@@ -929,6 +1026,7 @@ def export_construction_set(
                 include={"equipment"},
                 ghost_walls=True,
                 crop_mm=crop,
+                units=units,
                 title=f"{model.name} — Equipment Arrangement {room_name}",
             )
             eq_tbl_rows = [
@@ -1002,6 +1100,7 @@ def export_construction_set(
                     include={"walls", "rooms", "grids"},
                     room_tags=True,
                     wall_fill_by_type=SHIELD_WALL_FILLS,
+                    units=units,
                     title=f"{model.name} — Shielding & Confinement {lname}",
                 )
                 legend = _shield_legend_view(lvl_walls)
@@ -1063,6 +1162,7 @@ def export_construction_set(
                     show_dimensions=True,
                     include={"equipment", "slabs"},
                     ghost_walls=True,
+                    units=units,
                     title=f"{model.name} — Site / Underground {lname}",
                 )
                 ug_by_name: dict[str, int] = {}
@@ -1149,6 +1249,390 @@ def export_construction_set(
         "set_type": set_type,
         "date": date,
         "sheets": sheets,
+    }
+    (out / "SHEET_INDEX.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    return manifest
+
+
+# ── configurable sheet register ──────────────────────────────────────────────
+
+SHEET_KINDS = (
+    "cover", "plan", "elevations", "sections", "schedule", "details", "custom_svg", "doc",
+)
+
+_ELEV_NAMES = {"N": "North Elevation", "S": "South Elevation",
+               "E": "East Elevation", "W": "West Elevation"}
+
+
+def _sanitize_no(no: str) -> str:
+    """Sheet number → filename stem: ``A0.1`` → ``A0-1``, ``MEP-101`` → ``MEP-101``."""
+    stem = re.sub(r"[^A-Za-z0-9]+", "-", str(no).strip()).strip("-")
+    if not stem:
+        raise ValidationError("sheet 'no' must contain letters/digits", no=no)
+    return stem
+
+
+def _discipline_of(spec: dict) -> str:
+    """Explicit ``discipline`` or the alpha prefix of the sheet no (``A0.1`` → ``A``)."""
+    disc = spec.get("discipline")
+    if disc:
+        return str(disc)
+    m = re.match(r"[A-Za-z]+", str(spec.get("no") or ""))
+    return m.group(0).upper() if m else "A"
+
+
+def _require_register_entry(spec: Any) -> dict:
+    if not isinstance(spec, dict):
+        raise ValidationError("each sheets[] entry must be a dict", entry=repr(spec)[:80])
+    for key in ("no", "title", "kind"):
+        if not spec.get(key):
+            raise ValidationError(f"sheets[] entry missing required key {key!r}", entry=spec)
+    kind = str(spec["kind"])
+    if kind not in SHEET_KINDS:
+        raise ValidationError(
+            f"unknown sheet kind {kind!r}; supported kinds: {', '.join(SHEET_KINDS)}",
+            kind=kind,
+            supported_kinds=list(SHEET_KINDS),
+        )
+    return spec
+
+
+def _generic_schedule_view(model: ProjectModel, kind: str, title: str) -> DrawingView:
+    """Ruled table for any ``schedule_rows`` kind — columns from the row keys."""
+    rows = schedule_rows(model, kind)
+    cols: list[str] = []
+    for r in rows:
+        for k in r:
+            if k not in cols:
+                cols.append(k)
+    cols = [c for c in cols if c not in {"id", "level_id"}][:8]
+    if not cols:
+        return table_view([kind.upper()], [["(none in model)"]], title=title)
+    data = [[_fmt_cell(r.get(c)) for c in cols] for r in rows]
+    headers = [c.replace("_", " ").upper() for c in cols]
+    return table_view(headers, data, title=title)
+
+
+def _doc_view(text: str, title: str) -> DrawingView:
+    """Markdown-ish text → simple text sheet (headings, bullets, wrapped body)."""
+    width = 900.0
+    parts: list[str] = ['<g class="doc-sheet" font-family="sans-serif" fill="#111">']
+    y = 30.0
+    parts.append(
+        f'<text x="0" y="{y:.1f}" font-size="20" font-weight="bold">{esc(title)}</text>'
+    )
+    y += 28.0
+    for raw in (text or "").splitlines():
+        line = raw.rstrip()
+        if not line.strip():
+            y += 8.0
+            continue
+        stripped = line.lstrip("#").strip()
+        if line.startswith("## "):
+            y += 8.0
+            parts.append(
+                f'<text x="0" y="{y:.1f}" font-size="13" font-weight="bold">'
+                f"{esc(stripped)}</text>"
+            )
+            y += 18.0
+            continue
+        if line.startswith("# "):
+            y += 10.0
+            parts.append(
+                f'<text x="0" y="{y:.1f}" font-size="16" font-weight="bold">'
+                f"{esc(stripped)}</text>"
+            )
+            y += 20.0
+            continue
+        indent = 14.0 if line.lstrip().startswith(("-", "*")) else 0.0
+        body_text = line.lstrip()
+        if indent:
+            body_text = "• " + body_text[1:].lstrip()
+        for wrapped in textwrap.wrap(body_text, width=100) or [""]:
+            parts.append(
+                f'<text x="{indent:.0f}" y="{y:.1f}" font-size="10.5">{esc(wrapped)}</text>'
+            )
+            y += 15.0
+    parts.append("</g>")
+    return DrawingView(width=width, height=max(y + 10.0, 120.0), body="\n".join(parts),
+                       title=title)
+
+
+def _custom_cover_view(
+    model: ProjectModel, register: list[dict], spec: dict, date: str
+) -> DrawingView:
+    """Cover body: project head + honesty note + index of the CUSTOM register."""
+    rows = [[str(s["no"]), _discipline_of(s), str(s["title"])] for s in register]
+    index_view = table_view(["SHEET", "DISC", "TITLE"], rows, title="Sheet Index")
+    subtitle = str(spec.get("subtitle") or "Construction Drawing Set")
+    notes = [str(n) for n in (spec.get("notes") or [])]
+    note_lines = "".join(
+        f'<text x="0" y="{92 + 14 * i}" font-size="10" font-family="sans-serif" '
+        f'fill="#555">{esc(note)}</text>\n'
+        for i, note in enumerate(notes)
+    )
+    index_y = 96 + 14 * len(notes)
+    head = (
+        f'<text x="0" y="34" font-size="26" font-family="sans-serif" '
+        f'font-weight="bold">{esc(model.name)}</text>\n'
+        f'<text x="0" y="58" font-size="14" font-family="sans-serif">{esc(subtitle)}</text>\n'
+        f'<text x="0" y="76" font-size="10" font-family="sans-serif" fill="#8a1a1a">'
+        f"ENGINEERING ESTIMATE · LLM-BIM · issued {esc(date)}</text>\n"
+        f"{note_lines}"
+        f'<g transform="translate(0,{index_y})">\n{index_view.body}\n</g>'
+    )
+    return DrawingView(
+        width=max(index_view.width, 560), height=index_y + index_view.height, body=head
+    )
+
+
+def _custom_svg_view(model: ProjectModel, spec: dict) -> DrawingView:
+    """Resolve a custom_svg entry: DrawingView / full-SVG string / provider callback."""
+    source: Any = spec.get("view")
+    provider = spec.get("provider")
+    if source is None and provider is not None:
+        if not callable(provider):
+            raise ValidationError("custom_svg 'provider' must be callable", no=spec.get("no"))
+        try:
+            sig = inspect.signature(provider)
+            takes_arg = any(
+                p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD, p.VAR_POSITIONAL)
+                for p in sig.parameters.values()
+            )
+        except (TypeError, ValueError):
+            takes_arg = True
+        source = provider(model) if takes_arg else provider()
+    if isinstance(source, DrawingView):
+        return source
+    if isinstance(source, str) and source.strip():
+        return _view_from_full_svg(source, str(spec.get("title") or ""))
+    raise ValidationError(
+        "custom_svg sheet needs a 'view' (DrawingView or SVG string) or a "
+        "'provider' callback returning one",
+        no=spec.get("no"),
+    )
+
+
+def _export_custom_register(
+    model: ProjectModel,
+    out: Path,
+    *,
+    register: list[dict],
+    plan_level: str | None,
+    plan_scale: float,
+    set_type: str,
+    date: str,
+    units: str = "metric",
+) -> dict:
+    """Emit a caller-defined sheet register (replaces the default A-1xx… set).
+
+    ``units`` is the export-level default; each entry may override it with a
+    per-sheet ``units`` opt (``"metric"``/``"imperial"``).
+    """
+    specs = [_require_register_entry(s) for s in register]
+    level_ids = {lvl.name: lvl.id for lvl in model.levels}
+    plan_levels = [
+        lvl.name
+        for lvl in model.levels
+        if any(el.level_id == lvl.id for el in model.elements)
+    ]
+    if not plan_levels:
+        plan_levels = [plan_level or (model.levels[0].name if model.levels else "L1")]
+    default_level = plan_level or plan_levels[0]
+    _ax, _ay, aw, ah = drawing_area()
+    emitted: list[dict] = []
+
+    def _emit(spec: dict, svg: str, *, no: str | None = None, title: str | None = None) -> None:
+        sheet_no = no if no is not None else str(spec["no"])
+        slug = "custom" if spec["kind"] == "custom_svg" else str(spec["kind"])
+        fname = f"{_sanitize_no(sheet_no)}_{slug}.svg"
+        (out / fname).write_text(svg, encoding="utf-8")
+        emitted.append(
+            {
+                "no": sheet_no,
+                "title": title if title is not None else str(spec["title"]),
+                "file": fname,
+                "discipline": _discipline_of(spec),
+                "kind": str(spec["kind"]),
+            }
+        )
+
+    for spec in specs:
+        kind = str(spec["kind"])
+        no = str(spec["no"])
+        title = str(spec["title"])
+        sc = float(spec.get("scale") or plan_scale)
+        sheet_units = _check_set_units(str(spec.get("units") or units))
+        nominal = _scale_note_for(sc, sheet_units)
+
+        if kind == "cover":
+            view = _custom_cover_view(model, specs, spec, date)
+            svg = _sheet_from_view(
+                model, sheet_no=no, title=title, view=view,
+                scale_note=str(spec.get("scale_note") or "NTS"), date=date,
+            )
+            _emit(spec, svg)
+
+        elif kind == "plan":
+            lvl = str(spec.get("level") or default_level)
+            if lvl not in level_ids:
+                raise ValidationError("plan sheet references unknown level", no=no, level=lvl)
+            include = set(spec["include"]) if spec.get("include") else None
+            crop_raw = spec.get("crop")
+            crop = tuple(float(v) for v in crop_raw) if crop_raw else None
+            if crop is not None and len(crop) != 4:
+                raise ValidationError("plan 'crop' must be (x0, y0, x1, y1) mm", no=no)
+            view = render_plan_view(
+                model,
+                lvl,
+                scale=sc,
+                show_dimensions=bool(spec.get("dimensions", True)),
+                grid_dims=include is None,
+                room_tags=bool(spec.get("room_tags", include is None)),
+                tags=bool(spec.get("tags", False)),
+                units=sheet_units,
+                include=include,
+                ghost_walls=bool(spec.get("ghost_walls", False)),
+                crop_mm=crop,  # type: ignore[arg-type]
+                title=f"{model.name} — {title}",
+            )
+            svg = _sheet_from_view(
+                model, sheet_no=no, title=title, view=view,
+                scale_note=str(spec.get("scale_note") or nominal),
+                px_per_mm=sc, north_arrow=True, date=date,
+            )
+            _emit(spec, svg)
+
+        elif kind == "elevations":
+            pair = [str(d).upper() for d in (spec.get("pair") or ["N", "S"])]
+            bad = [d for d in pair if d not in _ELEV_NAMES]
+            if bad:
+                raise ValidationError("elevations 'pair' must use N|S|E|W", no=no, pair=pair)
+            cells: list[tuple] = []
+            for direction in pair:
+                cell_title = _ELEV_NAMES[direction]
+                elev_svg = render_elevation_svg(model, direction, scale=sc, units=sheet_units)
+                cells.append((_view_from_full_svg(elev_svg, cell_title), cell_title,
+                              str(spec.get("scale_note") or nominal), sc))
+            svg = _multi_sheet(
+                model, sheet_no=no, title=title, cells=cells, date=date,
+                scale_note=str(spec.get("scale_note") or nominal),
+            )
+            _emit(spec, svg)
+
+        elif kind == "sections":
+            cut_a, cut_b = _building_cuts(model)
+            sec_cells: list[tuple] = []
+            for (p0, p1), lab in ((cut_a, "A"), (cut_b, "B")):
+                sec_svg = render_section_svg(
+                    model, p0, p1, scale=sc, units=sheet_units,
+                    title=f"{model.name} — Section {lab}-{lab}",
+                )
+                sec_cells.append(
+                    (_view_from_full_svg(sec_svg, f"Section {lab}-{lab}"),
+                     f"Section {lab}-{lab}", str(spec.get("scale_note") or nominal), sc)
+                )
+            svg = _multi_sheet(
+                model, sheet_no=no, title=title, cells=sec_cells, date=date,
+                scale_note=str(spec.get("scale_note") or nominal),
+            )
+            _emit(spec, svg)
+
+        elif kind == "schedule":
+            kinds_raw = spec.get("schedule") or spec.get("schedule_kind")
+            if not kinds_raw:
+                raise ValidationError(
+                    "schedule sheet needs a 'schedule' kind (or list of kinds)", no=no
+                )
+            kinds = [str(k) for k in kinds_raw] if isinstance(kinds_raw, (list, tuple)) \
+                else [str(kinds_raw)]
+            note = str(spec.get("scale_note") or "NTS")
+            if len(kinds) == 1:
+                rows = schedule_rows(model, kinds[0])
+                n_pages = max(1, math.ceil(len(rows) / SCHEDULE_ROWS_PER_SHEET))
+                cols: list[str] = []
+                for r in rows:
+                    for k in r:
+                        if k not in cols:
+                            cols.append(k)
+                cols = [c for c in cols if c not in {"id", "level_id"}][:8]
+                for pi in range(n_pages):
+                    page_no = no if pi == 0 else f"{no}{chr(ord('A') + pi)}"
+                    page_title = title if n_pages == 1 else f"{title} ({pi + 1}/{n_pages})"
+                    page_rows = rows[
+                        pi * SCHEDULE_ROWS_PER_SHEET : (pi + 1) * SCHEDULE_ROWS_PER_SHEET
+                    ]
+                    if cols:
+                        view = table_view(
+                            [c.replace("_", " ").upper() for c in cols],
+                            [[_fmt_cell(r.get(c)) for c in cols] for r in page_rows],
+                            title=page_title,
+                        )
+                    else:
+                        view = table_view([kinds[0].upper()], [["(none in model)"]],
+                                          title=page_title)
+                    svg = _sheet_from_view(
+                        model, sheet_no=page_no, title=page_title, view=view,
+                        scale_note=note, date=date,
+                    )
+                    _emit(spec, svg, no=page_no, title=page_title)
+            else:
+                tbl_cells: list[tuple] = [
+                    (_generic_schedule_view(model, k, f"{k.title()} Schedule"),
+                     f"{k.title()} Schedule", "NTS")
+                    for k in kinds[:4]
+                ]
+                svg = _multi_sheet(
+                    model, sheet_no=no, title=title, cells=tbl_cells, date=date,
+                    scale_note=note,
+                )
+                _emit(spec, svg)
+
+        elif kind == "details":
+            det_specs = spec.get("details")
+            if not det_specs:
+                raise ValidationError(
+                    "details sheet needs 'details': list of {id, title, scale, ops}", no=no
+                )
+            view = render_detail_sheet(det_specs, width=aw - 10, height=ah - 10)
+            svg = _sheet_from_view(
+                model, sheet_no=no, title=title, view=view,
+                scale_note=str(spec.get("scale_note") or "AS NOTED"), date=date,
+            )
+            _emit(spec, svg)
+
+        elif kind == "custom_svg":
+            view = _custom_svg_view(model, spec)
+            svg = _sheet_from_view(
+                model, sheet_no=no, title=title, view=view,
+                scale_note=str(spec.get("scale_note") or "NTS"), date=date,
+            )
+            _emit(spec, svg)
+
+        else:  # kind == "doc"
+            view = _doc_view(str(spec.get("text") or spec.get("markdown") or ""), title)
+            svg = _sheet_from_view(
+                model, sheet_no=no, title=title, view=view,
+                scale_note=str(spec.get("scale_note") or "NTS"), date=date,
+            )
+            _emit(spec, svg)
+
+    sched = out / "schedules"
+    sched.mkdir(exist_ok=True)
+    for csv_kind in ("room", "door", "window", "wall"):
+        try:
+            export_schedule_csv(model, csv_kind, sched / f"{csv_kind}.csv")
+        except Exception:
+            pass
+
+    manifest = {
+        "project": model.name,
+        "level": default_level,
+        "levels": plan_levels,
+        "set_type": set_type,
+        "register": "custom",
+        "date": date,
+        "sheets": emitted,
     }
     (out / "SHEET_INDEX.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return manifest

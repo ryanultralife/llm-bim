@@ -377,6 +377,7 @@ def register_structural_steel(into: dict[str, Any], PartType: type, BomLine: typ
         ("W14x22", 32.7, 105),
         ("W14x82", 122.0, 380),
         ("W16x26", 38.7, 125),
+        ("W16x40", 59.53, 185),
         ("W18x35", 52.1, 165),
         ("W21x44", 65.5, 210),
         ("W24x55", 81.8, 265),
@@ -402,8 +403,26 @@ def register_structural_steel(into: dict[str, Any], PartType: type, BomLine: typ
                 "unit": "m",
             },
         )
+    # W16x40 section properties — AISC Shapes Database v15 published values
+    # (d 16.0 in, bf 7.00 in, 40 plf, Zx 73.0 in3, Ix 518 in4, Fy 50 ksi A992).
+    # Matches the Schad design basis (beam_depth 16", beam_width 7", 'W16x40')
+    # — carried as catalog data, not an engineering claim.
+    into["PT-STL-W16x40"].specs.update(
+        {
+            "depth_in": 16.0,
+            "depth_mm": 16.0 * 25.4,
+            "bf_in": 7.0,
+            "bf_mm": 7.0 * 25.4,
+            "weight_plf": 40.0,
+            "Zx_in3": 73.0,
+            "Ix_in4": 518.0,
+            "Fy_ksi": 50.0,
+        }
+    )
     hss = [
         ("HSS4x4x1/4", 22.7, 95),
+        # HSS6x6x1/4 — AISC 19.02 plf → 28.3 kg/m (Schad garage beam posts)
+        ("HSS6x6x1/4", 28.3, 130),
         ("HSS6x6x3/8", 51.2, 180),
         ("HSS8x8x1/2", 89.3, 310),
         ("HSS10x6x3/8", 58.0, 210),
