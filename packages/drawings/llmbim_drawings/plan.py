@@ -18,6 +18,35 @@ from llmbim_drawings.view import DrawingView
 
 _MM2_PER_SF = 92903.04  # square-foot area conversion (1 ft = 304.8 mm)
 
+# WP-CD-ANATOMY slice A: plan annotation anatomy constants
+FRACTIONAL_GRID_TOL_MM = 150.0  # off-grid distance before a fractional bubble
+DIM_GOVERNS_NOTE = "WRITTEN DIMENSIONS GOVERN — DO NOT SCALE"
+# lettered grid axes skip "I" (reads as 1) per drafting convention
+_GRID_LETTERS_NO_I = "ABCDEFGHJKLMNOPQRSTUVWXYZ"
+
+
+def _chain_segments(
+    stations: Sequence[float], tol: float = 1.0
+) -> list[tuple[float, float, str | None]]:
+    """Chain stations → (a, b, label_override) segments; runs of ≥3 equal
+    segments collapse into one span labelled ``"N EQ. SPACES"``."""
+    out: list[tuple[float, float, str | None]] = []
+    n = len(stations)
+    i = 0
+    while i < n - 1:
+        seg = stations[i + 1] - stations[i]
+        j = i + 1
+        while j < n - 1 and abs((stations[j + 1] - stations[j]) - seg) <= tol:
+            j += 1
+        run = j - i  # number of consecutive equal segments
+        if run >= 3:
+            out.append((stations[i], stations[j], f"{run} EQ. SPACES"))
+            i = j
+        else:
+            out.append((stations[i], stations[i + 1], None))
+            i += 1
+    return out
+
 
 def _element_mark(el: Element) -> str:
     """Tag text for door/window bubbles: params ``mark``, else name, else short id."""
@@ -172,6 +201,10 @@ def render_plan_view(
     section_marks: Sequence[Mapping[str, Any]] | None = None,
     crop_mm: tuple[float, float, float, float] | None = None,
     wall_fill_by_type: dict[str, str] | None = None,
+    dim_tiers: bool = False,
+    fractional_grids: bool = False,
+    key_plan: bool = False,
+    room_areas: bool = False,
 ) -> DrawingView:
     """Build a plan DrawingView (inner body + size).
 
@@ -204,6 +237,27 @@ def render_plan_view(
     ``section_marks`` draws section cut markers — each item
     a mapping with ``p0``/``p1`` plan points (mm), ``label`` (e.g. ``"A"``)
     and ``sheet`` reference (e.g. ``"A-301"``).
+
+    CD anatomy extras (WP-CD-ANATOMY slice A — all default off, output
+    byte-stable when unset):
+
+    - ``dim_tiers``: three dimension-chain tiers OUTSIDE the plan on the top
+      and left sides — (1) overall wall extents, (2) grid-to-grid bay string,
+      (3) feature string (exterior-wall ends + opening jambs). 45° tick
+      terminators (never arrows), witness lines with a small gap off the
+      object, runs of ≥3 equal segments collapse to ``"N EQ. SPACES"``, and
+      the note ``WRITTEN DIMENSIONS GOVERN — DO NOT SCALE`` under the block.
+    - ``fractional_grids``: wall/column centerlines landing off the main grid
+      by more than ``FRACTIONAL_GRID_TOL_MM`` get an intermediate dash-dot
+      centerline with bubbles on both ends, labelled fractionally between
+      neighbours (between 1 and 2 at 90% → ``1.9``); default lettered-axis
+      labels skip the letter "I".
+    - ``key_plan``: small reduced building-outline block in the top-right
+      corner (footprint from the level's walls); the crop zone is shaded
+      when ``crop_mm`` is set.
+    - ``room_areas``: with ``room_tags``, the boxed tag becomes full anatomy —
+      room name over a boxed number (params ``number``, else sequential) with
+      the area (SF imperial / m² metric) under the boxed number.
     """
     if units not in {"metric", "imperial"}:
         raise ValidationError(
@@ -525,10 +579,25 @@ def render_plan_view(
                     fr_s = fr_s[:8]
                 short = f"{short} {fr_s}".strip() if short else fr_s
             mx, my = project((x0 + x1) / 2, (y0 + y1) / 2)
-            parts.append(
-                f'    <text class="wall-type" x="{fmt(mx)}" y="{fmt(my - 4)}" text-anchor="middle" '
-                f'fill="#1a1a1a">{esc(short)}</text>'
-            )
+            if tags and tid:
+                # wall-type tag anatomy: diamond with the type code (CD standard)
+                hw = max(14.0, len(short) * 3.4 + 8.0)
+                hh = 11.0
+                parts.append(
+                    f'    <polygon class="wall-type-tag" points="'
+                    f'{fmt(mx)},{fmt(my - hh)} {fmt(mx + hw)},{fmt(my)} '
+                    f'{fmt(mx)},{fmt(my + hh)} {fmt(mx - hw)},{fmt(my)}" '
+                    f'fill="#ffffff" stroke="#1a1a1a" stroke-width="1"/>'
+                )
+                parts.append(
+                    f'    <text class="wall-type" x="{fmt(mx)}" y="{fmt(my + 3)}" '
+                    f'text-anchor="middle" fill="#1a1a1a">{esc(short)}</text>'
+                )
+            else:
+                parts.append(
+                    f'    <text class="wall-type" x="{fmt(mx)}" y="{fmt(my - 4)}" '
+                    f'text-anchor="middle" fill="#1a1a1a">{esc(short)}</text>'
+                )
         parts.append("  </g>")
 
     parts.append(
@@ -1154,7 +1223,7 @@ def render_plan_view(
         parts.append(
             f'    <text class="room-label" x="{fmt(px)}" y="{fmt(py)}">{esc(label)}</text>'
         )
-    for eq in equipment:
+    for eq in equipment if not tags else []:
         if not _eq_on(eq):
             continue
         poly = eq.params.get("polygon_mm") or []
@@ -1172,6 +1241,50 @@ def render_plan_view(
         )
     parts.append("  </g>")
 
+    # Equipment leader tags (tags=True): underlined name on a leader, keyed to
+    # the equipment schedule (VAV-DD-1 style per the CD anatomy standard)
+    if tags:
+        eq_tag_font = max(7.0, min(11.0, 200 * scale))
+        parts.append(
+            f'  <g class="equipment-tags" font-family="sans-serif" '
+            f'font-size="{fmt(eq_tag_font)}" fill="#0b3d6e">'
+        )
+        for eq in equipment:
+            if not _eq_on(eq) or not eq.name:
+                continue
+            poly = eq.params.get("polygon_mm") or []
+            if poly:
+                cx = sum(float(p[0]) for p in poly) / len(poly)
+                cy = sum(float(p[1]) for p in poly) / len(poly)
+            else:
+                o = eq.params.get("origin_mm")
+                if not o:
+                    continue
+                try:
+                    cx, cy = float(o[0]), float(o[1])
+                except (TypeError, ValueError, IndexError):
+                    continue
+            px, py = project(cx, cy)
+            lx, ly = px + 28.0, py - 20.0
+            name = str(eq.name)
+            text_w = len(name) * eq_tag_font * 0.6
+            parts.append(
+                f'    <line class="equipment-leader" x1="{fmt(px)}" y1="{fmt(py)}" '
+                f'x2="{fmt(lx - 2)}" y2="{fmt(ly + 2)}" stroke="#0b3d6e" '
+                f'stroke-width="0.8"/>'
+            )
+            parts.append(
+                f'    <text class="equipment-tag" x="{fmt(lx)}" y="{fmt(ly)}">'
+                f"{esc(name)}</text>"
+            )
+            # underline: the schedule-key convention (underlined w/ leader)
+            parts.append(
+                f'    <line class="equipment-tag-underline" x1="{fmt(lx)}" '
+                f'y1="{fmt(ly + 2.5)}" x2="{fmt(lx + text_w)}" y2="{fmt(ly + 2.5)}" '
+                f'stroke="#0b3d6e" stroke-width="0.8"/>'
+            )
+        parts.append("  </g>")
+
     # Boxed room tags: NAME / area m² centered in the boundary
     if room_tags and _on("rooms"):
         tag_font = max(8.0, min(14.0, 300 * scale))
@@ -1179,7 +1292,7 @@ def render_plan_view(
             f'  <g class="room-tags" font-family="sans-serif" font-size="{fmt(tag_font)}" '
             f'text-anchor="middle">'
         )
-        for room in rooms:
+        for room_i, room in enumerate(rooms, start=1):
             ca = _room_centroid_area(room)
             if ca is None:
                 continue
@@ -1190,6 +1303,30 @@ def render_plan_view(
                 area_txt = f"{area_mm2 / _MM2_PER_SF:.0f} SF"
             else:
                 area_txt = f"{area_mm2 / 1e6:.1f} m²"
+            if room_areas:
+                # full tag anatomy: name over boxed number, area under the box
+                number = str(room.params.get("number") or f"{room_i:03d}")
+                num_w = max(30.0, len(number) * tag_font * 0.62 + 12.0)
+                num_h = tag_font + 8.0
+                parts.append(
+                    f'    <text x="{fmt(px)}" y="{fmt(py - num_h / 2 - 5)}" '
+                    f'font-weight="bold">{esc(name)}</text>'
+                )
+                parts.append(
+                    f'    <rect class="room-number-box" x="{fmt(px - num_w / 2)}" '
+                    f'y="{fmt(py - num_h / 2)}" width="{fmt(num_w)}" '
+                    f'height="{fmt(num_h)}" fill="#ffffff" fill-opacity="0.85" '
+                    f'stroke="#1a1a1a" stroke-width="1"/>'
+                )
+                parts.append(
+                    f'    <text class="room-number" x="{fmt(px)}" '
+                    f'y="{fmt(py + tag_font * 0.35)}">{esc(number)}</text>'
+                )
+                parts.append(
+                    f'    <text class="room-area" x="{fmt(px)}" '
+                    f'y="{fmt(py + num_h / 2 + tag_font + 3)}">{esc(area_txt)}</text>'
+                )
+                continue
             box_w = max(len(name), len(area_txt)) * tag_font * 0.62 + 14
             box_h = 2 * tag_font + 12
             parts.append(
@@ -1215,9 +1352,9 @@ def render_plan_view(
     if show_dimensions:
         parts.append('  <g class="dimensions">')
         dim_budget = max_dimensions
-        # grid dim chains carry the wall/overall dims — skip the per-wall
-        # midspan dims then (they collide with section markers and chains)
-        _has_grid_chains = grid_dims and _on("grids") and bool(model.grids)
+        # grid dim chains / dim tiers carry the wall/overall dims — skip the
+        # per-wall midspan dims then (they collide with markers and chains)
+        _has_grid_chains = (grid_dims and _on("grids") and bool(model.grids)) or dim_tiers
         if walls and _on("walls") and not ghost_walls and not _has_grid_chains:
             ranked = sorted(
                 walls,
@@ -1291,8 +1428,13 @@ def render_plan_view(
             else:
                 px0, py0 = project(min_x, p)
                 px1, py1 = project(max_x, p)
-                # default V-axis labels: A, B, C…
-                lab = str(labels[i]) if i < len(labels) else chr(ord("A") + (i % 26))
+                # default V-axis labels: A, B, C… (skip "I" with fractional_grids)
+                if i < len(labels):
+                    lab = str(labels[i])
+                elif fractional_grids:
+                    lab = _GRID_LETTERS_NO_I[i % len(_GRID_LETTERS_NO_I)]
+                else:
+                    lab = chr(ord("A") + (i % 26))
             parts.append(
                 f'    <line x1="{fmt(px0)}" y1="{fmt(py0)}" x2="{fmt(px1)}" y2="{fmt(py1)}" '
                 f'stroke-dasharray="4 4"/>'
@@ -1310,6 +1452,98 @@ def render_plan_view(
                     f"{esc(lab)}</text>"
                 )
     parts.append("  </g>")
+
+    # Fractional grid intermediates: wall/column centerlines landing off the
+    # main grid by more than FRACTIONAL_GRID_TOL_MM get a dash-dot centerline
+    # with bubbles on both ends, labelled fractionally between neighbours
+    # (between grids 1 and 2 at 90% → "1.9"; between B and C at 20% → "B.2").
+    if fractional_grids and _on("grids") and model.grids:
+
+        def _axis_pairs(axis: str) -> list[tuple[float, str]]:
+            pairs: list[tuple[float, str]] = []
+            for g in model.grids:
+                if g.params.get("axis", "U") != axis:
+                    continue
+                g_labels = g.params.get("labels") or []
+                for gi, pos in enumerate(g.params.get("positions_mm") or []):
+                    if gi < len(g_labels):
+                        lab = str(g_labels[gi])
+                    elif axis == "U":
+                        lab = str(gi + 1)
+                    else:
+                        lab = _GRID_LETTERS_NO_I[gi % len(_GRID_LETTERS_NO_I)]
+                    pairs.append((float(pos), lab))
+            pairs.sort(key=lambda t: t[0])
+            return pairs
+
+        def _frac_intermediates(
+            axis: str, candidates: list[float]
+        ) -> list[tuple[float, str]]:
+            mains = _axis_pairs(axis)
+            if len(mains) < 2:
+                return []
+            found: list[tuple[float, str]] = []
+            for c in sorted(candidates):
+                if any(abs(c - mp) <= FRACTIONAL_GRID_TOL_MM for mp, _ in mains):
+                    continue
+                if c <= mains[0][0] or c >= mains[-1][0]:
+                    continue
+                if any(abs(c - fp) <= FRACTIONAL_GRID_TOL_MM for fp, _ in found):
+                    continue
+                for (a, lab_a), (b, _lab_b) in pairwise(mains):
+                    if a < c < b:
+                        tenth = round((c - a) / (b - a) * 10)
+                        if 1 <= tenth <= 9:
+                            found.append((c, f"{lab_a}.{tenth}"))
+                        break
+            return found
+
+        u_cands: list[float] = []
+        v_cands: list[float] = []
+        for _el, (x0, y0, x1, y1, _t) in walls:
+            if abs(x1 - x0) <= 1.0:
+                u_cands.append(x0)
+            if abs(y1 - y0) <= 1.0:
+                v_cands.append(y0)
+        for col in columns:
+            o = col.params.get("origin_mm")
+            try:
+                if o is not None and len(o) >= 2:
+                    u_cands.append(float(o[0]))
+                    v_cands.append(float(o[1]))
+            except (TypeError, ValueError):
+                continue
+        frac_lines = [("U", pos, lab) for pos, lab in _frac_intermediates("U", u_cands)]
+        frac_lines += [("V", pos, lab) for pos, lab in _frac_intermediates("V", v_cands)]
+        if frac_lines:
+            fr_br = max(8.0, 120 * scale)
+            parts.append(
+                '  <g class="grids-frac" stroke="#888" stroke-width="0.6" fill="none">'
+            )
+            for axis, p, lab in frac_lines:
+                if axis == "U":
+                    px0, py0 = project(p, min_y)
+                    px1, py1 = project(p, max_y)
+                else:
+                    px0, py0 = project(min_x, p)
+                    px1, py1 = project(max_x, p)
+                # dash-dot centerline
+                parts.append(
+                    f'    <line x1="{fmt(px0)}" y1="{fmt(py0)}" x2="{fmt(px1)}" '
+                    f'y2="{fmt(py1)}" stroke-dasharray="12 4 3 4"/>'
+                )
+                # bubbles on both ends
+                for bx, by in ((px0, py0), (px1, py1)):
+                    parts.append(
+                        f'    <circle cx="{fmt(bx)}" cy="{fmt(by)}" r="{fmt(fr_br)}" '
+                        f'fill="#fff" stroke="#555" stroke-width="1"/>'
+                    )
+                    parts.append(
+                        f'    <text x="{fmt(bx)}" y="{fmt(by + fr_br * 0.35)}" '
+                        f'text-anchor="middle" font-size="{fmt(max(6, fr_br * 0.7))}" '
+                        f'fill="#333" font-family="sans-serif">{esc(lab)}</text>'
+                    )
+            parts.append("  </g>")
 
     # Grid dimension chains: running dims between consecutive grid positions
     # (top band for the U axis, left band for the V axis) + overall dimension.
@@ -1407,6 +1641,171 @@ def render_plan_view(
             )
         parts.append("  </g>")
 
+    # Multi-tier dimension chains (CD anatomy standard): OUTSIDE the plan on
+    # the top and left sides — tier 3 feature string (exterior-wall ends +
+    # opening jambs) innermost, tier 2 grid-to-grid bay string, tier 1 overall
+    # extents outermost. 45° tick terminators, witness lines with a small gap
+    # off the object, ≥3 equal segments collapse to "N EQ. SPACES".
+    _grids_drawn = _on("grids") and bool(model.grids)
+    _tier_base = (_gd_br if _grids_drawn else 8.0) + (
+        34.0 if (grid_dims and _grids_drawn) else 0.0
+    )
+    if dim_tiers and walls_draw:
+        band_pts = [
+            pt
+            for _el, (x0, y0, x1, y1, t) in walls_draw
+            for pt in _wall_band(x0, y0, x1, y1, t)
+        ]
+        wx0 = min(p[0] for p in band_pts)
+        wx1 = max(p[0] for p in band_pts)
+        wy0 = min(p[1] for p in band_pts)
+        wy1 = max(p[1] for p in band_pts)
+        obj_top_py = project(wx0, wy1)[1]
+        obj_left_px = project(wx0, wy1)[0]
+
+        u_pos = sorted(
+            {
+                float(p)
+                for g in model.grids
+                if g.params.get("axis", "U") == "U"
+                for p in (g.params.get("positions_mm") or [])
+            }
+        ) if _grids_drawn else []
+        v_pos = sorted(
+            {
+                float(p)
+                for g in model.grids
+                if g.params.get("axis", "U") == "V"
+                for p in (g.params.get("positions_mm") or [])
+            }
+        ) if _grids_drawn else []
+
+        # feature strings: exterior wall ends + hosted opening jambs — the
+        # northernmost horizontal wall feeds the top chain, the westernmost
+        # vertical wall feeds the left chain
+        feat_x: list[float] = []
+        feat_y: list[float] = []
+        horiz = [(el, w) for el, w in walls if abs(w[3] - w[1]) <= 1.0]
+        vert = [(el, w) for el, w in walls if abs(w[2] - w[0]) <= 1.0]
+
+        def _jambs(host: Element, w: tuple[float, float, float, float, float]) -> list[
+            tuple[float, float]
+        ]:
+            pts: list[tuple[float, float]] = []
+            for opening in list(doors) + list(windows):
+                if (opening.host_id or "") != host.id:
+                    continue
+                off = float(opening.params.get("offset_mm", 0))
+                w_o = float(opening.params.get("width_mm", 900))
+                try:
+                    pts.append(point_along_segment((w[0], w[1]), (w[2], w[3]), off))
+                    pts.append(
+                        point_along_segment((w[0], w[1]), (w[2], w[3]), off + w_o)
+                    )
+                except Exception:  # noqa: BLE001
+                    continue
+            return pts
+
+        if horiz:
+            el_n, w_n = max(horiz, key=lambda t: (t[1][1] + t[1][3]) / 2)
+            feat_x = [w_n[0], w_n[2]] + [p[0] for p in _jambs(el_n, w_n)]
+        if vert:
+            el_w, w_w = min(vert, key=lambda t: (t[1][0] + t[1][2]) / 2)
+            feat_y = [w_w[1], w_w[3]] + [p[1] for p in _jambs(el_w, w_w)]
+
+        def _stations(vals: list[float]) -> list[float]:
+            out: list[float] = []
+            for v in sorted(vals):
+                if not out or v - out[-1] > 1.0:
+                    out.append(v)
+            return out
+
+        def _tick45(x: float, y: float) -> str:
+            return (
+                f'    <line class="dim-tick" x1="{fmt(x - 3)}" y1="{fmt(y + 3)}" '
+                f'x2="{fmt(x + 3)}" y2="{fmt(y - 3)}" stroke-width="1.1"/>'
+            )
+
+        tiers_any = False
+
+        def _chain_h(vals: list[float], y_line: float, cls: str) -> None:
+            nonlocal tiers_any
+            sts = _stations(vals)
+            if len(sts) < 2:
+                return
+            tiers_any = True
+            parts.append(f'    <g class="dim-tier {cls}">')
+            pxs = {s: project(s, max_y)[0] for s in sts}
+            for s in sts:  # witness lines: small gap off the object
+                parts.append(
+                    f'    <line class="dim-witness" x1="{fmt(pxs[s])}" '
+                    f'y1="{fmt(obj_top_py - 4.0)}" x2="{fmt(pxs[s])}" '
+                    f'y2="{fmt(y_line - 3.0)}" stroke-width="0.5" opacity="0.6"/>'
+                )
+            for a, b, override in _chain_segments(sts):
+                xa, xb = pxs[a], pxs[b]
+                parts.append(
+                    f'    <line x1="{fmt(xa)}" y1="{fmt(y_line)}" '
+                    f'x2="{fmt(xb)}" y2="{fmt(y_line)}"/>'
+                )
+                parts.append(_tick45(xa, y_line))
+                parts.append(_tick45(xb, y_line))
+                lab = override if override is not None else _fmt_len(b - a)
+                parts.append(
+                    f'    <text x="{fmt((xa + xb) / 2)}" y="{fmt(y_line - 2.5)}" '
+                    f'text-anchor="middle">{esc(lab)}</text>'
+                )
+            parts.append("    </g>")
+
+        def _chain_v(vals: list[float], x_line: float, cls: str) -> None:
+            nonlocal tiers_any
+            sts = _stations(vals)
+            if len(sts) < 2:
+                return
+            tiers_any = True
+            parts.append(f'    <g class="dim-tier {cls}">')
+            pys = {s: project(min_x, s)[1] for s in sts}
+            for s in sts:
+                parts.append(
+                    f'    <line class="dim-witness" x1="{fmt(obj_left_px - 4.0)}" '
+                    f'y1="{fmt(pys[s])}" x2="{fmt(x_line - 3.0)}" '
+                    f'y2="{fmt(pys[s])}" stroke-width="0.5" opacity="0.6"/>'
+                )
+            for a, b, override in _chain_segments(sts):
+                ya, yb = pys[a], pys[b]
+                parts.append(
+                    f'    <line x1="{fmt(x_line)}" y1="{fmt(ya)}" '
+                    f'x2="{fmt(x_line)}" y2="{fmt(yb)}"/>'
+                )
+                parts.append(_tick45(x_line, ya))
+                parts.append(_tick45(x_line, yb))
+                lab = override if override is not None else _fmt_len(abs(b - a))
+                my = (ya + yb) / 2
+                parts.append(
+                    f'    <text x="{fmt(x_line - 3)}" y="{fmt(my)}" text-anchor="middle" '
+                    f'transform="rotate(-90 {fmt(x_line - 3)} {fmt(my)})">{esc(lab)}</text>'
+                )
+            parts.append("    </g>")
+
+        parts.append(
+            '  <g class="dim-tiers" stroke="#333" stroke-width="0.8" fill="#111" '
+            'font-family="sans-serif" font-size="9">'
+        )
+        # top side (X): feature innermost → grid bays → overall outermost
+        _chain_h(feat_x, -(_tier_base + 14.0), "tier-feature")
+        _chain_h(u_pos, -(_tier_base + 30.0), "tier-grid")
+        _chain_h([wx0, wx1], -(_tier_base + 46.0), "tier-overall")
+        # left side (Y)
+        _chain_v(feat_y, -(_tier_base + 14.0), "tier-feature")
+        _chain_v(v_pos, -(_tier_base + 30.0), "tier-grid")
+        _chain_v([wy0, wy1], -(_tier_base + 46.0), "tier-overall")
+        if tiers_any:
+            parts.append(
+                f'    <text class="dim-governs" x="0" y="{fmt(-(_tier_base + 58.0))}" '
+                f'text-anchor="start" font-weight="bold">{esc(DIM_GOVERNS_NOTE)}</text>'
+            )
+        parts.append("  </g>")
+
     # Section cut markers (flag symbols with sheet reference at the cut ends)
     if section_marks:
         parts.append('  <g class="section-marks" font-family="sans-serif">')
@@ -1471,12 +1870,75 @@ def render_plan_view(
             continue
     parts.append("  </g>")
 
+    # Key plan: reduced building outline block in the top-right corner —
+    # footprint from the level's walls (never crop-filtered), current crop
+    # zone shaded when a crop window is set.
+    if key_plan:
+        kp_walls = [
+            wp
+            for el in model.query(category="wall", level=lvl.name)
+            if (wp := _wall_endpoints(el)) is not None
+        ]
+        if kp_walls:
+            kw, kh = 110.0, 86.0
+            bx = max(width - kw - 6.0, 6.0)
+            by = 6.0
+            kxs = [v for w in kp_walls for v in (w[0], w[2])]
+            kys = [v for w in kp_walls for v in (w[1], w[3])]
+            kx0, kx1 = min(kxs), max(kxs)
+            ky0, ky1 = min(kys), max(kys)
+            bw = max(kx1 - kx0, 1.0)
+            bh = max(ky1 - ky0, 1.0)
+            ks = min((kw - 16.0) / bw, (kh - 28.0) / bh)
+
+            def kproj(x: float, y: float) -> tuple[float, float]:
+                ox = bx + (kw - bw * ks) / 2.0
+                oy = by + 6.0 + (kh - 24.0 - bh * ks) / 2.0
+                return ox + (x - kx0) * ks, oy + (ky1 - y) * ks
+
+            parts.append('  <g class="key-plan" font-family="sans-serif">')
+            parts.append(
+                f'    <rect x="{fmt(bx)}" y="{fmt(by)}" width="{fmt(kw)}" '
+                f'height="{fmt(kh)}" fill="#ffffff" fill-opacity="0.92" '
+                f'stroke="#333" stroke-width="1"/>'
+            )
+            if crop_mm is not None:
+                ka = kproj(float(crop_mm[0]), float(crop_mm[3]))
+                kb = kproj(float(crop_mm[2]), float(crop_mm[1]))
+                cx0p = min(max(ka[0], bx + 1.0), bx + kw - 1.0)
+                cy0p = min(max(ka[1], by + 1.0), by + kh - 1.0)
+                cx1p = min(max(kb[0], bx + 1.0), bx + kw - 1.0)
+                cy1p = min(max(kb[1], by + 1.0), by + kh - 1.0)
+                parts.append(
+                    f'    <rect class="key-plan-crop" x="{fmt(cx0p)}" y="{fmt(cy0p)}" '
+                    f'width="{fmt(max(cx1p - cx0p, 1.0))}" '
+                    f'height="{fmt(max(cy1p - cy0p, 1.0))}" '
+                    f'fill="#f2a33c" fill-opacity="0.5"/>'
+                )
+            for x0, y0, x1, y1, _t in kp_walls:
+                ka = kproj(x0, y0)
+                kb = kproj(x1, y1)
+                parts.append(
+                    f'    <line x1="{fmt(ka[0])}" y1="{fmt(ka[1])}" '
+                    f'x2="{fmt(kb[0])}" y2="{fmt(kb[1])}" stroke="#555" '
+                    f'stroke-width="1"/>'
+                )
+            parts.append(
+                f'    <text x="{fmt(bx + kw / 2)}" y="{fmt(by + kh - 5)}" '
+                f'text-anchor="middle" font-size="6.5" letter-spacing="1" '
+                f'fill="#333">KEY PLAN</text>'
+            )
+            parts.append("  </g>")
+
     # reveal the dimension band (offset 12 + text) and grid bubbles (radius br),
     # which sit just outside the geometry extents, so they render on-canvas.
     dim_pad = max(30.0, 130.0 * scale) if show_dimensions else max(4.0, 130.0 * scale)
     if grid_dims and _on("grids") and model.grids:
         # grid dim chains sit outside the grid bubbles: bubble radius + 2 chains
         dim_pad = max(dim_pad, _gd_br + 44.0)
+    if dim_tiers:
+        # three chain tiers + governs note sit outside bubbles / legacy chains
+        dim_pad = max(dim_pad, _tier_base + 70.0)
     body = "\n".join(parts)
     if crop_mm is not None:
         # clip partially-inside geometry at the crop window (+ pad reveal)

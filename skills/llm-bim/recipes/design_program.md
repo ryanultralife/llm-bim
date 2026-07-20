@@ -3,7 +3,38 @@
 Use this when the ask is a **complete plan or construction set** (a building,
 an addition, a facility), not a one-off model. This is the pattern that took a
 real residential project from Revit to llm-bim end-to-end; the worked instance
-is [`schad_cd.md`](schad_cd.md) (`llmbim case schad`).
+is [`schad_cd.md`](schad_cd.md) (`llmbim case schad`). The acceptance bar is
+[`docs/CD_COMPLETENESS_STANDARD.md`](../../../docs/CD_COMPLETENESS_STANDARD.md).
+
+## 0. The interrogation (before any geometry)
+
+You are the architect / machinist on this job: **ask every question a
+professional would need answered before drawing**, in one pass, at the start.
+The conversation happens at AI speed — you read the repo and docs in seconds;
+spend the saved time interrogating the design, not skipping the questions.
+
+Battery (adapt per project type; every item ends up ANSWERED in the basis
+module or FLAGGED as `Q-`/`*_assumed` — never silently defaulted):
+
+- **Site / governing**: location, setbacks, frost depth, snow/wind/seismic,
+  applicable code + jurisdiction, utility points of connection.
+- **Program**: every room/space — use, occupants, area, adjacencies,
+  clearances, ceiling heights; loads (live, equipment, process).
+- **Envelope**: wall/roof assemblies, ratings, glazing, insulation targets.
+- **Structure**: system (wood/steel/CMU), spans, member preferences, tall-wall
+  conditions, lateral system.
+- **Openings**: full door/window schedule intent — sizes, types, hardware,
+  ratings, ADA.
+- **MEP**: fixture counts, equipment list, service sizes, routing constraints,
+  ventilation/pressurization needs.
+- **Machines/devices** (machinist mode): materials, tolerances, threads,
+  finishes, mating parts, fabrication method, test/acceptance criteria.
+- **Deliverable scope**: plan set vs full CD set, sheet list expectations,
+  units, schedules and details required, who reviews.
+
+If the designer can't answer, that's an answer: record the assumption
+explicitly and keep building. The interrogation is complete when nothing in
+the model will ever need a number that isn't in the basis or flagged.
 
 ## 1. Design basis module = the only number source
 

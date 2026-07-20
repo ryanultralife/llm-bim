@@ -186,3 +186,57 @@ def test_verify_pack_counts_alpha_prefix_disciplines(tmp_path: Path) -> None:
     export_construction_set(p.model, cons, plan_scale=0.02, set_type="plan")
     res2 = verify_pack(tmp_path)
     assert set(res2["sheet_count_by_discipline"]) == {"G", "A"}
+
+
+# ---------------------------------------------------------------------------
+# WP-CD-ANATOMY integration: slice-B graphics options through both registers
+# ---------------------------------------------------------------------------
+
+
+def test_custom_register_line_weights_and_hatches(tmp_path):
+    p = _project("GraphicsCustom")
+    reg = [
+        {"no": "A2.1", "title": "ELEVATIONS", "kind": "elevations", "pair": ["S", "N"],
+         "line_weights": True},
+        {"no": "A3.1", "title": "SECTIONS", "kind": "sections",
+         "line_weights": True, "hatches": True},
+    ]
+    export_construction_set(p.model, tmp_path, sheets=reg)
+    elev = (tmp_path / "A2-1_elevations.svg").read_text()
+    sec = (tmp_path / "A3-1_sections.svg").read_text()
+    assert "lw-heavy" in elev and "lw-heavy" in sec
+    assert "hatch" in sec or "stipple" in sec or "CONC" in sec
+
+
+def test_custom_register_stamp_block_on_s_discipline(tmp_path):
+    p = _project("StampCustom")
+    reg = [
+        {"no": "S1.1", "title": "FOUNDATION PLAN", "kind": "plan", "level": "L1"},
+        {"no": "A1.1", "title": "FLOOR PLAN", "kind": "plan", "level": "L1"},
+    ]
+    export_construction_set(p.model, tmp_path, sheets=reg, stamp_block=True)
+    s_sheet = (tmp_path / "S1-1_plan.svg").read_text()
+    a_sheet = (tmp_path / "A1-1_plan.svg").read_text()
+    assert "STAMP" in s_sheet
+    assert "STAMP" not in a_sheet  # export default is S-discipline only
+    # per-sheet override beats the export default
+    export_construction_set(
+        p.model, tmp_path,
+        sheets=[{"no": "A9.9", "title": "OVERRIDE", "kind": "plan", "level": "L1",
+                 "stamp_block": True}],
+    )
+    assert "STAMP" in (tmp_path / "A9-9_plan.svg").read_text()
+
+
+def test_default_register_graphics_options(tmp_path):
+    p = _project("GraphicsDefault")
+    export_construction_set(p.model, tmp_path, line_weights=True, hatches=True)
+    sec = (tmp_path / "A-301_sections.svg").read_text()
+    assert "lw-heavy" in sec
+
+
+def test_default_register_unchanged_without_graphics_options(tmp_path):
+    p = _project("GraphicsOff")
+    export_construction_set(p.model, tmp_path / "off")
+    sec = (tmp_path / "off" / "A-301_sections.svg").read_text()
+    assert "lw-heavy" not in sec and "STAMP" not in sec

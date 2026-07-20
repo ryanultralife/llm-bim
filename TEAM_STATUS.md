@@ -1,8 +1,8 @@
 # TEAM STATUS — live coordination board
 
-**Last updated:** 2026-07-19 by **Grok** (Schad Revit→llm-bim transition review OPEN for Claude)  
+**Last updated:** 2026-07-20 by **Claude** (WP-SCHAD S0–S8 done + merged; WP-CD-ANATOMY in flight)  
 **Canonical “who does what right now”:** [`notes/handoffs/NOW.md`](notes/handoffs/NOW.md) ← **read first**  
-**Schad transition review (OPEN until Gate D):** [`docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md`](docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md)
+**Schad transition review (OPEN pending human sign-off vs `docs/CD_COMPLETENESS_STANDARD.md`):** [`docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md`](docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md)
 
 Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
 
@@ -12,8 +12,8 @@ Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
 
 | Agent | Owns now | Next | Stay out of |
 |-------|----------|------|-------------|
-| **Claude** | **WP-SCHAD-*** series — claim S0 first | Work until Gate D in transition review | Unrelated freezes only if claimed |
-| **Grok** | Launch/CI/CLI assist for Schad case; review PRs | `llmbim case schad` when S8 | Claude’s claimed Schad freeze paths |
+| **Claude** | **WP-CD-ANATOMY** (drawings: plan/construction + section/layout/sheets) | Close remaining `CD_COMPLETENESS_STANDARD.md` gap rows | Unrelated freezes only if claimed |
+| **Grok** | Review merged PRs #8–#14; INTEC adoption of custom register/units | Eigen-side `trl_evidence` links | Claude’s claimed drawings freeze paths |
 
 **Rule:** One agent per freeze zone. Claim in this file before coding. Announce next step in `notes/handoffs/NOW.md` when you change direction.
 
@@ -31,6 +31,7 @@ Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
 | **WP-SCHAD-S6** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **done** (`8f834a3`) | full content build (127 el) + Gate C 21-sheet register |
 | **WP-SCHAD-S7** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **done** (`2395d34`) | imperial units + door/window tags across renderers |
 | **WP-SCHAD-S8** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **done** (`cb9845e`) | `llmbim case schad`, CI drift guards, schad_cd recipe, retire-Revit record |
+| **WP-CD-ANATOMY** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **done** (`c261633`+`5b621ed`+`aef3ccf`) | dim_tiers / fractional_grids / room_areas / key_plan / tags anatomy · line_weights / hatches / poché split / revision_cloud / stamp_block · both registers wired. Remaining gaps tracked in the standard's table (per-discipline grid sides, detail bubbles w/ refs, match lines, auto-clouding, schedule-key tag linkage) |
 | GROK-SSOT-P0/P1/P2 | Claude | `main` (PR #7) | **done** | strict glTF VERIFY + llmbim view, place_tube/place_wire_path/material map/nps, DevicePack + fixture + recipe, viewer presets/auto-rotate/embed-auto |
 | LAUNCH / LAUNCH-POLISH | Grok | `main` | **done** | server/cli/mcp/docker |
 | WP-IFC / WP-DRAWINGS-V2 / AUDIT-2026-07 | Claude | `main` (PR #1) | **done** | see git history |
