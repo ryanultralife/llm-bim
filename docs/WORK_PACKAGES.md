@@ -99,38 +99,71 @@ Files (Grok seeds failing tests if not present — Claude implements):
 
 ---
 
-## WP-IFC — IFC4 export (**CLAUDE PRIMARY — claim this**)
+## WP-IFC — IFC4 export (**DONE — Claude, merged PR #1 2026-07-19**)
 
 | Field | Value |
 |-------|--------|
-| Status | **ready** — Grok will not work here while Claude claims |
-| Suggested owner | **Claude** |
-| Freeze zone | `packages/ifc/**`, `tests/wp/test_wp_ifc_*.py`, `tests/golden/ifc/**` |
-| Depends on | Walls/slabs/doors/windows/rooms on main (already shipped) |
-| Grok next | Launch/API only — see `notes/handoffs/NOW.md` |
+| Status | **done** |
+| Owner | Claude |
+| Landed | `main` via PR #1 (audit branch) |
 
-### Goal
+### What shipped
 
-Export IFC4 with IfcProject/IfcSite/IfcBuilding/IfcBuildingStorey, IfcWall, IfcSlab, IfcDoor, IfcWindow, IfcSpace when present.
+- Spatial tree (Project/Site/Building/Storey) with storey-relative element
+  placement — multi-storey elevations flow through the placement chain
+- IFC4-exact attribute counts (IfcDoor/IfcWindow 13, wall/column/beam
+  PredefinedType) — strict readers (ifcopenshell/Revit) accept the file
+- Hosted openings: `IfcOpeningElement` punched wall-local through hosts via
+  `IfcRelVoidsElement`, leaf fills via `IfcRelFillsElement`
+- Wall corner joins: solids extend half the adjacent wall's thickness at
+  shared endpoints so L/T corners close
+- Correct profile offsets (solids run start→end, not straddling the origin);
+  CSI psets; space containment
+- Acceptance tests hand-parse the SPF (attribute counts, ref integrity,
+  storey Z, voids/fills wiring, join dims) — no ifcopenshell required;
+  optional ifcopenshell round-trip test skips if not installed
 
-### Frozen API
+### Remaining ideas (new claim if wanted)
 
-```python
-# packages/ifc/llmbim_ifc/export.py
+- IfcMaterialLayerSet from wall types; IfcQuantitySets (needs area/volume
+  units aligned); MVD-strict ReferenceView tightening
 
-def export_ifc(model: ProjectModel, path: str | Path) -> None:
-    """Write IFC4 file openable in at least one common viewer / ifcopenshell."""
-```
+---
 
-### Definition of done
+## WP-DRAWINGS-V2 — drawings quality (**DONE — Claude, merged PR #1 2026-07-19**)
 
-- [ ] `ifcopenshell` optional extra used  
-- [ ] Round-trip open with ifcopenshell without error  
-- [ ] Storeys match levels; wall count matches model  
-- [ ] Tests skip gracefully if ifcopenshell not installed OR mark as requiring `pip install -e ".[ifc]"`  
-- [ ] STATUS done  
+Landed as part of the audit branch: dimensions render on-canvas everywhere
+(pad-aware viewBox through sheets), opposite elevations mirrored with
+near-face opening culling, equipment hidden-line ghosting on elevations,
+PDF binder honors `scale()`, opening schedules carry derived coordinates.
 
-**Note:** If Claude can only claim one package, **prefer WP-DRAWINGS first** (visible agent deliverable). IFC second.
+---
+
+## WP-MEP-ROUTE — obstacle-avoiding autoroute (**claimed — Claude, in progress**)
+
+| Field | Value |
+|-------|--------|
+| Status | **claimed** (branch `claude/grok-audit-evolution-w4umwh`) |
+| Freeze zone | `packages/core/llmbim_core/mep_route.py` + registry/SDK/MCP wiring, `tests/unit/test_mep_autoroute.py` |
+
+Manhattan-grid autoroute between points/fittings avoiding wall footprints and
+equipment (clearance-aware), auto elbow insertion at bends, optional vertical
+transition with riser, mep_graph chaining, surfaced as op `mep_autoroute` +
+`Project.mep_autoroute` + MCP tool. Honesty unchanged: geometric coordination
+routing, not hydraulic design.
+
+---
+
+## WP-VIEWER-RICH — review 3D upgrades (**claimed — Claude, in progress**)
+
+| Field | Value |
+|-------|--------|
+| Status | **claimed** (branch `claude/grok-audit-evolution-w4umwh`) |
+| Freeze zone | `packages/drawings/llmbim_drawings/viewer3d.py`, `packages/geometry/llmbim_geometry/mesh.py`, `tests/unit/test_viewer3d_rich.py` |
+
+Element metadata into glTF node extras (id/name/category/system/level),
+click-to-inspect panel, category + level visibility filters, measure tool.
+View-only review — not an authoring canvas.
 
 ---
 
