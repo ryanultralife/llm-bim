@@ -23,9 +23,8 @@ Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
 
 | ID | Owner | Branch | Status | Freeze / paths |
 |----|-------|--------|--------|----------------|
-| **WP-SCHAD-S0** | **Claude** (to claim) | — | **ready** | `projects/schad/**`, `examples/schad_*.py` |
-| **WP-SCHAD-S1** | **Claude** (to claim) | — | **ready** | `types_catalog.py`, set_type / `annotations.py` |
-| **WP-SCHAD-S2…S8** | Claude | — | **ready** | see WORK_PACKAGES.md + transition doc |
+| **WP-SCHAD-S0+S1** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **claimed** | `projects/schad/**`, `examples/schad_*.py`, `types_catalog.py`, set_type sync |
+| **WP-SCHAD-S2…S8** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **queued** (S2+S5 next, then S3+S4, S6..S8) | see WORK_PACKAGES.md + transition doc |
 | GROK-SSOT-P0/P1/P2 | Claude | `main` (PR #7) | **done** | strict glTF VERIFY + llmbim view, place_tube/place_wire_path/material map/nps, DevicePack + fixture + recipe, viewer presets/auto-rotate/embed-auto |
 | LAUNCH / LAUNCH-POLISH | Grok | `main` | **done** | server/cli/mcp/docker |
 | WP-IFC / WP-DRAWINGS-V2 / AUDIT-2026-07 | Claude | `main` (PR #1) | **done** | see git history |
