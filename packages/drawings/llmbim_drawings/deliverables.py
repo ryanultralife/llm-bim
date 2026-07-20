@@ -145,6 +145,13 @@ def verify_pack(
     ).is_file()
     checks["has_index_html"] = (out / "index.html").is_file()
     checks["has_viewer3d"] = (out / "viewer3d.html").is_file()
+    if checks["has_viewer3d"]:
+        vtxt = (out / "viewer3d.html").read_text(encoding="utf-8", errors="replace")
+        # self-contained: bundled three.js inline, zero CDN dependency — a CDN
+        # reference means the viewer can silently render nothing offline
+        checks["viewer_self_contained"] = (
+            "__LLMBIM_THREE__" in vtxt and "unpkg.com" not in vtxt
+        )
 
     # multi-trade materials takeoff signals
     for rel in (

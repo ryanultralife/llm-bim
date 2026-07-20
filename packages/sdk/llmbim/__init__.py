@@ -1812,8 +1812,145 @@ class Project:
             name=name,
         )
 
+    def mep_tap(
+        self,
+        *,
+        target: str | tuple[float, float] | list[float],
+        source: str | None = None,
+        system: str | None = None,
+        kind: str = "pipe",
+        nps: str | None = None,
+        material: str | None = None,
+        clearance_mm: float = 150.0,
+        grid_mm: float = 250.0,
+        name: str = "",
+    ) -> dict[str, Any]:
+        """Tap a branch off an existing run: split it, insert a tee, route tee → target.
+
+        target: (x, y) mm or an element id. source: run element id (default: the
+        nearest run of this kind — and system, if given — to the target). The run
+        is split into two collinear segments with a catalog tee at the tap point;
+        the branch inherits nps/material/system unless overridden (a smaller
+        branch nps is reported as a reducing tee).
+        """
+        return self.op(
+            "mep_tap",
+            target=target if isinstance(target, str) else list(target),
+            source=source,
+            system=system,
+            kind=kind,
+            nps=nps,
+            material=material,
+            clearance_mm=clearance_mm,
+            grid_mm=grid_mm,
+            name=name,
+        )
+
+    def mep_trunk_branch(
+        self,
+        *,
+        level: str,
+        trunk_start: str | tuple[float, float] | list[float],
+        trunk_end: str | tuple[float, float] | list[float],
+        targets: list[str | tuple[float, float] | list[float]],
+        kind: str = "pipe",
+        nps: str = "2",
+        branch_nps: str | None = None,
+        material: str = "copper",
+        system: str = "CW",
+        z0_mm: float | None = None,
+        clearance_mm: float = 150.0,
+        grid_mm: float = 250.0,
+        width_mm: float = 400.0,
+        height_mm: float = 250.0,
+        trade_size: str = "3/4",
+        name: str = "",
+    ) -> dict[str, Any]:
+        """Autoroute a trunk, then tee-tap a branch off it to each target.
+
+        Returns {"trunk": ..., "branches": [...], "tee_ids": [...], ...}.
+        branch_nps lets the branches run smaller than the trunk (reducing tees).
+        """
+        return self.op(
+            "mep_trunk_branch",
+            level=level,
+            trunk_start=trunk_start if isinstance(trunk_start, str) else list(trunk_start),
+            trunk_end=trunk_end if isinstance(trunk_end, str) else list(trunk_end),
+            targets=[t if isinstance(t, str) else list(t) for t in targets],
+            kind=kind,
+            nps=nps,
+            branch_nps=branch_nps,
+            material=material,
+            system=system,
+            z0_mm=z0_mm,
+            clearance_mm=clearance_mm,
+            grid_mm=grid_mm,
+            width_mm=width_mm,
+            height_mm=height_mm,
+            trade_size=trade_size,
+            name=name,
+        )
+
     def mep_graph(self) -> list[dict[str, Any]]:
         return list(self.op("mep_graph").get("edges") or [])
+
+    # --- hydraulic sizing (engineering estimate — not stamped design) ---------
+
+    def size_pipe(
+        self,
+        flow_lps: float | None = None,
+        *,
+        material: str = "copper",
+        max_velocity_ms: float = 2.4,
+        fixture_units: float | None = None,
+    ) -> dict[str, Any]:
+        """Pick the smallest catalog NPS for a flow (L/s) or WSFU fixture units."""
+        return self.op(
+            "mep_size_pipe",
+            flow_lps=flow_lps,
+            material=material,
+            max_velocity_ms=max_velocity_ms,
+            fixture_units=fixture_units,
+        )
+
+    def size_duct(
+        self,
+        flow_m3h: float,
+        *,
+        friction_pa_m: float = 0.8,
+        max_velocity_ms: float = 7.5,
+        shape: str = "rect",
+    ) -> dict[str, Any]:
+        """Equal-friction duct sizing: round diameter + rectangular equivalent."""
+        return self.op(
+            "mep_size_duct",
+            flow_m3h=flow_m3h,
+            friction_pa_m=friction_pa_m,
+            max_velocity_ms=max_velocity_ms,
+            shape=shape,
+        )
+
+    def size_route(
+        self,
+        segment_ids: list[str] | dict[str, Any],
+        *,
+        flow_lps: float | None = None,
+        flow_m3h: float | None = None,
+        apply: bool = False,
+    ) -> dict[str, Any]:
+        """Size an existing routed run; apply=True updates element sizes in place."""
+        key = "edge" if isinstance(segment_ids, dict) else "segment_ids"
+        return self.op(
+            "mep_size_route",
+            **{key: segment_ids},
+            flow_lps=flow_lps,
+            flow_m3h=flow_m3h,
+            apply=apply,
+        )
+
+    def validate_runs(self) -> list[dict[str, Any]]:
+        """Velocity/friction report for every routed run carrying flow data."""
+        return list(self.op("mep_validate_runs").get("runs") or [])
 
     def authoring_checklist(self, product: str | None = None) -> dict[str, Any]:
         """Required/recommended fields for a product class (LLM must collect these)."""

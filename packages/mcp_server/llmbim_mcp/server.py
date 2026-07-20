@@ -635,6 +635,187 @@ if HAS_MCP:
             return _err(str(e))
 
     @mcp.tool()
+    def mep_tap(
+        project_id: str,
+        target: str,
+        source: str = "",
+        system: str = "",
+        kind: str = "pipe",
+        nps: str = "",
+        material: str = "",
+        clearance_mm: float = 150,
+        grid_mm: float = 250,
+        name: str = "",
+    ) -> str:
+        """Tap a branch off an existing pipe/duct/conduit run.
+        target: element id or "x,y" mm. Splits the nearest run (or `source` id,
+        filtered by `system` if given) at the tap point, inserts a catalog tee,
+        and autoroutes tee→target. nps overrides the branch size (reducing tee)."""
+
+        def _ep(v: str) -> str | list[float]:
+            if "," in v:
+                a, b = v.split(",", 1)
+                try:
+                    return [float(a), float(b)]
+                except ValueError:
+                    return v
+            return v
+
+        try:
+            p = store.get(project_id)
+            r = p.mep_tap(
+                target=_ep(target),
+                source=source or None,
+                system=system or None,
+                kind=kind,
+                nps=nps or None,
+                material=material or None,
+                clearance_mm=clearance_mm,
+                grid_mm=grid_mm,
+                name=name,
+            )
+            store.save(project_id)
+            return _tool_result(r)
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def mep_trunk_branch(
+        project_id: str,
+        level: str,
+        trunk_start: str,
+        trunk_end: str,
+        targets: str,
+        kind: str = "pipe",
+        nps: str = "2",
+        branch_nps: str = "",
+        material: str = "copper",
+        system: str = "CW",
+        z0_mm: str = "",
+        clearance_mm: float = 150,
+        grid_mm: float = 250,
+        width_mm: float = 400,
+        height_mm: float = 250,
+        trade_size: str = "3/4",
+        name: str = "",
+    ) -> str:
+        """Autoroute a trunk run, then tee-tap a branch to each target.
+        trunk_start/trunk_end: element id or "x,y" mm. targets: ";"-separated
+        list of element ids or "x,y" points. branch_nps sizes the branches
+        smaller than the trunk (reducing tees)."""
+
+        def _ep(v: str) -> str | list[float]:
+            if "," in v:
+                a, b = v.split(",", 1)
+                try:
+                    return [float(a), float(b)]
+                except ValueError:
+                    return v
+            return v
+
+        try:
+            p = store.get(project_id)
+            r = p.mep_trunk_branch(
+                level=level,
+                trunk_start=_ep(trunk_start),
+                trunk_end=_ep(trunk_end),
+                targets=[_ep(t.strip()) for t in targets.split(";") if t.strip()],
+                kind=kind,
+                nps=nps,
+                branch_nps=branch_nps or None,
+                material=material,
+                system=system,
+                z0_mm=float(z0_mm) if z0_mm.strip() else None,
+                clearance_mm=clearance_mm,
+                grid_mm=grid_mm,
+                width_mm=width_mm,
+                height_mm=height_mm,
+                trade_size=trade_size,
+                name=name,
+            )
+            store.save(project_id)
+            return _tool_result(r)
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def mep_size_pipe(
+        project_id: str,
+        flow_lps: str = "",
+        fixture_units: str = "",
+        material: str = "copper",
+        max_velocity_ms: float = 2.4,
+    ) -> str:
+        """Size a pipe NPS from flow (L/s) or WSFU fixture units.
+        Velocity + Hazen-Williams gradient. Engineering estimate, not stamped design."""
+        try:
+            p = store.get(project_id)
+            r = p.size_pipe(
+                float(flow_lps) if flow_lps.strip() else None,
+                material=material,
+                max_velocity_ms=max_velocity_ms,
+                fixture_units=float(fixture_units) if fixture_units.strip() else None,
+            )
+            return _tool_result(r)
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def mep_size_duct(
+        project_id: str,
+        flow_m3h: float,
+        friction_pa_m: float = 0.8,
+        max_velocity_ms: float = 7.5,
+        shape: str = "rect",
+    ) -> str:
+        """Equal-friction duct sizing: round diameter + rect equivalent (estimate)."""
+        try:
+            p = store.get(project_id)
+            r = p.size_duct(
+                flow_m3h,
+                friction_pa_m=friction_pa_m,
+                max_velocity_ms=max_velocity_ms,
+                shape=shape,
+            )
+            return _tool_result(r)
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def mep_size_route(
+        project_id: str,
+        segment_ids: str,
+        flow_lps: str = "",
+        flow_m3h: str = "",
+        apply: bool = False,
+    ) -> str:
+        """Size an existing routed run (segment_ids comma-separated).
+        apply=true updates element sizes takeoff-consistently (estimate)."""
+        try:
+            p = store.get(project_id)
+            ids = [s.strip() for s in segment_ids.split(",") if s.strip()]
+            r = p.size_route(
+                ids,
+                flow_lps=float(flow_lps) if flow_lps.strip() else None,
+                flow_m3h=float(flow_m3h) if flow_m3h.strip() else None,
+                apply=apply,
+            )
+            if apply:
+                store.save(project_id)
+            return _tool_result(r)
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def mep_validate_runs(project_id: str) -> str:
+        """Velocity/friction report for every routed run with flow data (estimate)."""
+        try:
+            p = store.get(project_id)
+            return _tool_result({"runs": p.validate_runs()})
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
     def place_cable_tray(
         project_id: str,
         level: str,

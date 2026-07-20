@@ -214,3 +214,19 @@ def test_viewer3d_browser_smoke(tmp_path: Path) -> None:
     finally:
         srv.shutdown()
     assert not page_errors, page_errors
+
+
+def test_viewer_is_self_contained_offline(tmp_path):
+    """viewer3d.html must bundle three.js inline — no CDN imports. A blocked or
+    offline CDN previously meant a silent black 3D view for any agent/user."""
+    from llmbim import Project
+
+    p = Project.create("SelfContained", vcs=False)
+    p.add_level("L1", 0)
+    p.create_wall(level="L1", start=(0, 0), end=(5000, 0), thickness_mm=200, height_mm=3000)
+    man = p.export_deliverables(tmp_path / "pack")
+    html = (tmp_path / "pack" / "viewer3d.html").read_text(encoding="utf-8")
+    assert "unpkg.com" not in html and "cdn." not in html, "viewer depends on a CDN"
+    assert "__LLMBIM_THREE__" in html, "bundled three.js runtime missing"
+    assert "bootError" in html, "visible error banner missing"
+    assert man["verification"]["viewer_self_contained"] is True
