@@ -72,6 +72,29 @@ def run_design_rules(model: ProjectModel) -> list[dict[str, Any]]:
         for el in model.query(category="wall", level=lv.name):
             ht = float(el.params.get("height_mm") or 0)
             if ht > clear + 50:
+                # Intentionally tall walls — multi-plate / balloon-framed
+                # (stacked top plates, garage high bays) — declare it on the
+                # element: params.multi_plate / params.balloon_framed, or an
+                # explicit params.plate_height_mm covering the wall height.
+                declared = float(el.params.get("plate_height_mm") or 0)
+                intentional = bool(
+                    el.params.get("multi_plate") or el.params.get("balloon_framed")
+                ) or (declared > 0 and ht <= declared + 50)
+                if intentional:
+                    findings.append(
+                        {
+                            "rule": "WALL_MULTI_PLATE",
+                            "severity": "info",
+                            "message": (
+                                f"Wall height {ht} > story clear {clear} mm — declared "
+                                f"multi-plate/balloon framing "
+                                f"(plate_height_mm={declared or ht:.0f})"
+                            ),
+                            "element_id": el.id,
+                            "domain": "constructability",
+                        }
+                    )
+                    continue
                 findings.append(
                     {
                         "rule": "WALL_EXCEEDS_STORY",

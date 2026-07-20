@@ -32,7 +32,9 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 import schad_design_basis as basis
+import schad_structural as struct
 from llmbim import Project
+from llmbim_core.types_catalog import DEFAULT_HEADER_TYPES, DEFAULT_SHEARWALL_TYPES
 
 FT_TO_MM = 304.8
 IN_TO_MM = 25.4
@@ -172,7 +174,15 @@ def build_model(*, author: str = "agent") -> Project:
             type_id=type_id,
             fire_rating=fire or None,
         )
+        if w["height"] > s["plate_main"]:
+            # Real multi-plate condition from the basis (Bay 2 14' plate,
+            # 1-hr fire wall to 12' shed bearing): declare the intent so
+            # WALL_EXCEEDS_STORY does not false-flag against the L1 10' clear
+            # (transition review §7.5, WP-SCHAD-S4).
+            p.op("set_param", id=eid, key="multi_plate", value=True)
+            p.op("set_param", id=eid, key="plate_height_mm", value=ft(w["height"]))
         wall_records.append({**w, "id": eid, "name": name})
+    wall_by_id = {wr["id"]: wr for wr in wall_records}
 
     def find_host(
         cx: float, cy: float, prefer: str | None = None
@@ -210,6 +220,11 @@ def build_model(*, author: str = "agent") -> Project:
             return None
         return best[0], best[1], best[2]
 
+    # Header jobs collected while placing openings (WP-SCHAD-S4): the header
+    # mark per opening follows the structural record's header_schedule —
+    # HDR-2 at the 12' overhead doors, HDR-1 at man doors + windows.
+    header_jobs: list[dict[str, Any]] = []
+
     for d in doors:
         host = find_host(d["cx"], d["cy"], prefer=d.get("wall"))
         if host is None:
@@ -230,6 +245,16 @@ def build_model(*, author: str = "agent") -> Project:
             height_mm=h_mm,
             name=d["mark"],
             type_id=door_type_for(d),
+        )
+        header_jobs.append(
+            {
+                "opening": d["mark"],
+                "hdr": "HDR-2" if "OVERHEAD" in (d.get("type") or "").upper() else "HDR-1",
+                "wall_id": wid,
+                "off_center_mm": off,
+                "width_mm": w_mm,
+                "head_mm": h_mm,
+            }
         )
 
     for win in windows:
@@ -255,6 +280,16 @@ def build_model(*, author: str = "agent") -> Project:
             name=win["mark"],
             type_id=WINDOW_TYPE,
         )
+        header_jobs.append(
+            {
+                "opening": win["mark"],
+                "hdr": "HDR-1",
+                "wall_id": wid,
+                "off_center_mm": off,
+                "width_mm": w_mm,
+                "head_mm": sill + h_mm,
+            }
+        )
 
     for room in placements:
         x, y, w, d = room["x"], room["y"], room["w"], room["d"]
@@ -278,19 +313,75 @@ def build_model(*, author: str = "agent") -> Project:
             )
 
     plate_mm = ft(s["plate_main"])
+    beam_z0_mm = plate_mm - s["beam_depth"] * FT_TO_MM
     for beam in structure.get("beams", []):
         p.place_beam(
             level="L1",
             start=(ft(beam["x"]), ft(beam["y1"])),
             end=(ft(beam["x"]), ft(beam["y2"])),
-            section=beam.get("section", "W16x40"),
+            section=beam.get("section", s["beam"]),
             name=beam.get("id", "beam"),
-            z0_mm=plate_mm - s["beam_depth"] * FT_TO_MM,
+            material="steel_A992",
+            z0_mm=beam_z0_mm,
+        )
+        # HSS posts under the beam ends [BOM via schad_structural.post_check];
+        # post height = underside of the W16x40 (plate - beam depth, basis).
+        post_section = struct.post_check()["member"].replace(" ", "")
+        for tag, yy in (("S", beam["y1"]), ("N", beam["y2"])):
+            p.place_column(
+                level="L1",
+                origin=(ft(beam["x"]), ft(yy)),
+                section=post_section,
+                height_mm=beam_z0_mm,
+                name=f"P-{beam.get('id', 'B')}-{tag}",
+                material="steel_A500",
+            )
+
+    # Opening headers per the structural record's schedule (data-carry;
+    # HDR marks/members from schad_structural.header_schedule, spans from
+    # the basis door/window schedules).
+    hdr_sched = {row["mark"]: row for row in struct.header_schedule()}
+    for job in header_jobs:
+        mark = job["hdr"]
+        row = hdr_sched[mark]
+        ht_type = DEFAULT_HEADER_TYPES[mark]
+        wr = wall_by_id[job["wall_id"]]
+        x1, y1 = ft(wr["x1"]), ft(wr["y1"])
+        dx, dy = ft(wr["x2"]) - x1, ft(wr["y2"]) - y1
+        wall_len = math.hypot(dx, dy)
+        ux, uy = dx / wall_len, dy / wall_len
+        half = job["width_mm"] / 2.0
+        c = max(half, min(wall_len - half, job["off_center_mm"]))
+        p.op(
+            "create_generic",
+            category="header",
+            level="L1",
+            name=f"{mark} @ {job['opening']}",
+            type_id=mark,
+            params={
+                "mark": mark,
+                "member": ht_type.member,
+                "record": row["member"],  # verbatim callout incl. citation
+                "opening": job["opening"],
+                "start_mm": [x1 + ux * (c - half), y1 + uy * (c - half)],
+                "end_mm": [x1 + ux * (c + half), y1 + uy * (c + half)],
+                "z0_mm": job["head_mm"],
+                "span_mm": job["width_mm"],
+                "width_mm": ht_type.width_mm,
+                "depth_mm": ht_type.depth_mm,
+                "ply": ht_type.ply,
+                "material": ht_type.material,
+                "use": row["use"],
+                "honesty": "design development — EOR to confirm",
+            },
         )
 
+    # Simpson Strong-Walls: typed first-class panels (WP-SCHAD-S4) —
+    # model/size from the basis + ShearWallType registry; positions carry
+    # the basis pos_assumed flag (exact stations are the engineer's).
     for sw in structure.get("strong_walls", []):
         h_mm = ft(sw["h"])
-        p.create_equipment_box(
+        eid = p.create_equipment_box(
             level="L1",
             origin=(ft(sw["x"]), ft(sw["y"])),
             size=(ft(s["ssw_w"]), s["ssw_t"] * FT_TO_MM, h_mm),
@@ -298,6 +389,11 @@ def build_model(*, author: str = "agent") -> Project:
             kind="shear_panel",
             centered=False,
         )
+        swt = DEFAULT_SHEARWALL_TYPES[sw["model"]]
+        p.op("set_type", id=eid, type_id=sw["model"])
+        p.op("set_param", id=eid, key="mark", value=swt.mark)
+        p.op("set_param", id=eid, key="model", value=sw["model"])
+        p.op("set_param", id=eid, key="pos_assumed", value=bool(sw.get("pos_assumed")))
 
     mech = next((r for r in placements if r["id"] == "MECHBATH"), None)
     if mech:
@@ -365,7 +461,6 @@ def _basis_snapshot() -> dict[str, Any]:
         "known_gaps": [
             "no roof planes until WP-SCHAD-S2",
             "no footings/rebar until WP-SCHAD-S3",
-            "headers/posts/typed shear until WP-SCHAD-S4",
             "Schad sheet register/details until WP-SCHAD-S5",
         ],
         "open_questions": basis.open_questions(),
@@ -387,7 +482,8 @@ def build_pack(out_dir: Path) -> tuple[Project, dict[str, Any]]:
     p.bind_vcs(out_dir)
     p.commit(
         "SCHAD Phase 1 shell from in-repo basis SSOT — S1 wood types "
-        "(W-EXT-2x6-BNB / W-INT-2x4 / W-1HR-GAR-ADU)"
+        "(W-EXT-2x6-BNB / W-INT-2x4 / W-1HR-GAR-ADU) + S4 structure "
+        "(W16x40 beams, HSS posts, HDR-1/HDR-2 headers, typed SSW panels)"
     )
     man = p.export_deliverables(out_dir)
     if not man.get("ok"):

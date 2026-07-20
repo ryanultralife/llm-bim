@@ -49,6 +49,44 @@ class WindowType(BaseModel):
     unit_cost: float = 0.0
 
 
+class HeaderType(BaseModel):
+    """Opening header assembly (LVL / sawn lumber) — carried design data.
+
+    ``member`` is the callout exactly as the project record states it; sizes
+    are dressed dimensions. Data-carry only (design development) — spans and
+    ply counts are the record's, not an engineering claim.
+    """
+
+    id: str
+    name: str
+    member: str  # record callout, e.g. '(2) LVL 1.75x16'
+    ply: int = 1
+    width_mm: float = 0.0  # total built-up width
+    depth_mm: float = 0.0
+    material: str = "lumber"
+    max_span_mm: float | None = None
+    serves: str = ""  # openings served, per the record
+    notes: str = ""
+
+
+class ShearWallType(BaseModel):
+    """Manufactured shear panel (e.g. Simpson Strong-Wall) — typed geometry.
+
+    Carries catalog geometry + mark only. Capacities, anchorage and final
+    placement are the EOR's (see manufacturer ESR) — no engineering claims.
+    """
+
+    id: str  # catalog model designation, e.g. SSW24x9
+    name: str
+    mark: str = ""  # schedule mark, e.g. SSW-1
+    manufacturer: str = "Simpson Strong-Tie"
+    model: str = ""
+    width_mm: float = 0.0
+    height_mm: float = 0.0
+    thickness_mm: float = 0.0
+    notes: str = ""
+
+
 # imperial helpers for residential (US) assemblies
 _IN_MM = 25.4
 _FT_MM = 304.8
@@ -177,6 +215,62 @@ DEFAULT_WINDOW_TYPES: dict[str, WindowType] = {
 }
 
 
+DEFAULT_HEADER_TYPES: dict[str, HeaderType] = {
+    # --- residential headers (WP-SCHAD-S4; marks/members per the Schad
+    # structural record: projects/schad/schad_structural.py header_schedule)
+    "HDR-1": HeaderType(
+        id="HDR-1",
+        name="Header 4x8 DF#2",
+        member="4x8 DF#2",
+        ply=1,
+        width_mm=3.5 * _IN_MM,  # dressed 4x nominal (PS 20)
+        depth_mm=7.25 * _IN_MM,  # dressed 8 nominal (PS 20)
+        material="df_lumber",
+        max_span_mm=4 * _FT_MM,
+        serves="ADU/workshop windows + man doors",
+        notes="design development — EOR to confirm",
+    ),
+    "HDR-2": HeaderType(
+        id="HDR-2",
+        name='Header (2) 1-3/4" x 16" LVL',
+        member="(2) LVL 1.75x16",
+        ply=2,
+        width_mm=2 * 1.75 * _IN_MM,
+        depth_mm=16 * _IN_MM,
+        material="lvl",
+        max_span_mm=12 * _FT_MM,
+        serves="12'-0\" overhead garage door openings",
+        notes="verify w/ SSW system geometry — design development, EOR to confirm",
+    ),
+}
+
+DEFAULT_SHEARWALL_TYPES: dict[str, ShearWallType] = {
+    # --- Simpson Strong-Wall panels (WP-SCHAD-S4). Geometry is the published
+    # SSW designation (24" wide panel x 9'/12' height, ~6" wall thickness) —
+    # matches the Schad basis scalars ssw_w / ssw_t. Data-carry only.
+    "SSW24x9": ShearWallType(
+        id="SSW24x9",
+        name="Strong-Wall SSW 24\" x 9'",
+        mark="SSW-1",
+        model="SSW24x9",
+        width_mm=24 * _IN_MM,
+        height_mm=9 * _FT_MM,
+        thickness_mm=6 * _IN_MM,
+        notes="capacity/anchorage per EOR + Simpson ESR — carried geometry only",
+    ),
+    "SSW24x12": ShearWallType(
+        id="SSW24x12",
+        name="Strong-Wall SSW 24\" x 12'",
+        mark="SSW-2",
+        model="SSW24x12",
+        width_mm=24 * _IN_MM,
+        height_mm=12 * _FT_MM,
+        thickness_mm=6 * _IN_MM,
+        notes="capacity/anchorage per EOR + Simpson ESR — carried geometry only",
+    ),
+}
+
+
 def register_wall_type(wt: WallType) -> WallType:
     """Register a wall type into the shared catalog (project/agent-defined).
 
@@ -197,6 +291,18 @@ def register_window_type(wt: WindowType) -> WindowType:
     return wt
 
 
+def register_header_type(ht: HeaderType) -> HeaderType:
+    """Register an opening header type (project/agent-defined)."""
+    DEFAULT_HEADER_TYPES[ht.id] = ht
+    return ht
+
+
+def register_shear_wall_type(st: ShearWallType) -> ShearWallType:
+    """Register a manufactured shear panel type (project/agent-defined)."""
+    DEFAULT_SHEARWALL_TYPES[st.id] = st
+    return st
+
+
 def catalog_dict() -> dict[str, Any]:
     from llmbim_core.materials import materials_catalog
     from llmbim_core.parts_catalog import PARTS
@@ -206,6 +312,8 @@ def catalog_dict() -> dict[str, Any]:
         "wall_types": {k: v.model_dump() for k, v in DEFAULT_WALL_TYPES.items()},
         "door_types": {k: v.model_dump() for k, v in DEFAULT_DOOR_TYPES.items()},
         "window_types": {k: v.model_dump() for k, v in DEFAULT_WINDOW_TYPES.items()},
+        "header_types": {k: v.model_dump() for k, v in DEFAULT_HEADER_TYPES.items()},
+        "shear_wall_types": {k: v.model_dump() for k, v in DEFAULT_SHEARWALL_TYPES.items()},
         "materials": materials_catalog(),
         "parts_count": len(PARTS),
         "parts_by_category": {
