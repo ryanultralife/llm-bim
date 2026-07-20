@@ -13,7 +13,13 @@ Humans review exports (IFC, PDF, SVG, glTF) and drive agents via chat/CLI.
 | **Local install** | [`docs/LOCAL.md`](docs/LOCAL.md) · `scripts/install_local.ps1` |
 | **MCP example** | [`skills/llm-bim/mcp.example.json`](skills/llm-bim/mcp.example.json) |
 
-Users run the **kernel on their device** and point **their** LLM (Grok, Claude, local, …) at the skill + MCP. Hosting is optional.
+Users run the **kernel on their device** and point **their** LLM (Grok, Claude, Gemini, local, …) at the skill + MCP. Hosting is optional.
+
+**The agent needs shell + Python execution** (an agentic CLI, IDE agent, or
+MCP client) — a browser-only chat cannot run the kernel and therefore cannot
+produce output. This is a harness requirement, not a model-capability tier.
+Entry context files per harness: `CLAUDE.md` (Claude Code), `GEMINI.md`
+(Gemini CLI), this file (`AGENTS.md` — Codex/Grok and the shared protocol).
 
 ## Tempo (read this first)
 
