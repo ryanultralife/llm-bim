@@ -128,10 +128,12 @@ def cmd_pack(args: argparse.Namespace) -> int:
         plan_level=args.level,
         plan_scale=args.scale,
         phases=phases,
+        set_type=getattr(args, "set_type", "construction"),
     )
     keys = (
         "project",
         "ok",
+        "set_type",
         "stats",
         "errors",
         "verification",
@@ -961,11 +963,16 @@ def cmd_case(args: argparse.Namespace) -> int:
     else:
         print(f"Unknown case: {args.name}. Use intec | proto10", file=sys.stderr)
         return 2
+    set_type = getattr(args, "set_type", "construction")
+    if set_type != "construction":
+        # builders export the default construction set; re-pack with requested set
+        p.export_deliverables(out, set_type=set_type)
     print(
         json.dumps(
             {
                 "case": args.name,
                 "out": str(out.resolve()),
+                "set_type": set_type,
                 "stats": p.stats(),
                 "open": str(out / "index.html"),
             },
@@ -1002,6 +1009,13 @@ def main(argv: list[str] | None = None) -> int:
     p_case = sub.add_parser("case", help="Build real test cases: intec | proto10")
     p_case.add_argument("name", choices=["intec", "proto10"])
     p_case.add_argument("--out", default=None, help="Output directory")
+    p_case.add_argument(
+        "--set",
+        dest="set_type",
+        default="construction",
+        choices=["plan", "construction"],
+        help="Drawing set: plan (permit sheets only) or construction (adds S/M/P/E)",
+    )
     p_case.set_defaults(func=cmd_case)
 
     p_pack = sub.add_parser("pack", help="Full deliverables pack from .llmbim.json")
@@ -1014,6 +1028,13 @@ def main(argv: list[str] | None = None) -> int:
         "--phases",
         default=None,
         help="Phase filter for exports e.g. new or new,existing (full model still saved)",
+    )
+    p_pack.add_argument(
+        "--set",
+        dest="set_type",
+        default="construction",
+        choices=["plan", "construction"],
+        help="Drawing set: plan (permit sheets only) or construction (adds S/M/P/E)",
     )
     p_pack.set_defaults(func=cmd_pack)
 
