@@ -111,6 +111,10 @@ ignore = ["E501"]
 # tests routinely bind a result they only assert doesn't raise, and zip fixed
 # pairs where length equality is guaranteed by construction.
 "tests/**" = ["F841", "B905"]
+# projects/** are downstream per-project scripts (grok's Schad build etc.):
+# sys.path bootstrap before imports (E402) and quick-script style are inherent;
+# the kernel packages stay fully gated.
+"projects/**" = ["E402", "E702", "E731", "E741", "F841", "UP031"]
 
 [tool.mypy]
 python_version = "3.11"
