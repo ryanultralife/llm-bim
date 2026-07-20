@@ -214,6 +214,14 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
     <input type="checkbox" id="ghostWalls"/>
   </div>
   <div class="row">
+    <label for="autoRotate">Auto-rotate (turntable)</label>
+    <input type="checkbox" id="autoRotate"/>
+  </div>
+  <div class="row">
+    <label for="rotateSpeed">Rotate speed</label>
+    <input type="range" id="rotateSpeed" min="2" max="60" value="15"/>
+  </div>
+  <div class="row">
     <label for="exposure">Exposure</label>
     <input type="range" id="exposure" min="40" max="180" value="105"/>
   </div>
@@ -319,6 +327,17 @@ const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerH
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.055;
+// Turntable: keeps orbiting once enabled; pan/tilt/zoom still work mid-spin
+// (OrbitControls resumes the spin after any drag). Speed slider is /10 deg-ish.
+const autoRotateEl = document.getElementById('autoRotate');
+const rotateSpeedEl = document.getElementById('rotateSpeed');
+function syncAutoRotate() {
+  controls.autoRotate = !!autoRotateEl.checked;
+  controls.autoRotateSpeed = Number(rotateSpeedEl.value) / 10.0;
+}
+autoRotateEl.addEventListener('change', syncAutoRotate);
+rotateSpeedEl.addEventListener('input', syncAutoRotate);
+syncAutoRotate();
 controls.screenSpacePanning = true;
 controls.minDistance = 0.5;
 controls.maxDistance = 5e6;
