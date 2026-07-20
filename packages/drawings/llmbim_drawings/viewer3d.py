@@ -1,8 +1,17 @@
-"""Presentation-grade 3D review viewer — three visual step-changes:
+"""Presentation-grade 3D review viewer.
+
+Visual step-changes:
 
 1. Interactive section clipping (true cutaway)
 2. Cinematic presentation (bloom, ACES, studio polish)
 3. Imagine-generated studio sky + concrete floor materials
+
+Review tooling (element-aware, driven by glTF node extras):
+
+4. Click-to-inspect — raycast picking highlights an element and shows its
+   id / name / category / level / key params in an info card
+5. Category chips + per-level isolation filters
+6. Measure tool — two clicks give a distance in mm + m with a floating label
 """
 
 from __future__ import annotations
@@ -105,11 +114,52 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
     background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
     padding: 8px 12px; font-size: 0.75rem; color: var(--warn);
   }
+  #chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .chip {
+    font-size: 0.68rem; padding: 3px 9px; border-radius: 999px; cursor: pointer;
+    background: #16324a; border: 1px solid #3d7ab5; color: var(--text); user-select: none;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .chip.off {
+    background: #151a21; border-color: var(--border); color: var(--muted);
+    text-decoration: line-through;
+  }
+  #levelBtns { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  #levelBtns button.active { background: #1a3a5c; border-color: #3d7ab5; color: var(--text); }
+  #inspect {
+    position: absolute; top: 60px; right: 14px; z-index: 3; display: none; width: 268px;
+    max-height: calc(100% - 90px); overflow: auto;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 14px; font-size: 0.76rem; box-shadow: 0 12px 36px rgba(0,0,0,0.5);
+    backdrop-filter: blur(14px);
+  }
+  #inspect h3 { margin: 0 18px 6px 0; font-size: 0.84rem; letter-spacing: -0.01em; }
+  #inspect .kv { display: flex; justify-content: space-between; gap: 10px; margin: 3px 0; }
+  #inspect .kv .k { color: var(--muted); flex-shrink: 0; }
+  #inspect .kv .v { text-align: right; word-break: break-all; }
+  #inspectClose {
+    position: absolute; top: 8px; right: 10px; border: none; background: none;
+    color: var(--muted); cursor: pointer; font-size: 0.95rem; padding: 0 4px;
+  }
+  #inspectClose:hover { color: var(--text); }
+  #measureLabel {
+    position: absolute; z-index: 3; display: none; transform: translate(-50%, -130%);
+    background: #10202f; border: 1px solid var(--accent); color: var(--text);
+    border-radius: 8px; padding: 4px 9px; font-size: 0.74rem; pointer-events: none;
+    white-space: nowrap;
+  }
+  #viewport.measuring { cursor: crosshair; }
 </style>
 </head>
 <body>
 <div id="viewport"></div>
 <div id="clipViz">SECTION ACTIVE</div>
+<div id="inspect">
+  <button type="button" id="inspectClose" title="Close">&#10005;</button>
+  <h3 id="inspectName"></h3>
+  <div id="inspectBody"></div>
+</div>
+<div id="measureLabel"></div>
 <aside id="panel">
   <div id="brand">
     <img id="brandImg" alt="" width="36" height="36"/>
@@ -188,6 +238,17 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
     <input type="checkbox" id="ground" checked/>
   </div>
 
+  <h2>Inspect · measure</h2>
+  <div class="sub" style="margin:4px 0 6px">Click an element to inspect it. Measure: two clicks = distance, third click resets. Esc clears.</div>
+  <div class="btns">
+    <button type="button" id="btnMeasure">Measure</button>
+    <button type="button" id="btnClearSel">Clear selection</button>
+  </div>
+
+  <h2>Filters</h2>
+  <div id="chips"></div>
+  <div id="levelBtns"></div>
+
   <h2>Layers</h2>
   <div id="layers"></div>
   <div id="status">Loading studio…</div>
@@ -196,7 +257,8 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
 <div id="hint">
   <strong style="color:#c9d1d9">Navigate</strong><br/>
   Left-drag orbit · right-drag pan · scroll zoom<br/>
-  Double-click to focus · Section cut = step 1
+  Click = inspect element · double-click = focus<br/>
+  Measure mode: two clicks = distance · Esc clears
 </div>
 <script type="importmap">
 {
@@ -310,6 +372,10 @@ function setStatus(msg, err = false) {
 }
 
 function layerNameFromObject(obj) {
+  // Nodes are per-element now; the glTF *material* name is the layer key
+  // (wall, pipe_copper, equip_shell, …) so styles/toggles stay layer-based.
+  const m = Array.isArray(obj.material) ? obj.material[0] : obj.material;
+  if (m?.name) return m.name;
   let o = obj;
   while (o) {
     if (o.name && !['Scene', 'RootNode', 'AuxScene'].includes(o.name)) {
@@ -318,10 +384,33 @@ function layerNameFromObject(obj) {
     }
     o = o.parent;
   }
-  const m = obj.material;
-  if (Array.isArray(m) && m[0]?.name) return m[0].name;
-  if (m?.name) return m.name;
   return 'default';
+}
+
+// --- Element metadata (glTF node extras → userData) ---
+const elementIndex = new Map(); // element id → { extras, meshes: [] }
+const catGroups = new Map();    // category group → { visible, count }
+const levelsPresent = new Set();
+let activeLevel = null;
+const GROUP_ORDER = ['walls', 'slabs', 'pipes', 'ducts', 'conduit', 'equipment', 'structure', 'other'];
+
+function catGroup(cat) {
+  const c = (cat || '').toLowerCase();
+  if (['wall', 'door', 'window'].includes(c)) return 'walls';
+  if (c === 'slab') return 'slabs';
+  if (['pipe', 'plumbing_pipe', 'fitting', 'fittings', 'fixture', 'accessory'].includes(c)) return 'pipes';
+  if (['duct', 'hvac'].includes(c)) return 'ducts';
+  if (['conduit', 'cable_tray'].includes(c)) return 'conduit';
+  if (['equipment', 'fab_part', 'module_instance', 'module_root'].includes(c)) return 'equipment';
+  if (['column', 'beam', 'bolt', 'fastener', 'flange', 'joint', 'steel', 'framing', 'rebar'].includes(c)) return 'structure';
+  return 'other';
+}
+
+function meshExtraVisible(mesh) {
+  const g = mesh.userData.__group;
+  if (g && catGroups.has(g) && !catGroups.get(g).visible) return false;
+  if (activeLevel && mesh.userData.__level && mesh.userData.__level !== activeLevel) return false;
+  return true;
 }
 
 function ensureLayer(name) {
@@ -371,7 +460,7 @@ function applyLayerStyle(name) {
     mat.needsUpdate = true;
   }
   for (const mesh of L.meshes) {
-    mesh.visible = L.visible && L.opacity > 0.01;
+    mesh.visible = L.visible && L.opacity > 0.01 && meshExtraVisible(mesh);
     // Openings sit slightly proud of host wall to avoid z-fight
     if (name === 'door' || name === 'window') {
       mesh.renderOrder = 1;
@@ -564,6 +653,33 @@ function collectLayers(obj) {
     const name = layerNameFromObject(child);
     const L = ensureLayer(name);
     L.meshes.push(child);
+    // Element identity from glTF node extras (loader puts extras on userData)
+    let holder = child;
+    let ex = null;
+    while (holder && holder !== root) {
+      if (holder.userData && holder.userData.id && holder.userData.category) {
+        ex = holder.userData;
+        break;
+      }
+      holder = holder.parent;
+    }
+    if (ex) {
+      child.userData.__ex = ex;
+      child.userData.__group = catGroup(ex.category);
+      if (ex.level) {
+        child.userData.__level = ex.level;
+        levelsPresent.add(ex.level);
+      }
+      let rec = elementIndex.get(ex.id);
+      if (!rec) {
+        rec = { extras: ex, meshes: [] };
+        elementIndex.set(ex.id, rec);
+      }
+      rec.meshes.push(child);
+      const g = child.userData.__group;
+      if (!catGroups.has(g)) catGroups.set(g, { visible: true, count: 0 });
+      if (rec.meshes.length === 1) catGroups.get(g).count++;
+    }
     const mats = Array.isArray(child.material) ? child.material : [child.material];
     const cloned = mats.map(src => {
       const m = src.clone();
@@ -629,8 +745,10 @@ async function boot() {
     collectLayers(gltf.scene);
     applyAllLayers();
     rebuildPanel();
+    buildFilters();
     fitCamera(root);
-    setStatus(`Studio ready — ${layers.size} layers · section cut · cinematic · Imagine env`);
+    const nEl = elementIndex.size;
+    setStatus(`Studio ready — ${layers.size} layers · ${nEl} elements · click to inspect · section cut · cinematic`);
   } catch (e) {
     console.error(e);
     const msg = String(e.message || e);
@@ -698,20 +816,225 @@ window.addEventListener('resize', () => {
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
-renderer.domElement.addEventListener('dblclick', ev => {
-  pointer.x = (ev.clientX / window.innerWidth) * 2 - 1;
-  pointer.y = -(ev.clientY / window.innerHeight) * 2 + 1;
+
+function chainVisible(obj) {
+  let o = obj;
+  while (o) {
+    if (o.visible === false) return false;
+    o = o.parent;
+  }
+  return true;
+}
+
+function pickAt(clientX, clientY) {
+  pointer.x = (clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
   const hits = raycaster.intersectObject(root, true);
-  if (hits.length) {
-    controls.target.copy(hits[0].point);
+  // Skip edge helper lines, hidden meshes, and fragments cut away by the section plane
+  return hits.find(h =>
+    h.object.isMesh && chainVisible(h.object)
+    && (!clipEnabled || clipPlane.distanceToPoint(h.point) >= 0)
+  ) || null;
+}
+
+renderer.domElement.addEventListener('dblclick', ev => {
+  if (measureMode) return;
+  const hit = pickAt(ev.clientX, ev.clientY);
+  if (hit) {
+    controls.target.copy(hit.point);
     controls.update();
+  }
+});
+
+// --- Category / level filters ---
+const chipsEl = document.getElementById('chips');
+const levelBtnsEl = document.getElementById('levelBtns');
+
+function buildFilters() {
+  chipsEl.innerHTML = '';
+  const present = GROUP_ORDER.filter(g => catGroups.has(g));
+  for (const g of present) {
+    const st = catGroups.get(g);
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (st.visible ? '' : ' off');
+    chip.dataset.group = g;
+    chip.textContent = `${g} (${st.count})`;
+    chip.addEventListener('click', () => {
+      st.visible = !st.visible;
+      chip.classList.toggle('off', !st.visible);
+      applyAllLayers();
+    });
+    chipsEl.appendChild(chip);
+  }
+  if (!present.length) {
+    chipsEl.innerHTML = '<span class="sub">No element metadata in this model</span>';
+  }
+  levelBtnsEl.innerHTML = '';
+  if (levelsPresent.size) {
+    const mkBtn = (label, lv) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.dataset.level = lv || '';
+      b.addEventListener('click', () => {
+        activeLevel = lv || null;
+        levelBtnsEl.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+        applyAllLayers();
+      });
+      levelBtnsEl.appendChild(b);
+      return b;
+    };
+    mkBtn('All levels', null).classList.add('active');
+    for (const lv of [...levelsPresent].sort()) mkBtn(lv, lv);
+  }
+}
+
+// --- Click-to-inspect ---
+const inspectEl = document.getElementById('inspect');
+const inspectName = document.getElementById('inspectName');
+const inspectBody = document.getElementById('inspectBody');
+let selectedId = null;
+const savedEmissive = [];
+
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function clearSelection() {
+  for (const s of savedEmissive) {
+    if (s.mat.emissive) s.mat.emissive.setHex(s.hex);
+    s.mat.emissiveIntensity = s.intensity;
+  }
+  savedEmissive.length = 0;
+  selectedId = null;
+  inspectEl.style.display = 'none';
+}
+
+function selectElement(ex) {
+  clearSelection();
+  const rec = elementIndex.get(ex.id);
+  if (!rec) return;
+  selectedId = ex.id;
+  for (const mesh of rec.meshes) {
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const mat of mats) {
+      if (!mat || !mat.emissive) continue;
+      savedEmissive.push({ mat, hex: mat.emissive.getHex(), intensity: mat.emissiveIntensity ?? 1 });
+      mat.emissive.setHex(0x2f7fe0);
+      mat.emissiveIntensity = 0.85;
+    }
+  }
+  inspectName.textContent = ex.name || ex.id;
+  const rows = [['category', ex.category]];
+  if (ex.level) rows.push(['level', ex.level]);
+  if (ex.layer) rows.push(['layer', ex.layer]);
+  for (const [k, v] of Object.entries(ex.params || {})) rows.push([k, v]);
+  rows.push(['id', ex.id]);
+  inspectBody.innerHTML = rows.map(([k, v]) =>
+    `<div class="kv"><span class="k">${escHtml(k)}</span><span class="v">${escHtml(v)}</span></div>`
+  ).join('');
+  inspectEl.style.display = 'block';
+}
+
+// --- Measure tool (two clicks = distance, third resets) ---
+const measureGroup = new THREE.Group();
+scene.add(measureGroup);
+const measureLabel = document.getElementById('measureLabel');
+let measureMode = false;
+let measurePts = [];
+let measureMid = null;
+
+function markerSize() {
+  const s = modelBox.isEmpty() ? 1 : Math.max(...modelBox.getSize(new THREE.Vector3()).toArray());
+  return Math.max(s * 0.006, 0.01);
+}
+
+function resetMeasure() {
+  measurePts = [];
+  measureMid = null;
+  measureGroup.clear();
+  measureLabel.style.display = 'none';
+}
+
+function measureClick(point) {
+  if (measurePts.length >= 2) resetMeasure();
+  measurePts.push(point.clone());
+  const marker = new THREE.Mesh(
+    new THREE.SphereGeometry(markerSize(), 16, 12),
+    new THREE.MeshBasicMaterial({ color: 0x5eb1ff, depthTest: false, transparent: true, opacity: 0.9 })
+  );
+  marker.renderOrder = 5;
+  marker.position.copy(point);
+  measureGroup.add(marker);
+  if (measurePts.length === 2) {
+    const [a, b] = measurePts;
+    const geo = new THREE.BufferGeometry().setFromPoints([a, b]);
+    const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x5eb1ff, depthTest: false }));
+    line.renderOrder = 5;
+    measureGroup.add(line);
+    measureMid = a.clone().add(b).multiplyScalar(0.5);
+    const metres = a.distanceTo(b);
+    measureLabel.textContent = `${(metres * 1000).toFixed(0)} mm · ${metres.toFixed(3)} m`;
+    measureLabel.style.display = 'block';
+    setStatus(`Measure: ${(metres * 1000).toFixed(0)} mm (${metres.toFixed(3)} m) — third click resets`);
+  } else {
+    setStatus('Measure: click second point');
+  }
+}
+
+function updateMeasureLabel() {
+  if (!measureMid) return;
+  const v = measureMid.clone().project(camera);
+  if (v.z > 1) { measureLabel.style.display = 'none'; return; }
+  measureLabel.style.display = 'block';
+  measureLabel.style.left = `${(v.x * 0.5 + 0.5) * window.innerWidth}px`;
+  measureLabel.style.top = `${(-v.y * 0.5 + 0.5) * window.innerHeight}px`;
+}
+
+const btnMeasure = document.getElementById('btnMeasure');
+btnMeasure.addEventListener('click', () => {
+  measureMode = !measureMode;
+  btnMeasure.classList.toggle('active', measureMode);
+  viewport.classList.toggle('measuring', measureMode);
+  if (!measureMode) resetMeasure();
+  setStatus(measureMode ? 'Measure mode: click two points on the model' : 'Measure off');
+});
+document.getElementById('btnClearSel').addEventListener('click', clearSelection);
+document.getElementById('inspectClose').addEventListener('click', clearSelection);
+
+let downPos = null;
+renderer.domElement.addEventListener('pointerdown', ev => {
+  if (ev.button === 0) downPos = { x: ev.clientX, y: ev.clientY };
+});
+renderer.domElement.addEventListener('pointerup', ev => {
+  if (ev.button !== 0 || !downPos) return;
+  const moved = Math.hypot(ev.clientX - downPos.x, ev.clientY - downPos.y);
+  downPos = null;
+  if (moved > 5) return; // orbit / pan drag, not a click
+  const hit = pickAt(ev.clientX, ev.clientY);
+  if (measureMode) {
+    if (hit) measureClick(hit.point);
+    return;
+  }
+  if (hit && hit.object.userData.__ex) {
+    selectElement(hit.object.userData.__ex);
+    return;
+  }
+  clearSelection(); // click on empty space clears
+});
+window.addEventListener('keydown', ev => {
+  if (ev.key === 'Escape') {
+    clearSelection();
+    resetMeasure();
   }
 });
 
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
+  updateMeasureLabel();
   if (document.getElementById('bloom').checked) {
     composer.render();
   } else {
