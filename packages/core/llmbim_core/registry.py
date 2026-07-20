@@ -1203,6 +1203,72 @@ def _mep_trunk_branch(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
 
 
 @register(
+    "mep_size_pipe",
+    description="Size a pipe from flow (L/s) or fixture units — velocity + Hazen-Williams (estimate, not stamped design)",
+    mutates=False,
+)
+def _mep_size_pipe(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.mep_sizing import size_pipe
+
+    return size_pipe(
+        float(p["flow_lps"]) if p.get("flow_lps") is not None else None,
+        material=str(p.get("material") or "copper"),
+        max_velocity_ms=float(p.get("max_velocity_ms") or 2.4),
+        fixture_units=float(p["fixture_units"]) if p.get("fixture_units") is not None else None,
+    )
+
+
+@register(
+    "mep_size_duct",
+    description="Equal-friction duct sizing from flow (m3/h) — round + rect equivalent (estimate)",
+    mutates=False,
+)
+def _mep_size_duct(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.mep_sizing import size_duct
+
+    return size_duct(
+        float(p["flow_m3h"]),
+        method=str(p.get("method") or "equal_friction"),
+        friction_pa_m=float(p.get("friction_pa_m") or 0.8),
+        max_velocity_ms=float(p.get("max_velocity_ms") or 7.5),
+        shape=str(p.get("shape") or "rect"),
+    )
+
+
+@register(
+    "mep_size_route",
+    description="Size an existing routed run for a flow; apply=true updates element sizes (takeoff-consistent)",
+    mutates=True,
+)
+def _mep_size_route(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.errors import ValidationError
+    from llmbim_core.mep_sizing import size_route
+
+    ids = p.get("segment_ids") or p.get("edge")
+    if not ids:
+        raise ValidationError("Pass segment_ids (list) or edge (mep_graph edge dict)")
+    return size_route(
+        model,
+        ids,
+        flow_lps=float(p["flow_lps"]) if p.get("flow_lps") is not None else None,
+        flow_m3h=float(p["flow_m3h"]) if p.get("flow_m3h") is not None else None,
+        apply=bool(p.get("apply") or False),
+    )
+
+
+@register(
+    "mep_validate_runs",
+    description="Velocity/friction check for every routed run with flow data (estimate)",
+    mutates=False,
+)
+def _mep_validate_runs(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.mep_sizing import validate_runs
+
+    rows = validate_runs(model)
+    return {"count": len(rows), "runs": rows}
+
+
+@register(
     "authoring_checklist",
     description="Required/recommended fields so LLM collects explicit detail before modeling",
     mutates=False,
