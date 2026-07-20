@@ -18,7 +18,6 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 import schad_design_basis as basis
-import schad_structural as struct
 
 
 def _perimeter_ft() -> float:

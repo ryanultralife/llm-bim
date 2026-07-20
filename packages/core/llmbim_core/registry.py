@@ -741,6 +741,51 @@ def _place_coil(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+@register(
+    "place_tube",
+    description="Oriented tube/port from origin+z0 along direction x|y|z|[dx,dy,dz]; id_mm makes it hollow",
+    mutates=True,
+)
+def _place_tube(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import place_tube
+
+    origin = p.get("origin") or p.get("origin_mm") or [0, 0]
+    direction = p.get("direction") or p.get("axis") or "x"
+    return place_tube(
+        model,
+        level=p.get("level") or model.levels[0].name,
+        origin=origin,
+        z0_mm=float(p.get("z0_mm") or 0),
+        direction=direction,
+        length_mm=float(p.get("length_mm") or p.get("length") or 100),
+        od_mm=float(p.get("od_mm") or p.get("diameter_mm") or 50),
+        id_mm=float(p["id_mm"]) if p.get("id_mm") is not None else None,
+        kind=str(p.get("kind") or "port"),
+        name=p.get("name"),
+        system=p.get("system"),
+    )
+
+
+@register(
+    "place_wire_path",
+    description="ONE 3D wire/hose polyline element: points_mm [[x,y,z],…] + diameter, phase A|B|C colors it",
+    mutates=True,
+)
+def _place_wire_path(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import place_wire_path
+
+    return place_wire_path(
+        model,
+        level=p.get("level") or model.levels[0].name,
+        points_mm=p.get("points_mm") or p.get("points") or [],
+        diameter_mm=float(p.get("diameter_mm") or p.get("wire_d_mm") or 6),
+        phase=p.get("phase"),
+        system=p.get("system"),
+        wire_role=str(p.get("wire_role") or p.get("role") or "coil"),
+        name=p.get("name"),
+    )
+
+
 @register("place_bolt", description="Place structural bolt (hex head + shank)", mutates=True)
 def _place_bolt(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.assignment import place_bolt
@@ -1200,6 +1245,35 @@ def _mep_trunk_branch(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
         trade_size=str(p.get("trade_size") or p.get("nps") or "3/4"),
         name=str(p.get("name") or ""),
     )
+
+
+@register(
+    "auto_place",
+    description="Requirements-driven equipment auto-placement into a room (perimeter back-to-wall or interior grid; deterministic, derived coordinates tagged placement_basis)",
+    mutates=True,
+)
+def _auto_place(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.auto_place import auto_place_equipment
+
+    return auto_place_equipment(
+        model,
+        room=str(p.get("room") or ""),
+        items=p.get("items") or [],
+        clearance_mm=float(p["clearance_mm"]) if p.get("clearance_mm") is not None else 900.0,
+        aisle_mm=float(p["aisle_mm"]) if p.get("aisle_mm") is not None else 1200.0,
+        strategy=str(p.get("strategy") or "perimeter"),
+    )
+
+
+@register(
+    "auto_place_by_needs",
+    description="Run auto_place per room from assignments [{room, items, strategy?, clearance_mm?, aisle_mm?}] and aggregate",
+    mutates=True,
+)
+def _auto_place_by_needs(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.auto_place import auto_place_by_needs
+
+    return auto_place_by_needs(model, assignments=p.get("assignments") or [])
 
 
 @register(

@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import math
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -278,9 +278,9 @@ def structural_engineering_report() -> str:
     lines = [
         "# SCHAD Structural Engineering Package",
         "",
-        f"**Project:** 2024-008 SCHAD Garage/ADU/Workshop",
-        f"**Address:** 3730 Chandler Rd, Quincy CA 95971",
-        f"**Generated:** {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+        "**Project:** 2024-008 SCHAD Garage/ADU/Workshop",
+        "**Address:** 3730 Chandler Rd, Quincy CA 95971",
+        f"**Generated:** {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
         "",
         f"> {DISCLAIMER}",
         "",
@@ -298,27 +298,27 @@ def structural_engineering_report() -> str:
         f"- Uniform load w = {b['w_plf']} plf (snow+DL+self)",
         f"- Moment M = {b['M_kft']} k-ft vs allow {b['M_allow_kft']} k-ft · **DCR {b['DCR']} → {_ok(b['ok'])}**",
         f"- Deflection (snow): {b['defl_in']}\" vs L/240 = {b['defl_limit_in']}\" · {_ok(b['defl_in'] <= b['defl_limit_in'])}",
-        f"- Quantity: 2 beams (bay lines B & C) full depth incl. rear shed band",
+        "- Quantity: 2 beams (bay lines B & C) full depth incl. rear shed band",
         "",
         "## 3. Columns — HSS 6x6x1/4",
         "",
         f"- Axial P = {p['P_k']} k vs allow {p['P_allow_k']} k · **DCR {p['DCR']} → {_ok(p['ok'])}**",
-        f"- Quantity: 4 posts (beam ends) · base PL 8x8x1 · 36x36x30 pads",
+        "- Quantity: 4 posts (beam ends) · base PL 8x8x1 · 36x36x30 pads",
         "",
         "## 4. Foundations",
         "",
         f"- Strip 18\"x12\": {sf['load_plf']} plf → q = {sf['q_psf']} psf ≤ {sf['q_allow_psf']} · {_ok(sf['ok'])}",
         f"- Record bearing note: {sf['record_plf']} plf · SF_record {sf['SF_record']}",
         f"- Point 36x36: q = {pf['q_psf']} psf ≤ {pf['q_allow_psf']} · {_ok(pf['ok'])}",
-        f"- Stem: 8\" front / 6\" typ · AB 5/8\" @ 6'-0\" OC",
-        f"- Rebar: see rebar schedule (R1–R4)",
+        "- Stem: 8\" front / 6\" typ · AB 5/8\" @ 6'-0\" OC",
+        "- Rebar: see rebar schedule (R1–R4)",
         "",
         "## 5. Lateral (seismic ELF — simplified)",
         "",
         f"- Seismic weight W ≈ {lt['W_k']} k · Cs = {lt['Cs']} · Base shear V = {lt['V_k']} k",
         f"- Front-line demand {lt['v_front_k']} k vs SSW capacity {lt['cap_front_k']} k · **DCR {lt['DCR']} → {_ok(lt['ok'])}**",
-        f"- System: Simpson SSW + 5/8\" DF structural siding diaphragm/shear skin",
-        f"- **EOR must** complete full ELF/RSA, N-S line, hold-down design, diaphragm nailing",
+        "- System: Simpson SSW + 5/8\" DF structural siding diaphragm/shear skin",
+        "- **EOR must** complete full ELF/RSA, N-S line, hold-down design, diaphragm nailing",
         "",
         "## 6. Wind (order-of-magnitude)",
         "",
@@ -443,7 +443,7 @@ def mep_engineering_report() -> str:
     lines = [
         "# SCHAD MEP Engineering Package",
         "",
-        f"**Project:** 2024-008 SCHAD · Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+        f"**Project:** 2024-008 SCHAD · Generated {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
         "",
         f"> {DISCLAIMER}",
         "",
@@ -524,7 +524,7 @@ def mep_engineering_report() -> str:
 def engineering_json() -> dict[str, Any]:
     return {
         "disclaimer": DISCLAIMER,
-        "generated": datetime.now(timezone.utc).isoformat(),
+        "generated": datetime.now(UTC).isoformat(),
         "load_criteria": load_criteria(),
         "beam": struct.beam_check(),
         "post": struct.post_check(),

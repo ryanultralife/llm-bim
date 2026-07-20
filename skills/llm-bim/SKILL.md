@@ -147,6 +147,20 @@ llmbim import-step part.step --level Bench --out out/step
 llmbim import points.csv --level L1
 ```
 
+#### Engineering dataset import (primitives)
+
+External repos often emit primitive lists: `{prim: "box"|"pipe", x, y, z, w/d/h | axis/len/r, name, sys, attrs}` in metres, grouped under keys like `placements/steel/doors/utilities/underground`. Import them directly — no bridge script:
+
+```bash
+llmbim import site_params.json   # auto-detected → columns/beams, typed doors on nearest wall, pipes/risers, ducts/trays, equipment; unknowns preserved as generic
+```
+
+```python
+from llmbim_core.primitives_import import import_primitives
+import_primitives(p.model, data)  # returns {created, skipped, warnings}
+import_primitives(p.model, data, mapping={"services": {"CWS": {"kind": "pipe", "material": "fire", "system": "CWS"}}})  # also: nps_by_mm, wall_types, door_types
+```
+
 ### D. Builder checks
 
 ```bash

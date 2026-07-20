@@ -819,6 +819,71 @@ class Project:
         )
         return str(r["element_id"])
 
+    def place_tube(
+        self,
+        *,
+        level: str,
+        origin: tuple[float, float] = (0.0, 0.0),
+        z0_mm: float = 0.0,
+        direction: str | tuple[float, float, float] | list[float] = "x",
+        length_mm: float = 100.0,
+        od_mm: float = 50.0,
+        id_mm: float | None = None,
+        kind: str = "port",
+        name: str | None = None,
+        system: str | None = None,
+    ) -> str:
+        """Oriented tube / radial port (SSOT §5.3A).
+
+        ``origin`` + ``z0_mm`` is the axis start point; the tube extends
+        ``length_mm`` along ``direction`` — "x"|"y"|"z" (± ok) or any
+        (dx,dy,dz) vector (normalized; zero rejected). ``id_mm`` makes it a
+        hollow stub (KF40/KF25 ports along shell normals).
+        """
+        r = self.op(
+            "place_tube",
+            level=level,
+            origin=list(origin),
+            z0_mm=z0_mm,
+            direction=list(direction) if not isinstance(direction, str) else direction,
+            length_mm=length_mm,
+            od_mm=od_mm,
+            id_mm=id_mm,
+            kind=kind,
+            name=name,
+            system=system,
+        )
+        return str(r["element_id"])
+
+    def place_wire_path(
+        self,
+        *,
+        level: str,
+        points_mm: list[list[float]] | list[tuple[float, float, float]],
+        diameter_mm: float = 6.0,
+        phase: str | None = None,
+        system: str | None = None,
+        wire_role: str = "coil",
+        name: str | None = None,
+    ) -> str:
+        """3D wire/hose polyline as ONE element (SSOT §5.3B).
+
+        ``points_mm`` is ``[[x, y, z], …]`` (z above the level). Tessellated
+        as a single tube mesh in glTF; ``phase`` A|B|C selects the per-phase
+        material (wire_phase_a/b/c), hose/signal roles map to wire_lead.
+        """
+        r = self.op(
+            "place_wire_path",
+            level=level,
+            points_mm=[list(map(float, pt)) for pt in points_mm],
+            diameter_mm=diameter_mm,
+            phase=phase,
+            system=system,
+            wire_role=wire_role,
+            name=name,
+        )
+        return str(r["element_id"])
+
     def place_coil(
         self,
         *,
@@ -1908,6 +1973,47 @@ class Project:
 
     def mep_graph(self) -> list[dict[str, Any]]:
         return list(self.op("mep_graph").get("edges") or [])
+
+    # --- requirements-driven auto-placement -----------------------------------
+
+    def auto_place(
+        self,
+        *,
+        room: str,
+        items: list[dict[str, Any]],
+        clearance_mm: float = 900.0,
+        aisle_mm: float = 1200.0,
+        strategy: str = "perimeter",
+    ) -> dict[str, Any]:
+        """Derive equipment coordinates from requirements (room + footprints + clearances).
+
+        room: room element id or name. items: [{name, w_mm, d_mm, h_mm, kind?,
+        clearance_front_mm?, against_wall?}]. strategy "perimeter" walks the
+        room boundary (longest edge first, then clockwise) placing items
+        back-to-wall with front clearance kept free and aisle_mm between
+        items, skipping door swing zones and existing equipment; "grid" packs
+        rows in the interior with aisle_mm circulation. Deterministic — same
+        inputs give the same coordinates. Items that cannot fit are returned
+        in result["unplaced"] with a reason (never silently dropped, never
+        overlapped). Placed elements are tagged with placement_basis
+        (derived — verify at design review).
+        """
+        return self.op(
+            "auto_place",
+            room=room,
+            items=list(items),
+            clearance_mm=clearance_mm,
+            aisle_mm=aisle_mm,
+            strategy=strategy,
+        )
+
+    def auto_place_by_needs(self, *, assignments: list[dict[str, Any]]) -> dict[str, Any]:
+        """Run auto_place per room and aggregate.
+
+        assignments: [{room, items, strategy?, clearance_mm?, aisle_mm?}].
+        Returns {rooms, placed_count, unplaced_count, results, ok}.
+        """
+        return self.op("auto_place_by_needs", assignments=list(assignments))
 
     # --- hydraulic sizing (engineering estimate — not stamped design) ---------
 

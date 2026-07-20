@@ -7,10 +7,8 @@ site plan, MEP schematic overlays, schedules as SVG tables.
 from __future__ import annotations
 
 import html
-import math
 import sys
 from pathlib import Path
-from typing import Any
 
 # Allow running as script / module
 _HERE = Path(__file__).resolve().parent
@@ -360,8 +358,8 @@ def site_plan_svg() -> str:
         f'{html.escape(sb["address"])}</text>'
     )
     parts.append(
-        f'<text x="40" y="145" font-size="11" fill="#c00" font-family="Segoe UI,Arial">'
-        f'Q-SETBACK OPEN: 112\' lot depth — 30/40\' setbacks impossible; survey required</text>'
+        '<text x="40" y="145" font-size="11" fill="#c00" font-family="Segoe UI,Arial">'
+        'Q-SETBACK OPEN: 112\' lot depth — 30/40\' setbacks impossible; survey required</text>'
     )
     parts.append(
         f'<text x="40" y="165" font-size="10" font-family="Segoe UI,Arial" fill="#555">'
@@ -606,9 +604,9 @@ def elevation_svg(direction: str) -> str:
         no = "A2.2" if direction == "E" else "A2.2b"
 
     parts.append(
-        f'<text x="80" y="90" font-size="11" font-family="Segoe UI,Arial" fill="#555">'
-        f'Note-driven massing from plate/ridge/opening records · standing-seam charcoal · '
-        f'DF board-and-batten · 18" overhangs not yet drawn as soffit profiles</text>'
+        '<text x="80" y="90" font-size="11" font-family="Segoe UI,Arial" fill="#555">'
+        'Note-driven massing from plate/ridge/opening records · standing-seam charcoal · '
+        'DF board-and-batten · 18" overhangs not yet drawn as soffit profiles</text>'
     )
     return _title_block(no, title, "\n".join(parts), scale_note='~1/8" = 1\'-0"')
 

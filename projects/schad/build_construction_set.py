@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import shutil
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
@@ -169,7 +169,7 @@ def build(out: Path | None = None) -> Path:
         "open_questions": [
             q for q in basis.open_questions() if q.get("status") not in ("resolved",)
         ],
-        "generated": datetime.now(timezone.utc).isoformat(),
+        "generated": datetime.now(UTC).isoformat(),
         "disclaimer": engineering_package.DISCLAIMER,
     }
     _write(out / "PROJECT_DATA_BOOK.json", json.dumps(book, indent=2, default=str))
@@ -223,7 +223,7 @@ def build(out: Path | None = None) -> Path:
         "python projects/schad/build_construction_set.py",
         "```",
         "",
-        f"Generated: {datetime.now(timezone.utc).isoformat()}",
+        f"Generated: {datetime.now(UTC).isoformat()}",
     ]
     _write(out / "CONSTRUCTION_READINESS.md", "\n".join(checklist) + "\n")
 
@@ -322,7 +322,7 @@ Areas: <strong>{s['area_total']:.0f} SF</strong> total
 
 <p style="margin-top:1.5rem;color:var(--muted);font-size:0.9rem">
 Rebuild: <code>python projects/schad/build_construction_set.py</code> ·
-Generated {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
+Generated {datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")}
 </p>
 </main></body></html>
 """
@@ -338,7 +338,7 @@ Generated {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
         "model_3d": model_result,
         "engineering": {k: str(v) for k, v in eng_paths.items()},
         "bom": {k: str(v) for k, v in bom_paths.items()},
-        "generated": datetime.now(timezone.utc).isoformat(),
+        "generated": datetime.now(UTC).isoformat(),
         "status": "DESIGN_DEVELOPMENT_PE_PENDING",
     }
     _write(out / "MANIFEST.json", json.dumps(manifest, indent=2))

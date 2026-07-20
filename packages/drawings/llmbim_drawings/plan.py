@@ -154,14 +154,26 @@ def render_plan_view(
     grid_dims: bool = False,
     room_tags: bool = False,
     section_marks: Sequence[Mapping[str, Any]] | None = None,
+    crop_mm: tuple[float, float, float, float] | None = None,
+    wall_fill_by_type: dict[str, str] | None = None,
 ) -> DrawingView:
     """Build a plan DrawingView (inner body + size).
 
     ``include``: optional set of category groups to draw — any of
     ``walls, openings, rooms, equipment, columns, beams, grids, notes,
-    pipes, ducts, conduit, cable_tray``. ``None`` (default) draws everything
-    exactly as before. ``ghost_walls`` draws wall outlines light grey with no
-    fill (context for discipline plans) regardless of ``include``.
+    pipes, ducts, conduit, cable_tray, slabs`` (``slabs`` is opt-in only:
+    it never draws with ``include=None``). ``None`` (default) draws
+    everything exactly as before. ``ghost_walls`` draws wall outlines light
+    grey with no fill (context for discipline plans) regardless of
+    ``include``.
+
+    ``crop_mm``: optional ``(x0, y0, x1, y1)`` plan window — the view extents
+    clip to this box (enlarged room views), elements wholly outside are
+    skipped and partially-inside geometry is clipped at the window edge.
+
+    ``wall_fill_by_type``: optional ``type_id → fill color`` map for solid
+    walls (shielding plans); walls whose type is not in the map render with
+    a diagonal hatch. Replaces the per-layer band fills.
 
     Drafting extras (all additive, default off so existing output is
     unchanged): ``grid_dims`` draws running dimension chains between grid
@@ -186,11 +198,46 @@ def render_plan_view(
     def _mep_on(el: Element) -> bool:
         return include is None or _plan_group(el) in include
 
+    def _el_bbox(el: Element) -> tuple[float, float, float, float] | None:
+        """Plan-space bbox of an element's stored geometry, or None."""
+        pts: list[tuple[float, float]] = []
+        for key in ("polygon_mm", "boundary_mm"):
+            for pt in el.params.get(key) or []:
+                try:
+                    pts.append((float(pt[0]), float(pt[1])))
+                except (TypeError, ValueError, IndexError):
+                    continue
+        for key in ("start_mm", "end_mm", "origin_mm", "position_mm"):
+            v = el.params.get(key)
+            try:
+                if v is not None and len(v) >= 2:
+                    pts.append((float(v[0]), float(v[1])))
+            except (TypeError, ValueError):
+                continue
+        if not pts:
+            return None
+        return (
+            min(p[0] for p in pts),
+            min(p[1] for p in pts),
+            max(p[0] for p in pts),
+            max(p[1] for p in pts),
+        )
+
+    def _in_crop(el: Element) -> bool:
+        """Keep elements overlapping the crop window; wholly-outside skipped."""
+        if crop_mm is None:
+            return True
+        bb = _el_bbox(el)
+        if bb is None:
+            return False
+        cx0, cy0, cx1, cy1 = crop_mm
+        return not (bb[2] < cx0 or bb[0] > cx1 or bb[3] < cy0 or bb[1] > cy1)
+
     lvl = model.get_level(level)
     walls = [
         (el, wp)
         for el in model.query(category="wall", level=lvl.name)
-        if (wp := _wall_endpoints(el)) is not None
+        if (wp := _wall_endpoints(el)) is not None and _in_crop(el)
     ]
     # Corner joins: extend wall bands so L/T meetings don't leave gaps
     _w_ext = _wall_join_extensions_plan(walls)
@@ -208,20 +255,29 @@ def render_plan_view(
             walls_draw.append((el, (x0, y0, x1, y1, t)))
     doors = model.query(category="door", level=lvl.name)
     windows = model.query(category="window", level=lvl.name)
-    rooms = model.query(category="room", level=lvl.name)
-    equipment = model.query(category="equipment", level=lvl.name)
+    rooms = [el for el in model.query(category="room", level=lvl.name) if _in_crop(el)]
+    equipment = [
+        el for el in model.query(category="equipment", level=lvl.name) if _in_crop(el)
+    ]
+    slabs = (
+        [el for el in model.query(category="slab", level=lvl.name) if _in_crop(el)]
+        if include is not None and "slabs" in include
+        else []
+    )
     columns = [
         el
         for el in model.elements
         if el.level_id == lvl.id
         and (el.category == "column" or el.params.get("fitting_type") == "column")
+        and _in_crop(el)
     ]
-    notes = model.query(category="note", level=lvl.name)
+    notes = [el for el in model.query(category="note", level=lvl.name) if _in_crop(el)]
     # MEP + catalog proxies on this level
     mep_els = [
         el
         for el in model.elements
         if el.level_id == lvl.id
+        and _in_crop(el)
         and el.category
         in {
             "pipe",
@@ -281,8 +337,14 @@ def render_plan_view(
         for pt in el.params.get("polygon_mm") or []:
             xs.append(float(pt[0]))
             ys.append(float(pt[1]))
+    for slab in slabs:
+        for pt in slab.params.get("polygon_mm") or []:
+            xs.append(float(pt[0]))
+            ys.append(float(pt[1]))
 
-    if xs and ys:
+    if crop_mm is not None:
+        min_x, min_y, max_x, max_y = (float(v) for v in crop_mm)
+    elif xs and ys:
         min_x, max_x = min(xs) - margin_mm, max(xs) + margin_mm
         min_y, max_y = min(ys) - margin_mm, max(ys) + margin_mm
     else:
@@ -315,6 +377,15 @@ def render_plan_view(
             parts.append(f'    <polygon points="{pts}"/>')
         parts.append("  </g>")
     elif _on("walls"):
+        if wall_fill_by_type is not None:
+            # diagonal-hatch pattern for wall types not in the color map
+            parts.append(
+                '  <defs><pattern id="llmbim-wall-hatch" width="7" height="7" '
+                'patternUnits="userSpaceOnUse" patternTransform="rotate(45)">'
+                '<rect width="7" height="7" fill="#f7f7f7"/>'
+                '<line x1="0" y1="0" x2="0" y2="7" stroke="#777" stroke-width="1.6"/>'
+                "</pattern></defs>"
+            )
         parts.append(
             f'  <g class="walls" fill="#c8c8c8" stroke="#1a1a1a" stroke-width="{fmt(sw)}" '
             f'stroke-linejoin="round">'
@@ -326,6 +397,17 @@ def render_plan_view(
             "membrane": "#4a5568",
         }
         for el, (x0, y0, x1, y1, t) in walls_draw:
+            if wall_fill_by_type is not None:
+                band = _wall_band(x0, y0, x1, y1, t)
+                if not band:
+                    continue
+                tid = str(el.type_id or el.params.get("type_id") or "")
+                fill = wall_fill_by_type.get(tid, "url(#llmbim-wall-hatch)")
+                pts = " ".join(
+                    f"{fmt(px)},{fmt(py)}" for px, py in (project(x, y) for x, y in band)
+                )
+                parts.append(f'    <polygon points="{pts}" fill="{fill}"/>')
+                continue
             layers = el.params.get("wall_layers")
             if not layers and el.type_id:
                 try:
@@ -492,6 +574,24 @@ def render_plan_view(
                     f'fill="#003366" font-family="sans-serif">{esc(tshort)}</text>'
                 )
     parts.append("  </g>")
+
+    # Slab outlines (opt-in via include={"slabs"} — site / underground plans)
+    if slabs:
+        parts.append(
+            f'  <g class="slabs" fill="none" stroke="#8d6e63" '
+            f'stroke-width="{fmt(max(0.8, 12 * scale))}" '
+            f'stroke-dasharray="{fmt(max(3, 80 * scale))} {fmt(max(2, 40 * scale))}">'
+        )
+        for slab in slabs:
+            poly = slab.params.get("polygon_mm") or []
+            if len(poly) < 3:
+                continue
+            pts = " ".join(
+                f"{fmt(px)},{fmt(py)}"
+                for px, py in (project(float(p[0]), float(p[1])) for p in poly)
+            )
+            parts.append(f'    <polygon points="{pts}"/>')
+        parts.append("  </g>")
 
     # Equipment
     parts.append(
@@ -1293,9 +1393,18 @@ def render_plan_view(
     if grid_dims and _on("grids") and model.grids:
         # grid dim chains sit outside the grid bubbles: bubble radius + 2 chains
         dim_pad = max(dim_pad, _gd_br + 44.0)
-    return DrawingView(
-        width=width, height=height, body="\n".join(parts), title=label, pad=dim_pad
-    )
+    body = "\n".join(parts)
+    if crop_mm is not None:
+        # clip partially-inside geometry at the crop window (+ pad reveal)
+        cid = "planclip-" + "-".join(str(int(v)) for v in crop_mm)
+        body = (
+            f'<defs><clipPath id="{cid}">'
+            f'<rect x="{fmt(-dim_pad)}" y="{fmt(-dim_pad)}" '
+            f'width="{fmt(width + 2 * dim_pad)}" height="{fmt(height + 2 * dim_pad)}"/>'
+            f"</clipPath></defs>\n"
+            f'<g clip-path="url(#{cid})">\n{body}\n</g>'
+        )
+    return DrawingView(width=width, height=height, body=body, title=label, pad=dim_pad)
 
 
 def render_plan_svg(

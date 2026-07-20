@@ -157,6 +157,76 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return 0 if v.get("ok") else 1
 
 
+def _serve_pack_dir(
+    pack: Path,
+    *,
+    port: int | None = None,
+    open_browser: bool = True,
+    print_only: bool = False,
+) -> int:
+    """Serve a deliverables pack over HTTP and (optionally) open ONE browser tab.
+
+    The viewer needs HTTP (ES modules + fetch break on ``file://``), so this
+    starts a stdlib ``http.server`` on 127.0.0.1 rooted at the pack directory
+    and prints the exact URL to open. Foreground until Ctrl-C.
+    """
+    import socket
+    from functools import partial
+    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+    pack = pack.resolve()
+    entry = None
+    for candidate in ("index.html", "viewer3d.html"):
+        if (pack / candidate).is_file():
+            entry = candidate
+            break
+    if entry is None:
+        print(
+            f"No deliverables pack at {pack} (index.html / viewer3d.html missing).\n"
+            "Build one first, e.g.:\n"
+            "  llmbim pack model.llmbim.json --out output/name\n"
+            "  llmbim case intec\n"
+            "then: llmbim view <pack_dir>",
+            file=sys.stderr,
+        )
+        return 2
+
+    if print_only:
+        if port is None:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(("127.0.0.1", 0))
+                port = s.getsockname()[1]
+        print(f"http://127.0.0.1:{port}/{entry}")
+        return 0
+
+    handler = partial(SimpleHTTPRequestHandler, directory=str(pack))
+    httpd = ThreadingHTTPServer(("127.0.0.1", port or 0), handler)
+    port = httpd.server_address[1]
+    url = f"http://127.0.0.1:{port}/{entry}"
+    print(url)
+    print(f"Serving {pack} — Ctrl-C to stop", file=sys.stderr)
+    if open_browser:
+        import webbrowser
+
+        webbrowser.open(url)  # exactly ONE tab — never index + viewer both
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        httpd.server_close()
+    return 0
+
+
+def cmd_view(args: argparse.Namespace) -> int:
+    return _serve_pack_dir(
+        Path(args.path),
+        port=args.port,
+        open_browser=not args.no_open,
+        print_only=args.print_only,
+    )
+
+
 def cmd_boq(args: argparse.Namespace) -> int:
     from llmbim import Project
 
@@ -979,6 +1049,9 @@ def cmd_case(args: argparse.Namespace) -> int:
             indent=2,
         )
     )
+    if getattr(args, "open_viewer", False):
+        # SSOT §3.4: serve the freshly built pack and open ONE viewer tab
+        return _serve_pack_dir(out, open_browser=True)
     return 0
 
 
@@ -1016,6 +1089,13 @@ def main(argv: list[str] | None = None) -> int:
         choices=["plan", "construction"],
         help="Drawing set: plan (permit sheets only) or construction (adds S/M/P/E)",
     )
+    p_case.add_argument(
+        "--open-viewer",
+        dest="open_viewer",
+        action="store_true",
+        help="After building, serve the pack on 127.0.0.1 and open ONE viewer tab "
+        "(foreground until Ctrl-C) — same as `llmbim view <out>`",
+    )
     p_case.set_defaults(func=cmd_case)
 
     p_pack = sub.add_parser("pack", help="Full deliverables pack from .llmbim.json")
@@ -1050,6 +1130,37 @@ def main(argv: list[str] | None = None) -> int:
         help="Require materials/MATERIALS_AND_PARTS.json takeoff package",
     )
     p_ver.set_defaults(func=cmd_verify)
+
+    p_view = sub.add_parser(
+        "view",
+        help="Serve a deliverables pack over local HTTP and open the viewer",
+        description=(
+            "Serve <pack_dir> on http://127.0.0.1:<port>/ and open ONE browser tab "
+            "to index.html (the viewer never works over file://). Runs in the "
+            "foreground until Ctrl-C. Use --print-only to just emit the URL "
+            "(for agents), --no-open to serve without opening a browser."
+        ),
+    )
+    p_view.add_argument("path", help="Pack directory (contains index.html / viewer3d.html)")
+    p_view.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="Port on 127.0.0.1 (default: pick a free port)",
+    )
+    p_view.add_argument(
+        "--no-open",
+        dest="no_open",
+        action="store_true",
+        help="Serve but do not open a browser tab",
+    )
+    p_view.add_argument(
+        "--print-only",
+        dest="print_only",
+        action="store_true",
+        help="Print the URL and exit without starting the server or a browser",
+    )
+    p_view.set_defaults(func=cmd_view)
 
     p_boq = sub.add_parser("boq", help="Bill of quantities for a project file")
     p_boq.add_argument("path")

@@ -49,6 +49,13 @@ _MATERIAL_PBR: dict[str, tuple[list[float], float, float]] = {
     "equip_spacer": ([0.85, 0.82, 0.55, 1.0], 0.15, 0.55),
     "equip_pedestal": ([0.5, 0.52, 0.55, 1.0], 0.2, 0.7),
     "equip_step_ref": ([0.65, 0.7, 0.85, 1.0], 0.1, 0.5),  # locked STEP bbox
+    # Machine systems (SSOT doc §5.3D — additive; existing keys stay stable)
+    "equip_vacuum": ([0.6, 0.65, 0.72, 1.0], 0.8, 0.3),  # turbo / pumps / roughing
+    "equip_sensor": ([0.85, 0.5, 0.85, 1.0], 0.3, 0.45),  # gauges / RGA / probes
+    "equip_gas": ([0.95, 0.8, 0.25, 1.0], 0.25, 0.5),  # gas feed skids
+    "equip_collection": ([0.45, 0.75, 0.65, 1.0], 0.4, 0.45),  # product canisters
+    "equip_chiller": ([0.3, 0.7, 0.85, 1.0], 0.35, 0.45),  # chiller / CW manifold
+    "equip_controls": ([0.75, 0.75, 0.5, 1.0], 0.2, 0.55),  # racks / terminals
     "fab_ultem": ([1.0, 0.55, 0.15, 1.0], 0.05, 0.4),  # slotted cartridge BREP — high contrast
     "pipe_copper": ([0.85, 0.42, 0.18, 1.0], 0.85, 0.28),
     "pipe_fire": ([0.12, 0.12, 0.14, 1.0], 0.7, 0.4),
@@ -67,6 +74,11 @@ _MATERIAL_PBR: dict[str, tuple[list[float], float, float]] = {
     # Fine detail layers (wires / coils / fasteners / joined flanges)
     "wire": ([0.92, 0.72, 0.22, 1.0], 0.9, 0.22),  # copper conductor
     "wire_steel": ([0.55, 0.58, 0.62, 1.0], 0.85, 0.3),
+    # RMF phase identity (SSOT doc §5.3D)
+    "wire_phase_a": ([0.9, 0.25, 0.2, 1.0], 0.75, 0.3),  # phase A — red
+    "wire_phase_b": ([0.2, 0.65, 0.3, 1.0], 0.75, 0.3),  # phase B — green
+    "wire_phase_c": ([0.25, 0.45, 0.9, 1.0], 0.75, 0.3),  # phase C — blue
+    "wire_lead": ([0.85, 0.8, 0.3, 1.0], 0.5, 0.45),  # SIG / hose trunk
     "coil": ([0.72, 0.38, 0.12, 1.0], 0.88, 0.28),  # copper coil
     "bolt": ([0.42, 0.44, 0.48, 1.0], 0.9, 0.28),  # A325 steel
     "flange": ([0.48, 0.5, 0.54, 1.0], 0.75, 0.35),  # joined material section
@@ -76,6 +88,50 @@ _MATERIAL_PBR: dict[str, tuple[list[float], float, float]] = {
 
 # Back-compat alias for tests / legend
 _MATERIAL_RGBA: dict[str, list[float]] = {k: list(v[0]) for k, v in _MATERIAL_PBR.items()}
+
+# FROZEN equipment kind → glTF material key map (SSOT:
+# docs/EQUIPMENT_3D_AND_DEVICE_SSOT.md §5.3D). Viewer layer styling depends on
+# these material names — NEVER rename or remove an existing key, only ADD.
+EQUIP_KIND_MATERIAL: dict[str, str] = {
+    "shell": "equip_shell",
+    "yoke": "equip_yoke",
+    "magnet": "equip_magnet",
+    "cartridge": "equip_cartridge",
+    "flange": "equip_flange",
+    "collector": "equip_collector",
+    "kf40_port": "equip_port",
+    "kf25_port": "equip_port",
+    "gland": "equip_port",
+    "port": "equip_port",
+    "mag_spacer": "equip_spacer",
+    "spacer": "equip_spacer",
+    "pedestal": "equip_pedestal",
+    "step_ref": "equip_step_ref",
+    "step": "equip_step_ref",
+    # §5.3D additions — machine systems
+    "turbo": "equip_vacuum",
+    "pump": "equip_vacuum",
+    "roughing": "equip_vacuum",
+    "gauge": "equip_sensor",
+    "rga": "equip_sensor",
+    "probe": "equip_sensor",
+    "sensor": "equip_sensor",
+    "gas": "equip_gas",
+    "feed": "equip_gas",
+    "collection": "equip_collection",
+    "canister": "equip_collection",
+    "chiller": "equip_chiller",
+    "manifold": "equip_chiller",
+    "controls": "equip_controls",
+    "terminal": "equip_controls",
+}
+
+# FROZEN wire phase → glTF material key (same SSOT table): RMF_A/phase A → a…
+WIRE_PHASE_MATERIAL: dict[str, str] = {
+    "a": "wire_phase_a",
+    "b": "wire_phase_b",
+    "c": "wire_phase_c",
+}
 
 _PROXY_CATS = {
     "fitting",
@@ -685,6 +741,271 @@ def _tube_mesh(
     return _merge_meshes([outer, (ipos, inrm, flipped), (pos, nrm, idx)])
 
 
+_Vec3 = tuple[float, float, float]
+
+
+def _v_cross(a: _Vec3, b: _Vec3) -> _Vec3:
+    return (
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    )
+
+
+def _v_dot(a: _Vec3, b: _Vec3) -> float:
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+
+def _v_unit(a: _Vec3) -> _Vec3:
+    n = math.sqrt(_v_dot(a, a)) or 1.0
+    return (a[0] / n, a[1] / n, a[2] / n)
+
+
+def _dir_to_gltf(v: _Vec3) -> _Vec3:
+    """mm-space direction (plan x, plan y, elev) → glTF direction (X, Y-up, Z)."""
+    return (v[0], v[2], v[1])
+
+
+def _axis_basis(d: _Vec3) -> tuple[_Vec3, _Vec3]:
+    """Orthonormal (u, v) ⊥ unit axis ``d`` with u×v = d (right-handed frame)."""
+    ref: _Vec3 = (0.0, 0.0, 1.0) if abs(d[2]) < 0.9 else (0.0, 1.0, 0.0)
+    u = _v_unit(_v_cross(ref, d))
+    v = _v_cross(d, u)
+    return u, v
+
+
+def _axis_tube_mesh(
+    p0: _Vec3,
+    axis: _Vec3,
+    length: float,
+    r_outer: float,
+    r_inner: float | None = None,
+    *,
+    segments: int = 28,
+) -> tuple[list[float], list[float], list[int]]:
+    """Cylinder/tube along an ARBITRARY axis from start point p0 (mm space).
+
+    ``p0`` is the axis (centerline) start; extends ``length`` along ``axis``
+    (normalized here). ``r_inner`` makes it hollow with annular end caps —
+    oriented KF ports / nozzles per SSOT doc §5.3A.
+    """
+    d = _v_unit(axis)
+    if math.sqrt(_v_dot(axis, axis)) < 1e-9 or length < 1e-6:
+        return [], [], []
+    ro = max(float(r_outer), 0.5)
+    ri: float | None = None
+    if r_inner is not None and 0.0 < float(r_inner) < ro:
+        ri = float(r_inner)
+    segs = max(8, int(segments))
+    p1: _Vec3 = (p0[0] + d[0] * length, p0[1] + d[1] * length, p0[2] + d[2] * length)
+    u, v = _axis_basis(d)
+    pos: list[float] = []
+    nrm: list[float] = []
+    idx: list[int] = []
+
+    def _emit(pt: _Vec3, n: _Vec3) -> int:
+        vi = len(pos) // 3
+        pos.extend(_mm_to_gltf(pt[0], pt[1], pt[2]))
+        nrm.extend(_dir_to_gltf(n))
+        return vi
+
+    def _ring(center: _Vec3, radius: float, n_sign: float) -> list[int]:
+        out: list[int] = []
+        for i in range(segs):
+            ang = 2 * math.pi * i / segs
+            ca, sa = math.cos(ang), math.sin(ang)
+            radial: _Vec3 = (
+                u[0] * ca + v[0] * sa,
+                u[1] * ca + v[1] * sa,
+                u[2] * ca + v[2] * sa,
+            )
+            pt: _Vec3 = (
+                center[0] + radial[0] * radius,
+                center[1] + radial[1] * radius,
+                center[2] + radial[2] * radius,
+            )
+            n: _Vec3 = (radial[0] * n_sign, radial[1] * n_sign, radial[2] * n_sign)
+            out.append(_emit(pt, n))
+        return out
+
+    # outer wall (smooth radial normals)
+    o0 = _ring(p0, ro, 1.0)
+    o1 = _ring(p1, ro, 1.0)
+    for i in range(segs):
+        j = (i + 1) % segs
+        a, b, c, e = o0[i], o0[j], o1[j], o1[i]
+        idx.extend([a, b, c, a, c, e])
+    neg_d: _Vec3 = (-d[0], -d[1], -d[2])
+    if ri is not None:
+        # inner wall — normals face the bore, winding reversed
+        i0 = _ring(p0, ri, -1.0)
+        i1 = _ring(p1, ri, -1.0)
+        for i in range(segs):
+            j = (i + 1) % segs
+            a, b, c, e = i0[i], i0[j], i1[j], i1[i]
+            idx.extend([a, c, b, a, e, c])
+        # annular end caps
+        for center, n_end, forward in ((p0, neg_d, False), (p1, d, True)):
+            ring_o = _ring(center, ro, 0.0)
+            ring_i = _ring(center, ri, 0.0)
+            for k in range(segs):  # overwrite flat cap normals
+                for vi in (ring_o[k], ring_i[k]):
+                    g = _dir_to_gltf(n_end)
+                    nrm[vi * 3 : vi * 3 + 3] = [g[0], g[1], g[2]]
+            for i in range(segs):
+                j = (i + 1) % segs
+                if forward:
+                    idx.extend(
+                        [ring_i[i], ring_o[i], ring_o[j], ring_i[i], ring_o[j], ring_i[j]]
+                    )
+                else:
+                    idx.extend(
+                        [ring_i[i], ring_o[j], ring_o[i], ring_i[i], ring_i[j], ring_o[j]]
+                    )
+    else:
+        # solid disk caps
+        for center, n_end, forward in ((p0, neg_d, False), (p1, d, True)):
+            cc = _emit(center, n_end)
+            cap = _ring(center, ro, 0.0)
+            for k in range(segs):
+                g = _dir_to_gltf(n_end)
+                vi = cap[k]
+                nrm[vi * 3 : vi * 3 + 3] = [g[0], g[1], g[2]]
+            for i in range(segs):
+                j = (i + 1) % segs
+                if forward:
+                    idx.extend([cc, cap[i], cap[j]])
+                else:
+                    idx.extend([cc, cap[j], cap[i]])
+    return pos, nrm, idx
+
+
+def _polyline_tube_mesh(
+    pts: list[_Vec3],
+    radius: float,
+    *,
+    segments: int = 12,
+) -> tuple[list[float], list[float], list[int]]:
+    """ONE tube mesh along a 3D polyline — shared rings, no per-segment solids.
+
+    Parallel-transport frames along the path avoid twist; consecutive rings
+    share vertices so a 20-point coil path stays one small primitive (SSOT doc
+    §5.3B — kills the ~1100-wire element explosion).
+    """
+    path = [p for i, p in enumerate(pts) if i == 0 or math.dist(p, pts[i - 1]) > 1e-6]
+    if len(path) < 2:
+        return [], [], []
+    r = max(float(radius), 0.25)
+    segs = max(6, int(segments))
+    n_pts = len(path)
+    # per-vertex tangents (averaged at interior vertices)
+    seg_dirs: list[_Vec3] = []
+    for pa, pb in zip(path[:-1], path[1:], strict=True):
+        seg_dirs.append(_v_unit((pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2])))
+    tangents: list[_Vec3] = []
+    for i in range(n_pts):
+        if i == 0:
+            tangents.append(seg_dirs[0])
+        elif i == n_pts - 1:
+            tangents.append(seg_dirs[-1])
+        else:
+            s: _Vec3 = (
+                seg_dirs[i - 1][0] + seg_dirs[i][0],
+                seg_dirs[i - 1][1] + seg_dirs[i][1],
+                seg_dirs[i - 1][2] + seg_dirs[i][2],
+            )
+            tangents.append(_v_unit(s) if math.sqrt(_v_dot(s, s)) > 1e-9 else seg_dirs[i])
+    # parallel-transport u/v frames
+    u, v = _axis_basis(tangents[0])
+    frames: list[tuple[_Vec3, _Vec3]] = [(u, v)]
+    for i in range(1, n_pts):
+        t = tangents[i]
+        proj: _Vec3 = (
+            u[0] - t[0] * _v_dot(u, t),
+            u[1] - t[1] * _v_dot(u, t),
+            u[2] - t[2] * _v_dot(u, t),
+        )
+        if math.sqrt(_v_dot(proj, proj)) < 1e-9:
+            u, v = _axis_basis(t)
+        else:
+            u = _v_unit(proj)
+            v = _v_cross(t, u)
+        frames.append((u, v))
+    pos: list[float] = []
+    nrm: list[float] = []
+    idx: list[int] = []
+
+    def _emit(pt: _Vec3, n: _Vec3) -> int:
+        vi = len(pos) // 3
+        pos.extend(_mm_to_gltf(pt[0], pt[1], pt[2]))
+        nrm.extend(_dir_to_gltf(n))
+        return vi
+
+    rings: list[list[int]] = []
+    for k in range(n_pts):
+        fu, fv = frames[k]
+        c = path[k]
+        ring: list[int] = []
+        for i in range(segs):
+            ang = 2 * math.pi * i / segs
+            ca, sa = math.cos(ang), math.sin(ang)
+            radial: _Vec3 = (
+                fu[0] * ca + fv[0] * sa,
+                fu[1] * ca + fv[1] * sa,
+                fu[2] * ca + fv[2] * sa,
+            )
+            pt: _Vec3 = (c[0] + radial[0] * r, c[1] + radial[1] * r, c[2] + radial[2] * r)
+            ring.append(_emit(pt, radial))
+        rings.append(ring)
+    for k in range(n_pts - 1):
+        r0, r1 = rings[k], rings[k + 1]
+        for i in range(segs):
+            j = (i + 1) % segs
+            qa, qb, qc, qd = r0[i], r0[j], r1[j], r1[i]
+            idx.extend([qa, qb, qc, qa, qc, qd])
+    # flat end caps
+    for k, forward in ((0, False), (n_pts - 1, True)):
+        t = tangents[k]
+        n_end: _Vec3 = t if forward else (-t[0], -t[1], -t[2])
+        cc = _emit(path[k], n_end)
+        cap: list[int] = []
+        fu, fv = frames[k]
+        for i in range(segs):
+            ang = 2 * math.pi * i / segs
+            ca, sa = math.cos(ang), math.sin(ang)
+            pt2: _Vec3 = (
+                path[k][0] + (fu[0] * ca + fv[0] * sa) * r,
+                path[k][1] + (fu[1] * ca + fv[1] * sa) * r,
+                path[k][2] + (fu[2] * ca + fv[2] * sa) * r,
+            )
+            cap.append(_emit(pt2, n_end))
+        for i in range(segs):
+            j = (i + 1) % segs
+            if forward:
+                idx.extend([cc, cap[i], cap[j]])
+            else:
+                idx.extend([cc, cap[j], cap[i]])
+    return pos, nrm, idx
+
+
+def _mesh_from_wire_path(
+    el: Element, model: ProjectModel
+) -> tuple[list[float], list[float], list[int]]:
+    """wire_path element → single polyline tube mesh (points_mm z above level)."""
+    try:
+        raw = el.params.get("points_mm") or []
+        if len(raw) < 2:
+            return [], [], []
+        zlv = _level_z(model, el.level_id)
+        pts: list[_Vec3] = [
+            (float(p[0]), float(p[1]), zlv + float(p[2])) for p in raw
+        ]
+        r = max(float(el.params.get("diameter_mm") or el.params.get("wire_d_mm") or 6.0) / 2.0, 0.5)
+        return _polyline_tube_mesh(pts, r, segments=12)
+    except (KeyError, TypeError, ValueError, IndexError):
+        return [], [], []
+
+
 def _parse_w_section(section: str | None) -> dict[str, float]:
     """Approximate AISC W-shape dims (mm) from designation e.g. W10x33 / W12×26.
 
@@ -858,6 +1179,16 @@ def _mesh_from_origin_size(
         ly = float(size[1]) if len(size) > 1 else 100.0
         hz = float(size[2]) if len(size) > 2 else ly
         z0 = _level_z(model, el.level_id) + z0_off
+        if shape == "cylinder" and el.params.get("axis_dir") is not None:
+            # Oriented tube/port (place_tube): origin+z0 = axis START point;
+            # extends length_mm along the normalized axis_dir 3-vector.
+            ad = el.params["axis_dir"]
+            d3: _Vec3 = (float(ad[0]), float(ad[1]), float(ad[2]))
+            length = float(el.params.get("length_mm") or lx or 100.0)
+            od_t = float(el.params.get("od_mm") or ly or 50.0)
+            id_v = el.params.get("id_mm")
+            ri = float(id_v) / 2.0 if id_v is not None else None
+            return _axis_tube_mesh((x0, y0, z0), d3, length, od_t / 2.0, ri, segments=28)
         if shape == "cylinder":
             od = max(ly, hz, 30)
             r = od / 2
@@ -1021,6 +1352,24 @@ def _mesh_from_slab(el: Element, model: ProjectModel) -> tuple[list[float], list
         return [], [], []
 
 
+def _wire_material_key(el: Element, default: str = "wire") -> str:
+    """Phase / system / role → wire material key (SSOT doc §5.3D table).
+
+    Phase A|B|C (or an RMF_x system tag) wins; SIG systems and hose/signal/
+    lead roles map to ``wire_lead``; otherwise ``default``.
+    """
+    phase = str(el.params.get("phase") or "").strip().lower()
+    if phase in WIRE_PHASE_MATERIAL:
+        return WIRE_PHASE_MATERIAL[phase]
+    sysname = str(el.params.get("system") or "").strip().lower()
+    if sysname.startswith("rmf") and sysname[-1:] in WIRE_PHASE_MATERIAL:
+        return WIRE_PHASE_MATERIAL[sysname[-1:]]
+    role = str(el.params.get("wire_role") or "").strip().lower()
+    if sysname in {"sig", "signal"} or role in {"hose", "signal", "lead"}:
+        return "wire_lead"
+    return default
+
+
 def _gltf_material_key(el: Element) -> str:
     cat = el.category or ""
     ftype = str(el.params.get("fitting_type") or "").lower()
@@ -1034,27 +1383,7 @@ def _gltf_material_key(el: Element) -> str:
         return "window"
     if cat == "equipment":
         kind = str(el.params.get("kind") or "").lower()
-        if kind in {"shell"}:
-            return "equip_shell"
-        if kind in {"yoke"}:
-            return "equip_yoke"
-        if kind in {"magnet"}:
-            return "equip_magnet"
-        if kind in {"cartridge"}:
-            return "equip_cartridge"
-        if kind in {"flange"}:
-            return "equip_flange"
-        if kind in {"collector"}:
-            return "equip_collector"
-        if kind in {"kf40_port", "kf25_port", "gland", "port"}:
-            return "equip_port"
-        if kind in {"mag_spacer", "spacer"}:
-            return "equip_spacer"
-        if kind in {"pedestal"}:
-            return "equip_pedestal"
-        if kind in {"step_ref", "step"}:
-            return "equip_step_ref"
-        return "equipment"
+        return EQUIP_KIND_MATERIAL.get(kind, "equipment")
     if cat == "fab_part":
         mat = str(el.params.get("material_id") or el.params.get("material_spec") or "").lower()
         kind = str(el.params.get("kind") or "").lower()
@@ -1075,7 +1404,12 @@ def _gltf_material_key(el: Element) -> str:
         return "bolt"
     if cat == "coil" or ftype == "coil":
         return "coil"
+    if cat == "wire_path" or ftype == "wire_path":
+        return _wire_material_key(el, default="wire")
     if cat == "wire" or ftype == "wire":
+        phased = _wire_material_key(el, default="")
+        if phased:
+            return phased
         mid = str(el.params.get("material_id") or "").lower()
         if "steel" in mid or "alum" in mid:
             return "wire_steel"
@@ -1121,6 +1455,8 @@ _EXTRA_PARAM_KEYS: tuple[str, ...] = (
     "length_mm",
     "diameter_mm",
     "od_mm",
+    "phase",
+    "wire_role",
 )
 
 
@@ -1267,6 +1603,8 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
             pos, nrm, indices = _mesh_from_pipe(el, model)
         elif el.category in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac", "cable_tray"}:
             pos, nrm, indices = _mesh_from_pipe(el, model)
+        elif el.category == "wire_path" or el.params.get("shape") == "wire_path":
+            pos, nrm, indices = _mesh_from_wire_path(el, model)
         elif el.category in {"wire", "coil", "bolt", "fastener", "flange", "joint"} or el.params.get(
             "fitting_type"
         ) in {"wire", "coil", "bolt", "flange", "joint"}:
