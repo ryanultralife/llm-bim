@@ -346,12 +346,22 @@ def auto_import(model: ProjectModel, path: str | Path, **kwargs: Any) -> dict[st
 
     ext = p.suffix.lower()
     if ext in {".json"}:
-        # project file or batch
+        # project file, engineering primitive dataset, or batch ops
         data = json.loads(p.read_text(encoding="utf-8"))
         if "schema_version" in data or ("elements" in data and "levels" in data):
             # full project merge
             other = ProjectModel.from_dict(data)
             return merge_project(model, other)
+        from llmbim_core.primitives_import import import_primitives, looks_like_primitives
+
+        if looks_like_primitives(data):
+            return import_primitives(
+                model,
+                data,
+                mapping=kwargs.get("mapping"),
+                level=kwargs.get("level"),
+                units=str(kwargs.get("units") or "m"),
+            )
         return import_json_batch(model, p)
     if ext in {".csv", ".tsv"}:
         level = kwargs.get("level") or (model.levels[0].name if model.levels else None)
