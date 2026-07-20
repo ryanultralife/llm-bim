@@ -530,4 +530,7 @@ Window: `WIN-CASE-48x48`. Headers: `HDR-1`, `HDR-2` (LVL). Shear panels:
 - `skills/llm-bim/recipes/` — worked examples; **`design_program.md`** = full
   plan/CD-set workflow, **`schad_cd.md`** = worked residential CD instance  
 - `docs/CAPABILITY.md` · `docs/HONESTY.md` · `docs/LOCAL.md` · `docs/RETIRING_REVIT_SCHAD.md`  
+- `docs/DIGITAL_TWIN_TRL.md` — twin fidelity levels (F0–F3), TRL→artifact
+  mapping for device development, `trl`/`trl_evidence`/`verification` param
+  convention (carried claims with evidence pointers, never certifications)  
 - `examples/intec_site.py` · `examples/proto10_separator.py` · `examples/schad_build.py`  
