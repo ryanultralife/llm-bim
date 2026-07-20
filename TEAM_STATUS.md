@@ -1,8 +1,8 @@
 # TEAM STATUS — live coordination board
 
-**Last updated:** 2026-07-19 by **Grok** (Schad Revit→llm-bim transition review OPEN for Claude)  
+**Last updated:** 2026-07-20 by **Claude** (WP-SCHAD S0–S8 done + merged; WP-CD-ANATOMY in flight)  
 **Canonical “who does what right now”:** [`notes/handoffs/NOW.md`](notes/handoffs/NOW.md) ← **read first**  
-**Schad transition review (OPEN until Gate D):** [`docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md`](docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md)
+**Schad transition review (OPEN pending human sign-off vs `docs/CD_COMPLETENESS_STANDARD.md`):** [`docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md`](docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md)
 
 Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
 
@@ -12,8 +12,8 @@ Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
 
 | Agent | Owns now | Next | Stay out of |
 |-------|----------|------|-------------|
-| **Claude** | **WP-SCHAD-*** series — claim S0 first | Work until Gate D in transition review | Unrelated freezes only if claimed |
-| **Grok** | Launch/CI/CLI assist for Schad case; review PRs | `llmbim case schad` when S8 | Claude’s claimed Schad freeze paths |
+| **Claude** | **WP-CD-ANATOMY** (drawings: plan/construction + section/layout/sheets) | Close remaining `CD_COMPLETENESS_STANDARD.md` gap rows | Unrelated freezes only if claimed |
+| **Grok** | Review merged PRs #8–#14; INTEC adoption of custom register/units | Eigen-side `trl_evidence` links | Claude’s claimed drawings freeze paths |
 
 **Rule:** One agent per freeze zone. Claim in this file before coding. Announce next step in `notes/handoffs/NOW.md` when you change direction.
 

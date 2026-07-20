@@ -25,7 +25,7 @@ back into the basis; the twin is rebuilt, never patched by hand.
 |-------|------|----------|--------------|
 | F0 | Concept massing | Shells, generic boxes, notes | `verify_pack` ok (untyped walls expected) |
 | F1 | Design development | Typed assemblies, structure, MEP routes, register | rules/clash clean, `walls_untyped == 0`, `[DESIGN DEVELOPMENT]` stamp |
-| F2 | Construction / fab documents | Full CD register, details, schedules, drift-pin tests | golden command + CI guards (see `recipes/design_program.md`) |
+| F2 | Construction / fab documents | Full CD register, details, schedules, drift-pin tests | golden command + CI guards (see `skills/llm-bim/recipes/design_program.md`) |
 | F3 | As-built / as-tested | F2 + test-driven basis updates, `verification` params set | evidence linked in driver repo |
 
 ## TRL mapping (device / component development)
@@ -37,7 +37,7 @@ records the claim and points at the evidence. Artifact expectations per stage:
 |-----|-------|---------------------------|------------------------|
 | 1–2 | Concept | F0 model, notes, `Q-` flags | literature, basis rationale |
 | 3 | Proof of concept | Component model + **STEP** for bench prototype, BOM | bench data |
-| 4 | Lab validation | **DevicePack** (`recipes/device_pack.md`), fab pack, takeoffs | lab test records |
+| 4 | Lab validation | **DevicePack** (`skills/llm-bim/recipes/device_pack.md`), fab pack, takeoffs | lab test records |
 | 5 | Relevant environment | Module (`export_module`) **integrated into facility twin** (`import_module`), clash clean | environment test data |
 | 6 | System demo | Full facility twin, rules + hydraulic/duct sizing validated, F2 pack | system test campaign |
 | 7–9 | Field / proven | F3 as-built twin updated from field data | field/ops records |
