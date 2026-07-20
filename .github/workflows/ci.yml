@@ -27,5 +27,7 @@ jobs:
         run: llmbim demo --out /tmp/llmbim-demo
       - name: Real-case packs
         run: python scripts/verify_all.py
+      - name: Schad golden command (Gate D)
+        run: llmbim case schad --out /tmp/llmbim-schad
       - name: Chat path smoke
         run: python scripts/chat_smoke.py

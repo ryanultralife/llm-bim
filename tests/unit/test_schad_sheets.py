@@ -175,7 +175,10 @@ def test_roofs_placed_ridge_18ft(project):
     s = basis.build_scalars()
     roofs = {el.name: el for el in _by_category(project, "roof")}
     assert set(roofs) == {"Roof-Main-Gable", "Roof-Bay2-CrossGable", "Roof-Rear-Shed"}
-    ridge_mm = s["ridge"] * FT_TO_MM  # 18' = 5486.4
+    ridge_mm = s["ridge"] * FT_TO_MM
+    # drift pin (WP-SCHAD-S8 CI guard): the PUBLISHED ridge is 18' = 5486.4 mm
+    # (transition review §2.3 program facts) — basis or kernel drift fails here
+    assert ridge_mm == pytest.approx(5486.4)
     main = roofs["Roof-Main-Gable"]
     assert main.params["kind"] == "gable"
     assert main.params["ridge_z_mm"] == pytest.approx(ridge_mm)

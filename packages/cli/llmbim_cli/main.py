@@ -1014,12 +1014,40 @@ def cmd_template(args: argparse.Namespace) -> int:
 
 
 def cmd_case(args: argparse.Namespace) -> int:
-    """Build named real-world test cases (INTEC site, Proto10 separator)."""
+    """Build named real-world test cases (INTEC site, Proto10, Schad Phase 1)."""
     from llmbim_core.paths import project_output_dir
 
     root = Path(__file__).resolve().parents[3]  # repo root when installed editable
     if not (root / "examples").exists():
         root = Path.cwd()
+    # case builders live in ./examples (not an installed package) — bootstrap
+    # sys.path so the console script resolves them from any cwd
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+    if args.name == "schad":
+        # Gate D golden command (docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md §5):
+        # in-repo basis SSOT → model + VCS history → Gate C 21-sheet register.
+        # Always the full custom Schad CD set; --set does not apply.
+        from examples.schad_build import DEFAULT_OUT, build_schad_pack
+
+        out = Path(args.out) if args.out else DEFAULT_OUT
+        p, verify = build_schad_pack(out)
+        ok = bool(verify.get("ok"))
+        print(
+            json.dumps(
+                {
+                    "case": "schad",
+                    "out": str(out.resolve()),
+                    "stats": p.stats(),
+                    "verify_ok": ok,
+                    "open": str(out / "index.html"),
+                },
+                indent=2,
+            )
+        )
+        if getattr(args, "open_viewer", False):
+            return _serve_pack_dir(out, open_browser=True)
+        return 0 if ok else 1
     if args.name == "intec":
         from examples.intec_site import build_intec
 
@@ -1031,7 +1059,7 @@ def cmd_case(args: argparse.Namespace) -> int:
         out = Path(args.out) if args.out else project_output_dir("proto10")
         p = build_proto10(out)
     else:
-        print(f"Unknown case: {args.name}. Use intec | proto10", file=sys.stderr)
+        print(f"Unknown case: {args.name}. Use intec | proto10 | schad", file=sys.stderr)
         return 2
     set_type = getattr(args, "set_type", "construction")
     if set_type != "construction":
@@ -1079,15 +1107,16 @@ def main(argv: list[str] | None = None) -> int:
     p_val.add_argument("path", help="Path to project JSON")
     p_val.set_defaults(func=cmd_validate)
 
-    p_case = sub.add_parser("case", help="Build real test cases: intec | proto10")
-    p_case.add_argument("name", choices=["intec", "proto10"])
+    p_case = sub.add_parser("case", help="Build real test cases: intec | proto10 | schad")
+    p_case.add_argument("name", choices=["intec", "proto10", "schad"])
     p_case.add_argument("--out", default=None, help="Output directory")
     p_case.add_argument(
         "--set",
         dest="set_type",
         default="construction",
         choices=["plan", "construction"],
-        help="Drawing set: plan (permit sheets only) or construction (adds S/M/P/E)",
+        help="Drawing set: plan (permit sheets only) or construction (adds S/M/P/E). "
+        "Ignored for schad — it always builds its full Gate C register",
     )
     p_case.add_argument(
         "--open-viewer",

@@ -5,7 +5,7 @@
 **Human directive (2026-07-19):** *Transition away from Revit to our own llm-bim at the same or better quality and execution.*  
 **Not a PE seal.** Designer CD quality + agent-regenerable pack. Structural PE remains human.
 
-Related: `HONESTY.md` · `CAPABILITY.md` · `VISION.md` · `OUTPUT_MATRIX.md` · `EQUIPMENT_3D_AND_DEVICE_SSOT.md` (SSOT pattern) · `examples/schad_garage.py` · `notes/handoffs/NOW.md` · `docs/WORK_PACKAGES.md` (WP-SCHAD-*)
+Related: `HONESTY.md` · `CAPABILITY.md` · `VISION.md` · `OUTPUT_MATRIX.md` · `EQUIPMENT_3D_AND_DEVICE_SSOT.md` (SSOT pattern) · `examples/schad_garage.py` · `notes/handoffs/NOW.md` · `docs/WORK_PACKAGES.md` (WP-SCHAD-*) · `docs/RETIRING_REVIT_SCHAD.md` (Gate D decision record) · `skills/llm-bim/recipes/schad_cd.md` (rebuild recipe)
 
 ---
 
@@ -120,31 +120,32 @@ ARCHIVE (after Gate D): G:\…\Revit\*.rvt + Schad_* adapters (read-only)
 ## 5. Quality gates (same or better than Revit)
 
 ### Gate A — Honest massing
-- [ ] Roofs in mesh + elev + section (main gable, Bay-2 cross-gable/valley, shed, 18″ overhang)
-- [ ] Wood wall types (not CMU); 1-hr fire sep correct
-- [ ] Dual slabs + strip footings + stem
-- [ ] W16x40 + HSS posts + typed SSW
-- [ ] Areas drift tests: 2080 / 1568 / 224 / 224
-- [ ] Pack VERIFY ok
+- [x] Roofs in mesh + elev + section (main gable, Bay-2 cross-gable/valley, shed, 18″ overhang) — S2 kernel `llmbim_core/roofs.py`; `tests/unit/test_roof_planes.py` (glTF mesh, elev silhouette, section slopes, IFC) + `test_schad_sheets.py::test_roofs_placed_ridge_18ft`
+- [x] Wood wall types (not CMU); 1-hr fire sep correct — S1 registry; `tests/unit/test_schad_types.py` (zero industrial types, W-1HR-GAR-ADU on the separation)
+- [x] Dual slabs + strip footings + stem — S3 kernel `llmbim_core/foundations.py`; `tests/unit/test_schad_sheets.py` (13 F1 strips, 4 F2 pads, 12 stems, SOG-4/SOG-3)
+- [x] W16x40 + HSS posts + typed SSW — S4 catalogs; `tests/unit/test_schad_structure.py` (2 beams, 4 posts, 4+2 SSW typed)
+- [x] Areas drift tests: 2080 / 1568 / 224 / 224 — `tests/unit/test_schad_areas.py` (published pins + model rooms within 1 %)
+- [x] Pack VERIFY ok — `test_schad_sheets.py::test_pack_verify_ok_with_calc_docs_and_history` + `scripts/verify_all.py`
 
 ### Gate B — Structure + details
-- [ ] S1.1 foundation plan (footings, pads, rebar marks, notes from structural module)
-- [ ] S2.1 roof framing / bearing / deferred truss notes
-- [ ] S3.1–S3.3 details D01–D12 from ops DSL (4-up)
-- [ ] Header schedule at OH doors (HDR-1, HDR-2 LVL)
+- [x] S1.1 foundation plan (footings, pads, rebar marks, notes from structural module) — `build_llmbim._foundation_plan_view` renders placed F1/F2/stems/slabs + carried rebar/AB notes + strip check
+- [x] S2.1 roof framing / bearing / deferred truss notes — `projects/schad/svg_plans.roof_framing_svg` (ridge, trusses 24″ OC, W16x40, basis framing notes, deferred-submittal note)
+- [x] S3.1–S3.3 details D01–D12 from ops DSL (4-up) — S5 renderer; `test_detail_ops.py` + `test_schad_sheets.py::test_details_sheets_carry_d01_to_d12`
+- [x] Header schedule at OH doors (HDR-1, HDR-2 LVL) — `test_schad_structure.py::test_schad_headers_placed_at_basis_openings` (HDR-2 at 12′ OH doors); schedule carried in pack `docs/STRUCTURAL_CALCS.md`
 
 ### Gate C — Full 20-sheet register
+**Status: met (S6)** — 21-sheet custom register ([RB A0.1] index + S4.1 schedules) built by `projects/schad/build_llmbim.py`; `test_schad_sheets.py::test_pack_emits_full_gate_c_sheet_files` + `scripts/verify_all.py` assert the register.  
 A0.1, C1.1, A1.1, A1.2, A2.1, A2.2, A3.1, A4.1, S1.1, S2.1, S3.1–S3.3, MEP-101/201/301, H1.1–H2.2  
 Plus generated `STRUCTURAL_CALCS.md` / `MEP_CALCS.md` / `SPECIFICATIONS.md` in pack.  
 BOQ/CSI reflects wood building.
 
 ### Gate D — Better execution than Revit (retire seat)
-- [ ] `python examples/schad_build.py` (or `llmbim case schad`) rebuilds all
-- [ ] Model VCS commits after basis changes
-- [ ] CI: basis drift + pack smoke + wall type ≠ CMU
-- [ ] Recipe: `skills/llm-bim/recipes/schad_cd.md`
-- [ ] Doc: Revit archived; no edit path via `.rvt`
-- [ ] Human side-by-side vs last `sheet_renders/`
+- [x] `python examples/schad_build.py` (or `llmbim case schad`) rebuilds all — S8 golden command in `llmbim_cli`; `tests/unit/test_cli_case_schad.py`
+- [x] Model VCS commits after basis changes — staged commits per build phase in `build_pack`; `test_pack_verify_ok_with_calc_docs_and_history` asserts history + clean tree
+- [x] CI: basis drift + pack smoke + wall type ≠ CMU — `scripts/verify_all.py::check_schad` (VERIFY ok, 21 sheets, zero rule errors, zero industrial wall types) + pytest drift suites (`test_schad_areas/sheets/structure/types`) + `llmbim case schad` workflow step, all in `.github/workflows/ci.yml`
+- [x] Recipe: `skills/llm-bim/recipes/schad_cd.md`
+- [x] Doc: Revit archived; no edit path via `.rvt` — `docs/RETIRING_REVIT_SCHAD.md` (decision record; archive final on human sign-off)
+- [ ] Human side-by-side vs last `sheet_renders/` — **pending human review**; until signed, the review stays OPEN and `.rvt` remains the visual benchmark
 
 **“Better”** = regenerate in minutes, no dual Revit licenses, open formats, true versions, agent undo — not prettier families on day one.
 
