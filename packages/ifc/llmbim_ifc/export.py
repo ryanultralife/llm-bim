@@ -416,6 +416,53 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
             f"IFCSHAPEREPRESENTATION(#{ctx_body},'Body','SweptSolid',(#{solid}))"
         )
 
+    def roof_shape(planes: list, thickness: float) -> int | None:
+        """Faceted breps for stored roof planes: sloped top polygon extruded
+        straight down by ``thickness`` (z values are storey-local mm)."""
+
+        def _pt(p: tuple[float, float, float]) -> int:
+            return f.add(f"IFCCARTESIANPOINT(({p[0]},{p[1]},{p[2]}))")
+
+        def _face(ids: list[int]) -> int:
+            loop = f.add("IFCPOLYLOOP((" + ",".join(f"#{i}" for i in ids) + "))")
+            bound = f.add(f"IFCFACEOUTERBOUND(#{loop},.T.)")
+            return f.add(f"IFCFACE((#{bound}))")
+
+        breps: list[int] = []
+        for pl in planes:
+            try:
+                poly = pl.get("polygon_mm") or []
+                if len(poly) < 3:
+                    continue
+                top = [(float(q[0]), float(q[1]), float(q[2])) for q in poly]
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
+            # orient plan-CCW so the top face outward normal points up
+            n = len(top)
+            area2 = sum(
+                top[i][0] * top[(i + 1) % n][1] - top[(i + 1) % n][0] * top[i][1]
+                for i in range(n)
+            )
+            if area2 < 0:
+                top = list(reversed(top))
+            bot = [(x, y, z - thickness) for x, y, z in top]
+            top_ids = [_pt(p) for p in top]
+            bot_ids = [_pt(p) for p in bot]
+            face_ids: list[int] = [_face(top_ids), _face(list(reversed(bot_ids)))]
+            for i in range(n):
+                j = (i + 1) % n
+                face_ids.append(_face([top_ids[j], top_ids[i], bot_ids[i], bot_ids[j]]))
+            shell = f.add(
+                "IFCCLOSEDSHELL((" + ",".join(f"#{i}" for i in face_ids) + "))"
+            )
+            breps.append(f.add(f"IFCFACETEDBREP(#{shell})"))
+        if not breps:
+            return None
+        items = ",".join(f"#{b}" for b in breps)
+        return f.add(
+            f"IFCSHAPEREPRESENTATION(#{ctx_body},'Body','Brep',({items}))"
+        )
+
     contained: dict[int, list[int]] = {s: [] for s in storey_ids.values()}
     if default_storey not in contained:
         contained[default_storey] = []
@@ -568,6 +615,27 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
                 f"#{prod},$,.FLOOR.)"
             )
             contained[storey].append(slab)
+
+        elif el.category == "roof":
+            # IfcRoof with the pre-derived sloped planes as faceted breps
+            try:
+                planes = el.params.get("planes") or []
+                th = float(el.params.get("thickness_mm") or 150.0)
+            except (KeyError, TypeError, ValueError):
+                continue
+            body = roof_shape(planes, max(th, 1.0))
+            if body is None:
+                continue
+            loc = place_at(0.0, 0.0, 0.0, parent_local)
+            prod = f.add(f"IFCPRODUCTDEFINITIONSHAPE($,$,(#{body}))")
+            kind = str(el.params.get("kind") or "").lower()
+            pdt = {"gable": ".GABLE_ROOF.", "shed": ".SHED_ROOF."}.get(kind, ".FREEFORM.")
+            roof_id = f.add(
+                f"IFCROOF('{f.guid()}',#{owner},'{_esc(el.name or el.id)}',$,$,"
+                f"#{loc},#{prod},$,{pdt})"
+            )
+            contained[storey].append(roof_id)
+            _attach_csi_pset(f, owner, roof_id, model, el)
 
         elif el.category == "equipment":
             eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect, parent_local)

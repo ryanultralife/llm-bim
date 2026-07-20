@@ -7,6 +7,7 @@ from pathlib import Path
 
 from llmbim_core.errors import ValidationError
 from llmbim_core.model import Element, ProjectModel
+from llmbim_core.roofs import clip_segment_to_polygon, plane_coeffs
 
 from llmbim_drawings.svg_util import esc, fmt
 
@@ -70,6 +71,8 @@ def render_section_svg(
     rects: list[tuple[float, float, float, float]] = []  # s0, z0, s1, z1
     pipe_marks: list[tuple[float, float, float, str]] = []  # s, z, r, stroke
     opening_rects: list[tuple[float, float, float, float, str, str]] = []  # s0,z0,s1,z1,fill,label
+    roof_lines: list[tuple[float, float, float, float, float]] = []  # s0,z0,s1,z1,thickness
+    roof_ext: list[tuple[float, float, float, float]] = []  # extents only (not drawn as rects)
     wall_by_id = {el.id: el for el in model.elements if el.category == "wall"}
     for el in model.elements:
         if el.category == "wall":
@@ -91,6 +94,37 @@ def render_section_svg(
             z1 = z0 + height
             half = 100.0
             rects.append((s - half, z0, s + half, z1))
+        elif el.category == "roof":
+            # Sloped cut lines derived from the STORED planes (llmbim_core.roofs)
+            try:
+                zlv = _level_elev(model, el.level_id)
+                th = float(el.params.get("thickness_mm") or 150.0)
+                for pl in el.params.get("planes") or []:
+                    poly = pl.get("polygon_mm") or []
+                    if len(poly) < 3:
+                        continue
+                    co = plane_coeffs(poly)
+                    if co is None:
+                        continue
+                    win = clip_segment_to_polygon(p0, p1, poly)
+                    if win is None:
+                        continue
+                    ta, tb = win
+                    if tb - ta < 1e-6:
+                        continue
+                    a_c, b_c, c_c = co
+                    pts_sz: list[tuple[float, float]] = []
+                    for t in (ta, tb):
+                        cx = p0[0] + t * (p1[0] - p0[0])
+                        cy = p0[1] + t * (p1[1] - p0[1])
+                        pts_sz.append((t * cut_len, zlv + a_c * cx + b_c * cy + c_c))
+                    (s0r, zr0), (s1r, zr1) = pts_sz
+                    roof_lines.append((s0r, zr0, s1r, zr1, th))
+                    roof_ext.append(
+                        (min(s0r, s1r), min(zr0, zr1) - th, max(s0r, s1r), max(zr0, zr1))
+                    )
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
         elif el.category in {"door", "window"}:
             host = wall_by_id.get(el.host_id or "")
             if not host:
@@ -241,12 +275,13 @@ def render_section_svg(
             except (KeyError, TypeError, ValueError, IndexError):
                 continue
 
-    # Ground line extent
-    if rects:
-        min_s = min(r[0] for r in rects) - margin_mm
-        max_s = max(r[2] for r in rects) + margin_mm
-        min_z = min(r[1] for r in rects) - margin_mm * 0.2
-        max_z = max(r[3] for r in rects) + margin_mm * 0.2
+    # Ground line extent (roof cut lines widen the canvas but are not drawn as rects)
+    ext_rects = rects + roof_ext
+    if ext_rects:
+        min_s = min(r[0] for r in ext_rects) - margin_mm
+        max_s = max(r[2] for r in ext_rects) + margin_mm
+        min_z = min(r[1] for r in ext_rects) - margin_mm * 0.2
+        max_z = max(r[3] for r in ext_rects) + margin_mm * 0.2
     else:
         min_s, max_s, min_z, max_z = 0.0, cut_len, 0.0, 3000.0
 
@@ -285,6 +320,21 @@ def render_section_svg(
         h = (z1 - z0) * scale
         parts.append(f'    <rect x="{fmt(x)}" y="{fmt(y)}" width="{fmt(w)}" height="{fmt(h)}"/>')
     parts.append("  </g>")
+    if roof_lines:
+        parts.append('  <g class="roof-section" stroke="#333" stroke-width="2" fill="none">')
+        for s0r, zr0, s1r, zr1, th in roof_lines:
+            pa, pb = project(s0r, zr0), project(s1r, zr1)
+            parts.append(
+                f'    <line x1="{fmt(pa[0])}" y1="{fmt(pa[1])}" '
+                f'x2="{fmt(pb[0])}" y2="{fmt(pb[1])}"/>'
+            )
+            # underside of the roof solid (thickness below, cut as parallel line)
+            pc, pd = project(s0r, zr0 - th), project(s1r, zr1 - th)
+            parts.append(
+                f'    <line x1="{fmt(pc[0])}" y1="{fmt(pc[1])}" '
+                f'x2="{fmt(pd[0])}" y2="{fmt(pd[1])}" stroke-width="1"/>'
+            )
+        parts.append("  </g>")
     if opening_rects:
         parts.append(
             '  <g class="openings-section" stroke="#1565c0" stroke-width="1" '
@@ -465,6 +515,8 @@ def render_elevation_svg(
     wall_faces: list[tuple[float, float, float, float, float]] = []  # h0,h1,z0,z1,depth
     # equipment rendered in its own group (was drawn opaque inside the walls group)
     equip_rects: list[tuple[float, float, float, float, float]] = []  # h0,h1,z0,z1,depth
+    # roof plane silhouettes: projected polygons [(h, z), ...] per stored plane
+    roof_polys: list[list[tuple[float, float]]] = []
 
     for el in model.elements:
         if el.category == "wall":
@@ -485,6 +537,24 @@ def render_elevation_svg(
             segs.append((min(h0, h1), max(h0, h1), z0, z1))
             if parallel:
                 wall_faces.append((min(h0, h1), max(h0, h1), z0, z1, depth_c))
+        elif el.category == "roof":
+            # Sloped silhouettes straight from the STORED planes: gable
+            # triangle on end views, eave-to-ridge band on side views.
+            try:
+                zlv = _level_elev(model, el.level_id)
+                for pl in el.params.get("planes") or []:
+                    poly = pl.get("polygon_mm") or []
+                    if len(poly) < 3:
+                        continue
+                    pts: list[tuple[float, float]] = []
+                    for q in poly:
+                        h = float(q[0]) if d in {"N", "S"} else float(q[1])
+                        pts.append((h, zlv + float(q[2])))
+                    if max(p[0] for p in pts) - min(p[0] for p in pts) < 1.0:
+                        continue  # edge-on sliver
+                    roof_polys.append(pts)
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
         elif el.category in {"door", "window"}:
             host = wall_by_id.get(el.host_id or "")
             if not host:
@@ -683,8 +753,13 @@ def render_elevation_svg(
         col_labels = [(-h, zt, s) for (h, zt, s) in col_labels]
         wall_faces = [(-h1, -h0, z0, z1, dp) for (h0, h1, z0, z1, dp) in wall_faces]
         equip_rects = [(-h1, -h0, z0, z1, dp) for (h0, h1, z0, z1, dp) in equip_rects]
+        roof_polys = [[(-h, z) for h, z in pts] for pts in roof_polys]
 
     extent_rects = segs + [(h0, h1, z0, z1) for (h0, h1, z0, z1, _dp) in equip_rects]
+    for pts in roof_polys:
+        hs = [p[0] for p in pts]
+        zs = [p[1] for p in pts]
+        extent_rects.append((min(hs), max(hs), min(zs), max(zs)))
     if extent_rects:
         min_h = min(s[0] for s in extent_rects) - margin_mm
         max_h = max(s[1] for s in extent_rects) + margin_mm
@@ -728,6 +803,16 @@ def render_elevation_svg(
             continue
         parts.append(f'    <rect x="{fmt(x)}" y="{fmt(y)}" width="{fmt(w)}" height="{fmt(h)}"/>')
     parts.append("  </g>")
+    if roof_polys:
+        # roof planes over the wall band: gable triangle / sloped eave lines
+        parts.append('  <g class="roof-elev" fill="#c9c2b8" stroke="#333" stroke-width="1">')
+        for pts in roof_polys:
+            pieces = []
+            for h, z in pts:
+                px, py = project(h, z)
+                pieces.append(f"{fmt(px)},{fmt(py)}")
+            parts.append(f'    <polygon points="{" ".join(pieces)}"/>')
+        parts.append("  </g>")
     if opening_rects:
         parts.append(
             '  <g class="openings-elev" stroke="#1565c0" stroke-width="1" '

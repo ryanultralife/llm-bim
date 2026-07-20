@@ -266,6 +266,96 @@ class Project:
         )
         return str(result["result"]["element_id"])
 
+    def create_gable_roof(
+        self,
+        *,
+        level: str,
+        footprint: list[tuple[float, float]],
+        ridge_axis: str = "x",
+        ridge_offset_mm: float | None = None,
+        plate_mm: float = 3000.0,
+        pitch: float = 0.5,
+        overhang_mm: float = 450.0,
+        thickness_mm: float = 150.0,
+        name: str | None = None,
+    ) -> str:
+        """Gable roof over the footprint bbox: two sloped planes + ridge.
+
+        ``pitch`` is rise/run (6:12 → 0.5); ``plate_mm`` is the top-of-plate
+        height above the level; eaves extend ``overhang_mm`` past the
+        footprint. Derived planes (and valley lines against overlapping
+        roofs) are stored in element params for mesh/elev/section/IFC.
+        """
+        from llmbim_core.roofs import CreateGableRoof
+
+        result = self._log.execute(
+            self._model,
+            CreateGableRoof(
+                level=level,
+                footprint=[(float(x), float(y)) for x, y in footprint],
+                ridge_axis=ridge_axis,
+                ridge_offset_mm=ridge_offset_mm,
+                plate_mm=plate_mm,
+                pitch=pitch,
+                overhang_mm=overhang_mm,
+                thickness_mm=thickness_mm,
+                name=name or "",
+            ),
+        )
+        return str(result["result"]["element_id"])
+
+    def create_shed_roof(
+        self,
+        *,
+        level: str,
+        footprint: list[tuple[float, float]],
+        high_side: str = "N",
+        plate_low_mm: float = 3000.0,
+        plate_high_mm: float = 3600.0,
+        overhang_mm: float = 450.0,
+        thickness_mm: float = 150.0,
+        name: str | None = None,
+    ) -> str:
+        """Single-plane shed roof rising toward ``high_side`` (N|S|E|W)."""
+        from llmbim_core.roofs import CreateShedRoof
+
+        result = self._log.execute(
+            self._model,
+            CreateShedRoof(
+                level=level,
+                footprint=[(float(x), float(y)) for x, y in footprint],
+                high_side=high_side,
+                plate_low_mm=plate_low_mm,
+                plate_high_mm=plate_high_mm,
+                overhang_mm=overhang_mm,
+                thickness_mm=thickness_mm,
+                name=name or "",
+            ),
+        )
+        return str(result["result"]["element_id"])
+
+    def create_roof_plane(
+        self,
+        *,
+        level: str,
+        polygon: list[tuple[float, float, float]],
+        thickness_mm: float = 150.0,
+        name: str | None = None,
+    ) -> str:
+        """Low-level roof plane from an explicit convex 3D polygon (mm, z above level)."""
+        from llmbim_core.roofs import CreateRoofPlane
+
+        result = self._log.execute(
+            self._model,
+            CreateRoofPlane(
+                level=level,
+                polygon=[(float(x), float(y), float(z)) for x, y, z in polygon],
+                thickness_mm=thickness_mm,
+                name=name or "",
+            ),
+        )
+        return str(result["result"]["element_id"])
+
     def place_door(
         self,
         *,

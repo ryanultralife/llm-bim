@@ -401,6 +401,85 @@ def _create_slab(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
 
 
 @register(
+    "create_gable_roof",
+    description=(
+        "Gable roof over footprint bbox: two sloped planes + ridge; pitch is rise/run "
+        "(6:12 → 0.5); overhang extends eaves; valleys computed vs overlapping roofs"
+    ),
+    mutates=True,
+)
+def _create_gable_roof(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.roofs import CreateGableRoof
+
+    footprint = p.get("footprint") or p.get("footprint_mm") or []
+    if len(footprint) < 3:
+        raise ValueError("create_gable_roof requires footprint with ≥3 points [[x,y],...]")
+    pts = [(float(pt[0]), float(pt[1])) for pt in footprint]
+    offset = p.get("ridge_offset_mm")
+    cmd = CreateGableRoof(
+        level=p.get("level") or model.levels[0].name,
+        footprint=pts,
+        ridge_axis=str(p.get("ridge_axis") or "x"),
+        ridge_offset_mm=float(offset) if offset is not None else None,
+        plate_mm=float(p.get("plate_mm") or 3000),
+        pitch=float(p.get("pitch") or 0.5),
+        overhang_mm=float(p.get("overhang_mm") or 450),
+        thickness_mm=float(p.get("thickness_mm") or 150),
+        name=str(p.get("name") or ""),
+    )
+    return cmd.apply(model)
+
+
+@register(
+    "create_shed_roof",
+    description=(
+        "Single-plane shed roof over footprint bbox rising toward high_side N|S|E|W "
+        "between plate_low_mm and plate_high_mm, with overhang"
+    ),
+    mutates=True,
+)
+def _create_shed_roof(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.roofs import CreateShedRoof
+
+    footprint = p.get("footprint") or p.get("footprint_mm") or []
+    if len(footprint) < 3:
+        raise ValueError("create_shed_roof requires footprint with ≥3 points [[x,y],...]")
+    pts = [(float(pt[0]), float(pt[1])) for pt in footprint]
+    cmd = CreateShedRoof(
+        level=p.get("level") or model.levels[0].name,
+        footprint=pts,
+        high_side=str(p.get("high_side") or "N"),
+        plate_low_mm=float(p.get("plate_low_mm") or 3000),
+        plate_high_mm=float(p.get("plate_high_mm") or 3600),
+        overhang_mm=float(p.get("overhang_mm") or 450),
+        thickness_mm=float(p.get("thickness_mm") or 150),
+        name=str(p.get("name") or ""),
+    )
+    return cmd.apply(model)
+
+
+@register(
+    "create_roof_plane",
+    description="Low-level roof plane from explicit convex 3D polygon [[x,y,z],...] (mm, z above level)",
+    mutates=True,
+)
+def _create_roof_plane(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.roofs import CreateRoofPlane
+
+    polygon = p.get("polygon") or p.get("polygon_mm") or []
+    if len(polygon) < 3:
+        raise ValueError("create_roof_plane requires polygon with ≥3 points [[x,y,z],...]")
+    pts3 = [(float(pt[0]), float(pt[1]), float(pt[2])) for pt in polygon]
+    cmd = CreateRoofPlane(
+        level=p.get("level") or model.levels[0].name,
+        polygon=pts3,
+        thickness_mm=float(p.get("thickness_mm") or 150),
+        name=str(p.get("name") or ""),
+    )
+    return cmd.apply(model)
+
+
+@register(
     "create_equipment_box",
     description="Place equipment envelope box/cylinder at origin with size_mm Lx,Ly,Hz",
     mutates=True,

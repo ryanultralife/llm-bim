@@ -36,6 +36,8 @@ _MATERIAL_PBR: dict[str, tuple[list[float], float, float]] = {
     "wall_finish": ([0.92, 0.92, 0.9, 1.0], 0.0, 0.85),
     "wall_membrane": ([0.2, 0.25, 0.35, 1.0], 0.1, 0.7),
     "slab": ([0.55, 0.55, 0.58, 1.0], 0.05, 0.82),
+    # ADDITIVE (WP-SCHAD-S2): sloped roof planes — standing-seam charcoal
+    "roof": ([0.30, 0.31, 0.34, 1.0], 0.55, 0.5),
     "equipment": ([0.28, 0.52, 0.82, 1.0], 0.35, 0.45),
     # Equipment kinds — OPAQUE by default (viewer can ghost shells on demand).
     # Low alpha here made whole machines vanish on the dark studio background.
@@ -1352,6 +1354,86 @@ def _mesh_from_slab(el: Element, model: ProjectModel) -> tuple[list[float], list
         return [], [], []
 
 
+def _sloped_prism_mesh(
+    top: list[_Vec3], thickness: float
+) -> tuple[list[float], list[float], list[int]]:
+    """Solid from a planar (convex) top polygon extruded straight DOWN by
+    ``thickness`` — sloped roof plane with per-face normals (mm space in,
+    glTF out). Polygon may be wound either way; it is normalized so the top
+    face points up.
+    """
+    if len(top) < 3 or thickness <= 0:
+        return [], [], []
+    # Work in glTF space throughout (like _box_solid) so winding stays
+    # consistent with normals — the mm→glTF axis swap has determinant -1.
+    gt: list[_Vec3] = [_mm_to_gltf(x, y, z) for x, y, z in top]
+    # Newell normal in glTF space (Y is up)
+    nx = ny = nz = 0.0
+    for i, (x0, y0, z0) in enumerate(gt):
+        x1, y1, z1 = gt[(i + 1) % len(gt)]
+        nx += (y0 - y1) * (z0 + z1)
+        ny += (z0 - z1) * (x0 + x1)
+        nz += (x0 - x1) * (y0 + y1)
+    ln = math.sqrt(nx * nx + ny * ny + nz * nz)
+    if ln < 1e-9:
+        return [], [], []
+    if ny < 0:  # normalize winding so the top face points up (+Y)
+        gt = list(reversed(gt))
+        nx, ny, nz = -nx, -ny, -nz
+    n_top: _Vec3 = (nx / ln, ny / ln, nz / ln)
+    th_g = thickness / 1000.0
+    gb: list[_Vec3] = [(x, y - th_g, z) for x, y, z in gt]
+    pos: list[float] = []
+    nrm: list[float] = []
+    idx: list[int] = []
+
+    def _face(pts: list[_Vec3], normal: _Vec3) -> None:
+        vi = len(pos) // 3
+        for p in pts:
+            pos.extend(p)
+            nrm.extend(normal)
+        for k in range(1, len(pts) - 1):  # fan triangulation (convex)
+            idx.extend([vi, vi + k, vi + k + 1])
+
+    _face(gt, n_top)
+    _face(list(reversed(gb)), (-n_top[0], -n_top[1], -n_top[2]))
+    n = len(gt)
+    for i in range(n):
+        j = (i + 1) % n
+        a, b = gt[j], gt[i]
+        c, d = gb[i], gb[j]
+        ux, uy, uz = b[0] - a[0], b[1] - a[1], b[2] - a[2]
+        vx, vy, vz = c[0] - a[0], c[1] - a[1], c[2] - a[2]
+        fx, fy, fz = uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx
+        fl = math.sqrt(fx * fx + fy * fy + fz * fz) or 1.0
+        _face([a, b, c, d], (fx / fl, fy / fl, fz / fl))
+    return pos, nrm, idx
+
+
+def _mesh_from_roof(el: Element, model: ProjectModel) -> tuple[list[float], list[float], list[int]]:
+    """Roof element → one solid per stored plane (sloped top + thickness).
+
+    Planes come pre-derived from llmbim_core.roofs (polygon_mm 3D, z relative
+    to the element level) — no slope re-derivation here.
+    """
+    try:
+        planes = el.params.get("planes") or []
+        th = max(float(el.params.get("thickness_mm") or 150.0), 1.0)
+        zlv = _level_z(model, el.level_id)
+        parts: list[tuple[list[float], list[float], list[int]]] = []
+        for pl in planes:
+            poly = pl.get("polygon_mm") or []
+            if len(poly) < 3:
+                continue
+            top: list[_Vec3] = [
+                (float(q[0]), float(q[1]), zlv + float(q[2])) for q in poly
+            ]
+            parts.append(_sloped_prism_mesh(top, th))
+        return _merge_meshes(parts)
+    except (KeyError, TypeError, ValueError, IndexError):
+        return [], [], []
+
+
 def _wire_material_key(el: Element, default: str = "wire") -> str:
     """Phase / system / role → wire material key (SSOT doc §5.3D table).
 
@@ -1377,6 +1459,8 @@ def _gltf_material_key(el: Element) -> str:
         return "wall"
     if cat == "slab":
         return "slab"
+    if cat == "roof":
+        return "roof"
     if cat == "door":
         return "door"
     if cat == "window":
@@ -1593,6 +1677,8 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
             pos, nrm, indices = _wall_box_mesh(x0, y0, x1, y1, th, z0, z0 + ht)
         elif el.category == "slab":
             pos, nrm, indices = _mesh_from_slab(el, model)
+        elif el.category == "roof":
+            pos, nrm, indices = _mesh_from_roof(el, model)
         elif el.category in {"door", "window"}:
             pos, nrm, indices = _mesh_from_opening(el, model, wall_by_id)
         elif el.category == "equipment":
