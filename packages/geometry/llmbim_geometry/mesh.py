@@ -36,6 +36,10 @@ _MATERIAL_PBR: dict[str, tuple[list[float], float, float]] = {
     "wall_finish": ([0.92, 0.92, 0.9, 1.0], 0.0, 0.85),
     "wall_membrane": ([0.2, 0.25, 0.35, 1.0], 0.1, 0.7),
     "slab": ([0.55, 0.55, 0.58, 1.0], 0.05, 0.82),
+    # ADDITIVE (WP-SCHAD-S2): sloped roof planes — standing-seam charcoal
+    "roof": ([0.30, 0.31, 0.34, 1.0], 0.55, 0.5),
+    # ADDITIVE (WP-SCHAD-S3): cast-in-place foundations — concrete grey
+    "concrete": ([0.64, 0.63, 0.60, 1.0], 0.02, 0.92),
     "equipment": ([0.28, 0.52, 0.82, 1.0], 0.35, 0.45),
     # Equipment kinds — OPAQUE by default (viewer can ghost shells on demand).
     # Low alpha here made whole machines vanish on the dark studio background.
@@ -1345,9 +1349,147 @@ def _mesh_from_slab(el: Element, model: ProjectModel) -> tuple[list[float], list
             return [], [], []
         xs = [float(p[0]) for p in poly]
         ys = [float(p[1]) for p in poly]
-        z1 = _level_z(model, el.level_id)
+        # ADDITIVE (WP-SCHAD-S3): slab-on-grade may carry a level-relative top
+        # elevation; plain slabs (no param) keep topping out at the level datum.
+        z1 = _level_z(model, el.level_id) + float(el.params.get("top_of_slab_mm") or 0.0)
         z0 = z1 - th
         return _aabb_box_mesh(min(xs), min(ys), z0, max(xs), max(ys), z1)
+    except (KeyError, TypeError, ValueError, IndexError):
+        return [], [], []
+
+
+def _mesh_from_footing(el: Element, model: ProjectModel) -> tuple[list[float], list[float], list[int]]:
+    """Footing element → concrete prism(s) below the level datum (WP-SCHAD-S3).
+
+    Geometry comes pre-stored from llmbim_core.foundations: strip footings are
+    per-segment boxes along ``path_mm`` (width across), pads a single box.
+    """
+    try:
+        zlv = _level_z(model, el.level_id)
+        z1 = zlv + float(el.params.get("top_of_footing_mm") or 0.0)
+        z0 = z1 - float(el.params.get("depth_mm") or 0.0)
+        if z1 - z0 < 1e-6:
+            return [], [], []
+        kind = str(el.params.get("kind") or "strip")
+        if kind == "pad":
+            c = el.params.get("center_mm") or [0.0, 0.0]
+            hw = float(el.params.get("w_mm") or 0.0) / 2.0
+            hd = float(el.params.get("d_mm") or 0.0) / 2.0
+            cx, cy = float(c[0]), float(c[1])
+            if hw < 1e-6 or hd < 1e-6:
+                return [], [], []
+            return _aabb_box_mesh(cx - hw, cy - hd, z0, cx + hw, cy + hd, z1)
+        path = el.params.get("path_mm") or []
+        width = float(el.params.get("width_mm") or 0.0)
+        parts: list[tuple[list[float], list[float], list[int]]] = []
+        for i in range(len(path) - 1):
+            x0, y0 = float(path[i][0]), float(path[i][1])
+            x1, y1 = float(path[i + 1][0]), float(path[i + 1][1])
+            parts.append(_wall_box_mesh(x0, y0, x1, y1, width, z0, z1))
+        return _merge_meshes(parts)
+    except (KeyError, TypeError, ValueError, IndexError):
+        return [], [], []
+
+
+def _mesh_from_stem_wall(
+    el: Element, model: ProjectModel
+) -> tuple[list[float], list[float], list[int]]:
+    """Stem wall element → concrete boxes along ``path_mm``, top at ``top_mm``
+    extending ``height_mm`` down (WP-SCHAD-S3)."""
+    try:
+        zlv = _level_z(model, el.level_id)
+        z1 = zlv + float(el.params.get("top_mm") or 0.0)
+        z0 = z1 - float(el.params.get("height_mm") or 0.0)
+        th = float(el.params.get("thickness_mm") or 0.0)
+        if z1 - z0 < 1e-6 or th < 1e-6:
+            return [], [], []
+        path = el.params.get("path_mm") or []
+        parts: list[tuple[list[float], list[float], list[int]]] = []
+        for i in range(len(path) - 1):
+            x0, y0 = float(path[i][0]), float(path[i][1])
+            x1, y1 = float(path[i + 1][0]), float(path[i + 1][1])
+            parts.append(_wall_box_mesh(x0, y0, x1, y1, th, z0, z1))
+        return _merge_meshes(parts)
+    except (KeyError, TypeError, ValueError, IndexError):
+        return [], [], []
+
+
+def _sloped_prism_mesh(
+    top: list[_Vec3], thickness: float
+) -> tuple[list[float], list[float], list[int]]:
+    """Solid from a planar (convex) top polygon extruded straight DOWN by
+    ``thickness`` — sloped roof plane with per-face normals (mm space in,
+    glTF out). Polygon may be wound either way; it is normalized so the top
+    face points up.
+    """
+    if len(top) < 3 or thickness <= 0:
+        return [], [], []
+    # Work in glTF space throughout (like _box_solid) so winding stays
+    # consistent with normals — the mm→glTF axis swap has determinant -1.
+    gt: list[_Vec3] = [_mm_to_gltf(x, y, z) for x, y, z in top]
+    # Newell normal in glTF space (Y is up)
+    nx = ny = nz = 0.0
+    for i, (x0, y0, z0) in enumerate(gt):
+        x1, y1, z1 = gt[(i + 1) % len(gt)]
+        nx += (y0 - y1) * (z0 + z1)
+        ny += (z0 - z1) * (x0 + x1)
+        nz += (x0 - x1) * (y0 + y1)
+    ln = math.sqrt(nx * nx + ny * ny + nz * nz)
+    if ln < 1e-9:
+        return [], [], []
+    if ny < 0:  # normalize winding so the top face points up (+Y)
+        gt = list(reversed(gt))
+        nx, ny, nz = -nx, -ny, -nz
+    n_top: _Vec3 = (nx / ln, ny / ln, nz / ln)
+    th_g = thickness / 1000.0
+    gb: list[_Vec3] = [(x, y - th_g, z) for x, y, z in gt]
+    pos: list[float] = []
+    nrm: list[float] = []
+    idx: list[int] = []
+
+    def _face(pts: list[_Vec3], normal: _Vec3) -> None:
+        vi = len(pos) // 3
+        for p in pts:
+            pos.extend(p)
+            nrm.extend(normal)
+        for k in range(1, len(pts) - 1):  # fan triangulation (convex)
+            idx.extend([vi, vi + k, vi + k + 1])
+
+    _face(gt, n_top)
+    _face(list(reversed(gb)), (-n_top[0], -n_top[1], -n_top[2]))
+    n = len(gt)
+    for i in range(n):
+        j = (i + 1) % n
+        a, b = gt[j], gt[i]
+        c, d = gb[i], gb[j]
+        ux, uy, uz = b[0] - a[0], b[1] - a[1], b[2] - a[2]
+        vx, vy, vz = c[0] - a[0], c[1] - a[1], c[2] - a[2]
+        fx, fy, fz = uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx
+        fl = math.sqrt(fx * fx + fy * fy + fz * fz) or 1.0
+        _face([a, b, c, d], (fx / fl, fy / fl, fz / fl))
+    return pos, nrm, idx
+
+
+def _mesh_from_roof(el: Element, model: ProjectModel) -> tuple[list[float], list[float], list[int]]:
+    """Roof element → one solid per stored plane (sloped top + thickness).
+
+    Planes come pre-derived from llmbim_core.roofs (polygon_mm 3D, z relative
+    to the element level) — no slope re-derivation here.
+    """
+    try:
+        planes = el.params.get("planes") or []
+        th = max(float(el.params.get("thickness_mm") or 150.0), 1.0)
+        zlv = _level_z(model, el.level_id)
+        parts: list[tuple[list[float], list[float], list[int]]] = []
+        for pl in planes:
+            poly = pl.get("polygon_mm") or []
+            if len(poly) < 3:
+                continue
+            top: list[_Vec3] = [
+                (float(q[0]), float(q[1]), zlv + float(q[2])) for q in poly
+            ]
+            parts.append(_sloped_prism_mesh(top, th))
+        return _merge_meshes(parts)
     except (KeyError, TypeError, ValueError, IndexError):
         return [], [], []
 
@@ -1376,7 +1518,14 @@ def _gltf_material_key(el: Element) -> str:
     if cat == "wall":
         return "wall"
     if cat == "slab":
+        # ADDITIVE (WP-SCHAD-S3): slabs-on-grade render concrete; plain slabs keep "slab"
+        if str(el.params.get("kind") or "") == "slab_on_grade":
+            return "concrete"
         return "slab"
+    if cat in {"footing", "stem_wall"}:
+        return "concrete"
+    if cat == "roof":
+        return "roof"
     if cat == "door":
         return "door"
     if cat == "window":
@@ -1457,6 +1606,8 @@ _EXTRA_PARAM_KEYS: tuple[str, ...] = (
     "od_mm",
     "phase",
     "wire_role",
+    # ADDITIVE (WP-SCHAD-S3): foundation marks in viewer extras
+    "mark",
 )
 
 
@@ -1593,6 +1744,12 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
             pos, nrm, indices = _wall_box_mesh(x0, y0, x1, y1, th, z0, z0 + ht)
         elif el.category == "slab":
             pos, nrm, indices = _mesh_from_slab(el, model)
+        elif el.category == "footing":
+            pos, nrm, indices = _mesh_from_footing(el, model)
+        elif el.category == "stem_wall":
+            pos, nrm, indices = _mesh_from_stem_wall(el, model)
+        elif el.category == "roof":
+            pos, nrm, indices = _mesh_from_roof(el, model)
         elif el.category in {"door", "window"}:
             pos, nrm, indices = _mesh_from_opening(el, model, wall_by_id)
         elif el.category == "equipment":

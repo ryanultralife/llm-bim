@@ -243,6 +243,298 @@ if HAS_MCP:
         return _tool_result({"wall_ids": ids, "count": len(ids), "prefix": name_prefix})
 
     @mcp.tool()
+    def roof_gable_create(
+        project_id: str,
+        level: str,
+        footprint_json: str,
+        ridge_axis: str = "x",
+        ridge_offset_mm: float | None = None,
+        plate_mm: float = 3000.0,
+        pitch: float = 0.5,
+        overhang_mm: float = 450.0,
+        thickness_mm: float = 150.0,
+        name: str = "",
+    ) -> str:
+        """Gable roof over footprint bbox (footprint_json: [[x,y],...] mm).
+
+        pitch is rise/run (6:12 → 0.5); plate_mm = top of plate above level;
+        overhang extends the eaves. Valley lines vs overlapping roofs are
+        computed and stored on the new element (geometric coordination)."""
+        try:
+            p = store.get(project_id)
+            footprint = json.loads(footprint_json)
+            eid = p.create_gable_roof(
+                level=level,
+                footprint=[(float(q[0]), float(q[1])) for q in footprint],
+                ridge_axis=ridge_axis,
+                ridge_offset_mm=ridge_offset_mm,
+                plate_mm=plate_mm,
+                pitch=pitch,
+                overhang_mm=overhang_mm,
+                thickness_mm=thickness_mm,
+                name=name,
+            )
+            store.save(project_id)
+            el = p.model.get_element(eid)
+            return _tool_result(
+                {
+                    "element_id": eid,
+                    "ridge_z_mm": el.params.get("ridge_z_mm"),
+                    "plane_count": len(el.params.get("planes") or []),
+                    "valley_count": len(el.params.get("valley_lines_mm") or []),
+                }
+            )
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def roof_shed_create(
+        project_id: str,
+        level: str,
+        footprint_json: str,
+        high_side: str = "N",
+        plate_low_mm: float = 3000.0,
+        plate_high_mm: float = 3600.0,
+        overhang_mm: float = 450.0,
+        thickness_mm: float = 150.0,
+        name: str = "",
+    ) -> str:
+        """Single-plane shed roof over footprint bbox rising toward high_side N|S|E|W."""
+        try:
+            p = store.get(project_id)
+            footprint = json.loads(footprint_json)
+            eid = p.create_shed_roof(
+                level=level,
+                footprint=[(float(q[0]), float(q[1])) for q in footprint],
+                high_side=high_side,
+                plate_low_mm=plate_low_mm,
+                plate_high_mm=plate_high_mm,
+                overhang_mm=overhang_mm,
+                thickness_mm=thickness_mm,
+                name=name,
+            )
+            store.save(project_id)
+            el = p.model.get_element(eid)
+            return _tool_result(
+                {
+                    "element_id": eid,
+                    "slope": el.params.get("slope"),
+                    "plane_count": len(el.params.get("planes") or []),
+                }
+            )
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def roof_plane_create(
+        project_id: str,
+        level: str,
+        polygon_json: str,
+        thickness_mm: float = 150.0,
+        name: str = "",
+    ) -> str:
+        """Low-level roof plane from a convex 3D polygon_json [[x,y,z],...] (mm, z above level)."""
+        try:
+            p = store.get(project_id)
+            polygon = json.loads(polygon_json)
+            eid = p.create_roof_plane(
+                level=level,
+                polygon=[(float(q[0]), float(q[1]), float(q[2])) for q in polygon],
+                thickness_mm=thickness_mm,
+                name=name,
+            )
+            store.save(project_id)
+            el = p.model.get_element(eid)
+            return _tool_result(
+                {
+                    "element_id": eid,
+                    "slope": el.params.get("slope"),
+                    "plane_count": len(el.params.get("planes") or []),
+                }
+            )
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def footing_strip_create(
+        project_id: str,
+        level: str,
+        width_mm: float,
+        depth_mm: float,
+        path_json: str = "",
+        under_wall: str = "",
+        top_of_footing_mm: float = 0.0,
+        rebar_json: str = "",
+        mark: str = "",
+        name: str = "",
+    ) -> str:
+        """Strip footing along path_json [[x,y],...] mm OR under_wall=<wall id>.
+
+        width_mm across the path, depth_mm vertical; top_of_footing_mm is
+        relative to the level (negative = below the datum). rebar_json is a
+        JSON object/string carried verbatim into the rebar schedule
+        (design-development callout, not a calculation)."""
+        try:
+            p = store.get(project_id)
+            path = json.loads(path_json) if path_json else None
+            rebar = json.loads(rebar_json) if rebar_json else None
+            eid = p.create_strip_footing(
+                level=level,
+                width_mm=width_mm,
+                depth_mm=depth_mm,
+                path=[(float(q[0]), float(q[1])) for q in path] if path else None,
+                under_wall=under_wall or None,
+                top_of_footing_mm=top_of_footing_mm,
+                rebar=rebar,
+                mark=mark,
+                name=name,
+            )
+            store.save(project_id)
+            el = p.model.get_element(eid)
+            return _tool_result(
+                {
+                    "element_id": eid,
+                    "mark": el.params.get("mark"),
+                    "length_mm": el.params.get("length_mm"),
+                    "top_of_footing_mm": el.params.get("top_of_footing_mm"),
+                }
+            )
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def footing_pad_create(
+        project_id: str,
+        level: str,
+        origin_json: str,
+        w_mm: float,
+        d_mm: float,
+        depth_mm: float,
+        top_of_footing_mm: float = 0.0,
+        rebar_json: str = "",
+        mark: str = "",
+        name: str = "",
+    ) -> str:
+        """Isolated pad footing centered at origin_json [x,y] mm: w x d plan,
+        depth_mm vertical, top_of_footing_mm relative to the level."""
+        try:
+            p = store.get(project_id)
+            origin = json.loads(origin_json)
+            rebar = json.loads(rebar_json) if rebar_json else None
+            eid = p.create_pad_footing(
+                level=level,
+                origin=(float(origin[0]), float(origin[1])),
+                w_mm=w_mm,
+                d_mm=d_mm,
+                depth_mm=depth_mm,
+                top_of_footing_mm=top_of_footing_mm,
+                rebar=rebar,
+                mark=mark,
+                name=name,
+            )
+            store.save(project_id)
+            el = p.model.get_element(eid)
+            return _tool_result(
+                {
+                    "element_id": eid,
+                    "mark": el.params.get("mark"),
+                    "top_of_footing_mm": el.params.get("top_of_footing_mm"),
+                }
+            )
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def stem_wall_create(
+        project_id: str,
+        level: str,
+        path_json: str,
+        height_mm: float,
+        thickness_mm: float,
+        top_mm: float = 0.0,
+        rebar_json: str = "",
+        mark: str = "",
+        name: str = "",
+    ) -> str:
+        """Concrete stem wall along path_json [[x,y],...] mm: top at top_mm
+        (level-relative, default 0) extending height_mm DOWN to the footing."""
+        try:
+            p = store.get(project_id)
+            path = json.loads(path_json)
+            rebar = json.loads(rebar_json) if rebar_json else None
+            eid = p.create_stem_wall(
+                level=level,
+                path=[(float(q[0]), float(q[1])) for q in path],
+                height_mm=height_mm,
+                thickness_mm=thickness_mm,
+                top_mm=top_mm,
+                rebar=rebar,
+                mark=mark,
+                name=name,
+            )
+            store.save(project_id)
+            el = p.model.get_element(eid)
+            return _tool_result(
+                {
+                    "element_id": eid,
+                    "mark": el.params.get("mark"),
+                    "length_mm": el.params.get("length_mm"),
+                }
+            )
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def slab_on_grade_create(
+        project_id: str,
+        level: str,
+        polygon_json: str,
+        thickness_mm: float,
+        top_of_slab_mm: float = 0.0,
+        reinforcement: str = "",
+        mark: str = "",
+        name: str = "",
+    ) -> str:
+        """Slab-on-grade from polygon_json [[x,y],...] mm: thickness_mm down
+        from top_of_slab_mm (level-relative). reinforcement (WWM / rebar mat)
+        + mark are carried into the rebar schedule (design-development data).
+        For a plain floor slab (no grade params), use slab_create."""
+        try:
+            p = store.get(project_id)
+            polygon = json.loads(polygon_json)
+            eid = p.create_slab_on_grade(
+                level=level,
+                polygon=[(float(q[0]), float(q[1])) for q in polygon],
+                thickness_mm=thickness_mm,
+                top_of_slab_mm=top_of_slab_mm,
+                reinforcement=reinforcement or None,
+                mark=mark,
+                name=name,
+            )
+            store.save(project_id)
+            el = p.model.get_element(eid)
+            return _tool_result(
+                {
+                    "element_id": eid,
+                    "mark": el.params.get("mark"),
+                    "area_mm2": el.params.get("area_mm2"),
+                    "top_of_slab_mm": el.params.get("top_of_slab_mm"),
+                }
+            )
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def rebar_schedule(project_id: str) -> str:
+        """Foundation rebar/reinforcement schedule rows by mark (carried
+        design-basis callouts, not engineering calculations)."""
+        try:
+            p = store.get(project_id)
+            return _tool_result({"rows": p.rebar_schedule()})
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
     def project_commit(project_id: str, message: str, author: str = "agent") -> str:
         """Commit true model version (required after edits — not chat history)."""
         p = store.get(project_id)

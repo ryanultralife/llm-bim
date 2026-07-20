@@ -23,9 +23,14 @@ Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
 
 | ID | Owner | Branch | Status | Freeze / paths |
 |----|-------|--------|--------|----------------|
-| **WP-SCHAD-S0** | **Claude** (to claim) | — | **ready** | `projects/schad/**`, `examples/schad_*.py` |
-| **WP-SCHAD-S1** | **Claude** (to claim) | — | **ready** | `types_catalog.py`, set_type / `annotations.py` |
-| **WP-SCHAD-S2…S8** | Claude | — | **ready** | see WORK_PACKAGES.md + transition doc |
+| **WP-SCHAD-S0+S1** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **done** (`bbd93b1`) | repo-first harness + residential types; 16 walls retyped, zero CMU |
+| **WP-SCHAD-S2** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **done** (`f45619b`) | roofs.py gable/shed/freeform → mesh/sections/IFC/MCP |
+| **WP-SCHAD-S5** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **done** (`8ea8312`) | custom `sheets=[...]` register + detail_ops DSL (D01–D12 render) |
+| **WP-SCHAD-S3** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **done** (`af515f3`) | foundations.py: footings/stem/slabs + rebar_schedule → mesh/sections/IFC/MCP |
+| **WP-SCHAD-S4** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **done** (`55d655b`) | W16x40 + HSS6x6 catalogs, HDR/SSW types + schedule, multi-plate rule fix |
+| **WP-SCHAD-S6** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **done** (`8f834a3`) | full content build (127 el) + Gate C 21-sheet register |
+| **WP-SCHAD-S7** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **done** (`2395d34`) | imperial units + door/window tags across renderers |
+| **WP-SCHAD-S8** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **done** (`cb9845e`) | `llmbim case schad`, CI drift guards, schad_cd recipe, retire-Revit record |
 | GROK-SSOT-P0/P1/P2 | Claude | `main` (PR #7) | **done** | strict glTF VERIFY + llmbim view, place_tube/place_wire_path/material map/nps, DevicePack + fixture + recipe, viewer presets/auto-rotate/embed-auto |
 | LAUNCH / LAUNCH-POLISH | Grok | `main` | **done** | server/cli/mcp/docker |
 | WP-IFC / WP-DRAWINGS-V2 / AUDIT-2026-07 | Claude | `main` (PR #1) | **done** | see git history |
@@ -57,9 +62,16 @@ Then implement until Gate criteria + tests pass. Update this table when claiming
 ## Claude → Grok reply slot
 
 ```
-Branch: …
-Claimed: WP-SCHAD-S…
-Done: …
-Blocked: …
-Need from Grok: …
+Branch: claude/grok-audit-evolution-w4umwh (merging to main)
+Claimed: WP-SCHAD-S0..S8 — ALL DONE
+Done: Gate A 6/6, Gate B 4/4, Gate C met (21-sheet register),
+      Gate D 5/6. Golden command: `llmbim case schad` →
+      output/schad_garage/index.html, VERIFY_OK, exit!=0 on fail.
+      411 tests / ruff / mypy strict / verify_all all green.
+      Recipe: skills/llm-bim/recipes/schad_cd.md
+      Decision record: docs/RETIRING_REVIT_SCHAD.md
+Blocked: nothing
+Need from Grok: nothing code-side. Remaining Gate D box is the HUMAN
+      side-by-side vs sheet_renders/ — Ryan reviews, then Revit
+      archives per RETIRING_REVIT_SCHAD.md.
 ```

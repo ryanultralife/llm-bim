@@ -8,11 +8,25 @@ from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
+from llmbim_core.errors import ValidationError
 from llmbim_core.model import Element, ProjectModel
 from llmbim_geometry.primitives import point_along_segment
 
+from llmbim_drawings.detail_ops import format_mm_feet_inches
 from llmbim_drawings.svg_util import esc, fmt
 from llmbim_drawings.view import DrawingView
+
+_MM2_PER_SF = 92903.04  # square-foot area conversion (1 ft = 304.8 mm)
+
+
+def _element_mark(el: Element) -> str:
+    """Tag text for door/window bubbles: params ``mark``, else name, else short id."""
+    mark = str(el.params.get("mark") or "").strip()
+    if mark:
+        return mark
+    if el.name:
+        return str(el.name)
+    return str(el.id)[:6]
 
 
 def _wall_endpoints(el: Element) -> tuple[float, float, float, float, float] | None:
@@ -153,6 +167,8 @@ def render_plan_view(
     ghost_walls: bool = False,
     grid_dims: bool = False,
     room_tags: bool = False,
+    tags: bool = False,
+    units: str = "metric",
     section_marks: Sequence[Mapping[str, Any]] | None = None,
     crop_mm: tuple[float, float, float, float] | None = None,
     wall_fill_by_type: dict[str, str] | None = None,
@@ -179,10 +195,35 @@ def render_plan_view(
     unchanged): ``grid_dims`` draws running dimension chains between grid
     positions (top for the U axis, left for the V axis) plus the overall
     dimension; ``room_tags`` replaces plain room labels with boxed
-    name + area tags; ``section_marks`` draws section cut markers — each item
+    name + area tags; ``tags`` replaces the sequential door/window bubbles
+    with marked tag symbols — a hexagon per door and a diamond per window,
+    labelled from params ``mark`` (fallback: name, then short id);
+    ``units`` is ``"metric"`` (default, output unchanged) or ``"imperial"``
+    — dimension strings render as feet-inches to the nearest 1/2"
+    (``24'-0"``, ``4'-0 1/2"``; 1 ft = 304.8 mm) and areas as SF;
+    ``section_marks`` draws section cut markers — each item
     a mapping with ``p0``/``p1`` plan points (mm), ``label`` (e.g. ``"A"``)
     and ``sheet`` reference (e.g. ``"A-301"``).
     """
+    if units not in {"metric", "imperial"}:
+        raise ValidationError(
+            "units must be 'metric' or 'imperial'", units=units
+        )
+    imperial = units == "imperial"
+
+    def _fmt_len(length_mm: float) -> str:
+        """Dimension text: metric ``12.00 m`` / ``800 mm``, imperial ft-in."""
+        if imperial:
+            return format_mm_feet_inches(length_mm)
+        if length_mm >= 1000:
+            return f"{length_mm / 1000:.2f} m"
+        return f"{length_mm:.0f} mm"
+
+    def _fmt_grid(length_mm: float) -> str:
+        """Grid-chain segment text: metric plain mm, imperial ft-in."""
+        if imperial:
+            return format_mm_feet_inches(length_mm)
+        return f"{length_mm:.0f}"
 
     def _on(group: str) -> bool:
         return include is None or group in include
@@ -531,7 +572,41 @@ def render_plan_view(
                 return tid[2:][:14]
             return tid[:14]
 
-        if opening.category == "door":
+        if tags:
+            # Marked tag bubbles (WP-SCHAD-S7): hexagon per door, diamond per
+            # window, text from params ``mark`` (fallback: name, short id).
+            mark = _element_mark(opening)
+            r = max(7.0, 90 * scale)
+            if opening.category == "door":
+                hex_pts = " ".join(
+                    f"{fmt(pm[0] + r * math.cos(math.radians(a)))},"
+                    f"{fmt(pm[1] + r * math.sin(math.radians(a)))}"
+                    for a in (0, 60, 120, 180, 240, 300)
+                )
+                parts.append(
+                    f'    <polygon class="door-tag" points="{hex_pts}" '
+                    f'fill="#e8ffe8" stroke="#228822" stroke-width="1.2"/>'
+                )
+                parts.append(
+                    f'    <text x="{fmt(pm[0])}" y="{fmt(pm[1] + r * 0.3)}" '
+                    f'text-anchor="middle" font-size="{fmt(max(7, r * 0.8))}" '
+                    f'fill="#145214" font-family="sans-serif">{esc(mark[:6])}</text>'
+                )
+            else:
+                dia_pts = (
+                    f"{fmt(pm[0])},{fmt(pm[1] - r)} {fmt(pm[0] + r)},{fmt(pm[1])} "
+                    f"{fmt(pm[0])},{fmt(pm[1] + r)} {fmt(pm[0] - r)},{fmt(pm[1])}"
+                )
+                parts.append(
+                    f'    <polygon class="window-tag" points="{dia_pts}" '
+                    f'fill="#e8f0ff" stroke="#0066aa" stroke-width="1.2"/>'
+                )
+                parts.append(
+                    f'    <text x="{fmt(pm[0])}" y="{fmt(pm[1] + r * 0.3)}" '
+                    f'text-anchor="middle" font-size="{fmt(max(7, r * 0.7))}" '
+                    f'fill="#003366" font-family="sans-serif">{esc(mark[:6])}</text>'
+                )
+        elif opening.category == "door":
             door_num += 1
             tag = f"D{door_num}"
             tshort = _opening_type_short(opening)
@@ -870,7 +945,11 @@ def render_plan_view(
                     f'x2="{fmt(b[0])}" y2="{fmt(b[1])}" stroke="#2e7d32"/>'
                 )
             mx, my = project((x0 + x1) / 2, (y0 + y1) / 2)
-            label = f"{w:.0f}x{float(el.params.get('height_mm') or 0):.0f}"
+            duct_h = float(el.params.get("height_mm") or 0)
+            if imperial:
+                label = f'{w / 25.4:.0f}x{duct_h / 25.4:.0f}"'
+            else:
+                label = f"{w:.0f}x{duct_h:.0f}"
             parts.append(
                 f'    <text x="{fmt(mx)}" y="{fmt(my - 4)}" text-anchor="middle" '
                 f'font-size="{fmt(max(6, 9))}" fill="#1b5e20" font-family="sans-serif">'
@@ -910,7 +989,7 @@ def render_plan_view(
                     f'x2="{fmt(b[0])}" y2="{fmt(b[1])}" stroke="#6a1b9a"/>'
                 )
             mx, my = project((x0 + x1) / 2, (y0 + y1) / 2)
-            label = f"CT {w:.0f}"
+            label = f'CT {w / 25.4:.0f}"' if imperial else f"CT {w:.0f}"
             parts.append(
                 f'    <text x="{fmt(mx)}" y="{fmt(my - 4)}" text-anchor="middle" '
                 f'font-size="{fmt(max(6, 9))}" fill="#4a148c" font-family="sans-serif">'
@@ -1060,9 +1139,17 @@ def render_plan_view(
             area_mm2 = abs(a) / 2.0
         area_txt = ""
         if area_mm2 is not None and float(area_mm2) > 0:
-            area_txt = f" {float(area_mm2) / 1e6:.1f}m²"
+            if imperial:
+                area_txt = f" {float(area_mm2) / _MM2_PER_SF:.0f} SF"
+            else:
+                area_txt = f" {float(area_mm2) / 1e6:.1f}m²"
         h_mm = room.params.get("height_mm") or room.params.get("ceiling_height_mm")
-        h_txt = f" H{float(h_mm):.0f}" if h_mm else ""
+        if h_mm and imperial:
+            h_txt = f" H{format_mm_feet_inches(float(h_mm))}"
+        elif h_mm:
+            h_txt = f" H{float(h_mm):.0f}"
+        else:
+            h_txt = ""
         label = f"{name}{area_txt}{h_txt}"
         parts.append(
             f'    <text class="room-label" x="{fmt(px)}" y="{fmt(py)}">{esc(label)}</text>'
@@ -1099,7 +1186,10 @@ def render_plan_view(
             cx, cy, area_mm2 = ca
             px, py = project(cx, cy)
             name = (room.name or "ROOM").upper()
-            area_txt = f"{area_mm2 / 1e6:.1f} m²"
+            if imperial:
+                area_txt = f"{area_mm2 / _MM2_PER_SF:.0f} SF"
+            else:
+                area_txt = f"{area_mm2 / 1e6:.1f} m²"
             box_w = max(len(name), len(area_txt)) * tag_font * 0.62 + 14
             box_h = 2 * tag_font + 12
             parts.append(
@@ -1139,10 +1229,7 @@ def render_plan_view(
                 length = math.hypot(x1 - x0, y1 - y0)
                 if length < 500:
                     continue
-                if length >= 1000:
-                    lab = f"{length / 1000:.2f} m"
-                else:
-                    lab = f"{length:.0f} mm"
+                lab = _fmt_len(length)
                 parts.extend(_dim_line(x0, y0, x1, y1, project, scale, lab))
                 dim_budget -= 1
                 if dim_budget <= 0:
@@ -1184,10 +1271,7 @@ def render_plan_view(
             mep_runs.append((length, x0, y0, x1, y1, prefix))
         mep_runs.sort(key=lambda t: t[0], reverse=True)
         for length, x0, y0, x1, y1, prefix in mep_runs[: max(0, dim_budget)]:
-            if length >= 1000:
-                lab = f"{prefix}{length / 1000:.2f} m"
-            else:
-                lab = f"{prefix}{length:.0f} mm"
+            lab = f"{prefix}{_fmt_len(length)}"
             parts.extend(_dim_line(x0, y0, x1, y1, project, scale, lab))
         parts.append("  </g>")
 
@@ -1274,7 +1358,7 @@ def render_plan_view(
                 parts.append(_tick(xb, y_run))
                 parts.append(
                     f'    <text x="{fmt((xa + xb) / 2)}" y="{fmt(y_run - 3)}" '
-                    f'text-anchor="middle">{b - a:.0f}</text>'
+                    f'text-anchor="middle">{_fmt_grid(b - a)}</text>'
                 )
             x0, x1 = px_of[u_pos[0]], px_of[u_pos[-1]]
             parts.append(
@@ -1284,7 +1368,7 @@ def render_plan_view(
             parts.append(_tick(x1, y_all))
             parts.append(
                 f'    <text x="{fmt((x0 + x1) / 2)}" y="{fmt(y_all - 3)}" '
-                f'text-anchor="middle" font-weight="bold">{u_pos[-1] - u_pos[0]:.0f}</text>'
+                f'text-anchor="middle" font-weight="bold">{_fmt_grid(u_pos[-1] - u_pos[0])}</text>'
             )
         if len(v_pos) >= 2:
             x_run = -(_gd_br + 12)
@@ -1307,7 +1391,7 @@ def render_plan_view(
                 my = (ya + yb) / 2
                 parts.append(
                     f'    <text x="{fmt(x_run - 3)}" y="{fmt(my)}" text-anchor="middle" '
-                    f'transform="rotate(-90 {fmt(x_run - 3)} {fmt(my)})">{b - a:.0f}</text>'
+                    f'transform="rotate(-90 {fmt(x_run - 3)} {fmt(my)})">{_fmt_grid(b - a)}</text>'
                 )
             y0p, y1p = py_of[v_pos[0]], py_of[v_pos[-1]]
             parts.append(
@@ -1319,7 +1403,7 @@ def render_plan_view(
             parts.append(
                 f'    <text x="{fmt(x_all - 3)}" y="{fmt(my)}" text-anchor="middle" '
                 f'font-weight="bold" transform="rotate(-90 {fmt(x_all - 3)} {fmt(my)})">'
-                f"{v_pos[-1] - v_pos[0]:.0f}</text>"
+                f"{_fmt_grid(v_pos[-1] - v_pos[0])}</text>"
             )
         parts.append("  </g>")
 

@@ -401,6 +401,213 @@ def _create_slab(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
 
 
 @register(
+    "create_gable_roof",
+    description=(
+        "Gable roof over footprint bbox: two sloped planes + ridge; pitch is rise/run "
+        "(6:12 → 0.5); overhang extends eaves; valleys computed vs overlapping roofs"
+    ),
+    mutates=True,
+)
+def _create_gable_roof(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.roofs import CreateGableRoof
+
+    footprint = p.get("footprint") or p.get("footprint_mm") or []
+    if len(footprint) < 3:
+        raise ValueError("create_gable_roof requires footprint with ≥3 points [[x,y],...]")
+    pts = [(float(pt[0]), float(pt[1])) for pt in footprint]
+    offset = p.get("ridge_offset_mm")
+    cmd = CreateGableRoof(
+        level=p.get("level") or model.levels[0].name,
+        footprint=pts,
+        ridge_axis=str(p.get("ridge_axis") or "x"),
+        ridge_offset_mm=float(offset) if offset is not None else None,
+        plate_mm=float(p.get("plate_mm") or 3000),
+        pitch=float(p.get("pitch") or 0.5),
+        overhang_mm=float(p.get("overhang_mm") or 450),
+        thickness_mm=float(p.get("thickness_mm") or 150),
+        name=str(p.get("name") or ""),
+    )
+    return cmd.apply(model)
+
+
+@register(
+    "create_shed_roof",
+    description=(
+        "Single-plane shed roof over footprint bbox rising toward high_side N|S|E|W "
+        "between plate_low_mm and plate_high_mm, with overhang"
+    ),
+    mutates=True,
+)
+def _create_shed_roof(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.roofs import CreateShedRoof
+
+    footprint = p.get("footprint") or p.get("footprint_mm") or []
+    if len(footprint) < 3:
+        raise ValueError("create_shed_roof requires footprint with ≥3 points [[x,y],...]")
+    pts = [(float(pt[0]), float(pt[1])) for pt in footprint]
+    cmd = CreateShedRoof(
+        level=p.get("level") or model.levels[0].name,
+        footprint=pts,
+        high_side=str(p.get("high_side") or "N"),
+        plate_low_mm=float(p.get("plate_low_mm") or 3000),
+        plate_high_mm=float(p.get("plate_high_mm") or 3600),
+        overhang_mm=float(p.get("overhang_mm") or 450),
+        thickness_mm=float(p.get("thickness_mm") or 150),
+        name=str(p.get("name") or ""),
+    )
+    return cmd.apply(model)
+
+
+@register(
+    "create_roof_plane",
+    description="Low-level roof plane from explicit convex 3D polygon [[x,y,z],...] (mm, z above level)",
+    mutates=True,
+)
+def _create_roof_plane(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.roofs import CreateRoofPlane
+
+    polygon = p.get("polygon") or p.get("polygon_mm") or []
+    if len(polygon) < 3:
+        raise ValueError("create_roof_plane requires polygon with ≥3 points [[x,y,z],...]")
+    pts3 = [(float(pt[0]), float(pt[1]), float(pt[2])) for pt in polygon]
+    cmd = CreateRoofPlane(
+        level=p.get("level") or model.levels[0].name,
+        polygon=pts3,
+        thickness_mm=float(p.get("thickness_mm") or 150),
+        name=str(p.get("name") or ""),
+    )
+    return cmd.apply(model)
+
+
+@register(
+    "create_strip_footing",
+    description=(
+        "Strip footing along path [[x,y],...] mm or under_wall=<wall id>; width_mm across, "
+        "depth_mm vertical, top_of_footing_mm relative to level (negative = below datum); "
+        "rebar + mark carried for the schedule (design-development data, not calcs)"
+    ),
+    mutates=True,
+)
+def _create_strip_footing(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.foundations import CreateStripFooting
+
+    path = p.get("path") or p.get("path_mm")
+    pts = [(float(q[0]), float(q[1])) for q in path] if path else None
+    cmd = CreateStripFooting(
+        level=p.get("level") or model.levels[0].name,
+        width_mm=float(p.get("width_mm") or p.get("width") or 0),
+        depth_mm=float(p.get("depth_mm") or p.get("depth") or 0),
+        path=pts,
+        under_wall=str(p["under_wall"]) if p.get("under_wall") else None,
+        top_of_footing_mm=float(p.get("top_of_footing_mm") or 0),
+        rebar=p.get("rebar"),
+        mark=str(p.get("mark") or ""),
+        name=str(p.get("name") or ""),
+    )
+    return cmd.apply(model)
+
+
+@register(
+    "create_pad_footing",
+    description=(
+        "Isolated pad footing centered at origin [x,y] mm: w_mm x d_mm plan, depth_mm vertical, "
+        "top_of_footing_mm relative to level; rebar + mark carried for the schedule"
+    ),
+    mutates=True,
+)
+def _create_pad_footing(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.foundations import CreatePadFooting
+
+    origin = p.get("origin") or p.get("origin_mm") or p.get("center") or [0, 0]
+    cmd = CreatePadFooting(
+        level=p.get("level") or model.levels[0].name,
+        origin=(float(origin[0]), float(origin[1])),
+        w_mm=float(p.get("w_mm") or p.get("w") or 0),
+        d_mm=float(p.get("d_mm") or p.get("d") or 0),
+        depth_mm=float(p.get("depth_mm") or p.get("depth") or 0),
+        top_of_footing_mm=float(p.get("top_of_footing_mm") or 0),
+        rebar=p.get("rebar"),
+        mark=str(p.get("mark") or ""),
+        name=str(p.get("name") or ""),
+    )
+    return cmd.apply(model)
+
+
+@register(
+    "create_stem_wall",
+    description=(
+        "Concrete stem wall along path [[x,y],...] mm: top at top_mm (level-relative, default 0) "
+        "extending height_mm DOWN toward the footing; thickness_mm plan width; rebar carried"
+    ),
+    mutates=True,
+)
+def _create_stem_wall(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.foundations import CreateStemWall
+
+    path = p.get("path") or p.get("path_mm") or []
+    if len(path) < 2:
+        raise ValueError("create_stem_wall requires path with ≥2 points [[x,y],...]")
+    cmd = CreateStemWall(
+        level=p.get("level") or model.levels[0].name,
+        path=[(float(q[0]), float(q[1])) for q in path],
+        height_mm=float(p.get("height_mm") or p.get("height") or 0),
+        thickness_mm=float(p.get("thickness_mm") or p.get("thickness") or 0),
+        top_mm=float(p.get("top_mm") or 0),
+        rebar=p.get("rebar"),
+        mark=str(p.get("mark") or ""),
+        name=str(p.get("name") or ""),
+    )
+    return cmd.apply(model)
+
+
+@register(
+    "create_slab_on_grade",
+    description=(
+        "Slab-on-grade from polygon [[x,y],...] mm (or rect x,y,w,d): thickness_mm down from "
+        "top_of_slab_mm (level-relative, default 0); reinforcement (WWM/rebar mat) + mark carried"
+    ),
+    mutates=True,
+)
+def _create_slab_on_grade(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.foundations import CreateSlabOnGrade
+
+    polygon = p.get("polygon") or p.get("polygon_mm") or p.get("boundary") or []
+    if len(polygon) < 3:
+        if p.get("w") is not None and p.get("d") is not None:
+            x = float(p.get("x") or 0)
+            y = float(p.get("y") or 0)
+            w = float(p["w"])
+            d = float(p["d"])
+            polygon = [[x, y], [x + w, y], [x + w, y + d], [x, y + d]]
+        else:
+            raise ValueError(
+                "create_slab_on_grade requires polygon with ≥3 points [[x,y],...] or rect x,y,w,d"
+            )
+    cmd = CreateSlabOnGrade(
+        level=p.get("level") or model.levels[0].name,
+        polygon=[(float(q[0]), float(q[1])) for q in polygon],
+        thickness_mm=float(p.get("thickness_mm") or p.get("thickness") or 0),
+        top_of_slab_mm=float(p.get("top_of_slab_mm") or 0),
+        reinforcement=p.get("reinforcement") or p.get("rebar"),
+        mark=str(p.get("mark") or ""),
+        name=str(p.get("name") or ""),
+    )
+    return cmd.apply(model)
+
+
+@register(
+    "rebar_schedule",
+    description="Foundation rebar/reinforcement schedule rows by mark (carried basis callouts)",
+    mutates=False,
+)
+def _rebar_schedule(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.foundations import rebar_schedule
+
+    rows = rebar_schedule(model)
+    return {"rows": rows, "count": len(rows)}
+
+
+@register(
     "create_equipment_box",
     description="Place equipment envelope box/cylinder at origin with size_mm Lx,Ly,Hz",
     mutates=True,
