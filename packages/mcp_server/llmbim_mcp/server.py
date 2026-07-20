@@ -243,6 +243,119 @@ if HAS_MCP:
         return _tool_result({"wall_ids": ids, "count": len(ids), "prefix": name_prefix})
 
     @mcp.tool()
+    def roof_gable_create(
+        project_id: str,
+        level: str,
+        footprint_json: str,
+        ridge_axis: str = "x",
+        ridge_offset_mm: float | None = None,
+        plate_mm: float = 3000.0,
+        pitch: float = 0.5,
+        overhang_mm: float = 450.0,
+        thickness_mm: float = 150.0,
+        name: str = "",
+    ) -> str:
+        """Gable roof over footprint bbox (footprint_json: [[x,y],...] mm).
+
+        pitch is rise/run (6:12 → 0.5); plate_mm = top of plate above level;
+        overhang extends the eaves. Valley lines vs overlapping roofs are
+        computed and stored on the new element (geometric coordination)."""
+        try:
+            p = store.get(project_id)
+            footprint = json.loads(footprint_json)
+            eid = p.create_gable_roof(
+                level=level,
+                footprint=[(float(q[0]), float(q[1])) for q in footprint],
+                ridge_axis=ridge_axis,
+                ridge_offset_mm=ridge_offset_mm,
+                plate_mm=plate_mm,
+                pitch=pitch,
+                overhang_mm=overhang_mm,
+                thickness_mm=thickness_mm,
+                name=name,
+            )
+            store.save(project_id)
+            el = p.model.get_element(eid)
+            return _tool_result(
+                {
+                    "element_id": eid,
+                    "ridge_z_mm": el.params.get("ridge_z_mm"),
+                    "plane_count": len(el.params.get("planes") or []),
+                    "valley_count": len(el.params.get("valley_lines_mm") or []),
+                }
+            )
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def roof_shed_create(
+        project_id: str,
+        level: str,
+        footprint_json: str,
+        high_side: str = "N",
+        plate_low_mm: float = 3000.0,
+        plate_high_mm: float = 3600.0,
+        overhang_mm: float = 450.0,
+        thickness_mm: float = 150.0,
+        name: str = "",
+    ) -> str:
+        """Single-plane shed roof over footprint bbox rising toward high_side N|S|E|W."""
+        try:
+            p = store.get(project_id)
+            footprint = json.loads(footprint_json)
+            eid = p.create_shed_roof(
+                level=level,
+                footprint=[(float(q[0]), float(q[1])) for q in footprint],
+                high_side=high_side,
+                plate_low_mm=plate_low_mm,
+                plate_high_mm=plate_high_mm,
+                overhang_mm=overhang_mm,
+                thickness_mm=thickness_mm,
+                name=name,
+            )
+            store.save(project_id)
+            el = p.model.get_element(eid)
+            return _tool_result(
+                {
+                    "element_id": eid,
+                    "slope": el.params.get("slope"),
+                    "plane_count": len(el.params.get("planes") or []),
+                }
+            )
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def roof_plane_create(
+        project_id: str,
+        level: str,
+        polygon_json: str,
+        thickness_mm: float = 150.0,
+        name: str = "",
+    ) -> str:
+        """Low-level roof plane from a convex 3D polygon_json [[x,y,z],...] (mm, z above level)."""
+        try:
+            p = store.get(project_id)
+            polygon = json.loads(polygon_json)
+            eid = p.create_roof_plane(
+                level=level,
+                polygon=[(float(q[0]), float(q[1]), float(q[2])) for q in polygon],
+                thickness_mm=thickness_mm,
+                name=name,
+            )
+            store.save(project_id)
+            el = p.model.get_element(eid)
+            return _tool_result(
+                {
+                    "element_id": eid,
+                    "slope": el.params.get("slope"),
+                    "plane_count": len(el.params.get("planes") or []),
+                }
+            )
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
     def project_commit(project_id: str, message: str, author: str = "agent") -> str:
         """Commit true model version (required after edits — not chat history)."""
         p = store.get(project_id)
