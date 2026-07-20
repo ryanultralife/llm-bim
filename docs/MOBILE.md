@@ -1,9 +1,19 @@
 # Point and chat — any LLM, any device, no setup
 
-The rule: **no API keys, no config**. A person points the LLM they already
-use at this repo and gets real output. The kernel's modeling and full pack
-export are **pure standard-library Python** — no pip install is needed to run
-it, which is what makes the paths below work.
+The rule: **the repo is free to point at — your own tokens do the work.**
+No API keys, no accounts with us, no config, nothing to sign up for: this is
+a public MIT-licensed repo, so reading, cloning, and the ZIP download are all
+anonymous. Whatever LLM you already use (or run locally) executes against the
+instructions and framework here. The kernel's modeling and full pack export
+are **pure standard-library Python** — no pip install is needed to run it,
+which is what makes the paths below work.
+
+Any LLM that can browse can also ingest the instructions directly without
+cloning anything — the skill is one file:
+
+```
+https://raw.githubusercontent.com/ryanultralife/llm-bim/main/skills/llm-bim/SKILL.md
+```
 
 ## The pointer prompt (paste into any LLM)
 
@@ -26,10 +36,11 @@ files, even with **no internet in the sandbox**:
    (or its zip) for download. Open `index.html` in your browser — the 3D
    viewer is fully self-contained and works offline on a phone.
 
-## Path B — vendor-hosted coding agents (login only, full autonomy)
+## Path B — vendor-hosted coding agents (full autonomy)
 
 These give the LLM a cloud machine with shell + git; you just connect the
-repo and chat. No API keys — your existing login is the whole setup:
+repo and chat. Any login involved is with **your own LLM vendor** — the same
+account you already chat with — never with this repo:
 
 | Your LLM | Point it here | Entry context it reads |
 |----------|---------------|------------------------|
@@ -52,6 +63,15 @@ python -c "import bootstrap; from llmbim import Project; print('kernel ok')"
 
 `pip install -e ".[dev,server]"` is only needed for the `llmbim` CLI,
 server/MCP, and the test suite — never for modeling itself.
+
+## Using vs. contributing
+
+Everything above is **using** the framework: it needs no permission, no
+identity, and never writes to this repo — your models and packs are yours,
+built wherever your LLM runs. The multi-agent protocol in `AGENTS.md`
+(claims, lanes, `TEAM_STATUS.md`) applies **only to agents committing to this
+repo itself**. If your agent improves the kernel and you want it upstream,
+fork and open a PR — otherwise ignore that file entirely.
 
 ## What browser-only chat (no sandbox) can still do
 
