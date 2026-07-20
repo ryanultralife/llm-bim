@@ -15,7 +15,8 @@ thread (`G:\My Drive\Schad Garage\Revit\` adapters, local `.rvt` files) is
 design changes are made in the basis modules and regenerated here.
 
 Archive status is *conditional until Gate D signs*: the final criterion —
-human side-by-side review of this pack against the last Revit
+human review of this pack against `docs/CD_COMPLETENESS_STANDARD.md`;
+the last Revit
 `sheet_renders/` set — is still pending (see Residual gaps). Until the human
 signs "Revit not required for Phase 1 regeneration", the `.rvt` archive
 remains the visual benchmark of record.
@@ -66,7 +67,9 @@ calc docs, and `VERIFY.json`. CI rebuilds and gates it on every push
 
 ## Residual gaps
 
-1. **Human side-by-side visual QA pending** — this pack vs the last Revit
+1. **Human QA pending** — this pack reviewed against
+   `docs/CD_COMPLETENESS_STANDARD.md` (professional doc-set anatomy;
+   Sierra Star / Verseon calibrated). Reference only: the last Revit
    `sheet_renders/` set (Gate D final checkbox). Until reviewed and signed,
    the `.rvt` archive stays authoritative for visual comparison.
 2. Values the record does not fix remain flagged `*_assumed` in the model

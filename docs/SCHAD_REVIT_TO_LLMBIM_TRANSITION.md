@@ -15,7 +15,7 @@ Schad Phase 1 (Garage / ADU / Workshop, Ledger Built **2024-008**, 3730 Chandler
 
 **Decision:** llm-bim becomes the sole authoring host. Revit adapters and `.rvt` files become **archive / visual regression** after Gate D. The basis modules never retype numbers — they move into this repo as SSOT.
 
-**Win condition:** one command rebuilds a pack that matches or beats the last Revit `sheet_renders/` set for Phase 1 — roofs, wood assemblies, foundations, S-details, full sheet register — with open formats, model VCS, and agent API.
+**Win condition:** one command rebuilds a pack meeting `docs/CD_COMPLETENESS_STANDARD.md` (professional doc-set anatomy, exemplar-calibrated) for Phase 1 — roofs, wood assemblies, foundations, S-details, full sheet register — with open formats, model VCS, and agent API. Revit is the data source being retired, not the benchmark.
 
 ---
 
@@ -145,7 +145,7 @@ BOQ/CSI reflects wood building.
 - [x] CI: basis drift + pack smoke + wall type ≠ CMU — `scripts/verify_all.py::check_schad` (VERIFY ok, 21 sheets, zero rule errors, zero industrial wall types) + pytest drift suites (`test_schad_areas/sheets/structure/types`) + `llmbim case schad` workflow step, all in `.github/workflows/ci.yml`
 - [x] Recipe: `skills/llm-bim/recipes/schad_cd.md`
 - [x] Doc: Revit archived; no edit path via `.rvt` — `docs/RETIRING_REVIT_SCHAD.md` (decision record; archive final on human sign-off)
-- [ ] Human side-by-side vs last `sheet_renders/` — **pending human review**; until signed, the review stays OPEN and `.rvt` remains the visual benchmark
+- [ ] Human review of the pack against `docs/CD_COMPLETENESS_STANDARD.md` — **pending**; until signed, the review stays OPEN. (Reframed from Revit side-by-side: the benchmark is professional doc-set anatomy — Sierra Star / Verseon calibration — not the old tool's renders, which remain available as reference only.)
 
 **“Better”** = regenerate in minutes, no dual Revit licenses, open formats, true versions, agent undo — not prettier families on day one.
 

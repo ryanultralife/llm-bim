@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import datetime as _dt
+import math
 from xml.sax.saxutils import escape
 
 from llmbim_drawings.svg_util import fmt
@@ -104,6 +105,54 @@ def north_arrow_glyph(x: float, y: float, r: float = 16.0) -> str:
     )
 
 
+def revision_cloud(
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+    *,
+    number: str | int = "1",
+    lobe: float = 14.0,
+) -> str:
+    """Scalloped revision cloud around a rect + numbered delta triangle.
+
+    WP-CD-ANATOMY sheet furniture: a closed path of outward arcs (standard
+    CD revision-cloud linework) traced clockwise around the given rect, with
+    a Δ revision-number triangle at its top-right corner. Coordinates are in
+    the same sheet space as the ``body`` passed to ``title_block_svg`` /
+    ``compose_sheet``.
+    """
+    lobe = max(4.0, float(lobe))
+    r = lobe * 0.62  # radius just over half-chord so every lobe bulges
+    corners = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
+    d: list[str] = [f"M {fmt(x)},{fmt(y)}"]
+    for i in range(4):
+        x0, y0 = corners[i]
+        x1, y1 = corners[(i + 1) % 4]
+        length = math.hypot(x1 - x0, y1 - y0)
+        n = max(1, int(round(length / lobe)))
+        for k in range(1, n + 1):
+            px = x0 + (x1 - x0) * k / n
+            py = y0 + (y1 - y0) * k / n
+            # sweep=1 on a clockwise-wound rect bulges each lobe outward
+            d.append(f"A {fmt(r)},{fmt(r)} 0 0 1 {fmt(px)},{fmt(py)}")
+    d.append("Z")
+    tx, ty = x + w + 8.0, y - 8.0
+    return "\n".join(
+        [
+            '<g class="revision-cloud" fill="none" stroke="#111" stroke-width="1.1">',
+            f'  <path d="{" ".join(d)}"/>',
+            f'  <polygon class="rev-delta" points="{fmt(tx)},{fmt(ty - 13)} '
+            f'{fmt(tx - 8)},{fmt(ty + 1)} {fmt(tx + 8)},{fmt(ty + 1)}" '
+            f'fill="#fff" stroke-width="1.2"/>',
+            f'  <text x="{fmt(tx)}" y="{fmt(ty - 1)}" text-anchor="middle" '
+            f'font-family="sans-serif" font-size="8" font-weight="bold" fill="#111" '
+            f'stroke="none">{escape(str(number))}</text>',
+            "</g>",
+        ]
+    )
+
+
 def _zone_ticks(sheet_w: float, sheet_h: float, margin: float) -> str:
     """Margin-zone reference grid: letters across top/bottom, numbers down sides."""
     inner_w = sheet_w - 2 * margin
@@ -179,12 +228,15 @@ def title_block_svg(
     revisions: list[tuple[str, str, str]] | None = None,
     px_per_mm: float | None = None,
     north_arrow: bool = False,
+    stamp_block: bool = False,
 ) -> str:
     """Wrap drawing body in a CD-style frame with right-side title column.
 
     Backward compatible with the legacy bottom-strip signature; the new
     keyword-only params are all optional. ``px_per_mm`` (on-sheet units per
     model mm, i.e. view scale × fit factor) enables the graphic scale bar.
+    ``stamp_block=True`` reserves an empty bordered PE/SE stamp square in the
+    title column (S-discipline sheets, per the CD completeness standard).
     """
     margin = SHEET_MARGIN
     tb_w = TITLE_BLOCK_W
@@ -336,6 +388,23 @@ def title_block_svg(
     )
     y += stamp_h + 8
     hline(y)
+
+    # ── reserved PE/SE stamp block (S-discipline sheets)
+    if stamp_block:
+        y += 8
+        side = min(tb_w - 24.0, 96.0)
+        sx0 = tb_x + (tb_w - side) / 2.0
+        blocks.append(
+            f'  <g class="stamp-block">'
+            f'<rect x="{fmt(sx0)}" y="{fmt(y)}" width="{fmt(side)}" height="{fmt(side)}" '
+            f'fill="none" stroke="#111" stroke-width="1.4"/>'
+        )
+        blocks.append(
+            f'  <text x="{fmt(cx)}" y="{fmt(y + side / 2 + 3)}" text-anchor="middle" '
+            f'font-size="8" fill="#999" letter-spacing="2">STAMP</text></g>'
+        )
+        y += side + 8
+        hline(y)
 
     # ── graphics cell: scale bar + north arrow
     if px_per_mm or north_arrow:
