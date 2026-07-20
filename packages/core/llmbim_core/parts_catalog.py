@@ -60,6 +60,86 @@ def nps_slug(nps: str) -> str:
     return nps.replace("-", "_").replace("/", "_")
 
 
+# Decimal / float spellings → canonical catalog NPS labels (SSOT doc §5.2.4)
+_NPS_DECIMAL_ALIASES: dict[str, str] = {
+    "0.5": "1/2",
+    ".5": "1/2",
+    "0.75": "3/4",
+    ".75": "3/4",
+    "1.25": "1-1/4",
+    "1.5": "1-1/2",
+    "2.5": "2-1/2",
+}
+
+
+def normalize_nps(nps: str | float | int) -> str:
+    """Canonicalize an NPS label: ``1.5`` → ``1-1/2``, floats, stray spaces.
+
+    Accepts ``"1-1/2"`` (canonical), ``"1 1/2"``, ``"1.5"``, ``1.5``, ``' 2 '``,
+    trailing inch marks. Unknown spellings are returned trimmed so callers can
+    report them against the catalog list (see :func:`known_nps_for_material`).
+    """
+    import re
+
+    s = str(nps).strip().rstrip('"').replace("″", "").strip()
+    # "1 1/2" → "1-1/2" before removing remaining stray spaces
+    s = re.sub(r"^(\d+)\s+(\d+\s*/\s*\d+)$", r"\1-\2", s)
+    s = s.replace(" ", "")
+    if not s:
+        return s
+    if s in _NPS_DECIMAL_ALIASES:
+        return _NPS_DECIMAL_ALIASES[s]
+    try:
+        f = float(s)
+    except ValueError:
+        return s
+    if abs(f - round(f)) < 1e-9:
+        return str(int(round(f)))  # "2.0" → "2"
+    key = f"{f:g}"
+    return _NPS_DECIMAL_ALIASES.get(key, s)
+
+
+def _nps_sort_key(label: str) -> float:
+    """Numeric value of an NPS label for stable sorted listings."""
+    try:
+        whole, frac = 0.0, label
+        if "-" in label:
+            a, frac = label.split("-", 1)
+            whole = float(a)
+        if "/" in frac:
+            num, den = frac.split("/", 1)
+            return whole + float(num) / float(den)
+        return whole + float(frac)
+    except (ValueError, ZeroDivisionError):
+        return 999.0
+
+
+def _material_prefix(material: str) -> str | None:
+    """Material / system alias → catalog part-id prefix (PT-CU / PT-PVC / …)."""
+    mat = material.lower().replace(" ", "_")
+    if mat in ("copper", "cu", "c12200", "copper_c12200", "plumbing"):
+        return "PT-CU"
+    if "pvc" in mat:
+        return "PT-PVC"
+    if mat in ("fire", "fp", "sprinkler", "black_steel", "black", "a53"):
+        return "PT-FP"
+    if mat in ("process", "ss", "ss316", "ss316l", "316", "316l", "stainless"):
+        return "PT-SS"
+    return None
+
+
+def known_nps_for_material(material: str = "copper") -> list[str]:
+    """Catalog NPS labels available for a material family, smallest first."""
+    prefix = _material_prefix(material)
+    labels: set[str] = set()
+    if prefix:
+        for p in PARTS.values():
+            sp = p.specs or {}
+            if p.id.startswith(prefix + "-") and sp.get("nps"):
+                labels.add(str(sp["nps"]))
+    return sorted(labels, key=_nps_sort_key)
+
+
 class BomLine(BaseModel):
     """One line on a part or assembly bill of materials."""
 
@@ -456,20 +536,13 @@ def resolve_fitting_part_id(
     *,
     material: str = "copper",
 ) -> str | None:
-    """Map (elbow_90, 1/2, copper|fire|ss|pvc) → catalog part id."""
-    slug = nps_slug(nps)
-    mat = material.lower().replace(" ", "_")
-    # material / system aliases → part id prefix
-    if mat in ("copper", "cu", "c12200", "copper_c12200", "plumbing"):
-        prefix = "PT-CU"
-    elif "pvc" in mat:
-        prefix = "PT-PVC"
-    elif mat in ("fire", "fp", "sprinkler", "black_steel", "black", "a53"):
-        prefix = "PT-FP"
-    elif mat in ("process", "ss", "ss316", "ss316l", "316", "316l", "stainless"):
-        prefix = "PT-SS"
-    else:
-        prefix = None
+    """Map (elbow_90, 1/2, copper|fire|ss|pvc) → catalog part id.
+
+    ``nps`` is normalized first (``"1.5"`` → ``"1-1/2"``, spaces/inch marks
+    trimmed) so decimal spellings resolve like canonical labels.
+    """
+    slug = nps_slug(normalize_nps(nps))
+    prefix = _material_prefix(material)
     if not prefix:
         return None
     type_map = {
