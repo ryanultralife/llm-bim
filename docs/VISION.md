@@ -50,12 +50,14 @@ We win on the axis GUI tools cannot easily follow:
 - **M0 — Kernel foundation** ✅: model, command bus + undo, geometry, levels, walls, hosted openings.
 - **M1 — Agent bridge** ✅: ops registry, MCP, CLI, SDK, skill pack, query language, scripts/bulk.
 - **M2 — Documentation** ✅: plans/sections/elevations SVG, construction sheets, PDF binder, schedules, HTML index, ZIP.
-- **M3 — Interop** ✅: IFC4 export, STEP export/import (locked), DXF, glTF; IFC import subset.
-- **M4 — Discipline growth** 🟡: multi-trade catalogs + **place_duct/conduit/cable_tray/column/beam** + openings/structure agent surfaces (door/window/room/slab/equipment/grid/note/shell), CSI+locators (RM/XY/Z/NPS/section/FR/SYS), BOQ, clash, rules, phases, zone/levels/drawing_list schedules; wall joins & full MEP routing still light.
+- **M3 — Interop** ✅ *(re-validated 2026-07-19, PR #1)*: IFC4 export with correct IFC4 attribute counts, storey-relative placement (multi-storey Z), hosted openings as real `IfcOpeningElement` + `IfcRelVoidsElement`/`IfcRelFillsElement`, wall corner joins; STEP export/import (locked), DXF, glTF; IFC import subset.
+- **M4 — Discipline growth** 🟡: multi-trade catalogs + **place_duct/conduit/cable_tray/column/beam** + openings/structure agent surfaces (door/window/room/slab/equipment/grid/note/shell), CSI+locators (RM/XY/Z/NPS/section/FR/SYS), BOQ, clash, rules, phases, zone/levels/drawing_list schedules; steel takeoff carries real tonnage (kg/m + mass). Wall joins done (plan + IFC). Obstacle-avoiding MEP autoroute in progress (`mep_autoroute`); hydraulic sizing still out of scope.
 - **M5 — True model VCS** ✅: commit/log/checkout/diff/journal under `output/<project>/.llmbim/`.
 - **M6 — Nested modules** ✅: import drawings/machines as block|native|linked; ports + connect; explode/expand for export.
 - **M7 — Fab BREP + GD&T** ✅ (optional `llmbim[fab]`): CadQuery/OCP feature trees — hole/fillet/chamfer/machine thread, true STEP, GD&T datums/FCFs, machining SVG.
-- **M? — Optional human review UI**: view-only 3D/plan **if ever requested** — not authoring (parked).
+- **M8 — Quality gates** ✅ *(2026-07-19, PR #1)*: CI enforces `ruff` + `mypy --strict` (kernel packages, zero `type: ignore`) + full pytest + real-case pack verification; deliverables VERIFY runs after all artifacts exist.
+- **M9 — Rich review 3D** 🟡: presentation viewer gains element metadata (glTF extras), click-to-inspect, category/level filters, measure tool — view-only review, still not an authoring canvas.
+- **M? — Optional human review UI**: view-only 3D/plan **if ever requested** — not authoring (parked; M9 covers review needs).
 
 ## Alignment
 
