@@ -40,7 +40,7 @@ def _schad_root() -> Path | None:
     candidates: list[Path] = []
     if os.environ.get("SCHAD_ROOT"):
         candidates.append(Path(os.environ["SCHAD_ROOT"]))
-    # After WP-SCHAD-S0: in-repo projects/schad
+    # In-repo projects/schad (preferred after SSOT port)
     here = Path(__file__).resolve().parent.parent
     candidates.append(here / "projects" / "schad")
     candidates.append(Path(r"G:\My Drive\Schad Garage"))
@@ -48,12 +48,14 @@ def _schad_root() -> Path | None:
         Path(os.environ.get("USERPROFILE", "")) / "MechanicalBattery" / "SchadWork"
     )
     for p in candidates:
+        if not p:
+            continue
         if (p / "design_basis.py").is_file():
+            return p.resolve()
+        if (p / "schad_design_basis.py").is_file():
             return p.resolve()
         basis = p / "Revit" / "schad_design_basis.py"
         if basis.is_file():
-            return p.resolve()
-        if (p / "schad_design_basis.py").is_file():
             return p.resolve()
     return None
 
