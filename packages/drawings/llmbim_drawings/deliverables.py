@@ -76,7 +76,13 @@ def verify_pack(
         t = (out / "model.step").read_text(encoding="utf-8", errors="replace")
         checks["step_has_brep"] = "MANIFOLD_SOLID_BREP" in t
     if (out / "construction").is_dir():
-        checks["construction_sheets"] = len(list((out / "construction").glob("*.svg")))
+        sheet_svgs = list((out / "construction").glob("*.svg"))
+        checks["construction_sheets"] = len(sheet_svgs)
+        by_disc: dict[str, int] = {}
+        for sheet in sheet_svgs:
+            disc = sheet.name.split("-", 1)[0]
+            by_disc[disc] = by_disc.get(disc, 0) + 1
+        checks["sheet_count_by_discipline"] = by_disc
     if (out / "parts").is_dir():
         checks["part_steps"] = len(list((out / "parts" / "step").glob("*.step"))) if (out / "parts" / "step").exists() else 0
     if require_parts and checks.get("part_steps", 0) < 1:
@@ -210,12 +216,16 @@ def export_deliverables(
     plan_level: str | None = None,
     plan_scale: float | None = None,
     phases: str | list[str] | None = None,
+    set_type: str = "construction",
 ) -> dict[str, Any]:
     """Write a full output pack with per-step error isolation.
 
     ``phases``: optional filter e.g. ``\"new\"`` or ``[\"new\",\"existing\"]``.
     Full unfiltered model is always saved as ``model.llmbim.json``; IFC/glTF/SVG/
     BOQ/clash use the phase-filtered view when ``phases`` is set.
+
+    ``set_type``: ``\"plan\"`` (permit sheets only) or ``\"construction\"``
+    (default — plan sheets plus content-driven S/M/P/E discipline sheets).
     """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -473,7 +483,11 @@ def export_deliverables(
             "construction_set",
             errors,
             lambda: export_construction_set(
-                work, out / "construction", plan_level=level, plan_scale=plan_scale
+                work,
+                out / "construction",
+                plan_level=level,
+                plan_scale=plan_scale,
+                set_type=set_type,
             ),
         )
         if cd:
@@ -640,6 +654,7 @@ def export_deliverables(
     manifest = {
         "project": full_model.name,
         "honesty": "ENGINEERING ESTIMATE — LLM-BIM agent deliverables pack",
+        "set_type": set_type,
         "outputs": result,
         "stats": full_model.stats(),
         "export_stats": work.stats(),
