@@ -1133,6 +1133,75 @@ def _mep_autoroute(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _mep_endpoint(p: dict[str, Any], key: str, value: Any = None) -> str | tuple[float, float]:
+    from llmbim_core.errors import ValidationError
+
+    v = p.get(key) if value is None else value
+    if isinstance(v, str) and v:
+        return v
+    if isinstance(v, (list, tuple)) and len(v) >= 2:
+        return (float(v[0]), float(v[1]))
+    raise ValidationError("Endpoint must be [x, y] mm or an element id", param=key, value=v)
+
+
+@register(
+    "mep_tap",
+    description="Tap a branch off an existing run: split it at the nearest point, insert a tee, autoroute tee→target",
+    mutates=True,
+)
+def _mep_tap(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.mep_route import mep_tap
+
+    return mep_tap(
+        model,
+        target=_mep_endpoint(p, "target"),
+        source=str(p["source"]) if p.get("source") else None,
+        system=str(p["system"]) if p.get("system") else None,
+        kind=str(p.get("kind") or p.get("route_kind") or "pipe"),
+        nps=str(p["nps"]) if p.get("nps") else None,
+        material=str(p["material"]) if p.get("material") else None,
+        clearance_mm=float(p["clearance_mm"]) if p.get("clearance_mm") is not None else 150.0,
+        grid_mm=float(p["grid_mm"]) if p.get("grid_mm") is not None else 250.0,
+        name=str(p.get("name") or ""),
+    )
+
+
+@register(
+    "mep_trunk_branch",
+    description="Autoroute a trunk run, then tee-tap a branch off it to each target",
+    mutates=True,
+)
+def _mep_trunk_branch(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.errors import ValidationError
+    from llmbim_core.mep_route import mep_trunk_branch
+
+    raw_targets = p.get("targets")
+    if not isinstance(raw_targets, (list, tuple)):
+        raise ValidationError("targets must be a list of [x, y] points or element ids", value=raw_targets)
+    targets: list[str | tuple[float, float] | list[float]] = [
+        _mep_endpoint(p, f"targets[{i}]", value=t) for i, t in enumerate(raw_targets)
+    ]
+    return mep_trunk_branch(
+        model,
+        level=str(p.get("level") or (model.levels[0].name if model.levels else "L1")),
+        trunk_start=_mep_endpoint(p, "trunk_start"),
+        trunk_end=_mep_endpoint(p, "trunk_end"),
+        targets=targets,
+        kind=str(p.get("kind") or p.get("route_kind") or "pipe"),
+        nps=str(p.get("nps") or "2"),
+        branch_nps=str(p["branch_nps"]) if p.get("branch_nps") else None,
+        material=str(p.get("material") or "copper"),
+        system=str(p.get("system") or "CW"),
+        z0_mm=float(p["z0_mm"]) if p.get("z0_mm") is not None else None,
+        clearance_mm=float(p["clearance_mm"]) if p.get("clearance_mm") is not None else 150.0,
+        grid_mm=float(p["grid_mm"]) if p.get("grid_mm") is not None else 250.0,
+        width_mm=float(p.get("width_mm") or 400),
+        height_mm=float(p.get("height_mm") or 250),
+        trade_size=str(p.get("trade_size") or p.get("nps") or "3/4"),
+        name=str(p.get("name") or ""),
+    )
+
+
 @register(
     "authoring_checklist",
     description="Required/recommended fields so LLM collects explicit detail before modeling",
