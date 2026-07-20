@@ -635,6 +635,110 @@ if HAS_MCP:
             return _err(str(e))
 
     @mcp.tool()
+    def mep_tap(
+        project_id: str,
+        target: str,
+        source: str = "",
+        system: str = "",
+        kind: str = "pipe",
+        nps: str = "",
+        material: str = "",
+        clearance_mm: float = 150,
+        grid_mm: float = 250,
+        name: str = "",
+    ) -> str:
+        """Tap a branch off an existing pipe/duct/conduit run.
+        target: element id or "x,y" mm. Splits the nearest run (or `source` id,
+        filtered by `system` if given) at the tap point, inserts a catalog tee,
+        and autoroutes tee→target. nps overrides the branch size (reducing tee)."""
+
+        def _ep(v: str) -> str | list[float]:
+            if "," in v:
+                a, b = v.split(",", 1)
+                try:
+                    return [float(a), float(b)]
+                except ValueError:
+                    return v
+            return v
+
+        try:
+            p = store.get(project_id)
+            r = p.mep_tap(
+                target=_ep(target),
+                source=source or None,
+                system=system or None,
+                kind=kind,
+                nps=nps or None,
+                material=material or None,
+                clearance_mm=clearance_mm,
+                grid_mm=grid_mm,
+                name=name,
+            )
+            store.save(project_id)
+            return _tool_result(r)
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def mep_trunk_branch(
+        project_id: str,
+        level: str,
+        trunk_start: str,
+        trunk_end: str,
+        targets: str,
+        kind: str = "pipe",
+        nps: str = "2",
+        branch_nps: str = "",
+        material: str = "copper",
+        system: str = "CW",
+        z0_mm: str = "",
+        clearance_mm: float = 150,
+        grid_mm: float = 250,
+        width_mm: float = 400,
+        height_mm: float = 250,
+        trade_size: str = "3/4",
+        name: str = "",
+    ) -> str:
+        """Autoroute a trunk run, then tee-tap a branch to each target.
+        trunk_start/trunk_end: element id or "x,y" mm. targets: ";"-separated
+        list of element ids or "x,y" points. branch_nps sizes the branches
+        smaller than the trunk (reducing tees)."""
+
+        def _ep(v: str) -> str | list[float]:
+            if "," in v:
+                a, b = v.split(",", 1)
+                try:
+                    return [float(a), float(b)]
+                except ValueError:
+                    return v
+            return v
+
+        try:
+            p = store.get(project_id)
+            r = p.mep_trunk_branch(
+                level=level,
+                trunk_start=_ep(trunk_start),
+                trunk_end=_ep(trunk_end),
+                targets=[_ep(t.strip()) for t in targets.split(";") if t.strip()],
+                kind=kind,
+                nps=nps,
+                branch_nps=branch_nps or None,
+                material=material,
+                system=system,
+                z0_mm=float(z0_mm) if z0_mm.strip() else None,
+                clearance_mm=clearance_mm,
+                grid_mm=grid_mm,
+                width_mm=width_mm,
+                height_mm=height_mm,
+                trade_size=trade_size,
+                name=name,
+            )
+            store.save(project_id)
+            return _tool_result(r)
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
     def place_cable_tray(
         project_id: str,
         level: str,
