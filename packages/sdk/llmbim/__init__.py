@@ -819,6 +819,71 @@ class Project:
         )
         return str(r["element_id"])
 
+    def place_tube(
+        self,
+        *,
+        level: str,
+        origin: tuple[float, float] = (0.0, 0.0),
+        z0_mm: float = 0.0,
+        direction: str | tuple[float, float, float] | list[float] = "x",
+        length_mm: float = 100.0,
+        od_mm: float = 50.0,
+        id_mm: float | None = None,
+        kind: str = "port",
+        name: str | None = None,
+        system: str | None = None,
+    ) -> str:
+        """Oriented tube / radial port (SSOT §5.3A).
+
+        ``origin`` + ``z0_mm`` is the axis start point; the tube extends
+        ``length_mm`` along ``direction`` — "x"|"y"|"z" (± ok) or any
+        (dx,dy,dz) vector (normalized; zero rejected). ``id_mm`` makes it a
+        hollow stub (KF40/KF25 ports along shell normals).
+        """
+        r = self.op(
+            "place_tube",
+            level=level,
+            origin=list(origin),
+            z0_mm=z0_mm,
+            direction=list(direction) if not isinstance(direction, str) else direction,
+            length_mm=length_mm,
+            od_mm=od_mm,
+            id_mm=id_mm,
+            kind=kind,
+            name=name,
+            system=system,
+        )
+        return str(r["element_id"])
+
+    def place_wire_path(
+        self,
+        *,
+        level: str,
+        points_mm: list[list[float]] | list[tuple[float, float, float]],
+        diameter_mm: float = 6.0,
+        phase: str | None = None,
+        system: str | None = None,
+        wire_role: str = "coil",
+        name: str | None = None,
+    ) -> str:
+        """3D wire/hose polyline as ONE element (SSOT §5.3B).
+
+        ``points_mm`` is ``[[x, y, z], …]`` (z above the level). Tessellated
+        as a single tube mesh in glTF; ``phase`` A|B|C selects the per-phase
+        material (wire_phase_a/b/c), hose/signal roles map to wire_lead.
+        """
+        r = self.op(
+            "place_wire_path",
+            level=level,
+            points_mm=[list(map(float, pt)) for pt in points_mm],
+            diameter_mm=diameter_mm,
+            phase=phase,
+            system=system,
+            wire_role=wire_role,
+            name=name,
+        )
+        return str(r["element_id"])
+
     def place_coil(
         self,
         *,
