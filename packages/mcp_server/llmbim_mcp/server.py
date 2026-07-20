@@ -1329,6 +1329,39 @@ if HAS_MCP:
         return _tool_result({"element_id": eid, "kind": kind, "shape": shape})
 
     @mcp.tool()
+    def auto_place(
+        project_id: str,
+        room: str,
+        items_json: str,
+        clearance_mm: float = 900,
+        aisle_mm: float = 1200,
+        strategy: str = "perimeter",
+    ) -> str:
+        """Requirements-driven equipment auto-placement — coordinates DERIVED from
+        room assignment, footprints, and clearances (deterministic; placed elements
+        tagged placement_basis for design review). room: room element id or name.
+        items_json: JSON list of {name, w_mm, d_mm, h_mm, kind?, clearance_front_mm?,
+        against_wall?}. strategy: perimeter (back-to-wall, skips door swings and
+        existing equipment) | grid (interior rows with aisle circulation). Items
+        that cannot fit are returned in result.unplaced with a reason."""
+        import json as _json
+
+        try:
+            p = store.get(project_id)
+            items = _json.loads(items_json)
+            r = p.auto_place(
+                room=room,
+                items=items,
+                clearance_mm=clearance_mm,
+                aisle_mm=aisle_mm,
+                strategy=strategy,
+            )
+            store.save(project_id)
+            return _tool_result(r)
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
     def level_add(project_id: str, name: str, elevation_mm: float) -> str:
         p = store.get(project_id)
         lid = p.add_level(name, elevation_mm)

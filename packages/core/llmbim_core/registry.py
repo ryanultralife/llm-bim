@@ -1203,6 +1203,35 @@ def _mep_trunk_branch(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
 
 
 @register(
+    "auto_place",
+    description="Requirements-driven equipment auto-placement into a room (perimeter back-to-wall or interior grid; deterministic, derived coordinates tagged placement_basis)",
+    mutates=True,
+)
+def _auto_place(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.auto_place import auto_place_equipment
+
+    return auto_place_equipment(
+        model,
+        room=str(p.get("room") or ""),
+        items=p.get("items") or [],
+        clearance_mm=float(p["clearance_mm"]) if p.get("clearance_mm") is not None else 900.0,
+        aisle_mm=float(p["aisle_mm"]) if p.get("aisle_mm") is not None else 1200.0,
+        strategy=str(p.get("strategy") or "perimeter"),
+    )
+
+
+@register(
+    "auto_place_by_needs",
+    description="Run auto_place per room from assignments [{room, items, strategy?, clearance_mm?, aisle_mm?}] and aggregate",
+    mutates=True,
+)
+def _auto_place_by_needs(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.auto_place import auto_place_by_needs
+
+    return auto_place_by_needs(model, assignments=p.get("assignments") or [])
+
+
+@register(
     "mep_size_pipe",
     description="Size a pipe from flow (L/s) or fixture units — velocity + Hazen-Williams (estimate, not stamped design)",
     mutates=False,

@@ -1909,6 +1909,47 @@ class Project:
     def mep_graph(self) -> list[dict[str, Any]]:
         return list(self.op("mep_graph").get("edges") or [])
 
+    # --- requirements-driven auto-placement -----------------------------------
+
+    def auto_place(
+        self,
+        *,
+        room: str,
+        items: list[dict[str, Any]],
+        clearance_mm: float = 900.0,
+        aisle_mm: float = 1200.0,
+        strategy: str = "perimeter",
+    ) -> dict[str, Any]:
+        """Derive equipment coordinates from requirements (room + footprints + clearances).
+
+        room: room element id or name. items: [{name, w_mm, d_mm, h_mm, kind?,
+        clearance_front_mm?, against_wall?}]. strategy "perimeter" walks the
+        room boundary (longest edge first, then clockwise) placing items
+        back-to-wall with front clearance kept free and aisle_mm between
+        items, skipping door swing zones and existing equipment; "grid" packs
+        rows in the interior with aisle_mm circulation. Deterministic — same
+        inputs give the same coordinates. Items that cannot fit are returned
+        in result["unplaced"] with a reason (never silently dropped, never
+        overlapped). Placed elements are tagged with placement_basis
+        (derived — verify at design review).
+        """
+        return self.op(
+            "auto_place",
+            room=room,
+            items=list(items),
+            clearance_mm=clearance_mm,
+            aisle_mm=aisle_mm,
+            strategy=strategy,
+        )
+
+    def auto_place_by_needs(self, *, assignments: list[dict[str, Any]]) -> dict[str, Any]:
+        """Run auto_place per room and aggregate.
+
+        assignments: [{room, items, strategy?, clearance_mm?, aisle_mm?}].
+        Returns {rooms, placed_count, unplaced_count, results, ok}.
+        """
+        return self.op("auto_place_by_needs", assignments=list(assignments))
+
     # --- hydraulic sizing (engineering estimate — not stamped design) ---------
 
     def size_pipe(
