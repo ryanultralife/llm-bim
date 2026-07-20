@@ -34,6 +34,14 @@ Follow `skills/llm-bim/recipes/design_program.md` (basis-module SSOT, staged
 harness, typed assemblies, explicit sheet register, drift-pin tests). Worked
 instance: `llmbim case schad`.
 
+## From a phone / no local CLI
+
+See `docs/MOBILE.md`. Fastest Gemini path: a collaborator comments
+`@gemini-cli <request>` on any issue/PR — `.github/workflows/gemini-assist.yml`
+runs Gemini CLI in Actions with the kernel installed (requires the
+`GEMINI_API_KEY` repo secret). Jules (jules.google.com) also works from a
+mobile browser.
+
 ## MCP (optional)
 
 `~/.gemini/settings.json`:
