@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import zlib
 from pathlib import Path
 
 from llmbim_core.errors import ValidationError
@@ -105,6 +106,178 @@ def _clip_cut_to_bbox(
     return t0, t1
 
 
+# ── WP-CD-ANATOMY slice B: line-weight hierarchy + material hatches ──────────
+# Calibrated on the Sierra Star / Verseon reference sets
+# (docs/CD_COMPLETENESS_STANDARD.md §1: line-weight hierarchy, material hatch,
+# new/existing poché split). All opt-in; defaults leave output byte-stable.
+
+_TIER_WIDTHS = {"heavy": 2.2, "medium": 1.1, "light": 0.5, "hidden": 0.9}
+
+_WEIGHT_STYLE = (
+    "  <style>"
+    ".lw-heavy{stroke-width:2.2}"
+    ".lw-medium{stroke-width:1.1}"
+    ".lw-light{stroke-width:0.5}"
+    ".lw-hidden{stroke-width:0.9;stroke-dasharray:5 3}"
+    "</style>"
+)
+
+_HATCH_LABELS = {
+    "concrete": "CONC.",
+    "wood": "WD. FRMG.",
+    "insulation": "BATT INSUL.",
+    "earth": "EARTH",
+}
+
+
+def _line_legend(x: float, y: float) -> str:
+    """Line legend block keyed to the 3-tier weight hierarchy (+ hidden)."""
+    rows = [
+        ("lw-heavy", "#000", None, "HEAVY — CUT / NEW"),
+        ("lw-medium", "#333", None, "MEDIUM — BEYOND CUT"),
+        ("lw-light", "#777", None, "LIGHT — REFERENCE"),
+        ("lw-hidden", "#555", "5 3", "DASHED — HIDDEN / ABV."),
+    ]
+    w, h = 168.0, 14.0 * len(rows) + 22.0
+    parts = [
+        f'  <g class="line-legend" font-family="sans-serif" '
+        f'transform="translate({fmt(x)},{fmt(y)})">',
+        f'    <rect x="0" y="0" width="{fmt(w)}" height="{fmt(h)}" fill="#fff" '
+        f'stroke="#111" stroke-width="0.8"/>',
+        '    <text x="6" y="13" font-size="8" font-weight="bold" '
+        'letter-spacing="0.8">LINE LEGEND</text>',
+    ]
+    yy = 26.0
+    for cls, color, dash, label in rows:
+        dash_attr = f' stroke-dasharray="{dash}"' if dash else ""
+        sw = _TIER_WIDTHS[cls.removeprefix("lw-")]
+        parts.append(
+            f'    <line class="{cls}" x1="6" y1="{fmt(yy)}" x2="34" y2="{fmt(yy)}" '
+            f'stroke="{color}" stroke-width="{fmt(sw)}"{dash_attr}/>'
+        )
+        parts.append(
+            f'    <text x="40" y="{fmt(yy + 3)}" font-size="7.5" '
+            f'fill="#111">{esc(label)}</text>'
+        )
+        yy += 14.0
+    parts.append("  </g>")
+    return "\n".join(parts)
+
+
+def _seed_from_id(eid: str, salt: int = 0) -> int:
+    """Stable stipple seed from an element id (never Python's ``hash``)."""
+    return (zlib.crc32(eid.encode("utf-8")) ^ (salt * 0x9E3779B9)) & 0x7FFFFFFF
+
+
+def _stipple_circles(x: float, y: float, w: float, h: float, seed: int) -> list[str]:
+    """Fine concrete/CMU stipple: deterministic LCG dots inside a screen rect."""
+    state = seed or 1
+
+    def rnd() -> float:
+        nonlocal state
+        state = (1103515245 * state + 12345) & 0x7FFFFFFF
+        return state / float(0x7FFFFFFF)
+
+    n = min(900, max(6, int(w * h / 28.0)))
+    out: list[str] = []
+    for _ in range(n):
+        out.append(
+            f'    <circle cx="{fmt(x + rnd() * w)}" cy="{fmt(y + rnd() * h)}" r="0.5"/>'
+        )
+    return out
+
+
+def _diag_lines(x: float, y: float, w: float, h: float, step: float = 5.0) -> list[str]:
+    """45° single-direction hatch clipped analytically to a screen rect."""
+    out: list[str] = []
+    o = step
+    while o < w + h:
+        if o <= w:
+            ax, ay = x + o, y + h
+        else:
+            ax, ay = x + w, y + h - (o - w)
+        if o <= h:
+            bx, by = x, y + h - o
+        else:
+            bx, by = x + o - h, y
+        out.append(
+            f'    <line x1="{fmt(ax)}" y1="{fmt(ay)}" x2="{fmt(bx)}" y2="{fmt(by)}"/>'
+        )
+        o += step
+    return out
+
+
+def _batt_zigzag(x: float, y: float, w: float, h: float, step: float = 6.0) -> list[str]:
+    """Batt insulation: running zigzag (diagonal-alternative batt loops)."""
+    if w < step or h < 2:
+        return []
+    top, bot = y + h * 0.2, y + h * 0.8
+    pts: list[str] = []
+    xx, up = x, True
+    while xx <= x + w:
+        pts.append(f"{fmt(xx)},{fmt(top if up else bot)}")
+        up = not up
+        xx += step
+    return [f'    <polyline points="{" ".join(pts)}" fill="none"/>']
+
+
+def _earth_ticks(x0: float, x1: float, gy: float, step: float = 16.0) -> list[str]:
+    """Standard earth hatch: clusters of diminishing 45° ticks below grade."""
+    out: list[str] = []
+    xx = x0 + 4.0
+    while xx < x1 - 4.0:
+        for k, ln in enumerate((9.0, 6.0, 3.0)):
+            sx = xx + k * 3.0
+            out.append(
+                f'    <line x1="{fmt(sx)}" y1="{fmt(gy + 1)}" '
+                f'x2="{fmt(sx + ln)}" y2="{fmt(gy + 1 + ln)}"/>'
+            )
+        xx += step
+    return out
+
+
+def _wall_hatch_kinds(el: Element) -> list[str]:
+    """Ordered hatch kinds for a cut wall from its declared layer materials."""
+    mats: list[tuple[str, str]] = []
+    layers = el.params.get("wall_layers") or []
+    if not layers and el.type_id:
+        try:
+            from llmbim_core.types_catalog import DEFAULT_WALL_TYPES
+
+            wt = DEFAULT_WALL_TYPES.get(el.type_id)
+            if wt and wt.layers:
+                layers = [layer.model_dump() for layer in wt.layers]
+        except Exception:  # noqa: BLE001
+            layers = []
+    for layer in layers or []:
+        try:
+            mats.append(
+                (
+                    str(layer.get("material") or "").lower(),
+                    str(layer.get("function") or "").lower(),
+                )
+            )
+        except AttributeError:
+            continue
+    if not mats:
+        m = str(el.params.get("material") or el.params.get("material_id") or "").lower()
+        if m:
+            mats.append((m, "structure"))
+    kinds: list[str] = []
+    for m, fn in mats:
+        if fn == "insulation" or "insul" in m:
+            kind = "insulation"
+        elif any(k in m for k in ("cmu", "conc", "masonry", "grout")):
+            kind = "concrete"
+        elif any(k in m for k in ("wood", "df_", "ply", "osb", "lumber", "timber")):
+            kind = "wood"
+        else:
+            continue
+        if kind not in kinds:
+            kinds.append(kind)
+    return kinds
+
+
 def render_section_svg(
     model: ProjectModel,
     p0: tuple[float, float],
@@ -115,12 +288,27 @@ def render_section_svg(
     margin_mm: float = 500.0,
     title: str | None = None,
     units: str = "metric",
+    weights: bool = False,
+    hatches: bool = False,
 ) -> str:
     """Vertical section along cut plane defined by plan segment p0→p1.
 
     Horizontal axis: distance along cut. Vertical axis: Z elevation.
     ``units="imperial"`` renders level datum labels and storey/overall
     height dimensions as feet-inches (nearest 1/2"; 1 ft = 304.8 mm).
+
+    ``weights=True`` (WP-CD-ANATOMY) renders the CD 3-tier line-weight
+    hierarchy: heavy = cut elements, medium = elements beyond the cut plane,
+    light = reference (datums/ground); projected elements above the cut walls
+    are dashed with an "ABV." label; cut walls with ``phase="existing"``
+    render open/lighter poché (new = heavy solid). A line legend is emitted.
+
+    ``hatches=True`` adds material hatches clipped to the cut polygons:
+    concrete/CMU fine stipple (seeded from element id, deterministic), wood
+    framing 45° diagonal, batt insulation zigzag, earth ticks below the grade
+    line — each with a leader note on first appearance.
+
+    Both default ``False`` → output is byte-identical to the legacy renderer.
     """
     imperial = _check_units(units)
     cut_len = math.hypot(p1[0] - p0[0], p1[1] - p0[1])
@@ -129,9 +317,14 @@ def render_section_svg(
 
     # Collect wall hits as rectangles in (s, z) space
     rects: list[tuple[float, float, float, float]] = []  # s0, z0, s1, z1
+    # WP-CD-ANATOMY: per-rect metadata in lockstep with ``rects`` —
+    # (kind, cut-by-plane?, source element) — drives the weight tiers,
+    # poché phase split and material hatches. Ignored unless opted in.
+    rect_meta: list[tuple[str, bool, Element]] = []
     # WP-SCHAD-S3: foundation cuts (footings / stem walls / slabs-on-grade)
     # drawn as simple outlines below the level-0 datum in their own group
     foundation_rects: list[tuple[float, float, float, float]] = []  # s0, z0, s1, z1
+    foundation_meta: list[Element] = []  # lockstep with foundation_rects
     pipe_marks: list[tuple[float, float, float, str]] = []  # s, z, r, stroke
     opening_rects: list[tuple[float, float, float, float, str, str]] = []  # s0,z0,s1,z1,fill,label
     roof_lines: list[tuple[float, float, float, float, float]] = []  # s0,z0,s1,z1,thickness
@@ -157,6 +350,7 @@ def render_section_svg(
             z1 = z0 + height
             half = 100.0
             rects.append((s - half, z0, s + half, z1))
+            rect_meta.append(("wall", True, el))
         elif el.category == "roof":
             # Sloped cut lines derived from the STORED planes (llmbim_core.roofs)
             try:
@@ -217,6 +411,7 @@ def render_section_svg(
                     s = (cx - p0[0]) * ux + (cy - p0[1]) * uy
                     half_s = abs(ux) * hw + abs(uy) * hd
                     foundation_rects.append((s - half_s, z_bot, s + half_s, z_top))
+                    foundation_meta.append(el)
                     continue
                 path = el.params.get("path_mm") or []
                 for i in range(len(path) - 1):
@@ -231,6 +426,7 @@ def render_section_svg(
                     iy = fy0 + t * (fy1 - fy0)
                     s = math.hypot(ix - p0[0], iy - p0[1])
                     foundation_rects.append((s - half, z_bot, s + half, z_top))
+                    foundation_meta.append(el)
             except (KeyError, TypeError, ValueError, IndexError):
                 continue
         elif el.category == "slab" and el.params.get("kind") == "slab_on_grade":
@@ -249,6 +445,7 @@ def render_section_svg(
                     continue
                 t0, t1 = span
                 foundation_rects.append((t0 * cut_len, z_bot, t1 * cut_len, z_top))
+                foundation_meta.append(el)
             except (KeyError, TypeError, ValueError, IndexError):
                 continue
         elif el.category in {"door", "window"}:
@@ -305,6 +502,7 @@ def render_section_svg(
                     lab = f"{tid} {fr_s}"
                 opening_rects.append((s - half, z_bot, s + half, z_top, fill, lab))
                 rects.append((s - half, z_bot, s + half, z_top))  # bbox extent
+                rect_meta.append(("opening", True, el))
             except (KeyError, TypeError, ValueError, IndexError):
                 continue
         elif el.category == "column" or el.params.get("fitting_type") == "column":
@@ -320,6 +518,7 @@ def render_section_svg(
                 half = float(sz[0]) / 2
                 ht = float(el.params.get("height_mm") or (sz[2] if len(sz) > 2 else 3000.0))
                 rects.append((s - half, z_base, s + half, z_base + ht))
+                rect_meta.append(("column", False, el))
             except (KeyError, TypeError, ValueError, IndexError):
                 continue
         elif el.category == "beam" or el.params.get("fitting_type") == "beam":
@@ -345,6 +544,7 @@ def render_section_svg(
                 depth = float(el.params.get("height_mm") or el.params.get("depth_mm") or 300)
                 half = float(el.params.get("width_mm") or 150) / 2
                 rects.append((s - half, z, s + half, z + depth))
+                rect_meta.append(("beam", t is not None, el))
             except (KeyError, TypeError, ValueError, IndexError):
                 continue
         elif el.category in {
@@ -373,12 +573,14 @@ def render_section_svg(
                     h = float(el.params.get("height_mm") or 250)
                     half_w = max(w / 4, 80.0)
                     rects.append((s - half_w, z, s + half_w, z + h))
+                    rect_meta.append(("duct", False, el))
                     pipe_marks.append((s, z + h / 2, max(w / 6, 40.0), "#2e7d32"))  # green
                 elif is_tray:
                     w = float(el.params.get("width_mm") or 300)
                     h = float(el.params.get("height_mm") or 100)
                     half_w = max(w / 4, 60.0)
                     rects.append((s - half_w, z, s + half_w, z + h))
+                    rect_meta.append(("tray", False, el))
                     pipe_marks.append((s, z + h / 2, max(w / 6, 30.0), "#6a1b9a"))  # purple
                 elif is_conduit:
                     od = 30.0
@@ -386,6 +588,7 @@ def render_section_svg(
                         od = max(float(el.params["size_mm"][1]), 20.0)
                     pipe_marks.append((s, z + od / 2, od / 2, "#6a1b9a"))
                     rects.append((s - od, z, s + od, z + od))
+                    rect_meta.append(("mep", False, el))
                 else:
                     od = 40.0
                     if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
@@ -398,6 +601,7 @@ def render_section_svg(
                         stroke = "#6b7c8a"
                     pipe_marks.append((s, z + od / 2, od / 2, stroke))
                     rects.append((s - od, z, s + od, z + od))
+                    rect_meta.append(("mep", False, el))
             except (KeyError, TypeError, ValueError, IndexError):
                 continue
 
@@ -429,28 +633,98 @@ def render_section_svg(
         f"  <title>{esc(label)}</title>",
         f'  <rect x="{fmt(-pad)}" y="{fmt(-pad)}" width="{fmt(vb_w)}" height="{fmt(vb_h)}" '
         f'fill="#fff"/>',
-        '  <g class="cut-walls" fill="#aaa" stroke="#111" stroke-width="1">',
     ]
-    for s0, z0, s1, z1 in rects:
-        # skip tiny mep bbox rects drawn as circles instead — only wall-sized
-        if (s1 - s0) < 80 and (z1 - z0) < 80:
-            continue
-        # skip openings — drawn in openings-section
-        if any(
-            abs(s0 - os0) < 1 and abs(s1 - os1) < 1 and abs(z0 - oz0) < 1 and abs(z1 - oz1) < 1
-            for os0, oz0, os1, oz1, _f, _l in opening_rects
-        ):
-            continue
-        x, y = project(s0, z1)
-        w = (s1 - s0) * scale
-        h = (z1 - z0) * scale
-        parts.append(f'    <rect x="{fmt(x)}" y="{fmt(y)}" width="{fmt(w)}" height="{fmt(h)}"/>')
-    parts.append("  </g>")
+    if weights:
+        parts.append(_WEIGHT_STYLE)
+    if not weights:
+        parts.append('  <g class="cut-walls" fill="#aaa" stroke="#111" stroke-width="1">')
+        for s0, z0, s1, z1 in rects:
+            # skip tiny mep bbox rects drawn as circles instead — only wall-sized
+            if (s1 - s0) < 80 and (z1 - z0) < 80:
+                continue
+            # skip openings — drawn in openings-section
+            if any(
+                abs(s0 - os0) < 1 and abs(s1 - os1) < 1 and abs(z0 - oz0) < 1 and abs(z1 - oz1) < 1
+                for os0, oz0, os1, oz1, _f, _l in opening_rects
+            ):
+                continue
+            x, y = project(s0, z1)
+            w = (s1 - s0) * scale
+            h = (z1 - z0) * scale
+            parts.append(
+                f'    <rect x="{fmt(x)}" y="{fmt(y)}" width="{fmt(w)}" height="{fmt(h)}"/>'
+            )
+        parts.append("  </g>")
+    else:
+        # WP-CD-ANATOMY: 3-tier weight hierarchy + new/existing poché split.
+        # heavy = cut by the section plane; medium = beyond the cut plane
+        # (projected within depth); dashed "ABV." = projected AND above the
+        # cut walls' top; existing-phase cut walls render open/lighter.
+        cut_top = max(
+            (r[3] for r, m in zip(rects, rect_meta, strict=True) if m[0] == "wall" and m[1]),
+            default=None,
+        )
+        heavy_new: list[str] = []
+        heavy_exist: list[str] = []
+        beyond: list[str] = []
+        hidden_abv: list[str] = []
+        for (s0, z0, s1, z1), (kind, cut, mel) in zip(rects, rect_meta, strict=True):
+            if (s1 - s0) < 80 and (z1 - z0) < 80:
+                continue  # tiny mep bbox rects drawn as circles instead
+            if kind == "opening":
+                continue  # drawn in openings-section
+            x, y = project(s0, z1)
+            w = (s1 - s0) * scale
+            h = (z1 - z0) * scale
+            rect = f'    <rect x="{fmt(x)}" y="{fmt(y)}" width="{fmt(w)}" height="{fmt(h)}"/>'
+            phase = str(mel.params.get("phase") or "new").lower()
+            if cut and phase == "existing":
+                heavy_exist.append(rect)
+            elif cut:
+                heavy_new.append(rect)
+            elif cut_top is not None and z0 >= cut_top - 1.0:
+                hidden_abv.append(rect)
+                mx, my = project((s0 + s1) / 2, z1)
+                hidden_abv.append(
+                    f'    <text x="{fmt(mx)}" y="{fmt(my - 3)}" text-anchor="middle" '
+                    f'font-family="sans-serif" font-size="7" fill="#555" '
+                    f'stroke="none">ABV.</text>'
+                )
+            else:
+                beyond.append(rect)
+        parts.append(
+            '  <g class="cut-walls lw-heavy" fill="#4d4d4d" stroke="#000" stroke-width="2.2">'
+        )
+        parts.extend(heavy_new)
+        parts.append("  </g>")
+        if heavy_exist:
+            parts.append(
+                '  <g class="cut-existing lw-medium" fill="#fff" stroke="#333" '
+                'stroke-width="1.1">'
+            )
+            parts.extend(heavy_exist)
+            parts.append("  </g>")
+        if beyond:
+            parts.append(
+                '  <g class="beyond-section lw-medium" fill="#e6e6e6" stroke="#333" '
+                'stroke-width="1.1">'
+            )
+            parts.extend(beyond)
+            parts.append("  </g>")
+        if hidden_abv:
+            parts.append(
+                '  <g class="hidden-above lw-hidden" fill="none" stroke="#555" '
+                'stroke-width="0.9" stroke-dasharray="5 3">'
+            )
+            parts.extend(hidden_abv)
+            parts.append("  </g>")
     if foundation_rects:
         # WP-SCHAD-S3: footings / stem walls / slabs-on-grade cut below the
         # level datum — simple hatch-free outlines
+        f_cls = "foundation-section lw-heavy" if weights else "foundation-section"
+        f_sw = "2.2" if weights else "1"
         parts.append(
-            '  <g class="foundation-section" fill="#e3e0da" stroke="#111" stroke-width="1">'
+            f'  <g class="{f_cls}" fill="#e3e0da" stroke="#111" stroke-width="{f_sw}">'
         )
         for s0, z0, s1, z1 in foundation_rects:
             x, y = project(s0, z1)
@@ -463,7 +737,8 @@ def render_section_svg(
             )
         parts.append("  </g>")
     if roof_lines:
-        parts.append('  <g class="roof-section" stroke="#333" stroke-width="2" fill="none">')
+        r_cls = "roof-section lw-heavy" if weights else "roof-section"
+        parts.append(f'  <g class="{r_cls}" stroke="#333" stroke-width="2" fill="none">')
         for s0r, zr0, s1r, zr1, th in roof_lines:
             pa, pb = project(s0r, zr0), project(s1r, zr1)
             parts.append(
@@ -478,8 +753,9 @@ def render_section_svg(
             )
         parts.append("  </g>")
     if opening_rects:
+        o_cls = "openings-section lw-medium" if weights else "openings-section"
         parts.append(
-            '  <g class="openings-section" stroke="#1565c0" stroke-width="1" '
+            f'  <g class="{o_cls}" stroke="#1565c0" stroke-width="1" '
             'font-family="sans-serif" text-anchor="middle">'
         )
         for s0, z0, s1, z1, fill, lab in opening_rects:
@@ -498,7 +774,8 @@ def render_section_svg(
                 f'fill="#0d47a1">{esc(lab[:18])}</text>'
             )
         parts.append("  </g>")
-    parts.append('  <g class="pipes-section" fill="none" stroke-width="1.5">')
+    pi_cls = "pipes-section lw-medium" if weights else "pipes-section"
+    parts.append(f'  <g class="{pi_cls}" fill="none" stroke-width="1.5">')
     for s, z, r, stroke in pipe_marks:
         cx, cy = project(s, z)
         parts.append(
@@ -507,16 +784,87 @@ def render_section_svg(
         )
     parts.append("  </g>")
     # Ground line
+    g_cls = "ground lw-light" if weights else "ground"
     gx0, gy = project(min_s, 0)
     gx1, _ = project(max_s, 0)
     parts.append(
-        f'  <line class="ground" x1="{fmt(gx0)}" y1="{fmt(gy)}" '
+        f'  <line class="{g_cls}" x1="{fmt(gx0)}" y1="{fmt(gy)}" '
         f'x2="{fmt(gx1)}" y2="{fmt(gy)}" stroke="#666" stroke-width="1.5"/>'
     )
+    if hatches:
+        # WP-CD-ANATOMY: material hatches, analytic clip to the cut polygons
+        # (no SVG clipPath ids). Each distinct hatch gets one leader note.
+        groups: dict[str, list[str]] = {"concrete": [], "wood": [], "insulation": []}
+        notes: dict[str, tuple[float, float]] = {}
+        for (s0, z0, s1, z1), (kind, cut, mel) in zip(rects, rect_meta, strict=True):
+            if kind != "wall" or not cut:
+                continue
+            if str(mel.params.get("phase") or "new").lower() == "existing":
+                continue  # existing poché stays open
+            x, y = project(s0, z1)
+            w = (s1 - s0) * scale
+            h = (z1 - z0) * scale
+            if w < 2 or h < 2:
+                continue
+            for hk in _wall_hatch_kinds(mel):
+                if hk == "concrete":
+                    groups[hk].extend(_stipple_circles(x, y, w, h, _seed_from_id(mel.id)))
+                elif hk == "wood":
+                    groups[hk].extend(_diag_lines(x, y, w, h))
+                else:
+                    groups[hk].extend(_batt_zigzag(x, y, w, h))
+                notes.setdefault(hk, (x + w, y))
+        for i, ((s0, z0, s1, z1), fel) in enumerate(
+            zip(foundation_rects, foundation_meta, strict=True)
+        ):
+            x, y = project(s0, z1)
+            w = (s1 - s0) * scale
+            h = (z1 - z0) * scale
+            if w < 2 or h < 2:
+                continue
+            groups["concrete"].extend(
+                _stipple_circles(x, y, w, h, _seed_from_id(fel.id, salt=i + 1))
+            )
+            notes.setdefault("concrete", (x + w, y))
+        if groups["concrete"]:
+            parts.append('  <g class="hatch-concrete" fill="#333" stroke="none">')
+            parts.extend(groups["concrete"])
+            parts.append("  </g>")
+        if groups["wood"]:
+            parts.append('  <g class="hatch-wood" stroke="#555" stroke-width="0.6" fill="none">')
+            parts.extend(groups["wood"])
+            parts.append("  </g>")
+        if groups["insulation"]:
+            parts.append('  <g class="hatch-insul" stroke="#777" stroke-width="0.8" fill="none">')
+            parts.extend(groups["insulation"])
+            parts.append("  </g>")
+        # standard earth hatch: ticks strictly below the grade line
+        earth = _earth_ticks(gx0, gx1, gy)
+        if earth:
+            parts.append('  <g class="hatch-earth" stroke="#7a6a52" stroke-width="0.7">')
+            parts.extend(earth)
+            parts.append("  </g>")
+            notes.setdefault("earth", (gx1, gy + 4))
+        if notes:
+            parts.append(
+                '  <g class="hatch-notes" font-family="sans-serif" font-size="7" '
+                'fill="#111" stroke="#111" stroke-width="0.5">'
+            )
+            for hk, (ax, ay) in notes.items():
+                lx, ly = ax + 12, ay - 8
+                parts.append(
+                    f'    <line x1="{fmt(ax)}" y1="{fmt(ay)}" x2="{fmt(lx)}" y2="{fmt(ly)}"/>'
+                )
+                parts.append(
+                    f'    <text x="{fmt(lx + 2)}" y="{fmt(ly)}" '
+                    f'stroke="none">{esc(_HATCH_LABELS[hk])}</text>'
+                )
+            parts.append("  </g>")
     # Level lines + storey height dims (same as elevation)
     levels = sorted(model.levels, key=lambda lv: float(lv.elevation_mm))
     if levels:
-        parts.append('  <g class="level-dims" stroke="#555" fill="#333" font-family="sans-serif">')
+        ld_cls = "level-dims lw-light" if weights else "level-dims"
+        parts.append(f'  <g class="{ld_cls}" stroke="#555" fill="#333" font-family="sans-serif">')
         for lv in levels:
             z = float(lv.elevation_mm)
             pa, pb = project(min_s, z), project(max_s, z)
@@ -580,6 +928,8 @@ def render_section_svg(
                 f"{esc(_height_label(z_top - z_lo, imperial))}</text>"
             )
         parts.append("  </g>")
+    if weights:
+        parts.append(_line_legend(-pad + 4.0, -pad + 4.0))
     parts.append("</svg>")
     return "\n".join(parts) + "\n"
 
@@ -628,11 +978,17 @@ def render_elevation_svg(
     margin_mm: float = 500.0,
     title: str | None = None,
     units: str = "metric",
+    weights: bool = False,
 ) -> str:
     """Orthographic elevation. N looks toward +Y (from south), etc.
 
     ``units="imperial"`` renders level datum labels and storey/overall
     height dimensions as feet-inches (nearest 1/2"; 1 ft = 304.8 mm).
+
+    ``weights=True`` (WP-CD-ANATOMY) applies the CD line-weight hierarchy:
+    projected building fabric = medium, below-grade foundations = hidden
+    (dashed), level datums = light reference; a line legend is emitted.
+    Default ``False`` → output byte-identical to the legacy renderer.
     """
     imperial = _check_units(units)
     d = direction.upper()
@@ -973,8 +1329,12 @@ def render_elevation_svg(
         f"  <title>{esc(label)}</title>",
         f'  <rect x="{fmt(-pad)}" y="{fmt(-pad)}" width="{fmt(vb_w)}" height="{fmt(vb_h)}" '
         f'fill="#fff"/>',
-        '  <g class="walls" fill="#d0d0d0" stroke="#222" stroke-width="1">',
     ]
+    if weights:
+        parts.append(_WEIGHT_STYLE)
+    w_cls = "walls lw-medium" if weights else "walls"
+    w_sw = "1.1" if weights else "1"
+    parts.append(f'  <g class="{w_cls}" fill="#d0d0d0" stroke="#222" stroke-width="{w_sw}">')
     for h0, h1, z0, z1 in segs:
         if (z1 - z0) <= 60 and (h1 - h0) < 500:
             continue  # skip tiny pipe bbox placeholders
@@ -993,7 +1353,8 @@ def render_elevation_svg(
     parts.append("  </g>")
     if roof_polys:
         # roof planes over the wall band: gable triangle / sloped eave lines
-        parts.append('  <g class="roof-elev" fill="#c9c2b8" stroke="#333" stroke-width="1">')
+        re_cls = "roof-elev lw-medium" if weights else "roof-elev"
+        parts.append(f'  <g class="{re_cls}" fill="#c9c2b8" stroke="#333" stroke-width="1">')
         for pts in roof_polys:
             pieces = []
             for h, z in pts:
@@ -1003,8 +1364,9 @@ def render_elevation_svg(
         parts.append("  </g>")
     if found_rects:
         # WP-SCHAD-S3: foundations below grade shown as dashed hidden lines
+        fe_cls = "foundation-elev lw-hidden" if weights else "foundation-elev"
         parts.append(
-            '  <g class="foundation-elev" fill="none" stroke="#555" '
+            f'  <g class="{fe_cls}" fill="none" stroke="#555" '
             'stroke-width="0.8" stroke-dasharray="5 3">'
         )
         for h0, h1, z0, z1 in found_rects:
@@ -1018,8 +1380,9 @@ def render_elevation_svg(
             )
         parts.append("  </g>")
     if opening_rects:
+        oe_cls = "openings-elev lw-medium" if weights else "openings-elev"
         parts.append(
-            '  <g class="openings-elev" stroke="#1565c0" stroke-width="1" '
+            f'  <g class="{oe_cls}" stroke="#1565c0" stroke-width="1" '
             'font-family="sans-serif" text-anchor="middle">'
         )
         for h0, h1, z0, z1, fill, lab in opening_rects:
@@ -1072,8 +1435,9 @@ def render_elevation_svg(
                     f'fill="#b9c2c9"/>'
                 )
         parts.append("  </g>")
+    pe_cls = "pipes-elev lw-medium" if weights else "pipes-elev"
     parts.append(
-        f'  <g class="pipes-elev" stroke-width="{fmt(max(1.2, 20 * scale))}" fill="none">'
+        f'  <g class="{pe_cls}" stroke-width="{fmt(max(1.2, 20 * scale))}" fill="none">'
     )
     for h0, h1, z, stroke in pipe_segs:
         pa, pb = project(h0, z), project(h1, z)
@@ -1105,7 +1469,8 @@ def render_elevation_svg(
     # Level lines + storey height dimensions (left edge)
     levels = sorted(model.levels, key=lambda lv: float(lv.elevation_mm))
     if levels:
-        parts.append('  <g class="level-dims" stroke="#555" fill="#333" font-family="sans-serif">')
+        ld_cls = "level-dims lw-light" if weights else "level-dims"
+        parts.append(f'  <g class="{ld_cls}" stroke="#555" fill="#333" font-family="sans-serif">')
         # dashed level reference lines across elev
         for lv in levels:
             z = float(lv.elevation_mm)
@@ -1174,6 +1539,8 @@ def render_elevation_svg(
             )
         parts.append("  </g>")
 
+    if weights:
+        parts.append(_line_legend(-pad + 4.0, -pad + 4.0))
     parts.append("</svg>")
     return "\n".join(parts) + "\n"
 

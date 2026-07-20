@@ -10,9 +10,9 @@ striping, column separators, right-aligned numerics) as a ``DrawingView``.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
-from llmbim_drawings.sheets import graphic_scale_bar
+from llmbim_drawings.sheets import graphic_scale_bar, revision_cloud
 from llmbim_drawings.svg_util import esc, fmt
 from llmbim_drawings.view import DrawingView
 
@@ -65,6 +65,19 @@ def _grid_for(n: int, cells: Sequence[Cell], width: float, height: float, gutter
     return 2, 2
 
 
+def _num(v: object, default: float = 0.0) -> float:
+    if isinstance(v, bool):
+        return default
+    if isinstance(v, (int, float)):
+        return float(v)
+    if isinstance(v, str):
+        try:
+            return float(v)
+        except ValueError:
+            return default
+    return default
+
+
 def compose_sheet(
     cells: Sequence[Cell],
     *,
@@ -73,12 +86,19 @@ def compose_sheet(
     gutter: float = 16.0,
     arrange: str | None = None,
     weights: Sequence[float] | None = None,
+    clouds: Sequence[Mapping[str, object]] | None = None,
 ) -> DrawingView:
     """Arrange 1–4 view cells in a grid; label bubble + scale bar per cell.
 
     ``arrange``: force ``"row"`` / ``"column"`` for 2 cells (default: auto by
     aspect). ``weights``: relative sizes along the primary axis of a single
     row or column (e.g. ``[0.72, 0.28]`` for plan + legend).
+
+    ``clouds`` (WP-CD-ANATOMY): revision annotations drawn on top of the
+    composed sheet — each mapping gives ``x``/``y``/``w``/``h`` (sheet
+    coordinates) and an optional ``number`` (default ``"1"``); rendered as a
+    scalloped revision cloud with a numbered Δ triangle. Default ``None`` →
+    output unchanged.
     """
     if not cells:
         raise ValueError("compose_sheet needs at least one cell")
@@ -152,7 +172,64 @@ def compose_sheet(
                 )
             )
         parts.append("</g>")
+    for cloud in clouds or []:
+        parts.append(
+            revision_cloud(
+                _num(cloud.get("x")),
+                _num(cloud.get("y")),
+                _num(cloud.get("w"), 60.0),
+                _num(cloud.get("h"), 40.0),
+                number=str(cloud.get("number") or "1"),
+            )
+        )
     return DrawingView(width=width, height=height, body="\n".join(parts))
+
+
+def legend_view(
+    rows: Sequence[tuple[str, str]],
+    *,
+    title: str = "LEGEND",
+    row_h: float = 18.0,
+    symbol_w: float = 36.0,
+    width: float = 230.0,
+    font_size: float = 9.5,
+) -> DrawingView:
+    """Legend block: bordered box of symbol + label rows (WP-CD-ANATOMY).
+
+    Each row is ``(symbol_svg, label)`` where ``symbol_svg`` is a raw SVG
+    snippet drawn in a local cell space of roughly ``0..symbol_w`` wide by
+    ``0..row_h`` tall (e.g. ``'<circle cx="12" cy="9" r="6" fill="none"
+    stroke="#111"/>'``). Returns a ``DrawingView`` usable as a
+    ``compose_sheet`` cell by any sheet register.
+    """
+    title_h = 22.0 if title else 0.0
+    h = title_h + row_h * max(1, len(rows)) + 8.0
+    parts = [
+        '<g class="legend-block" font-family="sans-serif">',
+        f'  <rect x="0" y="0" width="{fmt(width)}" height="{fmt(h)}" fill="#fff" '
+        f'stroke="#111" stroke-width="1.2"/>',
+    ]
+    if title:
+        parts.append(
+            f'  <text x="8" y="15" font-size="10" font-weight="bold" '
+            f'letter-spacing="0.8">{esc(title)}</text>'
+        )
+        parts.append(
+            f'  <line x1="0" y1="{fmt(title_h)}" x2="{fmt(width)}" y2="{fmt(title_h)}" '
+            f'stroke="#111" stroke-width="0.8"/>'
+        )
+    y = title_h + 4.0
+    for symbol, label in rows:
+        parts.append(
+            f'  <g class="legend-symbol" transform="translate(8,{fmt(y)})">{symbol}</g>'
+        )
+        parts.append(
+            f'  <text x="{fmt(symbol_w + 16)}" y="{fmt(y + row_h / 2 + font_size * 0.35)}" '
+            f'font-size="{fmt(font_size)}">{esc(label)}</text>'
+        )
+        y += row_h
+    parts.append("</g>")
+    return DrawingView(width=width, height=h, body="\n".join(parts), title=title)
 
 
 def _is_num(value: object) -> bool:
