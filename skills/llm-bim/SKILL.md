@@ -63,6 +63,17 @@ Or HTTP (optional): `llmbim serve --port 8000` → docs at `/docs`.
     and either ask the user for **required** fields or **state defaults in the reply**.  
     After modeling: `p.validate_intent(...)`. See `recipes/explicit_build.md`.
 
+## Act like the architect / machinist on the job
+
+Before modeling a deliverable set, run **the interrogation**
+(`recipes/design_program.md` §0): ask every question a professional would
+need answered — site, program, envelope, structure, openings, MEP, tolerances,
+deliverable scope — in one pass, at AI speed. Every answer lands in the basis;
+every non-answer becomes a flagged assumption. Completeness of the finished
+set is judged against **`docs/CD_COMPLETENESS_STANDARD.md`** (professional
+doc-set anatomy, calibrated on real stamped reference sets) — walk its
+anatomy table before saying done.
+
 ## Autonomy contract (method is yours; outcomes are checked)
 
 You choose the approach — order of modeling, decomposition, iteration style.

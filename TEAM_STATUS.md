@@ -31,6 +31,7 @@ Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
 | **WP-SCHAD-S6** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **done** (`8f834a3`) | full content build (127 el) + Gate C 21-sheet register |
 | **WP-SCHAD-S7** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **done** (`2395d34`) | imperial units + door/window tags across renderers |
 | **WP-SCHAD-S8** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **done** (`cb9845e`) | `llmbim case schad`, CI drift guards, schad_cd recipe, retire-Revit record |
+| **WP-CD-ANATOMY** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **claimed** (2 agents in flight) | close `docs/CD_COMPLETENESS_STANDARD.md` gap rows — A: plan.py+construction.py (dim-chain tiers, fractional grids, tag anatomy, key plan); B: section.py+layout.py/sheets.py (line weights, material hatch, poché split, rev clouds, stamp block) |
 | GROK-SSOT-P0/P1/P2 | Claude | `main` (PR #7) | **done** | strict glTF VERIFY + llmbim view, place_tube/place_wire_path/material map/nps, DevicePack + fixture + recipe, viewer presets/auto-rotate/embed-auto |
 | LAUNCH / LAUNCH-POLISH | Grok | `main` | **done** | server/cli/mcp/docker |
 | WP-IFC / WP-DRAWINGS-V2 / AUDIT-2026-07 | Claude | `main` (PR #1) | **done** | see git history |
