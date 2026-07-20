@@ -28,8 +28,11 @@ Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
 | WP-DRAWINGS MVP | Grok | `main` | **done** | shipped |
 | WP-DRAWINGS-V2 | Claude | `main` (PR #1) | **done** | dims on-canvas, elevation mirror/culling, hidden-line |
 | AUDIT-2026-07 | Claude | `main` (PR #1) | **done** | takeoff/data-loss/CI fixes across tree — see PR #1 |
-| **WP-MEP-ROUTE** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **claimed** | `core/mep_route.py` + registry/SDK/MCP wiring |
-| **WP-VIEWER-RICH** | **Claude** | `claude/grok-audit-evolution-w4umwh` | **claimed** | `drawings/viewer3d.py`, `geometry/mesh.py` |
+| WP-MEP-ROUTE | Claude | `main` (PR #2) | **done** | obstacle-avoiding autoroute + op/SDK/MCP |
+| WP-VIEWER-RICH | Claude | `main` (PR #2) | **done** | glTF extras, inspect/filters/measure |
+| WP-MEP-TAP | Claude | branch | **done** | tee-tapping + trunk_branch |
+| WP-IFC-IMPORT | Claude | branch | **done** | real round-trip importer |
+| WP-MEP-SIZING | Claude | branch | **done** | pipe/duct sizing + surface |
 | core/commands/elements | Grok | `main` | **done** | Claude: do not reimplement |
 
 ### Claude claim recipe

@@ -74,7 +74,7 @@ Vague user ask → **you** make parameters explicit. Never silently invent PE ra
 | MEP run | level, start→end **or** `mep_route(from,to)`, size, system | material, z0_mm, orthogonal dogleg |
 | Structure | level, section `W10x33`, origin or beam ends | beam z0 (TOS) |
 | Fab part | name + solid feature(s) in mm | fillet selector, thread designation, GD&T, host knit |
-| Pack | `export_deliverables` | verify; give absolute paths to `index.html` + `viewer3d.html` |
+| Pack | `export_deliverables` | verify; hand over exactly ONE path: `<abs>/index.html` |
 
 ```python
 print(p.authoring_checklist("building_shell"))
@@ -99,7 +99,18 @@ print("OPEN:", man["output_dir"] + "/index.html")
 
 CLI: `llmbim template office_bay`  → `output/office_bay/`
 
-**Always tell the user the absolute path** to `index.html` and `PLOT_SET.pdf`.
+## Output contract (any agent, any environment)
+
+The deliverable is **one HTML file**: `output/<slug>/index.html`.
+
+- Tell the user (or open) **exactly that one absolute path** — nothing else.
+  The 3D viewer, PDF plot set, sheets, schedules, and takeoffs are all linked
+  from it. Do **not** also open `viewer3d.html` — that causes duplicate tabs.
+- `viewer3d.html` is fully self-contained (three.js bundled inline): it works
+  offline, from `file://`, with no CDN or network. If a user reports a blank
+  3D view, their pack predates this — regenerate with current `main`
+  (old packs carried a glTF indexing bug; new packs also show errors in a
+  visible banner instead of a black page).
 
 ### B. Freeform model
 
@@ -376,7 +387,7 @@ llmbim script build.py --pack out/gen
 - `views/*.dxf` (plan/elev/section) · `boq.json` (CSI) · `clash_report.json` · `design_rules.json`  
 - `materials/` — assignments, exploded BOM, **fitting/pipe/duct/conduit/steel/csi** takeoffs  
 - `schedules/` — doors.csv · windows.csv · levels · drawing_list · duct · column · CSI · zone_areas  
-- `index.html` (door/window schedule samples) · **`viewer3d.html`** (section cut · cinematic bloom · Imagine sky/floor · layer opacity)  
+- **`index.html`** — the ONE file to open; links the 3D studio (`viewer3d.html`: self-contained/offline, inspect · measure · filters · section cut · bloom), PDF, sheets, schedules  
 - `deliverables.zip` · `MANIFEST.json` · `VERIFY.json`  
 - `verify_pack`: has_doors_schedule · has_windows_schedule · elev/section DXF · materials package  
 

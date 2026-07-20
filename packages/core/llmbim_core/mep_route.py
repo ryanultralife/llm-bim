@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import heapq
 import math
+import re
 from typing import Any, Literal
 
 from llmbim_core.errors import ValidationError
@@ -734,3 +735,451 @@ def mep_autoroute(
     if fallback:
         result["note"] = "no clear path found — placed orthogonal dogleg without obstacle avoidance"
     return result
+
+
+# --- tee tapping (branch off an existing run) -----------------------------------
+
+_TAP_END_MARGIN_MM = 100.0
+_PART_PREFIX_MATERIAL = (
+    ("PT-CU-", "copper"),
+    ("PT-FP-", "fire"),
+    ("PT-SS-", "process"),
+    ("PT-PVC-", "pvc"),
+)
+
+
+def _run_material(el: Element) -> str:
+    """Infer the placer material keyword (copper|fire|process|pvc) from the part id."""
+    pid = str(el.params.get("part_id") or el.type_id or "")
+    for prefix, mat in _PART_PREFIX_MATERIAL:
+        if pid.startswith(prefix):
+            return mat
+    return "copper"
+
+
+def _level_name(model: ProjectModel, level_id: str | None) -> str:
+    for lv in model.levels:
+        if lv.id == level_id:
+            return lv.name
+    if model.levels:
+        return model.levels[0].name
+    raise ValidationError("Model has no levels — cannot tap a run")
+
+
+def _plan_segment(el: Element) -> tuple[Point, Point] | None:
+    """Plan segment of a horizontal run element, or None (vertical riser / degenerate)."""
+    s, e = el.params.get("start_mm"), el.params.get("end_mm")
+    if not s or not e or el.params.get("vertical"):
+        return None
+    a: Point = (float(s[0]), float(s[1]))
+    b: Point = (float(e[0]), float(e[1]))
+    if math.hypot(b[0] - a[0], b[1] - a[1]) < 1:
+        return None
+    return a, b
+
+
+def _project_on_segment(t: Point, a: Point, b: Point) -> tuple[float, float]:
+    """(distance_mm to segment, clamped param u∈[0,1]) of point t vs segment ab."""
+    ax, ay = a
+    bx, by = b
+    dx, dy = bx - ax, by - ay
+    l2 = dx * dx + dy * dy
+    if l2 <= 0:
+        return math.hypot(t[0] - ax, t[1] - ay), 0.0
+    u = max(0.0, min(1.0, ((t[0] - ax) * dx + (t[1] - ay) * dy) / l2))
+    px, py = ax + u * dx, ay + u * dy
+    return math.hypot(t[0] - px, t[1] - py), u
+
+
+def _tap_candidates(
+    model: ProjectModel, kind: str, system: str | None, exclude: set[str]
+) -> list[Element]:
+    out: list[Element] = []
+    for el in model.elements:
+        if el.category != kind or el.id in exclude:
+            continue
+        if system is not None and str(el.params.get("system") or "") != system:
+            continue
+        if _plan_segment(el) is None:
+            continue
+        out.append(el)
+    return out
+
+
+def _split_run(model: ProjectModel, src: Element, tap: Point) -> tuple[str, str]:
+    """Replace ``src`` with two collinear pieces meeting at ``tap``.
+
+    All params (nps, material, system, z0_mm, part linkage) are preserved;
+    per-length quantities (part_qty, area_m2, BOM lines) are scaled so takeoff
+    totals are unchanged.
+    """
+    seg = _plan_segment(src)
+    if seg is None:
+        raise ValidationError("Source run has no plan segment to split", element_id=src.id)
+    hosted = [h.id for h in model.elements if h.host_id == src.id]
+    if hosted:
+        raise ValidationError(
+            "Cannot tap a run with hosted children", element_id=src.id, hosted_ids=hosted
+        )
+    (ax, ay), (bx, by) = seg
+    total = math.hypot(bx - ax, by - ay)
+    ids: list[str] = []
+    for p0, p1 in (((ax, ay), tap), (tap, (bx, by))):
+        ln = math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+        frac = ln / total
+        piece = src.model_copy(deep=True, update={"id": new_id(src.category[:3] or "run")})
+        pp = piece.params
+        pp["start_mm"] = [p0[0], p0[1]]
+        pp["end_mm"] = [p1[0], p1[1]]
+        pp["origin_mm"] = [p0[0], p0[1]]
+        pp["length_mm"] = ln
+        pp["length_m"] = ln / 1000.0
+        if isinstance(pp.get("part_qty"), (int, float)):
+            pp["part_qty"] = float(pp["part_qty"]) * frac
+        if isinstance(pp.get("area_m2"), (int, float)):
+            pp["area_m2"] = round(float(pp["area_m2"]) * frac, 6)
+        size = pp.get("size_mm")
+        if isinstance(size, list) and size and isinstance(size[0], (int, float)):
+            size = list(size)
+            size[0] = ln
+            pp["size_mm"] = size
+        bom = pp.get("bom")
+        if isinstance(bom, list):
+            scaled: list[Any] = []
+            for line in bom:
+                if isinstance(line, dict):
+                    line = dict(line)
+                    for key in ("qty", "mass_kg"):
+                        if isinstance(line.get(key), (int, float)):
+                            line[key] = float(line[key]) * frac
+                scaled.append(line)
+            pp["bom"] = scaled
+        if piece.name:
+            piece.name = re.sub(r"L=\d+(?:\.\d+)?m", f"L={ln / 1000.0:.2f}m", piece.name)
+        model.add_element(piece)
+        ids.append(piece.id)
+    model.elements = [el for el in model.elements if el.id != src.id]
+    return ids[0], ids[1]
+
+
+def _place_tee(
+    model: ProjectModel,
+    *,
+    kind: str,
+    level: str,
+    level_id: str | None,
+    nps: str,
+    origin: Point,
+    material: str,
+    system: str,
+    z0: float,
+    width_mm: float,
+    height_mm: float,
+) -> str:
+    """Catalog tee for pipes (generic tee element for ducts/conduits/odd sizes)."""
+    from llmbim_core.assignment import place_fitting
+
+    if kind == "pipe":
+        try:
+            fr = place_fitting(
+                model,
+                level=level,
+                fitting_type="tee",
+                nps=nps,
+                origin=origin,
+                material=material,
+                system_tag=system,
+            )
+            fid = str(fr["element_id"])
+            model.get_element(fid).params["z0_mm"] = z0
+            return fid
+        except ValidationError:
+            pass  # no catalog tee for this nps/material — generic tee below
+    size = [width_mm, width_mm, height_mm] if kind == "duct" else [60.0, 60.0, 60.0]
+    el = Element(
+        id=new_id("fit"),
+        category="fitting",
+        name=f"{kind} tee",
+        level_id=level_id,
+        type_id=None,
+        params={
+            "origin_mm": [origin[0], origin[1]],
+            "fitting_type": "tee",
+            "nps": nps or None,
+            "system": system,
+            "route_kind": kind,
+            "size_mm": size,
+            "shape": "box",
+            "z0_mm": z0,
+        },
+    )
+    model.add_element(el)
+    return el.id
+
+
+def mep_tap(
+    model: ProjectModel,
+    *,
+    target: str | tuple[float, float] | list[float],
+    source: str | None = None,
+    system: str | None = None,
+    kind: str = "pipe",
+    nps: str | None = None,
+    material: str | None = None,
+    clearance_mm: float = 150.0,
+    grid_mm: float = 250.0,
+    name: str = "",
+) -> dict[str, Any]:
+    """Tap a branch off an existing run: split it, insert a tee, route tee → target.
+
+    ``target`` is an (x, y) mm point or an element id (fixture/equipment/fitting).
+    The source run is ``source`` (a pipe/duct/conduit element id) or the nearest
+    existing run of the same ``kind`` (and ``system``, if given) to the target.
+    The source is split into two collinear segments meeting at the tap point
+    (projection of the target, snapped ≥ 100 mm from the run ends when possible)
+    with a catalog tee at the junction; the branch is routed with the
+    obstacle-avoiding autoroute and inherits nps/material/system from the source
+    unless overridden. A smaller branch ``nps`` is noted as a reducing tee.
+    """
+    if kind not in _ROUTE_KINDS:
+        raise ValidationError("Unknown route kind", kind=kind, allowed=list(_ROUTE_KINDS))
+    tx, ty, _tz, target_el = _resolve_endpoint(model, target, "target")
+
+    if source:
+        src = model.get_element(source)
+        if src.category != kind:
+            raise ValidationError(
+                "Source element is not a run of this kind",
+                source=source,
+                category=src.category,
+                kind=kind,
+            )
+        if _plan_segment(src) is None:
+            raise ValidationError(
+                "Source run has no horizontal plan segment to tap", source=source
+            )
+        if target_el == src.id:
+            raise ValidationError("Target is the source run itself", source=source)
+    else:
+        exclude = {target_el} if target_el else set()
+        candidates = _tap_candidates(model, kind, system, exclude)
+        if not candidates:
+            raise ValidationError(
+                "No existing run to tap", kind=kind, system=system, target=[tx, ty]
+            )
+        src = min(
+            candidates,
+            key=lambda el: _project_on_segment((tx, ty), *_plan_segment(el) or ((0, 0), (0, 0)))[0],
+        )
+
+    seg = _plan_segment(src)
+    assert seg is not None  # guarded above / by candidate filter
+    a, b = seg
+    dist, u = _project_on_segment((tx, ty), a, b)
+    if dist < 1.0:
+        raise ValidationError(
+            "Target lies on the source run — nothing to branch",
+            source=src.id,
+            target=[tx, ty],
+        )
+    seg_len = math.hypot(b[0] - a[0], b[1] - a[1])
+    if seg_len > 2.0 * _TAP_END_MARGIN_MM:
+        lo = _TAP_END_MARGIN_MM / seg_len
+        u = min(max(u, lo), 1.0 - lo)
+    else:
+        u = 0.5  # short run — tap mid-span
+    tap: Point = (a[0] + u * (b[0] - a[0]), a[1] + u * (b[1] - a[1]))
+
+    run_nps = str(src.params.get("nps") or "2")
+    mat = material or _run_material(src)
+    system_val = str(src.params.get("system") or "CW")
+    z0 = float(src.params.get("z0_mm") or 0)
+    level_name = _level_name(model, src.level_id)
+    width = float(src.params.get("width_mm") or 400.0)
+    height = float(src.params.get("height_mm") or 250.0)
+    trade = str(src.params.get("trade_size") or run_nps or "3/4")
+    branch_nps = str(nps) if nps else run_nps
+
+    source_id = src.id
+    seg_a, seg_b = _split_run(model, src, tap)
+    tee_id = _place_tee(
+        model,
+        kind=kind,
+        level=level_name,
+        level_id=model.get_element(seg_a).level_id,
+        nps=run_nps,
+        origin=tap,
+        material=mat,
+        system=system_val,
+        z0=z0,
+        width_mm=width,
+        height_mm=height,
+    )
+
+    # rewrite any graph edge / connection that carried the original segment
+    split_edge_ids: list[str] = []
+    for edge0 in model.meta.get("mep_graph") or []:
+        segs = list(edge0.get("segment_ids") or [])
+        if source_id not in segs:
+            continue
+        i = segs.index(source_id)
+        segs[i : i + 1] = [seg_a, seg_b]
+        edge0["segment_ids"] = segs
+        edge0["fitting_ids"] = list(edge0.get("fitting_ids") or []) + [tee_id]
+        chain = list(edge0.get("chain") or [])
+        if source_id in chain:
+            j = chain.index(source_id)
+            chain[j : j + 1] = [seg_a, tee_id, seg_b]
+            edge0["chain"] = chain
+        taps = list(edge0.get("taps") or [])
+        taps.append({"tee_id": tee_id, "at_mm": [round(tap[0], 1), round(tap[1], 1)]})
+        edge0["taps"] = taps
+        split_edge_ids.append(str(edge0.get("id")))
+    for conn in model.meta.get("connections") or []:
+        csegs = list(conn.get("segment_ids") or [])
+        if source_id in csegs:
+            i = csegs.index(source_id)
+            csegs[i : i + 1] = [seg_a, seg_b]
+            conn["segment_ids"] = csegs
+
+    branch = mep_autoroute(
+        model,
+        level=level_name,
+        start=tee_id,
+        end=target,
+        kind=kind,
+        nps=branch_nps,
+        material=mat,
+        system=system_val,
+        z0_mm=z0,
+        clearance_mm=clearance_mm,
+        grid_mm=grid_mm,
+        width_mm=width,
+        height_mm=height,
+        trade_size=trade,
+        name=name,
+    )
+    edge = branch["edge"]
+    edge["kind"] = "mep_tap"
+    edge["tee_id"] = tee_id
+    edge["tap_of"] = source_id
+    edge["tap_split_ids"] = [seg_a, seg_b]
+    edge["chain"] = [tee_id] + list(edge.get("chain") or [])
+    for conn in model.meta.get("connections") or []:
+        if conn.get("id") == branch["connection_id"]:
+            conn["kind"] = "mep_tap"
+
+    reducing = kind == "pipe" and branch_nps != run_nps
+    result: dict[str, Any] = {
+        "tee_id": tee_id,
+        "source_id": source_id,
+        "split_ids": [seg_a, seg_b],
+        "tap_xy": [round(tap[0], 1), round(tap[1], 1)],
+        "kind": kind,
+        "nps": run_nps,
+        "branch_nps": branch_nps,
+        "material": mat if kind == "pipe" else None,
+        "system": system_val,
+        "level": level_name,
+        "z0_mm": z0,
+        "connection_id": branch["connection_id"],
+        "segment_ids": branch["segment_ids"],
+        "fitting_ids": branch["fitting_ids"],
+        "length_m": branch["length_m"],
+        "split_edge_ids": split_edge_ids,
+        "reducing_tee": (
+            f"reducing tee {run_nps} x {run_nps} x {branch_nps}" if reducing else None
+        ),
+        "branch": branch,
+        "edge": edge,
+    }
+    return result
+
+
+def mep_trunk_branch(
+    model: ProjectModel,
+    *,
+    level: str,
+    trunk_start: str | tuple[float, float] | list[float],
+    trunk_end: str | tuple[float, float] | list[float],
+    targets: list[str | tuple[float, float] | list[float]],
+    kind: str = "pipe",
+    nps: str = "2",
+    branch_nps: str | None = None,
+    material: str = "copper",
+    system: str = "CW",
+    z0_mm: float | None = None,
+    clearance_mm: float = 150.0,
+    grid_mm: float = 250.0,
+    width_mm: float = 400.0,
+    height_mm: float = 250.0,
+    trade_size: str = "3/4",
+    name: str = "",
+) -> dict[str, Any]:
+    """Autoroute a trunk run, then tee-tap a branch off it to each target.
+
+    Each tap picks the nearest trunk segment (tracking splits from earlier taps),
+    splits it with a tee, and autoroutes tee → target. ``branch_nps`` lets the
+    branches run smaller than the trunk (noted as reducing tees).
+    """
+    if kind not in _ROUTE_KINDS:
+        raise ValidationError("Unknown route kind", kind=kind, allowed=list(_ROUTE_KINDS))
+    if not targets:
+        raise ValidationError("mep_trunk_branch needs at least one target")
+    trunk = mep_autoroute(
+        model,
+        level=level,
+        start=trunk_start,
+        end=trunk_end,
+        kind=kind,
+        nps=nps,
+        material=material,
+        system=system,
+        z0_mm=z0_mm,
+        clearance_mm=clearance_mm,
+        grid_mm=grid_mm,
+        width_mm=width_mm,
+        height_mm=height_mm,
+        trade_size=trade_size,
+        name=name or f"{kind} trunk",
+    )
+    trunk_ids: set[str] = set(trunk["segment_ids"])
+    branches: list[dict[str, Any]] = []
+    for idx, target in enumerate(targets):
+        tx, ty, _tz, _tel = _resolve_endpoint(model, target, f"targets[{idx}]")
+        best: tuple[float, str] | None = None
+        for sid in trunk_ids:
+            seg = _plan_segment(model.get_element(sid))
+            if seg is None:
+                continue
+            d, _u = _project_on_segment((tx, ty), seg[0], seg[1])
+            if best is None or d < best[0]:
+                best = (d, sid)
+        if best is None:
+            raise ValidationError(
+                "No trunk segment available to tap", target=[tx, ty], index=idx
+            )
+        tap = mep_tap(
+            model,
+            target=target,
+            source=best[1],
+            kind=kind,
+            nps=branch_nps,
+            material=material,
+            clearance_mm=clearance_mm,
+            grid_mm=grid_mm,
+            name=name,
+        )
+        trunk_ids.discard(best[1])
+        trunk_ids.update(tap["split_ids"])
+        branches.append(tap)
+    return {
+        "trunk": trunk,
+        "branches": branches,
+        "tee_ids": [str(br["tee_id"]) for br in branches],
+        "count": len(branches),
+        "trunk_segment_ids": sorted(trunk_ids),
+        "length_m": round(
+            float(trunk["length_m"]) + sum(float(br["length_m"]) for br in branches), 3
+        ),
+    }
