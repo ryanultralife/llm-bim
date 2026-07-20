@@ -3,6 +3,12 @@
 This repository is built **by LLMs, for LLMs**. There is no human drafting UI.
 Humans review exports (IFC, PDF, SVG, glTF) and drive agents via chat/CLI.
 
+> **Just here to USE the framework?** You need none of the protocol below —
+> no claims, no permissions, no identity. Point your LLM at
+> `skills/llm-bim/SKILL.md` (see [`docs/MOBILE.md`](docs/MOBILE.md)) and
+> build; your models and output are yours, wherever your LLM runs. This
+> file's protocol governs agents **committing to this repo itself**.
+
 ## Decentralized skill (any LLM on any machine)
 
 | Artifact | Path |
