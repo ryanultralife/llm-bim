@@ -416,9 +416,10 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
             f"IFCSHAPEREPRESENTATION(#{ctx_body},'Body','SweptSolid',(#{solid}))"
         )
 
-    def roof_shape(planes: list, thickness: float) -> int | None:
-        """Faceted breps for stored roof planes: sloped top polygon extruded
-        straight down by ``thickness`` (z values are storey-local mm)."""
+    def prism_shape(planes: list, thickness: float) -> int | None:
+        """Faceted breps for stored top polygons (roof planes, footing rects,
+        slab-on-grade polygons): each 3D top polygon is extruded straight down
+        by ``thickness`` (z values are storey-local mm)."""
 
         def _pt(p: tuple[float, float, float]) -> int:
             return f.add(f"IFCCARTESIANPOINT(({p[0]},{p[1]},{p[2]}))")
@@ -598,6 +599,23 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
                 th = float(el.params.get("thickness_mm", 200))
             except (KeyError, TypeError, ValueError):
                 continue
+            if el.params.get("kind") == "slab_on_grade":
+                # WP-SCHAD-S3: base slab as a closed faceted brep of the actual
+                # polygon (top at top_of_slab_mm, storey-local), like IfcRoof
+                z_top = float(el.params.get("top_of_slab_mm") or 0.0)
+                top_poly = [[float(p[0]), float(p[1]), z_top] for p in poly]
+                body = prism_shape([{"polygon_mm": top_poly}], max(th, 1.0))
+                if body is None:
+                    continue
+                loc = place_at(0.0, 0.0, 0.0, parent_local)
+                prod = f.add(f"IFCPRODUCTDEFINITIONSHAPE($,$,(#{body}))")
+                slab = f.add(
+                    f"IFCSLAB('{f.guid()}',#{owner},'{_esc(el.name or el.id)}',$,$,#{loc},"
+                    f"#{prod},$,.BASESLAB.)"
+                )
+                contained[storey].append(slab)
+                _attach_csi_pset(f, owner, slab, model, el)
+                continue
             xs = [float(p[0]) for p in poly]
             ys = [float(p[1]) for p in poly]
             minx, miny = min(xs), min(ys)
@@ -616,6 +634,73 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
             )
             contained[storey].append(slab)
 
+        elif el.category == "footing":
+            # WP-SCHAD-S3: IfcFooting as closed faceted breps (strip segments /
+            # pad box) with tops at top_of_footing_mm (storey-local, below datum)
+            try:
+                from llmbim_core.foundations import strip_segment_rects
+
+                depth = float(el.params.get("depth_mm") or 0.0)
+                z_top = float(el.params.get("top_of_footing_mm") or 0.0)
+                kind = str(el.params.get("kind") or "strip")
+                if kind == "pad":
+                    plan_rects = [el.params.get("polygon_mm") or []]
+                else:
+                    plan_rects = strip_segment_rects(
+                        el.params.get("path_mm") or [],
+                        float(el.params.get("width_mm") or 0.0),
+                    )
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
+            planes = [
+                {"polygon_mm": [[float(q[0]), float(q[1]), z_top] for q in rect]}
+                for rect in plan_rects
+                if len(rect) >= 3
+            ]
+            body = prism_shape(planes, max(depth, 1.0))
+            if body is None:
+                continue
+            loc = place_at(0.0, 0.0, 0.0, parent_local)
+            prod = f.add(f"IFCPRODUCTDEFINITIONSHAPE($,$,(#{body}))")
+            pdt = ".PAD_FOOTING." if kind == "pad" else ".STRIP_FOOTING."
+            ftg = f.add(
+                f"IFCFOOTING('{f.guid()}',#{owner},'{_esc(el.name or el.id)}',$,$,"
+                f"#{loc},#{prod},$,{pdt})"
+            )
+            contained[storey].append(ftg)
+            _attach_csi_pset(f, owner, ftg, model, el)
+
+        elif el.category == "stem_wall":
+            # WP-SCHAD-S3: concrete stem wall as closed faceted breps, top at
+            # top_mm extending height_mm down toward the footing
+            try:
+                from llmbim_core.foundations import strip_segment_rects
+
+                height = float(el.params.get("height_mm") or 0.0)
+                z_top = float(el.params.get("top_mm") or 0.0)
+                plan_rects = strip_segment_rects(
+                    el.params.get("path_mm") or [],
+                    float(el.params.get("thickness_mm") or 0.0),
+                )
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
+            planes = [
+                {"polygon_mm": [[float(q[0]), float(q[1]), z_top] for q in rect]}
+                for rect in plan_rects
+                if len(rect) >= 3
+            ]
+            body = prism_shape(planes, max(height, 1.0))
+            if body is None:
+                continue
+            loc = place_at(0.0, 0.0, 0.0, parent_local)
+            prod = f.add(f"IFCPRODUCTDEFINITIONSHAPE($,$,(#{body}))")
+            stem = f.add(
+                f"IFCWALL('{f.guid()}',#{owner},'{_esc(el.name or el.id)}',$,$,"
+                f"#{loc},#{prod},$,.SOLIDWALL.)"
+            )
+            contained[storey].append(stem)
+            _attach_csi_pset(f, owner, stem, model, el)
+
         elif el.category == "roof":
             # IfcRoof with the pre-derived sloped planes as faceted breps
             try:
@@ -623,7 +708,7 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
                 th = float(el.params.get("thickness_mm") or 150.0)
             except (KeyError, TypeError, ValueError):
                 continue
-            body = roof_shape(planes, max(th, 1.0))
+            body = prism_shape(planes, max(th, 1.0))
             if body is None:
                 continue
             loc = place_at(0.0, 0.0, 0.0, parent_local)
