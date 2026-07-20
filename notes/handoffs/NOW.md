@@ -1,39 +1,41 @@
-# NOW — post-audit feature push
+# NOW — Schad Revit → llm-bim transition (OPEN)
 
-**Updated:** 2026-07-19 by Claude
+**Updated:** 2026-07-19 by Grok
 
-## Just merged to `main` (PR #1)
+## Human directive
 
-Full audit + fixes: IFC4 validity (13-attr entities, hosted openings via
-RelVoids/RelFills, wall corner joins, multi-storey placement), drawings
-(dimensions on-canvas, mirrored/culled elevations, hidden-line equipment,
-PDF scale), takeoffs (BOM mass×qty, steel tonnage + double-count fix),
-Project.create collision safety, VERIFY ordering, journal ranges.
-**CI now gates `ruff check` + `mypy --strict` + pytest + pack scripts** —
-rebase before pushing and keep both clean (zero `type: ignore` policy).
+> Transition away from Revit to our own llm-bim at the **same or better** quality and execution.
 
-## In flight (Claude, branch `claude/grok-audit-evolution-w4umwh`)
+**Canonical review (work until resolved):**  
+[`docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md`](../../docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md)
 
-- **WP-MEP-ROUTE** — obstacle-avoiding Manhattan autoroute with auto elbow
-  insertion + vertical transitions; op `mep_autoroute` + SDK + MCP.
-  Freeze: `core/mep_route.py` + wiring, `tests/unit/test_mep_autoroute.py`.
-- **WP-VIEWER-RICH** — glTF node extras (element metadata), click-to-inspect,
-  category/level filters, measure tool in `viewer3d.html`.
-  Freeze: `drawings/viewer3d.py`, `geometry/mesh.py`,
-  `tests/unit/test_viewer3d_rich.py`.
-- Roadmap docs synced: `docs/VISION.md` (M3 revalidated, M8 quality gates,
-  M9 rich review 3D), `docs/WORK_PACKAGES.md` (WP-IFC + WP-DRAWINGS-V2 done,
-  two new claims), `TEAM_STATUS.md`.
+Status: **OPEN** until Gates A–D in that doc are complete. Do not treat shell pack as CDs.
 
-## Grok / any agent
+## Claude — primary
 
-1. Pull `main`; CI is stricter than before — run `ruff check .` and
-   `python -m mypy` locally before pushing.
-2. Stay out of the two claimed freeze zones above until they land.
-3. Everything else (server, CLI, Docker, launch surface) is open.
+1. Read the transition review end-to-end.
+2. Claim **WP-SCHAD-S0** (then S1) in `TEAM_STATUS.md` — one package at a time preferred.
+3. Work packages listed in `docs/WORK_PACKAGES.md` under **WP-SCHAD-***.
+4. Start fixture: `examples/schad_garage.py` (loads basis; currently CMU types + no roofs).
+5. SSOT source (portable only): `G:\My Drive\Schad Garage\Revit\schad_*.py` pure modules — **not** `Schad_*.py` Revit adapters.
+6. Each PR: platform feature **and** Schad build/pack update; `ruff` + `mypy` + `pytest` + rebuild pack.
+7. Leave handoff notes when stopping; update Gate checkboxes when criteria land.
+8. **Continue until Gate D** (retire Revit workflow) or human redirects.
 
-## Decentralized surface (unchanged, from 2026-07-15)
+### First claim suggested
 
-- `skills/llm-bim/SKILL.md` — portable agent instructions (any LLM)
-- `llmbim ops --schema` → `skills/llm-bim/ops.schema.json`
-- `docs/LOCAL.md` + `scripts/install_local.ps1` / `.sh` · MCP: `llmbim mcp`
+**WP-SCHAD-S0 + WP-SCHAD-S1** together if small enough: port SSOT into `projects/schad/`, register wood wall types, kill CMU mapping on Schad walls, rebuild pack.
+
+## Grok
+
+- Pushed this review + WP list + `examples/schad_garage.py` shell.
+- Launch/CI/CLI help for `llmbim case schad` when Claude needs it (S8).
+- Stay out of Claude’s claimed Schad freeze zones.
+
+## Background (merged earlier)
+
+PR #1 audit / IFC / drawings quality; MEP autoroute + rich viewer — see git history. CI gates ruff + mypy strict.
+
+## Decentralized surface
+
+- `skills/llm-bim/SKILL.md` · `llmbim ops --schema` · `docs/LOCAL.md` · MCP: `llmbim mcp`
