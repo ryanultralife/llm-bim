@@ -88,6 +88,7 @@ def _sheet_from_view(
     px_per_mm: float | None = None,
     north_arrow: bool = False,
     date: str | None = None,
+    stamp_block: bool = False,
 ) -> str:
     _ax, _ay, aw, ah = drawing_area(sheet_w, sheet_h)
     # true scaled drawing views (px_per_mm known) may upscale to fill the sheet;
@@ -104,6 +105,7 @@ def _sheet_from_view(
         px_per_mm=(px_per_mm * s) if px_per_mm else None,
         north_arrow=north_arrow,
         date=date,
+        stamp_block=stamp_block,
     )
 
 
@@ -118,6 +120,7 @@ def _multi_sheet(
     arrange: str | None = None,
     weights: list[float] | None = None,
     north_arrow: bool = False,
+    stamp_block: bool = False,
 ) -> str:
     """Compose 1–4 view cells into the drawing area and frame the sheet."""
     _ax, _ay, aw, ah = drawing_area()
@@ -132,6 +135,7 @@ def _multi_sheet(
         scale_note=scale_note,
         north_arrow=north_arrow,
         date=date,
+        stamp_block=stamp_block,
     )
 
 
@@ -517,6 +521,9 @@ def export_construction_set(
     fractional_grids: bool = False,
     key_plan: bool = False,
     room_areas: bool = False,
+    line_weights: bool = False,
+    hatches: bool = False,
+    stamp_block: bool = False,
     sheets: list[dict] | None = None,
 ) -> dict:
     """Write a drawing package with proper view fitting.
@@ -544,6 +551,15 @@ def export_construction_set(
     ``fractional_grids`` (fractional intermediate grid bubbles, skip-I
     lettering), ``key_plan`` (reduced building outline block per plan sheet),
     ``room_areas`` (room name / boxed number / area tag anatomy).
+
+    CD anatomy options (WP-CD-ANATOMY slice B — all default off):
+    ``line_weights`` (3-tier cut/projection/reference stroke hierarchy +
+    "ABV." dashed + line legend in sections/elevations), ``hatches``
+    (section material hatches: concrete stipple, wood diagonal, batt
+    insulation, earth below grade), ``stamp_block`` (reserved PE/SE stamp
+    square on S-discipline sheets). Custom register: per-sheet
+    ``line_weights``/``hatches`` opts on ``elevations``/``sections`` entries
+    and ``stamp_block`` on any entry override the export-level defaults.
 
     ``sheets``: optional custom sheet register. When provided it REPLACES the
     default register entirely — one entry per sheet, in order::
@@ -620,6 +636,9 @@ def export_construction_set(
             fractional_grids=fractional_grids,
             key_plan=key_plan,
             room_areas=room_areas,
+            line_weights=line_weights,
+            hatches=hatches,
+            stamp_block=stamp_block,
         )
 
     nominal_scale = _scale_note_for(plan_scale, units)
@@ -687,7 +706,9 @@ def export_construction_set(
     for sn, sheet_title, pair in elev_pairs:
         cells: list[tuple] = []
         for direction, cell_title in pair:
-            elev_svg = render_elevation_svg(model, direction, scale=plan_scale, units=units)
+            elev_svg = render_elevation_svg(
+                model, direction, scale=plan_scale, units=units, weights=line_weights
+            )
             view = _view_from_full_svg(elev_svg, cell_title)
             cells.append((view, cell_title, nominal_scale, plan_scale))
         sh = _multi_sheet(
@@ -702,6 +723,7 @@ def export_construction_set(
     for (p0, p1), lab in ((cut_a, "A"), (cut_b, "B")):
         sec_svg = render_section_svg(
             model, p0, p1, scale=plan_scale, units=units,
+            weights=line_weights, hatches=hatches,
             title=f"{model.name} — Section {lab}-{lab}",
         )
         sec_view = _view_from_full_svg(sec_svg, f"Section {lab}-{lab}")
@@ -885,6 +907,7 @@ def export_construction_set(
                 sh = _multi_sheet(
                     model,
                     sheet_no=sn,
+                    stamp_block=stamp_block and disc == "S",
                     title=f"{disc_title} — {lname}",
                     cells=[
                         (view, f"{disc_title} {lname}", nominal_scale, plan_scale),
@@ -1449,13 +1472,18 @@ def _export_custom_register(
     fractional_grids: bool = False,
     key_plan: bool = False,
     room_areas: bool = False,
+    line_weights: bool = False,
+    hatches: bool = False,
+    stamp_block: bool = False,
 ) -> dict:
     """Emit a caller-defined sheet register (replaces the default A-1xx… set).
 
     ``units`` is the export-level default; each entry may override it with a
     per-sheet ``units`` opt (``"metric"``/``"imperial"``). Likewise the CD
     anatomy defaults ``dim_tiers`` / ``fractional_grids`` / ``key_plan`` /
-    ``room_areas`` may be overridden per ``plan`` entry.
+    ``room_areas`` may be overridden per ``plan`` entry, ``line_weights`` /
+    ``hatches`` per ``elevations``/``sections`` entry, and ``stamp_block``
+    per any entry (export default applies it to S-discipline sheets).
     """
     specs = [_require_register_entry(s) for s in register]
     level_ids = {lvl.name: lvl.id for lvl in model.levels}
@@ -1485,6 +1513,13 @@ def _export_custom_register(
             }
         )
 
+    def _spec_stamp(spec: dict) -> bool:
+        # per-sheet override wins; the export-level default applies the
+        # reserved PE/SE stamp square to S-discipline sheets only
+        if "stamp_block" in spec:
+            return bool(spec["stamp_block"])
+        return stamp_block and _discipline_of(spec) == "S"
+
     for spec in specs:
         kind = str(spec["kind"])
         no = str(spec["no"])
@@ -1498,6 +1533,7 @@ def _export_custom_register(
             svg = _sheet_from_view(
                 model, sheet_no=no, title=title, view=view,
                 scale_note=str(spec.get("scale_note") or "NTS"), date=date,
+                stamp_block=_spec_stamp(spec),
             )
             _emit(spec, svg)
 
@@ -1532,6 +1568,7 @@ def _export_custom_register(
                 model, sheet_no=no, title=title, view=view,
                 scale_note=str(spec.get("scale_note") or nominal),
                 px_per_mm=sc, north_arrow=True, date=date,
+                stamp_block=_spec_stamp(spec),
             )
             _emit(spec, svg)
 
@@ -1540,24 +1577,31 @@ def _export_custom_register(
             bad = [d for d in pair if d not in _ELEV_NAMES]
             if bad:
                 raise ValidationError("elevations 'pair' must use N|S|E|W", no=no, pair=pair)
+            sheet_lw = bool(spec.get("line_weights", line_weights))
             cells: list[tuple] = []
             for direction in pair:
                 cell_title = _ELEV_NAMES[direction]
-                elev_svg = render_elevation_svg(model, direction, scale=sc, units=sheet_units)
+                elev_svg = render_elevation_svg(
+                    model, direction, scale=sc, units=sheet_units, weights=sheet_lw
+                )
                 cells.append((_view_from_full_svg(elev_svg, cell_title), cell_title,
                               str(spec.get("scale_note") or nominal), sc))
             svg = _multi_sheet(
                 model, sheet_no=no, title=title, cells=cells, date=date,
                 scale_note=str(spec.get("scale_note") or nominal),
+                stamp_block=_spec_stamp(spec),
             )
             _emit(spec, svg)
 
         elif kind == "sections":
+            sheet_lw = bool(spec.get("line_weights", line_weights))
+            sheet_hatch = bool(spec.get("hatches", hatches))
             cut_a, cut_b = _building_cuts(model)
             sec_cells: list[tuple] = []
             for (p0, p1), lab in ((cut_a, "A"), (cut_b, "B")):
                 sec_svg = render_section_svg(
                     model, p0, p1, scale=sc, units=sheet_units,
+                    weights=sheet_lw, hatches=sheet_hatch,
                     title=f"{model.name} — Section {lab}-{lab}",
                 )
                 sec_cells.append(
@@ -1567,6 +1611,7 @@ def _export_custom_register(
             svg = _multi_sheet(
                 model, sheet_no=no, title=title, cells=sec_cells, date=date,
                 scale_note=str(spec.get("scale_note") or nominal),
+                stamp_block=_spec_stamp(spec),
             )
             _emit(spec, svg)
 
@@ -1606,6 +1651,7 @@ def _export_custom_register(
                     svg = _sheet_from_view(
                         model, sheet_no=page_no, title=page_title, view=view,
                         scale_note=note, date=date,
+                        stamp_block=_spec_stamp(spec),
                     )
                     _emit(spec, svg, no=page_no, title=page_title)
             else:
@@ -1617,6 +1663,7 @@ def _export_custom_register(
                 svg = _multi_sheet(
                     model, sheet_no=no, title=title, cells=tbl_cells, date=date,
                     scale_note=note,
+                    stamp_block=_spec_stamp(spec),
                 )
                 _emit(spec, svg)
 
@@ -1630,6 +1677,7 @@ def _export_custom_register(
             svg = _sheet_from_view(
                 model, sheet_no=no, title=title, view=view,
                 scale_note=str(spec.get("scale_note") or "AS NOTED"), date=date,
+                stamp_block=_spec_stamp(spec),
             )
             _emit(spec, svg)
 
@@ -1638,6 +1686,7 @@ def _export_custom_register(
             svg = _sheet_from_view(
                 model, sheet_no=no, title=title, view=view,
                 scale_note=str(spec.get("scale_note") or "NTS"), date=date,
+                stamp_block=_spec_stamp(spec),
             )
             _emit(spec, svg)
 
@@ -1646,6 +1695,7 @@ def _export_custom_register(
             svg = _sheet_from_view(
                 model, sheet_no=no, title=title, view=view,
                 scale_note=str(spec.get("scale_note") or "NTS"), date=date,
+                stamp_block=_spec_stamp(spec),
             )
             _emit(spec, svg)
 
