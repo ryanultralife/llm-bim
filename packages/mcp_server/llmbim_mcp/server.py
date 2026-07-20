@@ -739,6 +739,83 @@ if HAS_MCP:
             return _err(str(e))
 
     @mcp.tool()
+    def mep_size_pipe(
+        project_id: str,
+        flow_lps: str = "",
+        fixture_units: str = "",
+        material: str = "copper",
+        max_velocity_ms: float = 2.4,
+    ) -> str:
+        """Size a pipe NPS from flow (L/s) or WSFU fixture units.
+        Velocity + Hazen-Williams gradient. Engineering estimate, not stamped design."""
+        try:
+            p = store.get(project_id)
+            r = p.size_pipe(
+                float(flow_lps) if flow_lps.strip() else None,
+                material=material,
+                max_velocity_ms=max_velocity_ms,
+                fixture_units=float(fixture_units) if fixture_units.strip() else None,
+            )
+            return _tool_result(r)
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def mep_size_duct(
+        project_id: str,
+        flow_m3h: float,
+        friction_pa_m: float = 0.8,
+        max_velocity_ms: float = 7.5,
+        shape: str = "rect",
+    ) -> str:
+        """Equal-friction duct sizing: round diameter + rect equivalent (estimate)."""
+        try:
+            p = store.get(project_id)
+            r = p.size_duct(
+                flow_m3h,
+                friction_pa_m=friction_pa_m,
+                max_velocity_ms=max_velocity_ms,
+                shape=shape,
+            )
+            return _tool_result(r)
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def mep_size_route(
+        project_id: str,
+        segment_ids: str,
+        flow_lps: str = "",
+        flow_m3h: str = "",
+        apply: bool = False,
+    ) -> str:
+        """Size an existing routed run (segment_ids comma-separated).
+        apply=true updates element sizes takeoff-consistently (estimate)."""
+        try:
+            p = store.get(project_id)
+            ids = [s.strip() for s in segment_ids.split(",") if s.strip()]
+            r = p.size_route(
+                ids,
+                flow_lps=float(flow_lps) if flow_lps.strip() else None,
+                flow_m3h=float(flow_m3h) if flow_m3h.strip() else None,
+                apply=apply,
+            )
+            if apply:
+                store.save(project_id)
+            return _tool_result(r)
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
+    def mep_validate_runs(project_id: str) -> str:
+        """Velocity/friction report for every routed run with flow data (estimate)."""
+        try:
+            p = store.get(project_id)
+            return _tool_result({"runs": p.validate_runs()})
+        except Exception as e:  # noqa: BLE001
+            return _err(str(e))
+
+    @mcp.tool()
     def place_cable_tray(
         project_id: str,
         level: str,

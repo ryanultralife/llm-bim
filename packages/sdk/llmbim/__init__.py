@@ -1894,6 +1894,64 @@ class Project:
     def mep_graph(self) -> list[dict[str, Any]]:
         return list(self.op("mep_graph").get("edges") or [])
 
+    # --- hydraulic sizing (engineering estimate — not stamped design) ---------
+
+    def size_pipe(
+        self,
+        flow_lps: float | None = None,
+        *,
+        material: str = "copper",
+        max_velocity_ms: float = 2.4,
+        fixture_units: float | None = None,
+    ) -> dict[str, Any]:
+        """Pick the smallest catalog NPS for a flow (L/s) or WSFU fixture units."""
+        return self.op(
+            "mep_size_pipe",
+            flow_lps=flow_lps,
+            material=material,
+            max_velocity_ms=max_velocity_ms,
+            fixture_units=fixture_units,
+        )
+
+    def size_duct(
+        self,
+        flow_m3h: float,
+        *,
+        friction_pa_m: float = 0.8,
+        max_velocity_ms: float = 7.5,
+        shape: str = "rect",
+    ) -> dict[str, Any]:
+        """Equal-friction duct sizing: round diameter + rectangular equivalent."""
+        return self.op(
+            "mep_size_duct",
+            flow_m3h=flow_m3h,
+            friction_pa_m=friction_pa_m,
+            max_velocity_ms=max_velocity_ms,
+            shape=shape,
+        )
+
+    def size_route(
+        self,
+        segment_ids: list[str] | dict[str, Any],
+        *,
+        flow_lps: float | None = None,
+        flow_m3h: float | None = None,
+        apply: bool = False,
+    ) -> dict[str, Any]:
+        """Size an existing routed run; apply=True updates element sizes in place."""
+        key = "edge" if isinstance(segment_ids, dict) else "segment_ids"
+        return self.op(
+            "mep_size_route",
+            **{key: segment_ids},
+            flow_lps=flow_lps,
+            flow_m3h=flow_m3h,
+            apply=apply,
+        )
+
+    def validate_runs(self) -> list[dict[str, Any]]:
+        """Velocity/friction report for every routed run carrying flow data."""
+        return list(self.op("mep_validate_runs").get("runs") or [])
+
     def authoring_checklist(self, product: str | None = None) -> dict[str, Any]:
         """Required/recommended fields for a product class (LLM must collect these)."""
         return self.op("authoring_checklist", product=product)
