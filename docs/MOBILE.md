@@ -1,67 +1,62 @@
-# Driving llm-bim from a phone
+# Point and chat — any LLM, any device, no setup
 
-The kernel needs shell + Python to run — but the shell does **not** have to be
-on your device. Every mobile path below gives an agent a cloud machine and you
-a chat/comment box. Ranked by friction:
+The rule: **no API keys, no config**. A person points the LLM they already
+use at this repo and gets real output. The kernel's modeling and full pack
+export are **pure standard-library Python** — no pip install is needed to run
+it, which is what makes the paths below work.
 
-## 1. Claude — claude.ai/code (web or mobile app)
+## The pointer prompt (paste into any LLM)
 
-Already works, no setup: start a Claude Code session connected to the GitHub
-repo. Claude gets a cloud container, clones the repo, reads `CLAUDE.md`, and
-can build, commit, push, and merge. This is the reference mobile experience —
-full autonomy inside the repo's gates.
+> You are operating the **llm-bim** kernel from
+> https://github.com/ryanultralife/llm-bim. Get the repo (clone it, or I'll
+> attach the ZIP), run `import bootstrap` from its root (no pip install — the
+> kernel is pure stdlib Python 3.11+), then read `skills/llm-bim/SKILL.md`
+> and follow it exactly. Build what I describe with the `Project` API, run
+> validate/rules/clash, `export_deliverables`, and give me the output folder.
+> Hand me exactly one entry file: `index.html`.
 
-## 2. Gemini — "@gemini-cli" comments (GitHub mobile app)
+## Path A — chat apps with a code sandbox (phone or desktop, zero accounts to wire)
 
-`.github/workflows/gemini-assist.yml` runs Gemini CLI **in GitHub Actions**
-when a collaborator comments `@gemini-cli <request>` on any issue or PR.
-Gemini lands in a checked-out repo with the kernel installed, reads
-`GEMINI.md`, does the work, pushes a `gemini/<slug>` branch, and replies on
-the issue. Artifacts (packs) are uploaded to the run.
+Works in ChatGPT, Gemini, Claude — any chat that can run Python on attached
+files, even with **no internet in the sandbox**:
 
-**One-time setup:** add repository secret `GEMINI_API_KEY`
-(repo → Settings → Secrets and variables → Actions; free key from
-[aistudio.google.com/apikey](https://aistudio.google.com/apikey)). Doable
-from a mobile browser.
+1. On the repo page: **Code → Download ZIP** (works in a mobile browser).
+2. Attach the ZIP to your chat and paste the pointer prompt above.
+3. The LLM unzips, `import bootstrap`, models, exports, and returns the pack
+   (or its zip) for download. Open `index.html` in your browser — the 3D
+   viewer is fully self-contained and works offline on a phone.
 
-Usage from the GitHub mobile app: open/raise an issue → comment
-`@gemini-cli build a 24x30 two-bay garage plan set, imperial`.
+## Path B — vendor-hosted coding agents (login only, full autonomy)
 
-## 3. Gemini — Jules (jules.google.com)
+These give the LLM a cloud machine with shell + git; you just connect the
+repo and chat. No API keys — your existing login is the whole setup:
 
-Google's asynchronous coding agent: connect it to the GitHub repo from a
-mobile browser, give it a task, it works in its own cloud VM and opens a PR.
-No CLI, no Actions setup. Point it at `GEMINI.md` in the task prompt.
+| Your LLM | Point it here | Entry context it reads |
+|----------|---------------|------------------------|
+| Claude | claude.ai/code (web or mobile app) → connect the GitHub repo | `CLAUDE.md` |
+| Gemini | jules.google.com → connect the repo, give a task | mention `GEMINI.md` in the task |
+| ChatGPT | Codex (chatgpt.com) → connect the repo | mention `AGENTS.md` |
+| Copilot | assign the issue to Copilot coding agent | `AGENTS.md` |
 
-## 4. Any agent — GitHub Codespaces in a mobile browser
+These can commit, push, open PRs, and run the full gate set — use them for
+anything you want to land in the repo rather than just receive as files.
 
-Repo page → Code → Codespaces → create. You get a real terminal in the
-browser (usable on mobile, if cramped):
+## Path C — your computer
 
 ```bash
-pip install -e ".[dev,server]"
-npx @google/gemini-cli        # or any agentic CLI
+git clone https://github.com/ryanultralife/llm-bim.git && cd llm-bim
+python -c "import bootstrap; from llmbim import Project; print('kernel ok')"
+# then run any agentic CLI here (claude, gemini, codex, ...) — it reads its
+# entry file (CLAUDE.md / GEMINI.md / AGENTS.md) automatically
 ```
 
-## 5. Grok / browser-only chats
+`pip install -e ".[dev,server]"` is only needed for the `llmbim` CLI,
+server/MCP, and the test suite — never for modeling itself.
 
-A browser-only chat can *read* the repo and draft basis modules or design
-docs, but it cannot execute the kernel — so it cannot produce packs or commit.
-Pair it with any path above: let it write the design basis in chat, then hand
-the basis to an executing agent (path 1–4). This is a harness limitation, not
-a model-capability tier — see `AGENTS.md`.
+## What browser-only chat (no sandbox) can still do
 
-## Viewing output on mobile
-
-Packs are not committed (`output/` is local to the runner). To view on a
-phone: use path 2's uploaded run artifacts (download `index.html`-rooted pack
-zip), or have the agent open a PR that includes the pack under `examples/output/`
-when you explicitly want it in-repo. The viewer (`viewer3d.html` linked from
-`index.html`) is fully self-contained and works offline in a mobile browser.
-
-## Future
-
-`llmbim serve` (FastAPI) + MCP make a hosted kernel possible — a remote MCP
-connector would let chat apps that support custom connectors drive the kernel
-without any repo checkout. Not stood up yet; open a claim in `TEAM_STATUS.md`
-if you want it.
+Draft the **design basis** — requirements, room program, loads, dimensions —
+in conversation, as a Python basis module per
+`skills/llm-bim/recipes/design_program.md`. Then hand that file to any path
+above to execute. Splitting design conversation from execution this way is
+the intended workflow, not a workaround.
