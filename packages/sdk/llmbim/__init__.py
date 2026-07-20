@@ -356,6 +356,155 @@ class Project:
         )
         return str(result["result"]["element_id"])
 
+    def create_strip_footing(
+        self,
+        *,
+        level: str,
+        width_mm: float,
+        depth_mm: float,
+        path: list[tuple[float, float]] | None = None,
+        under_wall: str | None = None,
+        top_of_footing_mm: float = 0.0,
+        rebar: dict[str, str] | str | None = None,
+        mark: str = "",
+        name: str | None = None,
+    ) -> str:
+        """Strip footing along ``path`` (mm) or under an existing wall.
+
+        ``width_mm`` is the plan width, ``depth_mm`` the vertical thickness;
+        ``top_of_footing_mm`` is relative to the level (negative = below the
+        datum). ``rebar``/``mark`` are carried once in params for the rebar
+        schedule (design-development data from the basis, not calculations).
+        """
+        from llmbim_core.foundations import CreateStripFooting
+
+        result = self._log.execute(
+            self._model,
+            CreateStripFooting(
+                level=level,
+                width_mm=width_mm,
+                depth_mm=depth_mm,
+                path=[(float(x), float(y)) for x, y in path] if path else None,
+                under_wall=under_wall,
+                top_of_footing_mm=top_of_footing_mm,
+                rebar=rebar,
+                mark=mark,
+                name=name or "",
+            ),
+        )
+        return str(result["result"]["element_id"])
+
+    def create_pad_footing(
+        self,
+        *,
+        level: str,
+        origin: tuple[float, float],
+        w_mm: float,
+        d_mm: float,
+        depth_mm: float,
+        top_of_footing_mm: float = 0.0,
+        rebar: dict[str, str] | str | None = None,
+        mark: str = "",
+        name: str | None = None,
+    ) -> str:
+        """Isolated pad footing centered at ``origin`` (plan mm), w x d x depth."""
+        from llmbim_core.foundations import CreatePadFooting
+
+        result = self._log.execute(
+            self._model,
+            CreatePadFooting(
+                level=level,
+                origin=(float(origin[0]), float(origin[1])),
+                w_mm=w_mm,
+                d_mm=d_mm,
+                depth_mm=depth_mm,
+                top_of_footing_mm=top_of_footing_mm,
+                rebar=rebar,
+                mark=mark,
+                name=name or "",
+            ),
+        )
+        return str(result["result"]["element_id"])
+
+    def create_stem_wall(
+        self,
+        *,
+        level: str,
+        path: list[tuple[float, float]],
+        height_mm: float,
+        thickness_mm: float,
+        top_mm: float = 0.0,
+        rebar: dict[str, str] | str | None = None,
+        mark: str = "",
+        name: str | None = None,
+    ) -> str:
+        """Concrete stem wall: top at ``top_mm`` (level-relative, default 0),
+        extending ``height_mm`` down toward the footing."""
+        from llmbim_core.foundations import CreateStemWall
+
+        result = self._log.execute(
+            self._model,
+            CreateStemWall(
+                level=level,
+                path=[(float(x), float(y)) for x, y in path],
+                height_mm=height_mm,
+                thickness_mm=thickness_mm,
+                top_mm=top_mm,
+                rebar=rebar,
+                mark=mark,
+                name=name or "",
+            ),
+        )
+        return str(result["result"]["element_id"])
+
+    def create_slab_on_grade(
+        self,
+        *,
+        level: str,
+        polygon: list[tuple[float, float]] | None = None,
+        rect: tuple[float, float, float, float] | None = None,
+        thickness_mm: float,
+        top_of_slab_mm: float = 0.0,
+        reinforcement: dict[str, str] | str | None = None,
+        mark: str = "",
+        name: str | None = None,
+    ) -> str:
+        """Slab-on-grade from ``polygon`` (mm) or ``rect`` = (x, y, w, d).
+
+        Top at ``top_of_slab_mm`` relative to the level (default 0); the solid
+        extends ``thickness_mm`` down. ``reinforcement`` (WWM / rebar mat) and
+        ``mark`` are carried once for schedules.
+        """
+        from llmbim_core.foundations import CreateSlabOnGrade
+
+        if polygon is None:
+            if rect is None:
+                raise ValueError("create_slab_on_grade needs polygon= or rect=(x, y, w, d)")
+            x, y, w, d = (float(v) for v in rect)
+            poly = [(x, y), (x + w, y), (x + w, y + d), (x, y + d)]
+        else:
+            poly = [(float(px), float(py)) for px, py in polygon]
+        result = self._log.execute(
+            self._model,
+            CreateSlabOnGrade(
+                level=level,
+                polygon=poly,
+                thickness_mm=thickness_mm,
+                top_of_slab_mm=top_of_slab_mm,
+                reinforcement=reinforcement,
+                mark=mark,
+                name=name or "",
+            ),
+        )
+        return str(result["result"]["element_id"])
+
+    def rebar_schedule(self) -> list[dict[str, Any]]:
+        """Foundation rebar/reinforcement schedule rows (mark, type, spec, qty,
+        length_m/area_m2) — carried basis callouts, not calculations."""
+        from llmbim_core.foundations import rebar_schedule
+
+        return rebar_schedule(self._model)
+
     def place_door(
         self,
         *,

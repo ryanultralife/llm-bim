@@ -49,6 +49,39 @@ def _segment_intersection_param(
     return max(0.0, min(1.0, t))
 
 
+def _clip_cut_to_bbox(
+    p0: tuple[float, float],
+    p1: tuple[float, float],
+    minx: float,
+    miny: float,
+    maxx: float,
+    maxy: float,
+) -> tuple[float, float] | None:
+    """Liang-Barsky: parameter window (t0, t1) of segment p0→p1 inside a bbox."""
+    dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+    t0, t1 = 0.0, 1.0
+    for p, q in (
+        (-dx, p0[0] - minx),
+        (dx, maxx - p0[0]),
+        (-dy, p0[1] - miny),
+        (dy, maxy - p0[1]),
+    ):
+        if abs(p) < 1e-12:
+            if q < 0:
+                return None
+            continue
+        r = q / p
+        if p < 0:
+            t0 = max(t0, r)
+        else:
+            t1 = min(t1, r)
+        if t0 > t1:
+            return None
+    if t1 - t0 < 1e-9:
+        return None
+    return t0, t1
+
+
 def render_section_svg(
     model: ProjectModel,
     p0: tuple[float, float],
@@ -69,6 +102,9 @@ def render_section_svg(
 
     # Collect wall hits as rectangles in (s, z) space
     rects: list[tuple[float, float, float, float]] = []  # s0, z0, s1, z1
+    # WP-SCHAD-S3: foundation cuts (footings / stem walls / slabs-on-grade)
+    # drawn as simple outlines below the level-0 datum in their own group
+    foundation_rects: list[tuple[float, float, float, float]] = []  # s0, z0, s1, z1
     pipe_marks: list[tuple[float, float, float, str]] = []  # s, z, r, stroke
     opening_rects: list[tuple[float, float, float, float, str, str]] = []  # s0,z0,s1,z1,fill,label
     roof_lines: list[tuple[float, float, float, float, float]] = []  # s0,z0,s1,z1,thickness
@@ -123,6 +159,69 @@ def render_section_svg(
                     roof_ext.append(
                         (min(s0r, s1r), min(zr0, zr1) - th, max(s0r, s1r), max(zr0, zr1))
                     )
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
+        elif el.category in {"footing", "stem_wall"}:
+            # WP-SCHAD-S3: below-datum cut rectangles from the STORED geometry
+            try:
+                zlv = _level_elev(model, el.level_id)
+                if el.category == "stem_wall":
+                    z_top = zlv + float(el.params.get("top_mm") or 0.0)
+                    z_bot = z_top - float(el.params.get("height_mm") or 0.0)
+                    half = max(float(el.params.get("thickness_mm") or 0.0) / 2.0, 60.0)
+                else:
+                    z_top = zlv + float(el.params.get("top_of_footing_mm") or 0.0)
+                    z_bot = z_top - float(el.params.get("depth_mm") or 0.0)
+                    half = max(float(el.params.get("width_mm") or 0.0) / 2.0, 60.0)
+                if z_top - z_bot < 1.0:
+                    continue
+                if str(el.params.get("kind") or "") == "pad":
+                    c = el.params.get("center_mm") or []
+                    if len(c) < 2:
+                        continue
+                    cx, cy = float(c[0]), float(c[1])
+                    hw = float(el.params.get("w_mm") or 0.0) / 2.0
+                    hd = float(el.params.get("d_mm") or 0.0) / 2.0
+                    ux, uy = (p1[0] - p0[0]) / cut_len, (p1[1] - p0[1]) / cut_len
+                    nx, ny = -uy, ux
+                    dist = abs((cx - p0[0]) * nx + (cy - p0[1]) * ny)
+                    if dist > abs(nx) * hw + abs(ny) * hd:
+                        continue  # cut line misses the pad
+                    s = (cx - p0[0]) * ux + (cy - p0[1]) * uy
+                    half_s = abs(ux) * hw + abs(uy) * hd
+                    foundation_rects.append((s - half_s, z_bot, s + half_s, z_top))
+                    continue
+                path = el.params.get("path_mm") or []
+                for i in range(len(path) - 1):
+                    fx0, fy0 = float(path[i][0]), float(path[i][1])
+                    fx1, fy1 = float(path[i + 1][0]), float(path[i + 1][1])
+                    t = _segment_intersection_param(
+                        fx0, fy0, fx1, fy1, p0[0], p0[1], p1[0], p1[1]
+                    )
+                    if t is None:
+                        continue
+                    ix = fx0 + t * (fx1 - fx0)
+                    iy = fy0 + t * (fy1 - fy0)
+                    s = math.hypot(ix - p0[0], iy - p0[1])
+                    foundation_rects.append((s - half, z_bot, s + half, z_top))
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
+        elif el.category == "slab" and el.params.get("kind") == "slab_on_grade":
+            # WP-SCHAD-S3: slab band where the cut crosses the polygon bbox
+            try:
+                poly = el.params.get("polygon_mm") or []
+                if len(poly) < 3:
+                    continue
+                zlv = _level_elev(model, el.level_id)
+                z_top = zlv + float(el.params.get("top_of_slab_mm") or 0.0)
+                z_bot = z_top - float(el.params.get("thickness_mm") or 0.0)
+                xs = [float(q[0]) for q in poly]
+                ys = [float(q[1]) for q in poly]
+                span = _clip_cut_to_bbox(p0, p1, min(xs), min(ys), max(xs), max(ys))
+                if span is None:
+                    continue
+                t0, t1 = span
+                foundation_rects.append((t0 * cut_len, z_bot, t1 * cut_len, z_top))
             except (KeyError, TypeError, ValueError, IndexError):
                 continue
         elif el.category in {"door", "window"}:
@@ -276,7 +375,7 @@ def render_section_svg(
                 continue
 
     # Ground line extent (roof cut lines widen the canvas but are not drawn as rects)
-    ext_rects = rects + roof_ext
+    ext_rects = rects + roof_ext + foundation_rects
     if ext_rects:
         min_s = min(r[0] for r in ext_rects) - margin_mm
         max_s = max(r[2] for r in ext_rects) + margin_mm
@@ -320,6 +419,22 @@ def render_section_svg(
         h = (z1 - z0) * scale
         parts.append(f'    <rect x="{fmt(x)}" y="{fmt(y)}" width="{fmt(w)}" height="{fmt(h)}"/>')
     parts.append("  </g>")
+    if foundation_rects:
+        # WP-SCHAD-S3: footings / stem walls / slabs-on-grade cut below the
+        # level datum — simple hatch-free outlines
+        parts.append(
+            '  <g class="foundation-section" fill="#e3e0da" stroke="#111" stroke-width="1">'
+        )
+        for s0, z0, s1, z1 in foundation_rects:
+            x, y = project(s0, z1)
+            w = (s1 - s0) * scale
+            h = (z1 - z0) * scale
+            if w < 0.1 or h < 0.1:
+                continue
+            parts.append(
+                f'    <rect x="{fmt(x)}" y="{fmt(y)}" width="{fmt(w)}" height="{fmt(h)}"/>'
+            )
+        parts.append("  </g>")
     if roof_lines:
         parts.append('  <g class="roof-section" stroke="#333" stroke-width="2" fill="none">')
         for s0r, zr0, s1r, zr1, th in roof_lines:
@@ -517,6 +632,8 @@ def render_elevation_svg(
     equip_rects: list[tuple[float, float, float, float, float]] = []  # h0,h1,z0,z1,depth
     # roof plane silhouettes: projected polygons [(h, z), ...] per stored plane
     roof_polys: list[list[tuple[float, float]]] = []
+    # WP-SCHAD-S3: below-grade foundation outlines, drawn dashed
+    found_rects: list[tuple[float, float, float, float]] = []  # h0, h1, z0, z1
 
     for el in model.elements:
         if el.category == "wall":
@@ -553,6 +670,42 @@ def render_elevation_svg(
                     if max(p[0] for p in pts) - min(p[0] for p in pts) < 1.0:
                         continue  # edge-on sliver
                     roof_polys.append(pts)
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
+        elif el.category in {"footing", "stem_wall"} or (
+            el.category == "slab" and el.params.get("kind") == "slab_on_grade"
+        ):
+            # WP-SCHAD-S3: dashed below-grade extents from the STORED geometry
+            try:
+                zlv = _level_elev(model, el.level_id)
+                if el.category == "stem_wall":
+                    z1 = zlv + float(el.params.get("top_mm") or 0.0)
+                    z0 = z1 - float(el.params.get("height_mm") or 0.0)
+                    pts_xy = el.params.get("path_mm") or []
+                elif el.category == "footing":
+                    z1 = zlv + float(el.params.get("top_of_footing_mm") or 0.0)
+                    z0 = z1 - float(el.params.get("depth_mm") or 0.0)
+                    pts_xy = (
+                        el.params.get("polygon_mm")
+                        if el.params.get("kind") == "pad"
+                        else el.params.get("path_mm")
+                    ) or []
+                else:  # slab-on-grade
+                    z1 = zlv + float(el.params.get("top_of_slab_mm") or 0.0)
+                    z0 = z1 - float(el.params.get("thickness_mm") or 0.0)
+                    pts_xy = el.params.get("polygon_mm") or []
+                if not pts_xy or z1 - z0 < 1.0:
+                    continue
+                hs = [float(q[0]) if d in {"N", "S"} else float(q[1]) for q in pts_xy]
+                h0, h1 = min(hs), max(hs)
+                # widen strip/stem lines by their plan half-width across the view
+                across = float(
+                    el.params.get("width_mm") or el.params.get("thickness_mm") or 0.0
+                )
+                if h1 - h0 < 1.0 and across > 0:
+                    h0 -= across / 2.0
+                    h1 += across / 2.0
+                found_rects.append((h0, h1, z0, z1))
             except (KeyError, TypeError, ValueError, IndexError):
                 continue
         elif el.category in {"door", "window"}:
@@ -754,8 +907,10 @@ def render_elevation_svg(
         wall_faces = [(-h1, -h0, z0, z1, dp) for (h0, h1, z0, z1, dp) in wall_faces]
         equip_rects = [(-h1, -h0, z0, z1, dp) for (h0, h1, z0, z1, dp) in equip_rects]
         roof_polys = [[(-h, z) for h, z in pts] for pts in roof_polys]
+        found_rects = [(-h1, -h0, z0, z1) for (h0, h1, z0, z1) in found_rects]
 
     extent_rects = segs + [(h0, h1, z0, z1) for (h0, h1, z0, z1, _dp) in equip_rects]
+    extent_rects += found_rects
     for pts in roof_polys:
         hs = [p[0] for p in pts]
         zs = [p[1] for p in pts]
@@ -812,6 +967,22 @@ def render_elevation_svg(
                 px, py = project(h, z)
                 pieces.append(f"{fmt(px)},{fmt(py)}")
             parts.append(f'    <polygon points="{" ".join(pieces)}"/>')
+        parts.append("  </g>")
+    if found_rects:
+        # WP-SCHAD-S3: foundations below grade shown as dashed hidden lines
+        parts.append(
+            '  <g class="foundation-elev" fill="none" stroke="#555" '
+            'stroke-width="0.8" stroke-dasharray="5 3">'
+        )
+        for h0, h1, z0, z1 in found_rects:
+            x, y = project(h0, z1)
+            w = (h1 - h0) * scale
+            h = (z1 - z0) * scale
+            if w < 0.1 or h < 0.1:
+                continue
+            parts.append(
+                f'    <rect x="{fmt(x)}" y="{fmt(y)}" width="{fmt(w)}" height="{fmt(h)}"/>'
+            )
         parts.append("  </g>")
     if opening_rects:
         parts.append(
