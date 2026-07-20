@@ -387,6 +387,31 @@ def verify_pack(
         except Exception:  # noqa: BLE001
             checks["design_rules_parse_ok"] = False
 
+    # Outcome-quality signals (informational, never fatal): any agent can read
+    # these to judge its own work on any pack — untyped walls suggest a massing
+    # study handed over as a deliverable; assumption flags show honesty carried
+    # through. Project-level guards (drift tests, verify_all checks) decide
+    # what is acceptable — the kernel only surfaces the outcome.
+    mj = out / "model.llmbim.json"
+    if mj.is_file():
+        try:
+            elements = json.loads(mj.read_text(encoding="utf-8")).get("elements", [])
+            walls = [e for e in elements if e.get("category") == "wall"]
+            checks["walls_total"] = len(walls)
+            checks["walls_untyped"] = sum(
+                1
+                for e in walls
+                if not (e.get("type_id") or (e.get("params") or {}).get("type_id"))
+            )
+            checks["assumption_flags"] = sum(
+                1
+                for e in elements
+                for k, v in (e.get("params") or {}).items()
+                if k.endswith("_assumed") and v
+            )
+        except Exception:
+            checks["model_json_parse_ok"] = False
+
     checks["ok"] = not missing and all(v.get("ok", True) for v in checks["files"].values())
     if (out / "model.ifc").is_file() and not checks.get("ifc_has_project"):
         checks["ok"] = False

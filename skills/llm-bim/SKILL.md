@@ -63,6 +63,23 @@ Or HTTP (optional): `llmbim serve --port 8000` → docs at `/docs`.
     and either ask the user for **required** fields or **state defaults in the reply**.  
     After modeling: `p.validate_intent(...)`. See `recipes/explicit_build.md`.
 
+## Autonomy contract (method is yours; outcomes are checked)
+
+You choose the approach — order of modeling, decomposition, iteration style.
+The repo judges only **outcomes**, and you self-check them before saying done:
+
+1. `validate` / `rules` / `clash` clean, or every finding explained on a sheet.
+2. `verify_pack` ok — including strict glTF (blank 3D = failed pack, not a shrug).
+3. Every number traceable to a stated source (user, basis module, catalog) —
+   never retyped from memory; unknowns carried as `*_assumed` params or `Q-` notes,
+   never silently resolved. `verify_pack` surfaces `assumption_flags` so honesty
+   is visible, and `walls_untyped` so a massing study can't pass as a deliverable.
+4. Types match occupancy (see Wall types) on anything handed over as a design.
+5. Model VCS commits at meaningful stages — `p.log()` is the history, not chat.
+6. Exactly one path handed over: `output/<slug>/index.html`.
+
+If your output passes these, nobody second-guesses how you got there.
+
 ## Authoring contract (what the LLM must know)
 
 Vague user ask → **you** make parameters explicit. Never silently invent PE ratings or critical sizes.
