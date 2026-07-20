@@ -18,21 +18,21 @@ never for engineering claims, which stay governed by `docs/HONESTY.md`.
 
 | Element | Reference behavior | llm-bim status |
 |---|---|---|
-| Grid bubbles | all/3–4 sides on arch plans, 2 on framing; round heads, dash-dot centerlines; **fractional intermediates** (L.2, 1.9) where members land off-grid; skip letter "I" | bubbles ✓; fractional grids + per-discipline sides **gap** |
-| Dimension chains | multi-tier, tick/slash terminators (not arrows), placed OUTSIDE the plan: (1) overall → (2) grid-to-grid bay string → (3) room/feature strings; "4 EQ. SPACES" style; "written dimensions govern" | grid + wall dims ✓ (imperial ✓); full 3-tier layering **gap** |
-| Wall poché | cut walls double-line, NEW = heavy solid fill, existing lighter; glazing distinct | wall fills by type ✓; new/existing weight split **gap** |
-| Material hatch | concrete/CMU fine stipple; plywood 45° diagonal; gravel/earth/insulation hatches in sections; leader note per hatch | **gap** (sections are outline-only) |
-| Line-weight hierarchy | 3-tier: heavy cut/new → medium existing → light reference; dashed = hidden/demo/above ("ABV.") | uniform weights **gap** |
-| Room tags | name over boxed number, every space; area | name+number ✓; area **gap** |
+| Grid bubbles | all/3–4 sides on arch plans, 2 on framing; round heads, dash-dot centerlines; **fractional intermediates** (L.2, 1.9) where members land off-grid; skip letter "I" | bubbles ✓; fractional intermediates + skip-I ✓ (`fractional_grids`); per-discipline sides **gap** |
+| Dimension chains | multi-tier, tick/slash terminators (not arrows), placed OUTSIDE the plan: (1) overall → (2) grid-to-grid bay string → (3) room/feature strings; "4 EQ. SPACES" style; "written dimensions govern" | 3-tier chains, ticks, EQ-collapse, governs note ✓ (`dim_tiers`); imperial ✓ |
+| Wall poché | cut walls double-line, NEW = heavy solid fill, existing lighter; glazing distinct | wall fills by type ✓; new/existing split ✓ (sections, phase-aware) |
+| Material hatch | concrete/CMU fine stipple; plywood 45° diagonal; gravel/earth/insulation hatches in sections; leader note per hatch | ✓ (`hatches`: concrete stipple, wood diagonal, batt, earth — deterministic) |
+| Line-weight hierarchy | 3-tier: heavy cut/new → medium existing → light reference; dashed = hidden/demo/above ("ABV.") | ✓ (`line_weights`: 3-tier + ABV. dashed + line legend) |
+| Room tags | name over boxed number, every space; area | name over boxed number + area ✓ (`room_areas`) |
 | Door / window tags | door = oval w/ number (A/B/C multi-leaf); window = hexagon; wall-type = diamond w/ code | hexagon door / diamond window tags ✓ (shape swap vs ref is acceptable — consistency governs) |
-| Equipment / fixture tags | tagged, keyed to schedules (VAV-DD-1 style, underlined w/ leader) | equipment named ✓; leader tags keyed to schedules **gap** |
+| Equipment / fixture tags | tagged, keyed to schedules (VAV-DD-1 style, underlined w/ leader) | leader tags ✓ (`tags=True`); schedule-key linkage partial |
 | Keynotes | numbered squares/diamonds on leaders → keynote legend | partial ✓ |
 | Section / detail callouts | split circle detail#-over-sheet# (`9/A7.1`) | section marks ✓; detail bubbles w/ sheet refs **gap** |
 | North arrow + graphic scale bar | every plan | ✓ (title block) |
-| Key plan | reduced building on each plan sheet, coverage zone shaded, mini grid | **gap** |
+| Key plan | reduced building on each plan sheet, coverage zone shaded, mini grid | ✓ (`key_plan`) |
 | Match lines | labeled where plans split across sheets | **gap** (single crop today) |
-| Revision clouds + deltas | scalloped clouds + Δ triangles + dated revision schedule | rev block ✓; clouds/deltas **gap** |
-| Title block | discipline-appropriate; PE/SE **stamp block reserved** on structural | CD frame ✓; reserved stamp block **gap** |
+| Revision clouds + deltas | scalloped clouds + Δ triangles + dated revision schedule | rev block ✓; cloud + Δ primitive ✓ (`revision_cloud`); auto-clouding on model diffs **gap** |
+| Title block | discipline-appropriate; PE/SE **stamp block reserved** on structural | reserved stamp block on S-sheets ✓ (`stamp_block`) |
 
 ## 2. Overlay-plan pattern (Verseon key insight)
 
