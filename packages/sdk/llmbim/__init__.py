@@ -1537,13 +1537,24 @@ class Project:
         return self.op("fab_host_to_building", **kw)
 
     def export_construction_set(
-        self, out_dir: str | Path, *, plan_level: str | None = None, plan_scale: float = 0.02
+        self,
+        out_dir: str | Path,
+        *,
+        plan_level: str | None = None,
+        plan_scale: float = 0.02,
+        set_type: str = "construction",
     ) -> dict[str, Any]:
+        """Drawing set: ``set_type=\"plan\"`` (permit sheets) or ``\"construction\"``."""
         from llmbim_drawings.construction import export_construction_set
 
-        return export_construction_set(
-            self._model, out_dir, plan_level=plan_level, plan_scale=plan_scale
+        result: dict[str, Any] = export_construction_set(
+            self._model,
+            out_dir,
+            plan_level=plan_level,
+            plan_scale=plan_scale,
+            set_type=set_type,
         )
+        return result
 
     def export_part_pack(self, out_dir: str | Path, *, scale: float = 0.4) -> dict[str, Any]:
         from llmbim_drawings.parts import export_part_pack
@@ -1558,12 +1569,15 @@ class Project:
         plan_level: str | None = None,
         plan_scale: float | None = None,
         phases: str | list[str] | None = None,
+        set_type: str = "construction",
     ) -> dict[str, Any]:
         """Full pack: JSON + IFC + glTF + STEP + construction and/or part sheets.
 
         If ``out_dir`` is omitted, writes to ``output/<project_slug>/`` in the repo.
         ``phases``: e.g. ``\"new\"`` or ``[\"new\",\"existing\"]`` — filters exports
         (full model still saved as model.llmbim.json).
+        ``set_type``: ``\"plan\"`` (permit sheets only) or ``\"construction\"``
+        (default — adds content-driven S/M/P/E discipline sheets).
         """
         from llmbim_core.paths import project_output_dir
         from llmbim_drawings.deliverables import export_deliverables
@@ -1578,6 +1592,7 @@ class Project:
             plan_level=plan_level,
             plan_scale=plan_scale,
             phases=phases,
+            set_type=set_type,
         )
         result["output_dir"] = str(dest.resolve())
         return result
