@@ -53,6 +53,27 @@ def test_deliverables_pack(tmp_path: Path) -> None:
     assert m["project"] == "Mini Facility"
 
 
+def test_verify_reflects_late_written_artifacts(tmp_path: Path) -> None:
+    """VERIFY.json / checksums must run AFTER index.html + viewer3d.html are
+    written — a regression guard for the ordering bug where they were computed
+    before those files existed and reported has_index_html/has_viewer3d=false."""
+    import json
+
+    p = _mini_facility()
+    m = p.export_deliverables(tmp_path / "pack")
+    out = tmp_path / "pack"
+    assert (out / "index.html").is_file()
+    assert (out / "viewer3d.html").is_file()
+    verify = json.loads((out / "VERIFY.json").read_text(encoding="utf-8"))
+    assert verify["has_index_html"] is True
+    assert verify["has_viewer3d"] is True
+    # checksums cover the late-written HTML viewers, exclude the roll-up zip
+    ck = m["checksums_sha256"]
+    assert "index.html" in ck
+    assert "viewer3d.html" in ck
+    assert not any(k.endswith(".zip") for k in ck)
+
+
 def test_part_step_files(tmp_path: Path) -> None:
     p = Project.create("PartOnly")
     p.add_level("Bench", 0)
@@ -68,3 +89,29 @@ def test_part_step_files(tmp_path: Path) -> None:
     steps = list((tmp_path / "parts" / "step").glob("*.step"))
     assert len(steps) >= 1
     assert "MANIFOLD_SOLID_BREP" in steps[0].read_text(encoding="utf-8")
+
+
+def test_dimension_labels_stay_on_canvas(tmp_path: Path) -> None:
+    """Plan/section/elevation SVGs must keep their dimension text inside the
+    viewBox. Regression: a fixed screen-space dim offset exceeded the margin so
+    every overall dimension rendered off-canvas (invisible)."""
+    import re
+
+    p = _mini_facility()
+    out = tmp_path / "pack"
+    p.export_deliverables(out)
+    for rel in ("views/plan_L1.svg", "views/section.svg", "views/elev_S.svg"):
+        svg_path = out / rel
+        if not svg_path.is_file():
+            continue
+        svg = svg_path.read_text(encoding="utf-8")
+        vb = re.search(r'viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"', svg)
+        assert vb, f"{rel}: no viewBox"
+        vx, vy, vw, vh = (float(g) for g in vb.groups())
+        # dimension labels carry a metric unit suffix (" m")
+        for mt in re.finditer(r'<text x="([-\d.]+)" y="([-\d.]+)"[^>]*>([^<]*\bm)</text>', svg):
+            x, y = float(mt.group(1)), float(mt.group(2))
+            assert vx - 1 <= x <= vx + vw + 1 and vy - 1 <= y <= vy + vh + 1, (
+                f"{rel}: dimension {mt.group(3)!r} at ({x},{y}) outside "
+                f"viewBox [{vx},{vy},{vw},{vh}]"
+            )

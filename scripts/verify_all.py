@@ -15,9 +15,10 @@ sys.path.insert(0, str(ROOT / "packages" / "geometry"))
 sys.path.insert(0, str(ROOT / "packages" / "drawings"))
 sys.path.insert(0, str(ROOT / "packages" / "ifc"))
 
+from llmbim_drawings.deliverables import verify_pack  # noqa: E402
+
 from examples.intec_site import build_intec  # noqa: E402
 from examples.proto10_separator import build_proto10  # noqa: E402
-from llmbim_drawings.deliverables import verify_pack  # noqa: E402
 
 
 def main() -> int:

@@ -5,10 +5,10 @@ Registers into PARTS. ENGINEERING ESTIMATE unit costs — not a bid.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from llmbim_core.parts_catalog import PartType
+    pass
 
 # Shared NPS table (steel pipe OD approx — ASTM A53)
 STEEL_NPS: dict[str, dict[str, float]] = {
@@ -79,7 +79,7 @@ def _nps_slug(nps: str) -> str:
 
 
 def _pipe_family(
-    into: dict,
+    into: dict[str, Any],
     *,
     prefix: str,
     nps_table: dict[str, dict[str, float]],
@@ -166,7 +166,7 @@ def _pipe_family(
             )
 
 
-def register_fire_protection(into: dict, PartType: type, BomLine: type) -> None:
+def register_fire_protection(into: dict[str, Any], PartType: type, BomLine: type) -> None:
     """CSI 21 — sprinkler black steel + heads + devices."""
     ftypes = [
         "elbow_90",
@@ -253,7 +253,7 @@ def register_fire_protection(into: dict, PartType: type, BomLine: type) -> None:
         )
 
 
-def register_process_piping(into: dict, PartType: type, BomLine: type) -> None:
+def register_process_piping(into: dict[str, Any], PartType: type, BomLine: type) -> None:
     """CSI 40 — SS316L process pipe + fittings + instruments."""
     fit_only = [
         "elbow_90",
@@ -306,7 +306,7 @@ def register_process_piping(into: dict, PartType: type, BomLine: type) -> None:
         )
 
 
-def register_framing(into: dict, PartType: type, BomLine: type) -> None:
+def register_framing(into: dict[str, Any], PartType: type, BomLine: type) -> None:
     """CSI 06 / 09 — wood + light-gauge framing."""
     wood = [
         ("PT-WD-STUD-2X4", "Wood stud 2×4 SPF", "stud", "2x4", 38, 89, 3.2, "lumber_SPF", "06 10 00"),
@@ -363,8 +363,9 @@ def register_framing(into: dict, PartType: type, BomLine: type) -> None:
         )
 
 
-def register_structural_steel(into: dict, PartType: type, BomLine: type) -> None:
+def register_structural_steel(into: dict[str, Any], PartType: type, BomLine: type) -> None:
     """CSI 05 12 — wide flange, HSS, channel, angle, plate, bolts."""
+    cost: float
     # section, kg/m, cost $/m (fabricated rough)
     wf = [
         ("W8x18", 26.8, 85),
@@ -459,7 +460,7 @@ def register_structural_steel(into: dict, PartType: type, BomLine: type) -> None
         )
 
 
-def register_rebar(into: dict, PartType: type, BomLine: type) -> None:
+def register_rebar(into: dict[str, Any], PartType: type, BomLine: type) -> None:
     """CSI 03 20 — reinforcing steel bars + mesh."""
     # bar #, diameter mm, kg/m, $/m
     bars = [
@@ -537,7 +538,7 @@ def register_rebar(into: dict, PartType: type, BomLine: type) -> None:
         )
 
 
-def register_fixtures(into: dict, PartType: type, BomLine: type) -> None:
+def register_fixtures(into: dict[str, Any], PartType: type, BomLine: type) -> None:
     """CSI 22 40 / 10 28 — toilets, accessories, dispensers, hoses."""
     fixtures = [
         # toilets & fixtures
@@ -605,7 +606,7 @@ def register_fixtures(into: dict, PartType: type, BomLine: type) -> None:
         )
 
 
-def register_hvac_electrical_misc(into: dict, PartType: type, BomLine: type) -> None:
+def register_hvac_electrical_misc(into: dict[str, Any], PartType: type, BomLine: type) -> None:
     """Light CSI 23 / 26 catalog so divisions aren't empty."""
     items = [
         ("PT-HVAC-DIFF-24", "Ceiling diffuser 24×24", "diffuser", 85.0, "aluminum_6061", "23 37 00", "hvac", [600, 600, 100]),
@@ -637,7 +638,7 @@ def register_hvac_electrical_misc(into: dict, PartType: type, BomLine: type) -> 
         )
 
 
-def register_all_systems(into: dict) -> None:
+def register_all_systems(into: dict[str, Any]) -> None:
     from llmbim_core.parts_catalog import BomLine, PartType
 
     register_fire_protection(into, PartType, BomLine)

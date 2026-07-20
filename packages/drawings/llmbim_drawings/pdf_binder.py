@@ -7,7 +7,6 @@ circle, text) so plot sets open without Cairo/ReportLab.
 from __future__ import annotations
 
 import re
-import zlib
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -51,31 +50,45 @@ def _parse_svg_drawing(svg_path: Path) -> tuple[float, float, list[str]]:
         ops.append("Q")
         return page_w, page_h, ops
 
-    def walk(el: ET.Element, xform: tuple[float, float] = (0.0, 0.0)) -> None:
+    def walk(el: ET.Element, xform: tuple[float, float, float, float] = (0.0, 0.0, 1.0, 1.0)) -> None:
         tag = el.tag.split("}")[-1] if "}" in el.tag else el.tag
-        # crude translate from transform="translate(a,b)"
-        tx, ty = xform
+        # Compose transform="translate(a,b) scale(s)". Previously only translate
+        # was honored, so any view scaled to fit a sheet (scale(s<1)) drew at full
+        # size and overflowed the page. Track (tx,ty,sx,sy) and map local (x,y) to
+        # page as X = tx + x*sx, Y = ty + y*sy.
+        tx, ty, sx, sy = xform
         tr = el.get("transform") or ""
-        m = re.search(r"translate\(([^,]+),?\s*([^)]*)\)", tr)
-        if m:
-            tx += float(m.group(1))
-            ty += float(m.group(2) or 0)
+        mt = re.search(r"translate\(([^,]+),?\s*([^)]*)\)", tr)
+        if mt:
+            tx += float(mt.group(1)) * sx
+            ty += float(mt.group(2) or 0) * sy
+        msx = re.search(r"scale\(([^,)]+),?\s*([^)]*)\)", tr)
+        if msx:
+            s1 = float(msx.group(1))
+            s2 = float(msx.group(2)) if msx.group(2) else s1
+            sx *= s1
+            sy *= s2
 
-        stroke = el.get("stroke")
+        def mapx(v: float) -> float:
+            return tx + v * sx
+
+        def mapy(v: float) -> float:
+            return ty + v * sy
+
         fill = el.get("fill")
         # default black stroke for lines
         if tag == "line":
-            x1 = float(el.get("x1", 0)) + tx
-            y1 = float(el.get("y1", 0)) + ty
-            x2 = float(el.get("x2", 0)) + tx
-            y2 = float(el.get("y2", 0)) + ty
+            x1 = mapx(float(el.get("x1", 0)))
+            y1 = mapy(float(el.get("y1", 0)))
+            x2 = mapx(float(el.get("x2", 0)))
+            y2 = mapy(float(el.get("y2", 0)))
             ops.append("0 0 0 RG")
             ops.append(f"{x1:.2f} {y1:.2f} m {x2:.2f} {y2:.2f} l S")
         elif tag == "rect":
-            x = float(el.get("x", 0)) + tx
-            y = float(el.get("y", 0)) + ty
-            w = float(el.get("width", 0))
-            h = float(el.get("height", 0))
+            x = mapx(float(el.get("x", 0)))
+            y = mapy(float(el.get("y", 0)))
+            w = float(el.get("width", 0)) * sx
+            h = float(el.get("height", 0)) * sy
             if fill and fill not in ("none",):
                 ops.append("0.9 0.9 0.95 rg")
                 ops.append(f"{x:.2f} {y:.2f} {w:.2f} {h:.2f} re f")
@@ -90,15 +103,15 @@ def _parse_svg_drawing(svg_path: Path) -> tuple[float, float, list[str]]:
             if len(pairs) >= 4:
                 ops.append("0.8 0.8 0.85 rg")
                 ops.append("0 0 0 RG")
-                ops.append(f"{pairs[0]+tx:.2f} {pairs[1]+ty:.2f} m")
+                ops.append(f"{mapx(pairs[0]):.2f} {mapy(pairs[1]):.2f} m")
                 for i in range(2, len(pairs), 2):
-                    ops.append(f"{pairs[i]+tx:.2f} {pairs[i+1]+ty:.2f} l")
+                    ops.append(f"{mapx(pairs[i]):.2f} {mapy(pairs[i+1]):.2f} l")
                 ops.append("h B")
         elif tag == "circle":
-            cx = float(el.get("cx", 0)) + tx
-            cy = float(el.get("cy", 0)) + ty
-            r = float(el.get("r", 0))
-            # approximate circle with 4 bezier-ish lines (octagon)
+            cx = mapx(float(el.get("cx", 0)))
+            cy = mapy(float(el.get("cy", 0)))
+            r = float(el.get("r", 0)) * sx
+            # approximate circle with a 16-gon
             ops.append("0 0 0 RG")
             n = 16
             for i in range(n):
@@ -113,22 +126,23 @@ def _parse_svg_drawing(svg_path: Path) -> tuple[float, float, list[str]]:
                 ops.append(f"{x1:.2f} {y1:.2f} l")
             ops.append("h S")
         elif tag == "text":
-            x = float(el.get("x", 0)) + tx
-            y = float(el.get("y", 0)) + ty
+            x = mapx(float(el.get("x", 0)))
+            y = mapy(float(el.get("y", 0)))
             content = (el.text or "").strip()
             if content:
+                fs = max(4.0, 9.0 * sx)
                 # PDF text unflipped: temporarily invert
                 ops.append("q")
                 ops.append(f"1 0 0 -1 0 {2*y:.2f} cm")  # local flip for text
-                ops.append("BT /F1 9 Tf")
-                ops.append(f"0 0 0 rg")
+                ops.append(f"BT /F1 {fs:.1f} Tf")
+                ops.append("0 0 0 rg")
                 ops.append(f"1 0 0 1 {x:.2f} {y:.2f} Tm")
                 ops.append(f"({_pdf_escape(content[:80])}) Tj")
                 ops.append("ET")
                 ops.append("Q")
 
         for child in el:
-            walk(child, (tx, ty))
+            walk(child, (tx, ty, sx, sy))
 
     walk(root)
     ops.append("Q")

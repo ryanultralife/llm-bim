@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from llmbim_core.ids import new_id
-from llmbim_core.model import Element, Level, ProjectModel
-from llmbim_core.units import parse_length, to_mm
+from llmbim_core.model import Element, ProjectModel
+from llmbim_core.units import parse_length
 
 
 def import_json_batch(model: ProjectModel, path: str | Path) -> dict[str, Any]:
@@ -126,7 +126,7 @@ def import_dxf_lines(model: ProjectModel, path: str | Path, *, level: str, as_wa
         i += 2
 
     entities = []
-    cur = None
+    cur: dict[str, Any] | None = None
     for code, val in pairs:
         if code == 0:
             if cur and cur.get("type") == "LINE":

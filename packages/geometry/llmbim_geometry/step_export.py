@@ -10,6 +10,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from llmbim_core.model import Element, ProjectModel
 
@@ -50,7 +51,7 @@ def _box_corners(
     ]
 
 
-_BOX_FACES = [
+_BOX_FACES: list[tuple[int, ...]] = [
     (0, 1, 2, 3),
     (4, 7, 6, 5),
     (0, 4, 5, 1),
@@ -99,8 +100,8 @@ def _cylinder_corners(
         faces.append((i, j, n + j, n + i))
     # end caps (fan as triangle fans -> quads by taking consecutive)
     # bottom cap at x0: reverse winding
-    bottom = tuple(reversed(range(n)))
-    top = tuple(range(n, 2 * n))
+    _bottom = tuple(reversed(range(n)))
+    _top = tuple(range(n, 2 * n))
     # split caps into triangles for planarity
     for i in range(1, n - 1):
         faces.append((0, i + 1, i))  # bottom triangles - wrong for n-gon as non-planar if fan from 0? Actually planar circle
@@ -193,7 +194,9 @@ def _equipment_solid(
     return corners, _BOX_FACES
 
 
-def _pipe_solid(el: Element, model: ProjectModel, *, cyl_sides: int = 16) -> tuple[list, list] | None:
+def _pipe_solid(
+    el: Element, model: ProjectModel, *, cyl_sides: int = 16
+) -> tuple[list[tuple[float, float, float]], list[tuple[int, ...]]] | None:
     """Pipe as coordination box: horizontal start→end or vertical riser z0→z1."""
     try:
         od = 0.05
@@ -233,7 +236,9 @@ def _pipe_solid(el: Element, model: ProjectModel, *, cyl_sides: int = 16) -> tup
         return None
 
 
-def _wall_solid(el: Element, model: ProjectModel) -> tuple[list, list] | None:
+def _wall_solid(
+    el: Element, model: ProjectModel
+) -> tuple[list[tuple[float, float, float]], list[tuple[int, ...]]] | None:
     try:
         s = el.params["start_mm"]
         e = el.params["end_mm"]
@@ -257,8 +262,8 @@ def _wall_solid(el: Element, model: ProjectModel) -> tuple[list, list] | None:
 
 
 def _opening_solid(
-    el: Element, model: ProjectModel, wall_by_id: dict
-) -> tuple[list, list] | None:
+    el: Element, model: ProjectModel, wall_by_id: dict[str, Element]
+) -> tuple[list[tuple[float, float, float]], list[tuple[int, ...]]] | None:
     """Door/window solid along host wall at offset + sill (metres)."""
     try:
         host = wall_by_id.get(el.host_id or "")
@@ -294,7 +299,7 @@ def _opening_solid(
 
 def _fab_part_envelope_solid(
     el: Element, model: ProjectModel
-) -> tuple[list, list] | None:
+) -> tuple[list[tuple[float, float, float]], list[tuple[int, ...]]] | None:
     """AABB envelope of fab_part in building mm→m (knit or local)."""
     try:
         from llmbim_geometry.fab_brep import estimate_feature_bbox
@@ -425,7 +430,7 @@ def export_step(
         "geom_ctx": geom_ctx,
     }
 
-    solids: list[tuple[str, list, list]] = []
+    solids: list[tuple[str, list[tuple[float, float, float]], list[tuple[int, ...]]]] = []
     wall_by_id = {el.id: el for el in model.elements if el.category == "wall"}
     proxy_cats = {
         "fitting",
@@ -536,6 +541,6 @@ def export_step(
     return p
 
 
-def export_step_part(el: Element, model: ProjectModel, path: str | Path, **kw) -> Path:
+def export_step_part(el: Element, model: ProjectModel, path: str | Path, **kw: Any) -> Path:
     mini = ProjectModel(name=el.name or el.id, levels=list(model.levels), elements=[el])
     return export_step(mini, path, include_walls=False, **kw)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from llmbim import Project
@@ -147,6 +146,28 @@ def test_repair() -> None:
     assert r["ok"]
     # degenerate removed or reassigned
     assert all(el.level_id == p.levels()[0].id for el in p.model.elements)
+
+
+def test_repair_clears_host_when_host_removed() -> None:
+    """Repair must not leave an opening hosted on a wall it dropped in the same
+    pass (else the 'repaired' model fails HOST_MISSING validation)."""
+    from llmbim_core.repair import repair_model
+    from llmbim_core.validate import validate_model
+
+    p = Project.create(vcs=False)
+    p.add_level("L1", 0)
+    w = p.create_wall(level="L1", start=(0, 0), end=(8000, 0), thickness_mm=200, height_mm=3000)
+    d = p.place_door(host=w, offset_mm=2000, width_mm=900, height_mm=2100)
+    # make the host wall degenerate so repair removes it
+    p.model.get_element(w).params["end_mm"] = list(p.model.get_element(w).params["start_mm"])
+    repair_model(p.model)
+    ids = {el.id for el in p.model.elements}
+    assert w not in ids, "degenerate host wall should be removed"
+    door = next(el for el in p.model.elements if el.id == d)
+    assert door.host_id is None, "opening still points at removed host"
+    findings = validate_model(p.model)
+    flist = findings if isinstance(findings, list) else findings.get("findings", [])
+    assert not [f for f in flist if "HOST" in str(f).upper()]
 
 
 def test_op_list() -> None:

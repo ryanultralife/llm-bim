@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from llmbim_core.model import ProjectModel
 from llmbim_geometry.primitives import distance
+
+from llmbim_core.model import ProjectModel
 
 
 def repair_model(model: ProjectModel) -> dict[str, Any]:
@@ -42,6 +43,16 @@ def repair_model(model: ProjectModel) -> dict[str, Any]:
         el.params.setdefault("phase", "new")
         keep.append(el)
     model.elements = keep
+
+    # Second pass: a host wall may have been dropped *during* the loop above
+    # (degenerate/invalid), which the initial snapshot could not see — that
+    # leaves hosted openings pointing at a now-removed element, so repair would
+    # otherwise emit a model that fails validation's HOST_MISSING. Re-clear.
+    kept_ids = {el.id for el in keep}
+    for el in keep:
+        if el.host_id and el.host_id not in kept_ids:
+            el.host_id = None
+            actions.append(f"cleared orphan host on {el.id} (host removed during repair)")
 
     # Sort levels
     model.levels.sort(key=lambda lv: lv.elevation_mm)

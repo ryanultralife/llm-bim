@@ -20,18 +20,17 @@ from __future__ import annotations
 
 import hashlib
 import json
-import time
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from llmbim_core.ids import new_id
 from llmbim_core.model import ProjectModel
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 
 def _hash_model(data: dict[str, Any]) -> str:
@@ -129,7 +128,7 @@ class ModelVCS:
         self.head_path.write_text(version_id + "\n", encoding="utf-8")
 
     def refs(self) -> dict[str, str]:
-        return json.loads(self.refs_path.read_text(encoding="utf-8"))
+        return cast(dict[str, str], json.loads(self.refs_path.read_text(encoding="utf-8")))
 
     def tag(self, name: str, version_id: str | None = None) -> dict[str, str]:
         vid = version_id or self.head()
@@ -171,6 +170,16 @@ class ModelVCS:
                 )
 
         journal = self.read_journal()
+        # this commit covers journal entries written since the parent commit
+        # (journal_from was previously hardcoded 0, so every commit's range
+        # spanned the entire history)
+        journal_from = 0
+        if parent:
+            try:
+                parent_meta = self.load_version(parent).get("commit") or {}
+                journal_from = int(parent_meta.get("journal_to") or 0)
+            except Exception:  # noqa: BLE001
+                journal_from = 0
         version_id = new_id("ver")
         meta = CommitMeta(
             version_id=version_id,
@@ -180,7 +189,7 @@ class ModelVCS:
             ts=_utc_now(),
             content_hash=content_hash,
             stats=model.stats(),
-            journal_from=0,
+            journal_from=journal_from,
             journal_to=len(journal),
         )
         payload = {
@@ -243,7 +252,7 @@ class ModelVCS:
                 path = matches[0]
             else:
                 raise FileNotFoundError(f"Version not found: {version_id}")
-        return json.loads(path.read_text(encoding="utf-8"))
+        return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
     def checkout(self, version_id: str, *, author: str = "agent") -> ProjectModel:
         """Restore working tree to a committed version (destroys uncommitted changes)."""

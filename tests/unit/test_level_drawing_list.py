@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from llmbim import Project
-from llmbim_drawings.schedules import drawing_list, export_drawing_list, schedule_rows
+from llmbim_drawings.schedules import drawing_list, schedule_rows
 
 
 def test_level_schedule_floor_to_floor():
