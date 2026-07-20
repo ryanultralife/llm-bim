@@ -14,7 +14,7 @@ from typing import Any
 from llmbim_core.errors import ValidationError
 from llmbim_core.model import Element, ProjectModel
 
-from llmbim_drawings.detail_ops import render_detail_sheet
+from llmbim_drawings.detail_ops import imperial_scale_note, render_detail_sheet
 from llmbim_drawings.layout import compose_sheet, table_view
 from llmbim_drawings.plan import render_plan_view
 from llmbim_drawings.schedules import export_schedule_csv, schedule_rows
@@ -36,6 +36,24 @@ SHIELD_WALL_FILLS = {
     "W-EXT-CMU": "#9e9e9e",
     "W-INT-GYP": "#eceff1",
 }
+
+
+def _scale_note_for(plan_scale: float, units: str) -> str:
+    """Title-block scale note: ``1:50`` (metric) or the architectural note
+    (``1/4" = 1'-0"``) when imperial AND the ratio maps cleanly; otherwise the
+    numeric note is kept (correctness over cosmetics)."""
+    numeric = f"1:{max(1, round(1 / plan_scale))}"
+    if units == "imperial":
+        note = imperial_scale_note(1.0 / plan_scale)
+        if note:
+            return note
+    return numeric
+
+
+def _check_set_units(units: str) -> str:
+    if units not in {"metric", "imperial"}:
+        raise ValidationError("units must be 'metric' or 'imperial'", units=units)
+    return units
 
 
 def _view_from_full_svg(svg: str, title: str = "") -> DrawingView:
@@ -494,6 +512,7 @@ def export_construction_set(
     plan_scale: float = 0.02,
     set_type: str = "construction",
     date: str | None = None,
+    units: str = "metric",
     sheets: list[dict] | None = None,
 ) -> dict:
     """Write a drawing package with proper view fitting.
@@ -509,6 +528,12 @@ def export_construction_set(
 
     ``date``: issue date stamped in every title block (default: today, ISO).
 
+    ``units``: ``"metric"`` (default — output unchanged) or ``"imperial"``:
+    plan/section/elevation dimension text renders as feet-inches to the
+    nearest 1/2" (``24'-0"``; 1 ft = 304.8 mm) and plan scale notes become
+    architectural (``1/4" = 1'-0"``) when the ratio maps cleanly. Applies to
+    the default register and is the fallback for custom register entries.
+
     ``sheets``: optional custom sheet register. When provided it REPLACES the
     default register entirely — one entry per sheet, in order::
 
@@ -516,13 +541,16 @@ def export_construction_set(
 
     Common keys: ``no``/``title``/``kind`` (required), ``scale_note`` (title
     block text), ``discipline`` (default: alpha prefix of ``no``), ``scale``
-    (per-sheet plan scale override, px/mm). Kinds + kind options:
+    (per-sheet plan scale override, px/mm), ``units`` (per-sheet
+    ``"metric"``/``"imperial"`` override of the export-level default; honored
+    by ``plan``/``elevations``/``sections``). Kinds + kind options:
 
     - ``"cover"``     — cover with the index of THIS register.
                         opts: ``notes`` (list[str]), ``subtitle``.
     - ``"plan"``      — floor plan. opts: ``level``, ``include`` (category
                         groups), ``crop`` ((x0, y0, x1, y1) mm),
-                        ``ghost_walls``, ``room_tags``, ``dimensions``.
+                        ``ghost_walls``, ``room_tags``, ``tags`` (marked
+                        door/window tag bubbles), ``dimensions``.
     - ``"elevations"``— paired elevations. opts: ``pair`` e.g. ``["S", "N"]``.
     - ``"sections"``  — the two default building sections (A-A / B-B).
     - ``"schedule"``  — ruled schedule table(s). opts: ``schedule`` — a
@@ -542,6 +570,7 @@ def export_construction_set(
     """
     if set_type not in {"plan", "construction"}:
         raise ValueError(f"unknown set_type: {set_type!r} (use 'plan' or 'construction')")
+    units = _check_set_units(units)
     if date is None:
         date = _dt.date.today().isoformat()
     out = Path(out_dir)
@@ -572,9 +601,10 @@ def export_construction_set(
             plan_scale=plan_scale,
             set_type=set_type,
             date=date,
+            units=units,
         )
 
-    nominal_scale = f"1:{max(1, round(1 / plan_scale))}"
+    nominal_scale = _scale_note_for(plan_scale, units)
     level_ids = {lvl.name: lvl.id for lvl in model.levels}
     plan_levels = [
         lvl.name
@@ -608,6 +638,7 @@ def export_construction_set(
             show_dimensions=True,
             grid_dims=True,
             room_tags=True,
+            units=units,
             section_marks=section_marks,
         )
         plan_sheet = _sheet_from_view(
@@ -634,7 +665,7 @@ def export_construction_set(
     for sn, sheet_title, pair in elev_pairs:
         cells: list[tuple] = []
         for direction, cell_title in pair:
-            elev_svg = render_elevation_svg(model, direction, scale=plan_scale)
+            elev_svg = render_elevation_svg(model, direction, scale=plan_scale, units=units)
             view = _view_from_full_svg(elev_svg, cell_title)
             cells.append((view, cell_title, nominal_scale, plan_scale))
         sh = _multi_sheet(
@@ -648,7 +679,8 @@ def export_construction_set(
     sec_cells: list[tuple] = []
     for (p0, p1), lab in ((cut_a, "A"), (cut_b, "B")):
         sec_svg = render_section_svg(
-            model, p0, p1, scale=plan_scale, title=f"{model.name} — Section {lab}-{lab}"
+            model, p0, p1, scale=plan_scale, units=units,
+            title=f"{model.name} — Section {lab}-{lab}",
         )
         sec_view = _view_from_full_svg(sec_svg, f"Section {lab}-{lab}")
         sec_cells.append((sec_view, f"Section {lab}-{lab}", nominal_scale, plan_scale))
@@ -824,6 +856,7 @@ def export_construction_set(
                     show_dimensions=True,
                     include=include,
                     ghost_walls=True,
+                    units=units,
                     title=f"{model.name} — {disc_title} {lname}",
                 )
                 legend = _legend_view(_discipline_legend(disc, lvl_els))
@@ -907,6 +940,7 @@ def export_construction_set(
                         show_dimensions=True,
                         include={"grids", "ducts", "equipment"},
                         ghost_walls=True,
+                        units=units,
                         title=f"{model.name} — {h_titles[h_tag]} {lname}",
                     )
                     n_ducts = sum(1 for e in sel if _is_duct_run(e))
@@ -992,6 +1026,7 @@ def export_construction_set(
                 include={"equipment"},
                 ghost_walls=True,
                 crop_mm=crop,
+                units=units,
                 title=f"{model.name} — Equipment Arrangement {room_name}",
             )
             eq_tbl_rows = [
@@ -1065,6 +1100,7 @@ def export_construction_set(
                     include={"walls", "rooms", "grids"},
                     room_tags=True,
                     wall_fill_by_type=SHIELD_WALL_FILLS,
+                    units=units,
                     title=f"{model.name} — Shielding & Confinement {lname}",
                 )
                 legend = _shield_legend_view(lvl_walls)
@@ -1126,6 +1162,7 @@ def export_construction_set(
                     show_dimensions=True,
                     include={"equipment", "slabs"},
                     ghost_walls=True,
+                    units=units,
                     title=f"{model.name} — Site / Underground {lname}",
                 )
                 ug_by_name: dict[str, int] = {}
@@ -1385,8 +1422,13 @@ def _export_custom_register(
     plan_scale: float,
     set_type: str,
     date: str,
+    units: str = "metric",
 ) -> dict:
-    """Emit a caller-defined sheet register (replaces the default A-1xx… set)."""
+    """Emit a caller-defined sheet register (replaces the default A-1xx… set).
+
+    ``units`` is the export-level default; each entry may override it with a
+    per-sheet ``units`` opt (``"metric"``/``"imperial"``).
+    """
     specs = [_require_register_entry(s) for s in register]
     level_ids = {lvl.name: lvl.id for lvl in model.levels}
     plan_levels = [
@@ -1420,7 +1462,8 @@ def _export_custom_register(
         no = str(spec["no"])
         title = str(spec["title"])
         sc = float(spec.get("scale") or plan_scale)
-        nominal = f"1:{max(1, round(1 / sc))}"
+        sheet_units = _check_set_units(str(spec.get("units") or units))
+        nominal = _scale_note_for(sc, sheet_units)
 
         if kind == "cover":
             view = _custom_cover_view(model, specs, spec, date)
@@ -1446,6 +1489,8 @@ def _export_custom_register(
                 show_dimensions=bool(spec.get("dimensions", True)),
                 grid_dims=include is None,
                 room_tags=bool(spec.get("room_tags", include is None)),
+                tags=bool(spec.get("tags", False)),
+                units=sheet_units,
                 include=include,
                 ghost_walls=bool(spec.get("ghost_walls", False)),
                 crop_mm=crop,  # type: ignore[arg-type]
@@ -1466,7 +1511,7 @@ def _export_custom_register(
             cells: list[tuple] = []
             for direction in pair:
                 cell_title = _ELEV_NAMES[direction]
-                elev_svg = render_elevation_svg(model, direction, scale=sc)
+                elev_svg = render_elevation_svg(model, direction, scale=sc, units=sheet_units)
                 cells.append((_view_from_full_svg(elev_svg, cell_title), cell_title,
                               str(spec.get("scale_note") or nominal), sc))
             svg = _multi_sheet(
@@ -1480,7 +1525,8 @@ def _export_custom_register(
             sec_cells: list[tuple] = []
             for (p0, p1), lab in ((cut_a, "A"), (cut_b, "B")):
                 sec_svg = render_section_svg(
-                    model, p0, p1, scale=sc, title=f"{model.name} — Section {lab}-{lab}"
+                    model, p0, p1, scale=sc, units=sheet_units,
+                    title=f"{model.name} — Section {lab}-{lab}",
                 )
                 sec_cells.append(
                     (_view_from_full_svg(sec_svg, f"Section {lab}-{lab}"),

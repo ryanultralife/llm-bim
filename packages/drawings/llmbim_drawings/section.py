@@ -9,7 +9,30 @@ from llmbim_core.errors import ValidationError
 from llmbim_core.model import Element, ProjectModel
 from llmbim_core.roofs import clip_segment_to_polygon, plane_coeffs
 
+from llmbim_drawings.detail_ops import format_mm_feet_inches
 from llmbim_drawings.svg_util import esc, fmt
+
+
+def _check_units(units: str) -> bool:
+    """Validate ``units`` and return True when imperial."""
+    if units not in {"metric", "imperial"}:
+        raise ValidationError("units must be 'metric' or 'imperial'", units=units)
+    return units == "imperial"
+
+
+def _datum_label(z_mm: float, imperial: bool) -> str:
+    """Level datum text: ``EL. +3.500 m`` (metric) / ``EL. +11'-6"`` (imperial)."""
+    if imperial:
+        sign = "" if z_mm < 0 else "+"
+        return f"EL. {sign}{format_mm_feet_inches(z_mm)}"
+    return f"EL. {z_mm / 1000:+.3f} m"
+
+
+def _height_label(dz_mm: float, imperial: bool) -> str:
+    """Storey / overall height dimension text."""
+    if imperial:
+        return format_mm_feet_inches(dz_mm)
+    return f"{dz_mm / 1000:.2f} m"
 
 
 def _wall_endpoints(el: Element) -> tuple[float, float, float, float, float, float] | None:
@@ -91,11 +114,15 @@ def render_section_svg(
     scale: float = 0.05,
     margin_mm: float = 500.0,
     title: str | None = None,
+    units: str = "metric",
 ) -> str:
     """Vertical section along cut plane defined by plan segment p0→p1.
 
     Horizontal axis: distance along cut. Vertical axis: Z elevation.
+    ``units="imperial"`` renders level datum labels and storey/overall
+    height dimensions as feet-inches (nearest 1/2"; 1 ft = 304.8 mm).
     """
+    imperial = _check_units(units)
     cut_len = math.hypot(p1[0] - p0[0], p1[1] - p0[1])
     if cut_len < 1:
         raise ValidationError("Section cut segment too short")
@@ -503,7 +530,7 @@ def render_section_svg(
                 f'    <text x="{fmt(pb[0] + pad - 2)}" y="{fmt(pb[1] - 2)}" '
                 f'text-anchor="end" class="level-datum" '
                 f'font-size="{fmt(max(7, 9))}" fill="#444">{esc(lv.name)} · '
-                f"EL. {z / 1000:+.3f} m</text>"
+                f"{esc(_datum_label(z, imperial))}</text>"
             )
         dim_s = min_s - margin_mm * 0.35
         z_top = max_z - margin_mm * 0.2
@@ -526,7 +553,7 @@ def render_section_svg(
                     f'x2="{fmt(pt[0] + 4)}" y2="{fmt(pt[1])}" stroke-width="1"/>'
                 )
             mid_y = (p0[1] + p1[1]) / 2
-            lab = f"{(z1 - z0) / 1000:.2f} m"
+            lab = _height_label(z1 - z0, imperial)
             parts.append(
                 f'    <text x="{fmt(p0[0] - 6)}" y="{fmt(mid_y)}" text-anchor="end" '
                 f'font-size="{fmt(max(7, 9))}" class="storey-height">{esc(lab)}</text>'
@@ -550,7 +577,7 @@ def render_section_svg(
                 f'    <text x="{fmt(p0o[0] - 4)}" y="{fmt(mid_y)}" text-anchor="middle" '
                 f'class="overall-height" font-size="{fmt(max(7, 9))}" '
                 f'transform="rotate(-90 {fmt(p0o[0] - 4)} {fmt(mid_y)})">'
-                f"{(z_top - z_lo) / 1000:.2f} m</text>"
+                f"{esc(_height_label(z_top - z_lo, imperial))}</text>"
             )
         parts.append("  </g>")
     parts.append("</svg>")
@@ -600,8 +627,14 @@ def render_elevation_svg(
     scale: float = 0.05,
     margin_mm: float = 500.0,
     title: str | None = None,
+    units: str = "metric",
 ) -> str:
-    """Orthographic elevation. N looks toward +Y (from south), etc."""
+    """Orthographic elevation. N looks toward +Y (from south), etc.
+
+    ``units="imperial"`` renders level datum labels and storey/overall
+    height dimensions as feet-inches (nearest 1/2"; 1 ft = 304.8 mm).
+    """
+    imperial = _check_units(units)
     d = direction.upper()
     if d not in {"N", "S", "E", "W"}:
         raise ValidationError("direction must be N|S|E|W", direction=direction)
@@ -1087,7 +1120,7 @@ def render_elevation_svg(
                 f'    <text x="{fmt(pb[0] + pad - 2)}" y="{fmt(pb[1] - 2)}" '
                 f'text-anchor="end" class="level-datum" '
                 f'font-size="{fmt(max(7, 9))}" fill="#444">{esc(lv.name)} · '
-                f"EL. {z / 1000:+.3f} m</text>"
+                f"{esc(_datum_label(z, imperial))}</text>"
             )
         # vertical dim between consecutive levels (and to top of highest wall if only one)
         dim_x = min_h - margin_mm * 0.35
@@ -1113,7 +1146,7 @@ def render_elevation_svg(
                     f'x2="{fmt(pt[0] + 4)}" y2="{fmt(pt[1])}" stroke-width="1"/>'
                 )
             mid_y = (p0[1] + p1[1]) / 2
-            lab = f"{(z1 - z0) / 1000:.2f} m"
+            lab = _height_label(z1 - z0, imperial)
             parts.append(
                 f'    <text x="{fmt(p0[0] - 6)}" y="{fmt(mid_y)}" text-anchor="end" '
                 f'font-size="{fmt(max(7, 9))}" class="storey-height">{esc(lab)}</text>'
@@ -1137,7 +1170,7 @@ def render_elevation_svg(
                 f'    <text x="{fmt(p0o[0] - 4)}" y="{fmt(mid_y)}" text-anchor="middle" '
                 f'class="overall-height" font-size="{fmt(max(7, 9))}" '
                 f'transform="rotate(-90 {fmt(p0o[0] - 4)} {fmt(mid_y)})">'
-                f"{(z_top - z_lo) / 1000:.2f} m</text>"
+                f"{esc(_height_label(z_top - z_lo, imperial))}</text>"
             )
         parts.append("  </g>")
 

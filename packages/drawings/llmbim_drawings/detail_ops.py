@@ -46,6 +46,10 @@ _WRAP_CHARS_PER_UNIT = 60  # 't' wrap width 1.0 ft ~ 60 characters
 _STROKES = {"heavy": 2.2, "normal": 1.2, "light": 0.7}
 
 
+MM_PER_INCH = 25.4
+MM_PER_FOOT = 304.8
+
+
 def format_feet_inches(value_ft: float) -> str:
     """Architectural feet-inches text: 3.5 -> ``3'-6"``, 0.53125 -> ``0'-6 3/8"``."""
     sign = "-" if value_ft < 0 else ""
@@ -58,6 +62,30 @@ def format_feet_inches(value_ft: float) -> str:
     else:
         text = f"{sign}{feet}'-{inches}\""
     return text
+
+
+def format_mm_feet_inches(value_mm: float) -> str:
+    """Millimetres -> feet-inches to the nearest 1/2": 7315.2 -> ``24'-0"``,
+    1231.9 -> ``4'-0 1/2"`` (1 ft = 304.8 mm)."""
+    sign = "-" if value_mm < 0 else ""
+    total_halves = round(abs(value_mm) / MM_PER_INCH * 2.0)
+    feet, rem = divmod(total_halves, 24)
+    inches, half = divmod(rem, 2)
+    if half:
+        return f"{sign}{feet}'-{inches} 1/2\""
+    return f"{sign}{feet}'-{inches}\""
+
+
+def imperial_scale_note(ratio: float) -> str | None:
+    """Architectural scale note when the drawing ratio maps cleanly to a
+    paper-inches-per-foot value (48 -> ``1/4" = 1'-0"``); ``None`` otherwise
+    (e.g. metric 1:50), so callers keep the numeric note."""
+    if ratio <= 0:
+        return None
+    six = (12.0 / ratio) * 16.0
+    if round(six) <= 0 or abs(six - round(six)) > 0.01:
+        return None
+    return scale_note_from_ratio(ratio)
 
 
 def scale_note_from_ratio(ratio: float) -> str:
