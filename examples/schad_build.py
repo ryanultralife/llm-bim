@@ -39,12 +39,22 @@ def build_schad_model() -> Any:
     return build_model()
 
 
-def build_schad(out_dir: Path | None = None) -> Any:
-    """Full pack: build, commit to model VCS, export construction set."""
+def build_schad_pack(out_dir: Path | None = None) -> tuple[Any, dict[str, Any]]:
+    """Full pack: build, commit to model VCS, export the Gate C register.
+
+    Returns ``(project, verify)`` — the golden command ``llmbim case schad``
+    and ``scripts/verify_all.py`` use the verify dict for their exit status
+    (WP-SCHAD-S8, transition review Gate D).
+    """
     _bootstrap()
     from projects.schad.build_llmbim import build_pack
 
-    project, _verify = build_pack(out_dir or DEFAULT_OUT)
+    return build_pack(out_dir or DEFAULT_OUT)
+
+
+def build_schad(out_dir: Path | None = None) -> Any:
+    """Full pack: build, commit to model VCS, export construction set."""
+    project, _verify = build_schad_pack(out_dir)
     return project
 
 
