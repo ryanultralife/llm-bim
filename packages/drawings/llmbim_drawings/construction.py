@@ -93,6 +93,7 @@ def _sheet_from_view(
     north_arrow: bool = False,
     date: str | None = None,
     stamp_block: bool = False,
+    revisions_rows: list[tuple[str, str, str]] | None = None,
 ) -> str:
     _ax, _ay, aw, ah = drawing_area(sheet_w, sheet_h)
     # true scaled drawing views (px_per_mm known) may upscale to fill the sheet;
@@ -110,6 +111,7 @@ def _sheet_from_view(
         north_arrow=north_arrow,
         date=date,
         stamp_block=stamp_block,
+        revisions=revisions_rows,
     )
 
 
@@ -512,6 +514,42 @@ def _fmt_cell(value: Any) -> Any:
     return value
 
 
+def _normalize_revisions(
+    model: ProjectModel, revisions: dict | None, date: str | None
+) -> tuple[dict[str, list[dict]], list[tuple[str, str, str]] | None, str]:
+    """Resolve the ``revisions`` export option.
+
+    Accepts ``{"prior": <ProjectModel|dict>, "delta", "date", "description"}``
+    (diffed here via ``llmbim_drawings.revisions``) or
+    ``{"clouds": {level: [rects]}, ...}`` precomputed — e.g. the return of
+    ``Project.revision_clouds(since=...)``. Returns (clouds per level,
+    title-block rows or None, delta number).
+    """
+    if not revisions:
+        return {}, None, "1"
+    delta = str(revisions.get("delta", "1"))
+    rev_date = str(revisions.get("date") or date or _dt.date.today().isoformat())
+    desc = revisions.get("description")
+    prior = revisions.get("prior")
+    if prior is not None:
+        from llmbim_drawings.revisions import revision_cloud_rects, revision_rows
+
+        prior_model = ProjectModel.from_dict(prior) if isinstance(prior, dict) else prior
+        clouds_by_level = revision_cloud_rects(model, prior_model)
+        rows = [
+            (str(r["delta"]), str(r["description"]), str(r["date"]))
+            for r in revision_rows(
+                model, prior_model, delta=delta, date=rev_date, description=desc
+            )
+        ]
+        return clouds_by_level, rows or None, delta
+    clouds_raw = revisions.get("clouds")
+    if clouds_raw:
+        clouds_by_level = {str(k): list(v) for k, v in dict(clouds_raw).items()}
+        return clouds_by_level, [(delta, str(desc or "REVISED — SEE CLOUDS"), rev_date)], delta
+    return {}, None, delta
+
+
 def export_construction_set(
     model: ProjectModel,
     out_dir: str | Path,
@@ -530,6 +568,7 @@ def export_construction_set(
     line_weights: bool = False,
     hatches: bool = False,
     stamp_block: bool = False,
+    revisions: dict | None = None,
     sheets: list[dict] | None = None,
 ) -> dict:
     """Write a drawing package with proper view fitting.
@@ -667,8 +706,10 @@ def export_construction_set(
             line_weights=line_weights,
             hatches=hatches,
             stamp_block=stamp_block,
+            revisions=revisions,
         )
 
+    rev_clouds, rev_rows, rev_delta = _normalize_revisions(model, revisions, date)
     nominal_scale = _scale_note_for(plan_scale, units)
     level_ids = {lvl.name: lvl.id for lvl in model.levels}
     plan_levels = [
@@ -711,6 +752,7 @@ def export_construction_set(
             room_areas=room_areas,
             grid_sides="arch" if grid_sides else None,
             keynotes=keynotes,
+            clouds=[{**r, "number": rev_delta} for r in rev_clouds.get(lname, [])] or None,
         )
         plan_sheet = _sheet_from_view(
             model,
@@ -721,6 +763,7 @@ def export_construction_set(
             px_per_mm=plan_scale,
             north_arrow=True,
             date=date,
+            revisions_rows=rev_rows,
         )
         fname = f"{sn}_plan.svg"
         (out / fname).write_text(plan_sheet, encoding="utf-8")
@@ -1533,6 +1576,7 @@ def _export_custom_register(
     line_weights: bool = False,
     hatches: bool = False,
     stamp_block: bool = False,
+    revisions: dict | None = None,
 ) -> dict:
     """Emit a caller-defined sheet register (replaces the default A-1xx… set).
 
@@ -1555,6 +1599,7 @@ def _export_custom_register(
     lines; an explicit ``match_lines`` opt overrides the auto lines.
     """
     specs = [_require_register_entry(s) for s in register]
+    rev_clouds, rev_rows, rev_delta = _normalize_revisions(model, revisions, date)
 
     # detail id → hosting details-sheet no (callout 'sheet' auto-resolution)
     detail_sheet_by_id: dict[str, str] = {}
@@ -1725,6 +1770,7 @@ def _export_custom_register(
                 callouts=sheet_callouts,
                 match_lines=sheet_match_lines,
                 keynotes=bool(spec.get("keynotes", keynotes)),
+                clouds=[{**r, "number": rev_delta} for r in rev_clouds.get(lvl, [])] or None,
                 title=f"{model.name} — {title}",
             )
             svg = _sheet_from_view(
@@ -1732,6 +1778,7 @@ def _export_custom_register(
                 scale_note=str(spec.get("scale_note") or nominal),
                 px_per_mm=sc, north_arrow=True, date=date,
                 stamp_block=_spec_stamp(spec),
+                revisions_rows=rev_rows,
             )
             _emit(spec, svg)
 
