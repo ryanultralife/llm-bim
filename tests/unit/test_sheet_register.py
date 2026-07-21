@@ -240,3 +240,64 @@ def test_default_register_unchanged_without_graphics_options(tmp_path):
     export_construction_set(p.model, tmp_path / "off")
     sec = (tmp_path / "off" / "A-301_sections.svg").read_text()
     assert "lw-heavy" not in sec and "STAMP" not in sec
+
+
+# ---------------------------------------------------------------------------
+# WP-CD-ANATOMY-2 integration: revisions={} through both registers
+# ---------------------------------------------------------------------------
+
+
+def _revised_project():
+    p = Project.create("RevProj", vcs=False)
+    p.add_level("L1", 0)
+    p.create_rect_shell(
+        level="L1", x=0, y=0, w=12000, d=9000, height_mm=3000, thickness_mm=150, name_prefix="B"
+    )
+    import copy
+
+    prior = copy.deepcopy(p.model)
+    p.create_wall(
+        level="L1", start=(3000, 3000), end=(9000, 3000), thickness_mm=114, height_mm=3000
+    )
+    return p, prior
+
+
+def test_default_register_revision_clouds_and_rows(tmp_path):
+    p, prior = _revised_project()
+    export_construction_set(
+        p.model, tmp_path,
+        revisions={"prior": prior, "delta": "2", "date": "2026-07-21"},
+    )
+    plan = (tmp_path / "A-101_plan.svg").read_text()
+    assert "revision-clouds" in plan and "rev-cloud" in plan or "revision-clouds" in plan
+    assert "2026-07-21" in plan  # revision table row carries the date
+
+
+def test_custom_register_revision_clouds(tmp_path):
+    p, prior = _revised_project()
+    export_construction_set(
+        p.model, tmp_path,
+        sheets=[{"no": "A1.1", "title": "FLOOR PLAN", "kind": "plan", "level": "L1"}],
+        revisions={"prior": prior, "delta": "3"},
+    )
+    plan = (tmp_path / "A1-1_plan.svg").read_text()
+    assert "revision-clouds" in plan
+
+
+def test_revisions_precomputed_clouds_path(tmp_path):
+    p, _ = _revised_project()
+    clouds = {"L1": [{"x0": 3000, "y0": 3000, "x1": 9000, "y1": 3200}]}
+    export_construction_set(
+        p.model, tmp_path,
+        sheets=[{"no": "A1.1", "title": "FLOOR PLAN", "kind": "plan", "level": "L1"}],
+        revisions={"clouds": clouds, "delta": "1", "description": "OWNER REVIEW"},
+    )
+    plan = (tmp_path / "A1-1_plan.svg").read_text()
+    assert "revision-clouds" in plan and "OWNER REVIEW" in plan
+
+
+def test_no_revisions_unchanged(tmp_path):
+    p, _ = _revised_project()
+    export_construction_set(p.model, tmp_path / "off")
+    plan = (tmp_path / "off" / "A-101_plan.svg").read_text()
+    assert "revision-clouds" not in plan

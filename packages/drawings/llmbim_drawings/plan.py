@@ -216,6 +216,7 @@ def render_plan_view(
     callouts: Sequence[Mapping[str, Any]] | None = None,
     match_lines: Sequence[Mapping[str, Any]] | None = None,
     keynotes: bool = False,
+    clouds: Sequence[Mapping[str, Any]] | None = None,
 ) -> DrawingView:
     """Build a plan DrawingView (inner body + size).
 
@@ -2152,6 +2153,19 @@ def render_plan_view(
                 f'fill="#111">{esc(line)}</text>'
             )
             row_y += 14.0
+        parts.append("  </g>")
+
+    if clouds:
+        from llmbim_drawings.sheets import revision_cloud
+
+        parts.append('  <g class="revision-clouds">')
+        for cl in clouds:
+            px0, py0 = project(float(cl["x0"]), float(cl["y0"]))
+            px1, py1 = project(float(cl["x1"]), float(cl["y1"]))
+            cx, cy = min(px0, px1) - 6.0, min(py0, py1) - 6.0
+            cw = abs(px1 - px0) + 12.0
+            ch = abs(py1 - py0) + 12.0
+            parts.append(revision_cloud(cx, cy, cw, ch, number=str(cl.get("number", "1"))))
         parts.append("  </g>")
 
     # reveal the dimension band (offset 12 + text) and grid bubbles (radius br),
