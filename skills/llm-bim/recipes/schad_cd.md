@@ -42,6 +42,11 @@ does not fix carry explicit `*_assumed` flags in the model.
 
 1. Edit the basis module (e.g. `schad_design_basis.py`) — nothing else.
 2. Rebuild: `llmbim case schad` (model VCS commits are staged automatically).
+   Sheet anatomy (dim tiers, line weights, hatches, key plans, keynotes,
+   stamp blocks, revision clouds) is controlled by the
+   `export_construction_set` options in `build_llmbim.py` `build_pack()` —
+   see `docs/CD_COMPLETENESS_STANDARD.md` and SKILL.md §B3 for the full
+   option surface. A CD deliverable should have the full anatomy enabled.
 3. Gates: `python -m pytest tests/unit/test_schad_*.py tests/unit/test_cli_case_schad.py -q`
    then `python scripts/verify_all.py`. Drift guards (areas 2080/1568/224/224 SF,
    ridge 18', 13 strip footings, 6 SSW, 2 W16x40) fail loudly if the basis and
