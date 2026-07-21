@@ -1205,6 +1205,25 @@ def _fab_revolve(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+@register(
+    "fab_cut_revolve",
+    description="Annular revolved cut (O-ring/relief groove) on fab_part",
+    mutates=True,
+)
+def _fab_cut_revolve(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.fab import fab_cut_revolve
+
+    origin = p.get("origin_mm") or p.get("origin") or [0, 0, 0]
+    return fab_cut_revolve(
+        model,
+        p["element_id"],
+        radius_mm=float(p.get("radius_mm") or p.get("outer_radius_mm") or 20),
+        height_mm=float(p.get("height_mm") or 5),
+        inner_radius_mm=float(p.get("inner_radius_mm") or 0),
+        origin_mm=origin,
+    )
+
+
 @register("fab_hole_pattern", description="Add rectangular hole pattern to fab_part", mutates=True)
 def _fab_hole_pattern(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
     from llmbim_core.fab import fab_hole_pattern

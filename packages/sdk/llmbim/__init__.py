@@ -1742,6 +1742,25 @@ class Project:
             origin_mm=list(origin_mm),
         )
 
+    def fab_cut_revolve(
+        self,
+        element_id: str,
+        *,
+        radius_mm: float,
+        height_mm: float,
+        inner_radius_mm: float = 0.0,
+        origin_mm: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    ) -> dict[str, Any]:
+        """Annular revolved CUT about Z (O-ring groove, relief groove)."""
+        return self.op(
+            "fab_cut_revolve",
+            element_id=element_id,
+            radius_mm=radius_mm,
+            height_mm=height_mm,
+            inner_radius_mm=inner_radius_mm,
+            origin_mm=list(origin_mm),
+        )
+
     def fab_hole_pattern(
         self,
         element_id: str,
