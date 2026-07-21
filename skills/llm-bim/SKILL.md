@@ -217,10 +217,29 @@ export_construction_set(p.model, out, units="imperial", sheets=[   # custom regi
 
 - `units="imperial"` → feet-inches dims (`24'-0"`), `EL. +0'-0"` datums, SF areas,
   architectural scale notes; per-sheet or export-wide. Metric is the default.
-- `tags: True` on plan sheets → door/window tag bubbles from element `mark` params.
+- `tags: True` on plan sheets → door/window tag bubbles from element `mark` params,
+  wall-type diamonds, equipment leader tags (marks keyed to the equipment schedule).
 - Detail `ops` DSL (`llmbim_drawings.detail_ops`): `l`/`d` lines, `r` rect, `c` circle,
   `h` hatch, `t` text, `dim` — data in, drafted SVG out. Never freehand SVG.
 - CLI: `llmbim pack ... --set plan|construction`.
+
+**Full CD anatomy** (per `docs/CD_COMPLETENESS_STANDARD.md` — all opt-in, export-level
+kwargs AND per-sheet register opts; defaults byte-stable when off):
+
+- Plans: `dim_tiers` (3-tier chains, tick terminators, "N EQ. SPACES", governs note) ·
+  `fractional_grids` (off-grid intermediates like `1.9`, skip-I) · `grid_sides`
+  (`"arch"` 3–4 sides / `"framing"` 2; export flag maps A→arch, S→framing) ·
+  `room_areas` · `key_plan` · `keynotes` (numbered squares + legend from notes) ·
+  `callouts=[{x, y, detail}]` (split-circle detail bubbles; sheet no auto-resolved
+  from the register's details sheets) · `match_lines` (+ auto reciprocal lines when
+  plan crops abut).
+- Sections/elevations: `line_weights` (3-tier + "ABV." dashed + line legend) ·
+  `hatches` (concrete stipple, wood diagonal, batt, earth — deterministic).
+- Sheets: `stamp_block` (reserved PE/SE square, S-discipline) ·
+  `revisions={"prior": prior_model}` or `{"clouds": p.revision_clouds(since=ver)}` →
+  auto revision clouds from model-VCS diffs + title-block table rows.
+
+A deliverable CD set should enable the full anatomy; a quick massing study need not.
 
 ### B4. Full design program (a complete plan/CD set from a brief)
 
