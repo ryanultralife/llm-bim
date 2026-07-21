@@ -10,6 +10,33 @@ from typing import Any
 from llmbim_core.model import ProjectModel
 
 
+def equipment_marks(model: ProjectModel) -> dict[str, str]:
+    """Stable schedule-key mark per equipment element id (WP-CD-ANATOMY-2).
+
+    The single source both the equipment schedule and the plan tag renderer
+    consult, so the tag on the drawing and the MARK column in the schedule
+    always agree. An explicit ``params["mark"]`` wins; otherwise marks are
+    generated ``EQ-1``, ``EQ-2``, … deterministically (sorted element id),
+    skipping any value an explicit mark already claimed.
+    """
+    els = sorted(model.query(category="equipment"), key=lambda e: e.id)
+    used = {str(e.params["mark"]) for e in els if e.params.get("mark")}
+    marks: dict[str, str] = {}
+    counter = 1
+    for el in els:
+        explicit = el.params.get("mark")
+        if explicit:
+            marks[el.id] = str(explicit)
+            continue
+        while f"EQ-{counter}" in used:
+            counter += 1
+        mark = f"EQ-{counter}"
+        marks[el.id] = mark
+        used.add(mark)
+        counter += 1
+    return marks
+
+
 def _annotate_csi(model: ProjectModel, el, row: dict[str, Any]) -> dict[str, Any]:
     """Attach MasterFormat CSI + level/XY/Z locator to a schedule row."""
     try:
@@ -239,12 +266,14 @@ def schedule_rows(model: ProjectModel, kind: str) -> list[dict[str, Any]]:
             )
         return rows
     if kind in {"equipment", "equip"}:
+        marks = equipment_marks(model)
         return [
             _annotate_csi(
                 model,
                 el,
                 {
                     "id": el.id,
+                    "mark": marks.get(el.id),
                     "name": el.name,
                     "kind": el.params.get("kind"),
                     "shape": el.params.get("shape", "box"),

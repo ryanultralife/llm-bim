@@ -29,6 +29,10 @@ SCHEDULE_ROWS_PER_SHEET = 28
 # EQ series cap: per-room equipment arrangement sheets beyond this get a cover note
 MAX_EQ_SHEETS = 20
 
+# custom-register auto match lines: crop rects sharing an edge within this
+# tolerance (mm) count as abutting — each sheet gets a "SEE <other>" match line
+MATCH_LINE_ABUT_TOL_MM = 25.0
+
 # N-series wall fills: shield concrete red-brown, CMU grey, gyp light;
 # any other type renders with a diagonal hatch (see render_plan_view)
 SHIELD_WALL_FILLS = {
@@ -89,6 +93,7 @@ def _sheet_from_view(
     north_arrow: bool = False,
     date: str | None = None,
     stamp_block: bool = False,
+    revisions_rows: list[tuple[str, str, str]] | None = None,
 ) -> str:
     _ax, _ay, aw, ah = drawing_area(sheet_w, sheet_h)
     # true scaled drawing views (px_per_mm known) may upscale to fill the sheet;
@@ -106,6 +111,7 @@ def _sheet_from_view(
         north_arrow=north_arrow,
         date=date,
         stamp_block=stamp_block,
+        revisions=revisions_rows,
     )
 
 
@@ -508,6 +514,42 @@ def _fmt_cell(value: Any) -> Any:
     return value
 
 
+def _normalize_revisions(
+    model: ProjectModel, revisions: dict | None, date: str | None
+) -> tuple[dict[str, list[dict]], list[tuple[str, str, str]] | None, str]:
+    """Resolve the ``revisions`` export option.
+
+    Accepts ``{"prior": <ProjectModel|dict>, "delta", "date", "description"}``
+    (diffed here via ``llmbim_drawings.revisions``) or
+    ``{"clouds": {level: [rects]}, ...}`` precomputed — e.g. the return of
+    ``Project.revision_clouds(since=...)``. Returns (clouds per level,
+    title-block rows or None, delta number).
+    """
+    if not revisions:
+        return {}, None, "1"
+    delta = str(revisions.get("delta", "1"))
+    rev_date = str(revisions.get("date") or date or _dt.date.today().isoformat())
+    desc = revisions.get("description")
+    prior = revisions.get("prior")
+    if prior is not None:
+        from llmbim_drawings.revisions import revision_cloud_rects, revision_rows
+
+        prior_model = ProjectModel.from_dict(prior) if isinstance(prior, dict) else prior
+        clouds_by_level = revision_cloud_rects(model, prior_model)
+        rows = [
+            (str(r["delta"]), str(r["description"]), str(r["date"]))
+            for r in revision_rows(
+                model, prior_model, delta=delta, date=rev_date, description=desc
+            )
+        ]
+        return clouds_by_level, rows or None, delta
+    clouds_raw = revisions.get("clouds")
+    if clouds_raw:
+        clouds_by_level = {str(k): list(v) for k, v in dict(clouds_raw).items()}
+        return clouds_by_level, [(delta, str(desc or "REVISED — SEE CLOUDS"), rev_date)], delta
+    return {}, None, delta
+
+
 def export_construction_set(
     model: ProjectModel,
     out_dir: str | Path,
@@ -521,9 +563,12 @@ def export_construction_set(
     fractional_grids: bool = False,
     key_plan: bool = False,
     room_areas: bool = False,
+    grid_sides: bool = False,
+    keynotes: bool = False,
     line_weights: bool = False,
     hatches: bool = False,
     stamp_block: bool = False,
+    revisions: dict | None = None,
     sheets: list[dict] | None = None,
 ) -> dict:
     """Write a drawing package with proper view fitting.
@@ -552,6 +597,24 @@ def export_construction_set(
     lettering), ``key_plan`` (reduced building outline block per plan sheet),
     ``room_areas`` (room name / boxed number / area tag anatomy).
 
+    CD anatomy options (WP-CD-ANATOMY-2 slice A — all default off):
+    ``grid_sides=True`` applies per-discipline grid bubble sides — the
+    default-register A-discipline floor plans render ``"arch"`` (bubbles on
+    both ends: letters left+right, numbers top+bottom) and the S-discipline
+    structural plans render ``"framing"`` (two sides only: letters left,
+    numbers top); ``keynotes=True`` renders note elements as numbered keynote
+    squares on leaders plus a KEYNOTES legend block on the floor plans.
+    Custom register: per-``plan``-entry opts ``grid_sides``
+    (``"arch"``/``"framing"``, falling back to the discipline mapping when
+    the export-level flag is set), ``keynotes``, ``callouts`` (detail callout
+    bubbles ``{x, y, detail, sheet?}`` — a missing ``sheet`` is resolved by
+    searching the register's ``details`` sheets for the detail id) and
+    ``match_lines`` (``{edge, label}``). Two-plus ``plan`` entries on the
+    same level whose ``crop`` rects abut (share an edge within
+    ``MATCH_LINE_ABUT_TOL_MM``) auto-generate match lines on each sheet
+    labelled ``MATCH LINE — SEE <other sheet no>``; an explicit
+    ``match_lines`` opt on an entry overrides its auto lines.
+
     CD anatomy options (WP-CD-ANATOMY slice B — all default off):
     ``line_weights`` (3-tier cut/projection/reference stroke hierarchy +
     "ABV." dashed + line legend in sections/elevations), ``hatches``
@@ -579,8 +642,10 @@ def export_construction_set(
                         ``ghost_walls``, ``room_tags``, ``tags`` (marked
                         door/window tag bubbles + wall-type diamonds +
                         equipment leader tags), ``dimensions``, ``dim_tiers``,
-                        ``fractional_grids``, ``key_plan``, ``room_areas``
-                        (each overriding the export-level default).
+                        ``fractional_grids``, ``key_plan``, ``room_areas``,
+                        ``keynotes`` (each overriding the export-level
+                        default), ``grid_sides`` (``"arch"``/``"framing"``),
+                        ``callouts`` (detail callout bubbles), ``match_lines``.
     - ``"elevations"``— paired elevations. opts: ``pair`` e.g. ``["S", "N"]``.
     - ``"sections"``  — the two default building sections (A-A / B-B).
     - ``"schedule"``  — ruled schedule table(s). opts: ``schedule`` — a
@@ -636,11 +701,15 @@ def export_construction_set(
             fractional_grids=fractional_grids,
             key_plan=key_plan,
             room_areas=room_areas,
+            grid_sides=grid_sides,
+            keynotes=keynotes,
             line_weights=line_weights,
             hatches=hatches,
             stamp_block=stamp_block,
+            revisions=revisions,
         )
 
+    rev_clouds, rev_rows, rev_delta = _normalize_revisions(model, revisions, date)
     nominal_scale = _scale_note_for(plan_scale, units)
     level_ids = {lvl.name: lvl.id for lvl in model.levels}
     plan_levels = [
@@ -681,6 +750,9 @@ def export_construction_set(
             fractional_grids=fractional_grids,
             key_plan=key_plan,
             room_areas=room_areas,
+            grid_sides="arch" if grid_sides else None,
+            keynotes=keynotes,
+            clouds=[{**r, "number": rev_delta} for r in rev_clouds.get(lname, [])] or None,
         )
         plan_sheet = _sheet_from_view(
             model,
@@ -691,6 +763,7 @@ def export_construction_set(
             px_per_mm=plan_scale,
             north_arrow=True,
             date=date,
+            revisions_rows=rev_rows,
         )
         fname = f"{sn}_plan.svg"
         (out / fname).write_text(plan_sheet, encoding="utf-8")
@@ -901,6 +974,7 @@ def export_construction_set(
                     include=include,
                     ghost_walls=True,
                     units=units,
+                    grid_sides="framing" if (grid_sides and disc == "S") else None,
                     title=f"{model.name} — {disc_title} {lname}",
                 )
                 legend = _legend_view(_discipline_legend(disc, lvl_els))
@@ -1326,6 +1400,31 @@ def _discipline_of(spec: dict) -> str:
     return m.group(0).upper() if m else "A"
 
 
+def _crops_abut(
+    ca: tuple[float, float, float, float],
+    cb: tuple[float, float, float, float],
+    tol: float = MATCH_LINE_ABUT_TOL_MM,
+) -> tuple[str, str] | None:
+    """(edge_on_a, edge_on_b) when two crop rects share an edge within ``tol``
+    and overlap along it; None otherwise. Plan +y is north, so a's top edge
+    (ay1) meeting b's bottom edge (by0) is ("N", "S")."""
+    ax0, ay0, ax1, ay1 = ca
+    bx0, by0, bx1, by1 = cb
+
+    def _overlaps(a0: float, a1: float, b0: float, b1: float) -> bool:
+        return min(a1, b1) - max(a0, b0) > 0.0
+
+    if abs(ax1 - bx0) <= tol and _overlaps(ay0, ay1, by0, by1):
+        return ("E", "W")
+    if abs(bx1 - ax0) <= tol and _overlaps(ay0, ay1, by0, by1):
+        return ("W", "E")
+    if abs(ay1 - by0) <= tol and _overlaps(ax0, ax1, bx0, bx1):
+        return ("N", "S")
+    if abs(by1 - ay0) <= tol and _overlaps(ax0, ax1, bx0, bx1):
+        return ("S", "N")
+    return None
+
+
 def _require_register_entry(spec: Any) -> dict:
     if not isinstance(spec, dict):
         raise ValidationError("each sheets[] entry must be a dict", entry=repr(spec)[:80])
@@ -1472,20 +1571,48 @@ def _export_custom_register(
     fractional_grids: bool = False,
     key_plan: bool = False,
     room_areas: bool = False,
+    grid_sides: bool = False,
+    keynotes: bool = False,
     line_weights: bool = False,
     hatches: bool = False,
     stamp_block: bool = False,
+    revisions: dict | None = None,
 ) -> dict:
     """Emit a caller-defined sheet register (replaces the default A-1xx… set).
 
     ``units`` is the export-level default; each entry may override it with a
     per-sheet ``units`` opt (``"metric"``/``"imperial"``). Likewise the CD
     anatomy defaults ``dim_tiers`` / ``fractional_grids`` / ``key_plan`` /
-    ``room_areas`` may be overridden per ``plan`` entry, ``line_weights`` /
-    ``hatches`` per ``elevations``/``sections`` entry, and ``stamp_block``
-    per any entry (export default applies it to S-discipline sheets).
+    ``room_areas`` / ``keynotes`` may be overridden per ``plan`` entry,
+    ``line_weights`` / ``hatches`` per ``elevations``/``sections`` entry, and
+    ``stamp_block`` per any entry (export default applies it to S-discipline
+    sheets). ``grid_sides=True`` maps discipline → bubble sides per ``plan``
+    entry (S → ``"framing"``, A → ``"arch"``); a per-sheet ``grid_sides`` opt
+    (``"arch"``/``"framing"``/falsy to disable) overrides the mapping.
+
+    Plan entries additionally take ``callouts`` (split-circle detail callout
+    bubbles ``{x, y, detail, sheet?}`` — a missing ``sheet`` resolves by
+    searching the register's ``details`` sheets for the detail id, raising
+    ``ValidationError`` naming the known ids when unresolvable) and
+    ``match_lines`` (``{edge, label}``). Plan entries sharing a level whose
+    ``crop`` rects abut auto-generate reciprocal ``MATCH LINE — SEE <no>``
+    lines; an explicit ``match_lines`` opt overrides the auto lines.
     """
     specs = [_require_register_entry(s) for s in register]
+    rev_clouds, rev_rows, rev_delta = _normalize_revisions(model, revisions, date)
+
+    # detail id → hosting details-sheet no (callout 'sheet' auto-resolution)
+    detail_sheet_by_id: dict[str, str] = {}
+    for s in specs:
+        if str(s["kind"]) != "details":
+            continue
+        for det in s.get("details") or []:
+            if not isinstance(det, dict):
+                continue
+            did = str(det.get("id") or "").strip()
+            if did and did not in detail_sheet_by_id:
+                detail_sheet_by_id[did] = str(s["no"])
+
     level_ids = {lvl.name: lvl.id for lvl in model.levels}
     plan_levels = [
         lvl.name
@@ -1495,6 +1622,37 @@ def _export_custom_register(
     if not plan_levels:
         plan_levels = [plan_level or (model.levels[0].name if model.levels else "L1")]
     default_level = plan_level or plan_levels[0]
+
+    # auto match lines: plan entries on the same level with abutting crops
+    # reference each other; an explicit per-sheet 'match_lines' opt overrides
+    auto_match: dict[int, list[dict]] = {}
+    crop_plans: list[tuple[int, dict, tuple[float, float, float, float]]] = []
+    for si, s in enumerate(specs):
+        if str(s["kind"]) != "plan" or not s.get("crop"):
+            continue
+        try:
+            crop_t = tuple(float(v) for v in s["crop"])
+        except (TypeError, ValueError):
+            continue
+        if len(crop_t) != 4:
+            continue
+        crop_plans.append((si, s, (crop_t[0], crop_t[1], crop_t[2], crop_t[3])))
+    for ai in range(len(crop_plans)):
+        for bi in range(ai + 1, len(crop_plans)):
+            ia, sa, ca = crop_plans[ai]
+            ib, sb, cb = crop_plans[bi]
+            if str(sa.get("level") or default_level) != str(sb.get("level") or default_level):
+                continue
+            edges = _crops_abut(ca, cb)
+            if edges is None:
+                continue
+            auto_match.setdefault(ia, []).append(
+                {"edge": edges[0], "label": f"MATCH LINE — SEE {sb['no']}"}
+            )
+            auto_match.setdefault(ib, []).append(
+                {"edge": edges[1], "label": f"MATCH LINE — SEE {sa['no']}"}
+            )
+
     _ax, _ay, aw, ah = drawing_area()
     emitted: list[dict] = []
 
@@ -1520,7 +1678,7 @@ def _export_custom_register(
             return bool(spec["stamp_block"])
         return stamp_block and _discipline_of(spec) == "S"
 
-    for spec in specs:
+    for spec_i, spec in enumerate(specs):
         kind = str(spec["kind"])
         no = str(spec["no"])
         title = str(spec["title"])
@@ -1546,6 +1704,52 @@ def _export_custom_register(
             crop = tuple(float(v) for v in crop_raw) if crop_raw else None
             if crop is not None and len(crop) != 4:
                 raise ValidationError("plan 'crop' must be (x0, y0, x1, y1) mm", no=no)
+            # grid bubble sides: per-sheet opt wins; the export-level flag
+            # maps discipline → mode (S → framing, A → arch)
+            if "grid_sides" in spec:
+                gs_val = spec["grid_sides"]
+                sheet_grid_sides = str(gs_val) if gs_val else None
+            elif grid_sides:
+                disc = _discipline_of(spec)
+                sheet_grid_sides = {"S": "framing", "A": "arch"}.get(disc)
+            else:
+                sheet_grid_sides = None
+            # detail callouts: resolve a missing 'sheet' from the register's
+            # details sheets by detail id
+            callouts_raw = spec.get("callouts")
+            sheet_callouts: list[dict] | None = None
+            if callouts_raw:
+                sheet_callouts = []
+                for co in callouts_raw:
+                    if not isinstance(co, dict):
+                        raise ValidationError(
+                            "each plan 'callouts' entry must be a dict "
+                            "{x, y, detail, sheet?}",
+                            no=no,
+                            callout=repr(co)[:120],
+                        )
+                    co = dict(co)
+                    if not co.get("sheet"):
+                        did = str(co.get("detail") or "")
+                        resolved = detail_sheet_by_id.get(did)
+                        if not resolved:
+                            known = sorted(detail_sheet_by_id)
+                            raise ValidationError(
+                                f"callout detail {did!r} not found on any "
+                                f"'details' sheet in the register; known detail "
+                                f"ids: {', '.join(known) if known else '(none)'}",
+                                no=no,
+                                detail=did,
+                                known_detail_ids=known,
+                            )
+                        co["sheet"] = resolved
+                    sheet_callouts.append(co)
+            # match lines: explicit opt overrides the auto-generated lines
+            # from abutting crops
+            ml_raw = spec.get("match_lines")
+            sheet_match_lines = (
+                list(ml_raw) if ml_raw is not None else auto_match.get(spec_i)
+            )
             view = render_plan_view(
                 model,
                 lvl,
@@ -1562,6 +1766,11 @@ def _export_custom_register(
                 fractional_grids=bool(spec.get("fractional_grids", fractional_grids)),
                 key_plan=bool(spec.get("key_plan", key_plan)),
                 room_areas=bool(spec.get("room_areas", room_areas)),
+                grid_sides=sheet_grid_sides,
+                callouts=sheet_callouts,
+                match_lines=sheet_match_lines,
+                keynotes=bool(spec.get("keynotes", keynotes)),
+                clouds=[{**r, "number": rev_delta} for r in rev_clouds.get(lvl, [])] or None,
                 title=f"{model.name} — {title}",
             )
             svg = _sheet_from_view(
@@ -1569,6 +1778,7 @@ def _export_custom_register(
                 scale_note=str(spec.get("scale_note") or nominal),
                 px_per_mm=sc, north_arrow=True, date=date,
                 stamp_block=_spec_stamp(spec),
+                revisions_rows=rev_rows,
             )
             _emit(spec, svg)
 

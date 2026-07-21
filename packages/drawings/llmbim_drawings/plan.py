@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import textwrap
 from collections.abc import Mapping, Sequence
 from itertools import pairwise
 from pathlib import Path
@@ -23,6 +24,12 @@ FRACTIONAL_GRID_TOL_MM = 150.0  # off-grid distance before a fractional bubble
 DIM_GOVERNS_NOTE = "WRITTEN DIMENSIONS GOVERN — DO NOT SCALE"
 # lettered grid axes skip "I" (reads as 1) per drafting convention
 _GRID_LETTERS_NO_I = "ABCDEFGHJKLMNOPQRSTUVWXYZ"
+
+# WP-CD-ANATOMY-2 slice A: plan-side gap closures
+GRID_SIDES_MODES = ("arch", "framing")  # per-discipline grid bubble sides
+MATCH_LINE_INSET_PX = 8.0  # match line sits just inside the crop edge
+_MATCH_LINE_EDGES = ("N", "S", "E", "W")
+KEYNOTE_WRAP_CHARS = 30  # legend text wrap width (characters)
 
 
 def _chain_segments(
@@ -205,6 +212,11 @@ def render_plan_view(
     fractional_grids: bool = False,
     key_plan: bool = False,
     room_areas: bool = False,
+    grid_sides: str | None = None,
+    callouts: Sequence[Mapping[str, Any]] | None = None,
+    match_lines: Sequence[Mapping[str, Any]] | None = None,
+    keynotes: bool = False,
+    clouds: Sequence[Mapping[str, Any]] | None = None,
 ) -> DrawingView:
     """Build a plan DrawingView (inner body + size).
 
@@ -258,10 +270,36 @@ def render_plan_view(
     - ``room_areas``: with ``room_tags``, the boxed tag becomes full anatomy —
       room name over a boxed number (params ``number``, else sequential) with
       the area (SF imperial / m² metric) under the boxed number.
+
+    CD anatomy extras (WP-CD-ANATOMY-2 slice A — all default off, output
+    byte-stable when unset):
+
+    - ``grid_sides``: per-discipline grid bubble sides. ``None`` (default)
+      keeps the current behavior (bubbles on both ends of every grid line);
+      ``"arch"`` draws the architectural convention explicitly (letters
+      left + right, numbers top + bottom — bubbles on both ends); and
+      ``"framing"`` draws structural-framing convention: two sides only —
+      letters on the left end, numbers on the top end. Applies to fractional
+      intermediate bubbles too.
+    - ``callouts``: detail callout bubbles — each item a mapping with plan
+      ``x``/``y`` (mm), ``detail`` (e.g. ``"D07"``) and ``sheet`` (e.g.
+      ``"S3.2"``). Renders the reference-style split circle (detail number
+      over sheet number with a horizontal divider) on a short leader.
+    - ``match_lines``: each item ``{"edge": "N"|"S"|"E"|"W", "label": ...}``
+      — a heavy dash-dot line just inside the given view/crop edge with the
+      label text along it (``MATCH LINE — SEE A1.2``).
+    - ``keynotes``: note elements on the level render as numbered squares
+      (1, 2, 3… in draw order) with a leader to the note position, plus a
+      KEYNOTES legend block (number → text, long texts wrapped) at the plan
+      edge — replacing the plain inline note text.
     """
     if units not in {"metric", "imperial"}:
         raise ValidationError(
             "units must be 'metric' or 'imperial'", units=units
+        )
+    if grid_sides is not None and grid_sides not in GRID_SIDES_MODES:
+        raise ValidationError(
+            "grid_sides must be 'arch' or 'framing'", grid_sides=grid_sides
         )
     imperial = units == "imperial"
 
@@ -1413,6 +1451,17 @@ def render_plan_view(
         parts.append("  </g>")
 
     # Grid lines + bubble labels (A,B,C… / 1,2,3…)
+    def _bubble_ends(
+        axis: str, p_min: tuple[float, float], p_max: tuple[float, float]
+    ) -> tuple[tuple[float, float], ...]:
+        """Bubble endpoints per ``grid_sides``: default/arch both ends;
+        framing 2 sides only — numbers (U axis) top, letters (V axis) left."""
+        if grid_sides == "framing":
+            # U lines: p_max projects at max_y = screen top; V lines: p_min
+            # projects at min_x = screen left
+            return (p_max,) if axis == "U" else (p_min,)
+        return (p_min, p_max)
+
     parts.append('  <g class="grids" stroke="#888" stroke-width="0.6" fill="none">')
     for g in model.grids if _on("grids") else []:
         axis = g.params.get("axis", "U")
@@ -1439,9 +1488,9 @@ def render_plan_view(
                 f'    <line x1="{fmt(px0)}" y1="{fmt(py0)}" x2="{fmt(px1)}" y2="{fmt(py1)}" '
                 f'stroke-dasharray="4 4"/>'
             )
-            # bubble at both ends
+            # bubble at both ends (or the discipline sides per grid_sides)
             br = max(8.0, 120 * scale)
-            for bx, by in ((px0, py0), (px1, py1)):
+            for bx, by in _bubble_ends(str(axis), (px0, py0), (px1, py1)):
                 parts.append(
                     f'    <circle cx="{fmt(bx)}" cy="{fmt(by)}" r="{fmt(br)}" '
                     f'fill="#fff" stroke="#555" stroke-width="1"/>'
@@ -1532,8 +1581,8 @@ def render_plan_view(
                     f'    <line x1="{fmt(px0)}" y1="{fmt(py0)}" x2="{fmt(px1)}" '
                     f'y2="{fmt(py1)}" stroke-dasharray="12 4 3 4"/>'
                 )
-                # bubbles on both ends
-                for bx, by in ((px0, py0), (px1, py1)):
+                # bubbles on both ends (or the discipline sides per grid_sides)
+                for bx, by in _bubble_ends(axis, (px0, py0), (px1, py1)):
                     parts.append(
                         f'    <circle cx="{fmt(bx)}" cy="{fmt(by)}" r="{fmt(fr_br)}" '
                         f'fill="#fff" stroke="#555" stroke-width="1"/>'
@@ -1857,22 +1906,60 @@ def render_plan_view(
                 )
         parts.append("  </g>")
 
-    # Notes
-    parts.append('  <g class="notes" fill="#a30" font-family="sans-serif" font-size="10">')
-    for note in notes if _on("notes") else []:
-        try:
-            pos = note.params["position_mm"]
-            text = str(note.params.get("text", ""))
-            px, py = project(float(pos[0]), float(pos[1]))
-            parts.append(f'    <circle cx="{fmt(px)}" cy="{fmt(py)}" r="3" fill="#a30"/>')
-            parts.append(f'    <text x="{fmt(px + 6)}" y="{fmt(py)}">{esc(text[:80])}</text>')
-        except (KeyError, TypeError, ValueError):
-            continue
-    parts.append("  </g>")
+    # Notes — keynotes=True swaps the inline text for numbered squares on
+    # leaders (1, 2, 3… in draw order); the KEYNOTES legend block renders
+    # after the key plan so the two blocks stack at the plan edge.
+    keynote_items: list[tuple[int, str]] = []
+    if keynotes:
+        parts.append(
+            '  <g class="keynotes" font-family="sans-serif" fill="#1a1a1a">'
+        )
+        kn_num = 0
+        for note in notes if _on("notes") else []:
+            try:
+                pos = note.params["position_mm"]
+                text = str(note.params.get("text", ""))
+                px, py = project(float(pos[0]), float(pos[1]))
+            except (KeyError, TypeError, ValueError):
+                continue
+            kn_num += 1
+            keynote_items.append((kn_num, text))
+            sq = 7.0  # square half-size
+            bx, by = px + 22.0, py - 16.0
+            parts.append(
+                f'    <line class="keynote-leader" x1="{fmt(px)}" y1="{fmt(py)}" '
+                f'x2="{fmt(bx - sq)}" y2="{fmt(by + sq)}" stroke="#1a1a1a" '
+                f'stroke-width="0.8"/>'
+            )
+            parts.append(
+                f'    <rect class="keynote-square" x="{fmt(bx - sq)}" '
+                f'y="{fmt(by - sq)}" width="{fmt(2 * sq)}" height="{fmt(2 * sq)}" '
+                f'fill="#ffffff" stroke="#1a1a1a" stroke-width="1"/>'
+            )
+            parts.append(
+                f'    <text x="{fmt(bx)}" y="{fmt(by + 3)}" text-anchor="middle" '
+                f'font-size="9" font-weight="bold">{kn_num}</text>'
+            )
+        parts.append("  </g>")
+    else:
+        parts.append(
+            '  <g class="notes" fill="#a30" font-family="sans-serif" font-size="10">'
+        )
+        for note in notes if _on("notes") else []:
+            try:
+                pos = note.params["position_mm"]
+                text = str(note.params.get("text", ""))
+                px, py = project(float(pos[0]), float(pos[1]))
+                parts.append(f'    <circle cx="{fmt(px)}" cy="{fmt(py)}" r="3" fill="#a30"/>')
+                parts.append(f'    <text x="{fmt(px + 6)}" y="{fmt(py)}">{esc(text[:80])}</text>')
+            except (KeyError, TypeError, ValueError):
+                continue
+        parts.append("  </g>")
 
     # Key plan: reduced building outline block in the top-right corner —
     # footprint from the level's walls (never crop-filtered), current crop
     # zone shaded when a crop window is set.
+    _legend_top = 6.0  # keynote legend stacks under the key plan block
     if key_plan:
         kp_walls = [
             wp
@@ -1929,6 +2016,157 @@ def render_plan_view(
                 f'fill="#333">KEY PLAN</text>'
             )
             parts.append("  </g>")
+            _legend_top = by + kh + 8.0
+
+    # Detail callout bubbles: reference-style split circle — detail number
+    # over sheet number with a horizontal divider — on a short leader from
+    # the plan point (`9/A7.1` convention).
+    if callouts:
+        parts.append('  <g class="detail-callouts" font-family="sans-serif">')
+        cr = 13.0
+        for co in callouts:
+            try:
+                cox = float(co["x"])
+                coy = float(co["y"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValidationError(
+                    "callout needs numeric plan 'x' and 'y' (mm)",
+                    callout=repr(co)[:120],
+                ) from exc
+            det = str(co.get("detail") or "")
+            if not det:
+                raise ValidationError(
+                    "callout needs a 'detail' id (e.g. 'D07')", callout=repr(co)[:120]
+                )
+            sheet_ref = str(co.get("sheet") or "")
+            px, py = project(cox, coy)
+            bx, by = px + 34.0, py - 28.0
+            dx, dy = bx - px, by - py
+            dl = math.hypot(dx, dy) or 1.0
+            parts.append(
+                f'    <line class="callout-leader" x1="{fmt(px)}" y1="{fmt(py)}" '
+                f'x2="{fmt(bx - dx / dl * cr)}" y2="{fmt(by - dy / dl * cr)}" '
+                f'stroke="#1a1a1a" stroke-width="0.9"/>'
+            )
+            parts.append(
+                f'    <circle class="detail-callout" cx="{fmt(bx)}" cy="{fmt(by)}" '
+                f'r="{fmt(cr)}" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.5"/>'
+            )
+            parts.append(
+                f'    <line class="callout-divider" x1="{fmt(bx - cr)}" y1="{fmt(by)}" '
+                f'x2="{fmt(bx + cr)}" y2="{fmt(by)}" stroke="#1a1a1a" '
+                f'stroke-width="0.9"/>'
+            )
+            parts.append(
+                f'    <text x="{fmt(bx)}" y="{fmt(by - 3)}" text-anchor="middle" '
+                f'font-size="8.5" font-weight="bold" fill="#1a1a1a">{esc(det[:6])}</text>'
+            )
+            parts.append(
+                f'    <text x="{fmt(bx)}" y="{fmt(by + 9.5)}" text-anchor="middle" '
+                f'font-size="7" fill="#1a1a1a">{esc(sheet_ref[:8])}</text>'
+            )
+        parts.append("  </g>")
+
+    # Match lines: heavy dash-dot line just inside the given view/crop edge
+    # with the label text along it (plans split across sheets).
+    if match_lines:
+        parts.append('  <g class="match-lines" font-family="sans-serif">')
+        for ml in match_lines:
+            edge = str(ml.get("edge") or "").upper()
+            if edge not in _MATCH_LINE_EDGES:
+                raise ValidationError(
+                    "match line 'edge' must be one of N, S, E, W",
+                    edge=ml.get("edge"),
+                )
+            lab = str(ml.get("label") or "MATCH LINE")
+            if edge in {"N", "S"}:
+                yl = MATCH_LINE_INSET_PX if edge == "N" else height - MATCH_LINE_INSET_PX
+                parts.append(
+                    f'    <line class="match-line" x1="0" y1="{fmt(yl)}" '
+                    f'x2="{fmt(width)}" y2="{fmt(yl)}" stroke="#1a1a1a" '
+                    f'stroke-width="2.2" stroke-dasharray="18 5 4 5"/>'
+                )
+                ty = yl + 12.0 if edge == "N" else yl - 5.0
+                parts.append(
+                    f'    <text class="match-line-label" x="{fmt(width / 2)}" '
+                    f'y="{fmt(ty)}" text-anchor="middle" font-size="9" '
+                    f'font-weight="bold" fill="#1a1a1a">{esc(lab)}</text>'
+                )
+            else:
+                xl = MATCH_LINE_INSET_PX if edge == "W" else width - MATCH_LINE_INSET_PX
+                parts.append(
+                    f'    <line class="match-line" x1="{fmt(xl)}" y1="0" '
+                    f'x2="{fmt(xl)}" y2="{fmt(height)}" stroke="#1a1a1a" '
+                    f'stroke-width="2.2" stroke-dasharray="18 5 4 5"/>'
+                )
+                tx = xl + 12.0 if edge == "W" else xl - 5.0
+                my = height / 2
+                parts.append(
+                    f'    <text class="match-line-label" x="{fmt(tx)}" y="{fmt(my)}" '
+                    f'text-anchor="middle" font-size="9" font-weight="bold" '
+                    f'fill="#1a1a1a" transform="rotate(-90 {fmt(tx)} {fmt(my)})">'
+                    f"{esc(lab)}</text>"
+                )
+        parts.append("  </g>")
+
+    # KEYNOTES legend block: number → text at the plan edge (under the key
+    # plan when both are on); long texts wrapped to continuation lines.
+    if keynotes and keynote_items:
+        lg_w = 210.0
+        wrapped_rows: list[tuple[str, str]] = []
+        for kn_i, kn_text in keynote_items:
+            kn_lines = textwrap.wrap(kn_text, width=KEYNOTE_WRAP_CHARS) or [""]
+            wrapped_rows.append((str(kn_i), kn_lines[0]))
+            wrapped_rows.extend(("", cont) for cont in kn_lines[1:])
+        lg_h = 30.0 + 14.0 * len(wrapped_rows)
+        lx = max(width - lg_w - 6.0, 6.0)
+        ly = _legend_top
+        parts.append('  <g class="keynote-legend" font-family="sans-serif">')
+        parts.append(
+            f'    <rect x="{fmt(lx)}" y="{fmt(ly)}" width="{fmt(lg_w)}" '
+            f'height="{fmt(lg_h)}" fill="#ffffff" fill-opacity="0.92" '
+            f'stroke="#333" stroke-width="1"/>'
+        )
+        parts.append(
+            f'    <text x="{fmt(lx + 8)}" y="{fmt(ly + 15)}" font-size="10" '
+            f'font-weight="bold" letter-spacing="1" fill="#111">KEYNOTES</text>'
+        )
+        parts.append(
+            f'    <line x1="{fmt(lx + 8)}" y1="{fmt(ly + 20)}" '
+            f'x2="{fmt(lx + lg_w - 8)}" y2="{fmt(ly + 20)}" stroke="#111" '
+            f'stroke-width="0.8"/>'
+        )
+        row_y = ly + 34.0
+        for num_lab, line in wrapped_rows:
+            if num_lab:
+                parts.append(
+                    f'    <rect x="{fmt(lx + 8)}" y="{fmt(row_y - 8)}" width="10" '
+                    f'height="10" fill="#ffffff" stroke="#1a1a1a" stroke-width="0.8"/>'
+                )
+                parts.append(
+                    f'    <text x="{fmt(lx + 13)}" y="{fmt(row_y)}" '
+                    f'text-anchor="middle" font-size="7" font-weight="bold" '
+                    f'fill="#1a1a1a">{esc(num_lab)}</text>'
+                )
+            parts.append(
+                f'    <text x="{fmt(lx + 24)}" y="{fmt(row_y)}" font-size="9" '
+                f'fill="#111">{esc(line)}</text>'
+            )
+            row_y += 14.0
+        parts.append("  </g>")
+
+    if clouds:
+        from llmbim_drawings.sheets import revision_cloud
+
+        parts.append('  <g class="revision-clouds">')
+        for cl in clouds:
+            px0, py0 = project(float(cl["x0"]), float(cl["y0"]))
+            px1, py1 = project(float(cl["x1"]), float(cl["y1"]))
+            cx, cy = min(px0, px1) - 6.0, min(py0, py1) - 6.0
+            cw = abs(px1 - px0) + 12.0
+            ch = abs(py1 - py0) + 12.0
+            parts.append(revision_cloud(cx, cy, cw, ch, number=str(cl.get("number", "1"))))
+        parts.append("  </g>")
 
     # reveal the dimension band (offset 12 + text) and grid bubbles (radius br),
     # which sit just outside the geometry extents, so they render on-canvas.

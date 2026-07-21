@@ -173,6 +173,23 @@ class Project:
             return {"summary": {}, "note": "VCS not bound"}
         return self._vcs.diff(version_a, version_b, model=self._model)
 
+    def revision_clouds(self, since: str, *, level: str | None = None) -> dict[str, list[dict[str, Any]]]:
+        """Revision-cloud rectangles (plan mm) for changes since a committed version.
+
+        Checkout-free: reads the ``since`` snapshot (version id, prefix, or
+        tag) from the VCS store without touching the working model, then
+        diffs it against the current model. Returns
+        ``{level_name: [{"x0","y0","x1","y1","element_ids"}, …]}`` — see
+        ``llmbim_drawings.revisions.revision_cloud_rects``.
+        """
+        if self._vcs is None:
+            raise RuntimeError("VCS not bound — open a project dir or create(vcs=True)")
+        from llmbim_drawings.revisions import revision_cloud_rects
+
+        payload = self._vcs.load_version(since)
+        prior = ProjectModel.from_dict(payload["model"])
+        return revision_cloud_rects(self._model, prior, level=level)
+
     def tag(self, name: str, version_id: str | None = None) -> dict[str, Any]:
         if self._vcs is None:
             raise RuntimeError("VCS not bound")
