@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -11,7 +12,12 @@ from llmbim_core.model import Element, ProjectModel
 
 if TYPE_CHECKING:
     from llmbim_core.parts_catalog import PartType
-from llmbim_core.types_catalog import DEFAULT_DOOR_TYPES, DEFAULT_WALL_TYPES, DEFAULT_WINDOW_TYPES
+from llmbim_core.types_catalog import (
+    DEFAULT_DOOR_TYPES,
+    DEFAULT_ROOF_TYPES,
+    DEFAULT_WALL_TYPES,
+    DEFAULT_WINDOW_TYPES,
+)
 
 
 def _wall_length_m(el: Element) -> float:
@@ -32,6 +38,202 @@ def wall_area_m2(el: Element) -> float:
 
 def wall_volume_m3(el: Element) -> float:
     return wall_area_m2(el) * _wall_thickness_m(el)
+
+
+def wall_opening_area_m2(el: Element, model: ProjectModel | None) -> float:
+    """Elevational area of the doors and windows hosted by this wall."""
+    if model is None:
+        return 0.0
+    total = 0.0
+    for o in model.elements:
+        if o.category not in {"door", "window"} or o.host_id != el.id:
+            continue
+        try:
+            w = float(o.params.get("width_mm") or 0.0)
+            h = float(o.params.get("height_mm")
+                      or (2100 if o.category == "door" else 1200))
+        except (TypeError, ValueError):
+            continue
+        if w > 0 and h > 0:
+            total += (w / 1000.0) * (h / 1000.0)
+    return total
+
+
+def wall_net_area_m2(el: Element, model: ProjectModel | None = None) -> float:
+    """Wall area with its openings deducted, floored at zero.
+
+    Gross area bills a 16 ft garage door as if it were wall: on the Schad
+    set that overstated individual walls by up to 3x. Estimators take
+    sheathing, insulation and finish off the NET area.
+    """
+    return max(0.0, wall_area_m2(el) - wall_opening_area_m2(el, model))
+
+
+def polygon_area_3d_m2(pts) -> float:
+    """Area of a planar polygon in 3D (mm) -> m2, via the cross-product sum."""
+    n = len(pts)
+    if n < 3:
+        return 0.0
+    cx = cy = cz = 0.0
+    for i in range(n):
+        ax, ay, az = (float(c) for c in pts[i][:3])
+        bx, by, bz = (float(c) for c in pts[(i + 1) % n][:3])
+        cx += ay * bz - az * by
+        cy += az * bx - ax * bz
+        cz += ax * by - ay * bx
+    return 0.5 * math.sqrt(cx * cx + cy * cy + cz * cz) / 1e6
+
+
+def roof_planes_mm(el: Element) -> list[list]:
+    """Normalise a roof's plane polygons across representations.
+
+    Kernel roofs store `planes` as a list of dicts ({polygon_mm, slope, ...});
+    an older form stored `planes_mm` as a bare list of polygons. Return a
+    plain list of [[x,y,z],...] polygons either way.
+    """
+    planes = el.params.get("planes")
+    if planes:
+        out = []
+        for p in planes:
+            if isinstance(p, dict):
+                poly = p.get("polygon_mm") or p.get("polygon") or []
+            else:
+                poly = p
+            if poly:
+                out.append(poly)
+        return out
+    return el.params.get("planes_mm") or []
+
+
+def roof_area_m2(el: Element) -> float:
+    """True area ALONG THE SLOPE, summed over the roof's planes.
+
+    Plan-projected area under-reports a pitched roof by cos(pitch) — 11% at
+    6:12 — which is exactly the number shingles and sheathing are bought by.
+    """
+    return sum(polygon_area_3d_m2(p) for p in roof_planes_mm(el))
+
+
+def footing_volume_m3(el: Element) -> float:
+    """Concrete volume; prefers the value the command already computed."""
+    v = el.params.get("concrete_m3")
+    if v is not None:
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            pass
+    try:
+        return (float(el.params.get("width_mm") or 0)
+                * float(el.params.get("length_mm") or 0)
+                * float(el.params.get("depth_mm") or 0)) / 1e9
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _wall_footprint(el: Element) -> tuple[list[tuple[float, float]], float, float] | None:
+    """Oriented wall footprint polygon (mm) + [z0, z1] height band.
+
+    The rectangle is the centreline swept +/- half-thickness, from start to
+    end. Used to measure how much two abutting walls overlap at a corner.
+    """
+    try:
+        s, e = el.params["start_mm"], el.params["end_mm"]
+        th = float(el.params.get("thickness_mm") or 200.0)
+        h = float(el.params.get("height_mm") or 3000.0)
+    except (KeyError, TypeError, ValueError):
+        return None
+    x0, y0, x1, y1 = float(s[0]), float(s[1]), float(e[0]), float(e[1])
+    dx, dy = x1 - x0, y1 - y0
+    length = math.hypot(dx, dy)
+    if length < 1e-6 or th <= 0 or h <= 0:
+        return None
+    nx, ny = -dy / length * th / 2.0, dx / length * th / 2.0
+    poly = [(x0 + nx, y0 + ny), (x1 + nx, y1 + ny),
+            (x1 - nx, y1 - ny), (x0 - nx, y0 - ny)]
+    return poly, 0.0, h          # z band is height-relative; only overlap matters
+
+
+def _ccw(poly: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """Return the polygon wound counter-clockwise (positive signed area)."""
+    a = 0.0
+    for i in range(len(poly)):
+        x0, y0 = poly[i]
+        x1, y1 = poly[(i + 1) % len(poly)]
+        a += x0 * y1 - x1 * y0
+    return poly if a >= 0 else list(reversed(poly))
+
+
+def _poly_clip_area(subject: list[tuple[float, float]],
+                    clip: list[tuple[float, float]]) -> float:
+    """Area of the intersection of two convex polygons (Sutherland-Hodgman).
+
+    Both polygons are normalised to CCW first: the half-plane test below
+    assumes a CCW clip, and the wall footprints are wound clockwise.
+    """
+    subject = _ccw(subject)
+    clip = _ccw(clip)
+
+    def inside(p, a, b):
+        return (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]) >= -1e-9
+
+    def isect(p1, p2, a, b):
+        r = (p2[0] - p1[0], p2[1] - p1[1])
+        s = (b[0] - a[0], b[1] - a[1])
+        den = r[0] * s[1] - r[1] * s[0]
+        if abs(den) < 1e-12:
+            return p2
+        t = ((a[0] - p1[0]) * s[1] - (a[1] - p1[1]) * s[0]) / den
+        return (p1[0] + t * r[0], p1[1] + t * r[1])
+
+    out = list(subject)
+    n = len(clip)
+    for i in range(n):
+        a, b = clip[i], clip[(i + 1) % n]
+        inp, out = out, []
+        for j in range(len(inp)):
+            cur, prev = inp[j], inp[j - 1]
+            if inside(cur, a, b):
+                if not inside(prev, a, b):
+                    out.append(isect(prev, cur, a, b))
+                out.append(cur)
+            elif inside(prev, a, b):
+                out.append(isect(prev, cur, a, b))
+        if not out:
+            return 0.0
+    area = 0.0
+    for i in range(len(out)):
+        x0, y0 = out[i]
+        x1, y1 = out[(i + 1) % len(out)]
+        area += x0 * y1 - x1 * y0
+    return abs(area) / 2.0
+
+
+def wall_corner_overlap_m3(model: ProjectModel) -> float:
+    """Volume double-counted where wall prisms overlap at shared corners.
+
+    Summing each wall's length x thickness x height counts the corner block
+    where two walls meet once per wall. Standard estimating deducts it. The
+    overlap is computed EXACTLY as the intersection of the two oriented
+    footprints times the shared height, so collinear wall splits (which
+    only touch at an edge) contribute nothing and tees/crosses are handled
+    on their true geometry rather than a t x t guess.
+    """
+    walls = [el for el in model.elements if el.category == "wall"]
+    fps = [(el, _wall_footprint(el)) for el in walls]
+    fps = [(el, fp) for el, fp in fps if fp is not None]
+    total = 0.0
+    for i in range(len(fps)):
+        _ea, (pa, za0, za1) = fps[i]
+        for j in range(i + 1, len(fps)):
+            _eb, (pb, zb0, zb1) = fps[j]
+            area_mm2 = _poly_clip_area(pa, pb)
+            if area_mm2 <= 1.0:
+                continue
+            h = min(za1, zb1) - max(za0, zb0)
+            if h <= 0:
+                continue
+            total += area_mm2 * h / 1e9
+    return total
 
 
 def slab_area_m2(el: Element) -> float:
@@ -57,8 +259,10 @@ def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
     for el in model.query(category="wall"):
         tid = el.type_id or "W-GENERIC-200"
         wt = DEFAULT_WALL_TYPES.get(tid)
-        area = wall_area_m2(el)
-        vol = wall_volume_m3(el)
+        gross = wall_area_m2(el)
+        opening = wall_opening_area_m2(el, model)
+        area = max(0.0, gross - opening)          # estimators bill net
+        vol = area * _wall_thickness_m(el)
         cost = 0.0
         materials = []
         if wt:
@@ -92,11 +296,118 @@ def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
                 "type_name": wt.name if wt else "",
                 "qty": round(area, 3),
                 "unit": "m2",
+                "gross_qty": round(gross, 3),
+                "opening_deduction_m2": round(opening, 3),
                 "secondary_qty": round(vol, 4),
                 "secondary_unit": "m3",
                 "est_cost": round(cost, 2),
                 "phase": el.params.get("phase", "new"),
                 "materials": materials,
+            }
+        )
+
+    for el in model.query(category="roof"):
+        # Roofs had no BOQ line at all — the same closed-dispatch omission
+        # that kept them out of the IFC and STEP exporters.
+        tid = el.type_id or "R-GENERIC-200"
+        rt = DEFAULT_ROOF_TYPES.get(tid)
+        area = roof_area_m2(el)
+        th = float(el.params.get("thickness_mm") or 0) / 1000.0
+        cost = 0.0
+        materials = []
+        if rt:
+            from llmbim_core.materials import get_material, material_cost, material_mass_kg
+
+            for layer in rt.layers:
+                layer_vol = area * (layer.thickness_mm / 1000.0)
+                if get_material(layer.material):
+                    layer_cost = material_cost(layer.material, layer_vol)
+                    mass = material_mass_kg(layer.material, layer_vol)
+                else:
+                    layer_cost = layer_vol * layer.unit_cost_per_m3
+                    mass = layer_vol * (layer.density_kg_m3 or 0)
+                cost += layer_cost
+                materials.append(
+                    {
+                        "material": layer.material,
+                        "thickness_mm": layer.thickness_mm,
+                        "volume_m3": round(layer_vol, 4),
+                        "mass_kg": round(mass, 2),
+                        "cost": round(layer_cost, 2),
+                    }
+                )
+        rows.append(
+            {
+                "category": "roof",
+                "id": el.id,
+                "name": el.name,
+                "type_id": tid,
+                "type_name": rt.name if rt else "",
+                "qty": round(area, 3),
+                "unit": "m2",
+                "secondary_qty": round(area * th, 4),
+                "secondary_unit": "m3",
+                "est_cost": round(cost, 2),
+                "phase": el.params.get("phase", "new"),
+                "materials": materials,
+                "pitch": el.params.get("pitch"),
+                "roof_kind": el.params.get("kind"),
+            }
+        )
+
+    for el in model.query(category="footing"):
+        vol = footing_volume_m3(el)
+        length_m = float(el.params.get("length_mm") or 0) / 1000.0
+        cost = vol * 420.0                       # concrete in place, formed
+        rows.append(
+            {
+                "category": "footing",
+                "id": el.id,
+                "name": el.name,
+                "type_id": el.type_id or str(el.params.get("mark") or "FTG"),
+                "type_name": f"{el.params.get('kind', 'strip')} footing",
+                "qty": round(vol, 4),
+                "unit": "m3",
+                "secondary_qty": round(length_m, 3),
+                "secondary_unit": "m",
+                "est_cost": round(cost, 2),
+                "phase": el.params.get("phase", "new"),
+                "materials": [
+                    {"material": "concrete", "volume_m3": round(vol, 4),
+                     "cost": round(cost, 2)}
+                ],
+                # kernel footings carry rebar as a spec string, not a count
+                "rebar": el.params.get("rebar") or "",
+                "mark": el.params.get("mark") or "",
+            }
+        )
+
+    for el in model.query(category="stem_wall"):
+        # Concrete stem wall on the footing: length x thickness x height.
+        length_m = float(el.params.get("length_mm") or 0) / 1000.0
+        th = float(el.params.get("thickness_mm") or 0) / 1000.0
+        h = float(el.params.get("height_mm") or 0) / 1000.0
+        vol = length_m * th * h
+        cost = vol * 460.0                       # formed concrete wall
+        rows.append(
+            {
+                "category": "stem_wall",
+                "id": el.id,
+                "name": el.name,
+                "type_id": el.type_id or str(el.params.get("mark") or "STEM"),
+                "type_name": "concrete stem wall",
+                "qty": round(vol, 4),
+                "unit": "m3",
+                "secondary_qty": round(length_m, 3),
+                "secondary_unit": "m",
+                "est_cost": round(cost, 2),
+                "phase": el.params.get("phase", "new"),
+                "materials": [
+                    {"material": "concrete", "volume_m3": round(vol, 4),
+                     "cost": round(cost, 2)}
+                ],
+                "anchor_bolts": el.params.get("anchor_bolts") or "",
+                "mark": el.params.get("mark") or "",
             }
         )
 
@@ -498,10 +809,60 @@ def compute_boq(model: ProjectModel) -> list[dict[str, Any]]:
         )
         seen_ids.add(el.id)
 
+    # Machined BREP parts (fab_part): quantity = each, with solid volume and
+    # mass from the feature tree so a fab pack produces a real BOQ instead of
+    # an empty file.
+    for el in model.query(category="fab_part"):
+        if el.id in seen_ids or not el.params.get("features"):
+            continue
+        vol_mm3 = 0.0
+        try:
+            from llmbim_geometry.fab_brep import HAS_CADQUERY, solid_volume_mm3
+
+            if HAS_CADQUERY:
+                vol_mm3 = float(solid_volume_mm3(list(el.params.get("features") or [])))
+        except Exception:  # noqa: BLE001
+            vol_mm3 = 0.0
+        mat_id = str(el.params.get("material_id") or "")
+        mass_kg = 0.0
+        if vol_mm3:
+            try:
+                from llmbim_core.materials import material_mass_kg
+
+                mass_kg = float(material_mass_kg(mat_id, vol_mm3 / 1.0e9) or 0.0)
+            except Exception:  # noqa: BLE001
+                mass_kg = 0.0
+        rows.append(
+            {
+                "category": "fab_part",
+                "id": el.id,
+                "name": el.name,
+                "type_id": mat_id,
+                "type_name": mat_id or "machined part",
+                "qty": 1,
+                "unit": "ea",
+                "secondary_qty": round(vol_mm3 / 1.0e9, 6),
+                "secondary_unit": "m3",
+                "est_cost": 0.0,
+                "phase": el.params.get("phase", "new"),
+                "csi_code": str(el.params.get("csi_code") or ""),
+                "materials": [
+                    {
+                        "material": mat_id,
+                        "mass_kg": round(mass_kg, 3) if mass_kg else None,
+                        "volume_mm3": round(vol_mm3, 1) if vol_mm3 else None,
+                    }
+                ],
+            }
+        )
+        seen_ids.add(el.id)
+
     return annotate_boq_with_csi(rows, model=model)
 
 
-def boq_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+def boq_summary(
+    rows: list[dict[str, Any]], model: ProjectModel | None = None
+) -> dict[str, Any]:
     from llmbim_core.csi import boq_by_csi_division
 
     by_cat: dict[str, float] = {}
@@ -510,13 +871,28 @@ def boq_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
         c = float(r.get("est_cost") or 0)
         total += c
         by_cat[r["category"]] = by_cat.get(r["category"], 0.0) + c
-    return {
+    out = {
         "line_items": len(rows),
         "est_cost_total": round(total, 2),
         "est_cost_by_category": {k: round(v, 2) for k, v in by_cat.items()},
         "est_cost_by_csi_division": boq_by_csi_division(rows),
         "currency_note": "ENGINEERING ESTIMATE unit costs — not a bid",
     }
+    if model is not None:
+        # Per-wall volumes are honest as measured; the corner blocks where
+        # walls meet are counted once per wall, so the summary carries the
+        # deduction rather than silently trimming individual lines.
+        gross = sum(float(r.get("secondary_qty") or 0)
+                    for r in rows if r["category"] == "wall")
+        overlap = wall_corner_overlap_m3(model)
+        out["wall_volume_gross_m3"] = round(gross, 4)
+        out["wall_corner_deduction_m3"] = round(overlap, 4)
+        out["wall_volume_net_m3"] = round(max(0.0, gross - overlap), 4)
+        out["wall_volume_note"] = (
+            "net = gross - corner overlaps (each wall billed to its own "
+            "endpoints; shared corner blocks removed once)"
+        )
+    return out
 
 
 def export_boq_csv(model: ProjectModel, path: str | Path) -> Path:
@@ -553,7 +929,7 @@ def export_boq_csv(model: ProjectModel, path: str | Path) -> Path:
 
 def export_boq_json(model: ProjectModel, path: str | Path) -> Path:
     rows = compute_boq(model)
-    payload = {"summary": boq_summary(rows), "lines": rows}
+    payload = {"summary": boq_summary(rows, model), "lines": rows}
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")

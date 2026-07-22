@@ -10,7 +10,13 @@ from typing import Any
 from llmbim_core.materials import MATERIALS, get_material, material_cost, material_mass_kg
 from llmbim_core.model import Element, ProjectModel
 from llmbim_core.parts_catalog import PARTS, explode_part_bom, get_part, part_unit_cost
-from llmbim_core.quantities import slab_area_m2, wall_area_m2, wall_volume_m3
+from llmbim_core.quantities import (
+    footing_volume_m3,
+    roof_area_m2,
+    slab_area_m2,
+    wall_net_area_m2,
+    wall_volume_m3,
+)
 
 
 def material_assignment_list(model: ProjectModel) -> list[dict[str, Any]]:
@@ -89,7 +95,8 @@ def exploded_material_bom(model: ProjectModel) -> list[dict[str, Any]]:
     from llmbim_core.types_catalog import DEFAULT_WALL_TYPES
 
     for el in model.query(category="wall"):
-        area = wall_area_m2(el)
+        # net of openings, matching the BOQ: a 16 ft door is not sheathed
+        area = wall_net_area_m2(el, model)
         tid = el.type_id or ""
         wt = DEFAULT_WALL_TYPES.get(tid)
         if wt:
@@ -148,6 +155,86 @@ def exploded_material_bom(model: ProjectModel) -> list[dict[str, Any]]:
         rows.append(
             {
                 "source": "slab",
+                "element_id": el.id,
+                "element_name": el.name,
+                "material_id": mid,
+                "material_name": mat.name if mat else mid,
+                "qty": round(vol, 6),
+                "unit": "m3",
+                "volume_m3": round(vol, 6),
+                "mass_kg": round(material_mass_kg(str(mid), vol), 3),
+                "est_cost": round(material_cost(str(mid), vol), 2),
+                "csi_hint": mat.csi_hint if mat else "03 30 00",
+            }
+        )
+
+    # Roof assemblies by type layers x SLOPE area (roofs were absent from the
+    # material takeoff — same closed-category omission as the BOQ).
+    from llmbim_core.types_catalog import DEFAULT_ROOF_TYPES
+
+    for el in model.query(category="roof"):
+        area = roof_area_m2(el)
+        rt = DEFAULT_ROOF_TYPES.get(el.type_id or "")
+        if not rt or area <= 0:
+            continue
+        for layer in rt.layers:
+            vol = area * (layer.thickness_mm / 1000.0)
+            mid = layer.material
+            mat = get_material(mid)
+            rows.append(
+                {
+                    "source": "roof_layer",
+                    "element_id": el.id,
+                    "element_name": el.name,
+                    "material_id": mid,
+                    "material_name": mat.name if mat else mid,
+                    "qty": round(vol, 6),
+                    "unit": "m3",
+                    "volume_m3": round(vol, 6),
+                    "mass_kg": round(material_mass_kg(mid, vol), 3),
+                    "est_cost": round(
+                        material_cost(mid, vol) if mat
+                        else vol * layer.unit_cost_per_m3, 2),
+                    "csi_hint": mat.csi_hint if mat else "07 30 00",
+                }
+            )
+
+    # Footings + stem walls: concrete volume (rebar/anchors scheduled on the
+    # BOQ lines). Footing L x W x D; stem wall L x thickness x height.
+    for el in model.query(category="footing"):
+        vol = footing_volume_m3(el)
+        if vol <= 0:
+            continue
+        mid = el.params.get("material_id") or "concrete_4000psi"
+        mat = get_material(str(mid))
+        rows.append(
+            {
+                "source": "footing",
+                "element_id": el.id,
+                "element_name": el.name,
+                "material_id": mid,
+                "material_name": mat.name if mat else mid,
+                "qty": round(vol, 6),
+                "unit": "m3",
+                "volume_m3": round(vol, 6),
+                "mass_kg": round(material_mass_kg(str(mid), vol), 3),
+                "est_cost": round(material_cost(str(mid), vol), 2),
+                "csi_hint": mat.csi_hint if mat else "03 30 00",
+            }
+        )
+
+    for el in model.query(category="stem_wall"):
+        length_m = float(el.params.get("length_mm") or 0) / 1000.0
+        th = float(el.params.get("thickness_mm") or 0) / 1000.0
+        h = float(el.params.get("height_mm") or 0) / 1000.0
+        vol = length_m * th * h
+        if vol <= 0:
+            continue
+        mid = el.params.get("material_id") or "concrete_4000psi"
+        mat = get_material(str(mid))
+        rows.append(
+            {
+                "source": "stem_wall",
                 "element_id": el.id,
                 "element_name": el.name,
                 "material_id": mid,

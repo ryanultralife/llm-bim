@@ -49,6 +49,23 @@ class WindowType(BaseModel):
     unit_cost: float = 0.0
 
 
+class RoofType(BaseModel):
+    """Layered roof assembly — same shape as WallType, measured on slope.
+
+    Roof areas are taken along the pitch, not in plan, so a layer's quantity
+    is the true sheet/lumber count rather than the footprint.
+    """
+
+    id: str
+    name: str
+    layers: list[MaterialLayer] = Field(default_factory=list)
+    description: str = ""
+
+    @property
+    def total_thickness_mm(self) -> float:
+        return sum(L.thickness_mm for L in self.layers)
+
+
 class HeaderType(BaseModel):
     """Opening header assembly (LVL / sawn lumber) — carried design data.
 
@@ -211,6 +228,39 @@ DEFAULT_WINDOW_TYPES: dict[str, WindowType] = {
         width_mm=4 * _FT_MM,
         height_mm=4 * _FT_MM,
         u_value=0.30,
+    ),
+}
+
+
+DEFAULT_ROOF_TYPES: dict[str, RoofType] = {
+    "R-ASPHALT-R38": RoofType(
+        id="R-ASPHALT-R38",
+        name="Asphalt shingle / 5/8 CDX / R-38 batt / vented",
+        layers=[
+            MaterialLayer(material="asphalt_shingle", thickness_mm=6, function="finish", density_kg_m3=1100, unit_cost_per_m3=4200),
+            MaterialLayer(material="roof_underlayment", thickness_mm=1, function="membrane", density_kg_m3=900, unit_cost_per_m3=3000),
+            MaterialLayer(material="cdx_sheathing", thickness_mm=16, function="structure", density_kg_m3=550, unit_cost_per_m3=1200),
+            MaterialLayer(material="rafter_2x12", thickness_mm=286, function="structure", density_kg_m3=500, unit_cost_per_m3=700),
+            MaterialLayer(material="batt_insulation_r38", thickness_mm=286, function="insulation", density_kg_m3=20, unit_cost_per_m3=75),
+        ],
+        description="Vented cathedral assembly; R-38 between 2x12 rafters @ 16in OC",
+    ),
+    "R-METAL-R38": RoofType(
+        id="R-METAL-R38",
+        name="Standing seam metal / 5/8 CDX / R-38 batt",
+        layers=[
+            MaterialLayer(material="standing_seam_metal", thickness_mm=1, function="finish", density_kg_m3=7850, unit_cost_per_m3=9000),
+            MaterialLayer(material="roof_underlayment", thickness_mm=1, function="membrane", density_kg_m3=900, unit_cost_per_m3=3000),
+            MaterialLayer(material="cdx_sheathing", thickness_mm=16, function="structure", density_kg_m3=550, unit_cost_per_m3=1200),
+            MaterialLayer(material="rafter_2x12", thickness_mm=286, function="structure", density_kg_m3=500, unit_cost_per_m3=700),
+            MaterialLayer(material="batt_insulation_r38", thickness_mm=286, function="insulation", density_kg_m3=20, unit_cost_per_m3=75),
+        ],
+        description="Snow-country standing seam; same cavity as R-ASPHALT-R38",
+    ),
+    "R-GENERIC-200": RoofType(
+        id="R-GENERIC-200",
+        name="Generic 200 mm roof",
+        layers=[MaterialLayer(material="generic", thickness_mm=200, function="structure", density_kg_m3=600, unit_cost_per_m3=400)],
     ),
 }
 
