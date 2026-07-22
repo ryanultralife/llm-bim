@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from llmbim import Project
@@ -166,4 +167,40 @@ def test_ifc_material_association(tmp_path: Path) -> None:
     assert "IFCMATERIAL(" in text
     assert "IFCRELASSOCIATESMATERIAL(" in text
     assert "Copper" in text  # pipe material
+    # untyped wall (no layers) still falls back to a single IfcMaterial
     assert "Wood Framing" in text  # wall material
+
+
+def test_ifc_material_layer_set(tmp_path: Path) -> None:
+    """A multi-layer wall type exports as an IfcMaterialLayerSet whose per-layer
+    thicknesses sum to the wall thickness; a non-wall stays single-IfcMaterial."""
+    p = Project.create("Layered IFC", vcs=False)
+    p.add_level("L1", 0)
+    # W-EXT-CMU: CMU 200 + rigid insulation 50 + gypsum 16 = 266mm (set_type syncs)
+    p.create_wall(
+        level="L1",
+        start=(0, 0),
+        end=(5000, 0),
+        thickness_mm=200,
+        height_mm=3000,
+        type_id="W-EXT-CMU",
+    )
+    p.place_pipe(level="L1", nps="3/4", start=(0, 0), end=(3000, 0), material="copper")
+    out = tmp_path / "layers.ifc"
+    export_ifc(p.model, out)
+    text = out.read_text(encoding="utf-8")
+
+    assert "IFCMATERIALLAYERSET(" in text
+    assert "IFCMATERIALLAYER(" in text
+    # one IfcMaterialLayer per catalog layer (three for W-EXT-CMU)
+    wall = next(e for e in p.model.elements if e.category == "wall")
+    n_layers = len(wall.params["wall_layers"])
+    assert n_layers == 3
+    thicknesses = [float(t) for t in re.findall(r"IFCMATERIALLAYER\(#\d+,([-\d.eE+]+),", text)]
+    assert len(thicknesses) == n_layers
+    # layer thicknesses sum to the wall thickness (within 1mm)
+    total = sum(thicknesses)
+    assert abs(total - float(wall.params["thickness_mm"])) < 1.0
+    assert abs(total - 266.0) < 1.0
+    # non-wall element (copper pipe) keeps a single IfcMaterial association
+    assert "Copper" in text
