@@ -104,6 +104,14 @@ _MATERIAL_PBR: dict[str, tuple[list[float], float, float]] = {
 # Back-compat alias for tests / legend
 _MATERIAL_RGBA: dict[str, list[float]] = {k: list(v[0]) for k, v in _MATERIAL_PBR.items()}
 
+# Genuinely light-EMITTING material keys → (emissiveFactor RGB, emissive strength).
+# Adds emissiveFactor + KHR_materials_emissive_strength so a self-lit surface
+# glows in HDR-capable viewers. Inspecting _MATERIAL_PBR: every key is a passive
+# architectural / equipment / MEP surface (gauges, sensors, controls reflect but
+# do not emit). None are true luminaires, so this stays EMPTY rather than
+# fabricating glow. Populate only when a real emitter (e.g. an LED/lamp) is added.
+_EMISSIVE_FOR: dict[str, tuple[list[float], float]] = {}
+
 # FROZEN equipment kind → glTF material key map (SSOT:
 # docs/EQUIPMENT_3D_AND_DEVICE_SSOT.md §5.3D). Viewer layer styling depends on
 # these material names — NEVER rename or remove an existing key, only ADD.
@@ -2045,8 +2053,11 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
 
     # Procedural tiling detail textures (concrete/drywall/metal/wood) multiply the
     # palette colour so flat pastels gain grain in every glTF viewer.
-    tex_images, tex_textures, tex_samplers, tex_key = build_gltf_textures(mat_keys)
+    tex_images, tex_textures, tex_samplers, tex_key, tex_norm_key = build_gltf_textures(
+        mat_keys
+    )
     materials = []
+    ext_used: set[str] = set()
     for key in mat_keys:
         rgba, metal, rough = _MATERIAL_PBR.get(key, _MATERIAL_PBR["default"])
         # Only true glass/translucent layers use BLEND — walls must stay OPAQUE
@@ -2059,14 +2070,35 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
         }
         if key in tex_key:
             pbr["baseColorTexture"] = {"index": tex_key[key]}
-        materials.append(
-            {
-                "name": key,
-                "doubleSided": bool(is_trans),
-                "alphaMode": "BLEND" if is_trans else "OPAQUE",
-                "pbrMetallicRoughness": pbr,
-            }
-        )
+        mat: dict[str, Any] = {
+            "name": key,
+            "doubleSided": bool(is_trans),
+            "alphaMode": "BLEND" if is_trans else "OPAQUE",
+            "pbrMetallicRoughness": pbr,
+        }
+        # Tangent-space normal map on the same detail-textured architectural mats,
+        # reusing the SAME TEXCOORD_0 UVs (viewer derives tangents from UVs, so no
+        # TANGENT accessor needed). Gentle scale so relief reads as surface texture.
+        if key in tex_norm_key:
+            mat["normalTexture"] = {"index": tex_norm_key[key], "scale": 0.5}
+        # Additive, backward-compatible KHR material extensions. Legacy viewers
+        # ignore unknown extensions and fall back to the pbrMetallicRoughness /
+        # alphaMode values already set above.
+        mat_ext: dict[str, Any] = {}
+        if key == "window":
+            # Keep BLEND + baseColor alpha (current viewers still render glass);
+            # transmission/IOR let PBR tools refract it physically instead.
+            mat_ext["KHR_materials_transmission"] = {"transmissionFactor": 0.9}
+            mat_ext["KHR_materials_ior"] = {"ior": 1.5}
+        emissive = _EMISSIVE_FOR.get(key)
+        if emissive is not None:
+            factor, strength = emissive
+            mat["emissiveFactor"] = list(factor)
+            mat_ext["KHR_materials_emissive_strength"] = {"emissiveStrength": float(strength)}
+        if mat_ext:
+            mat["extensions"] = mat_ext
+            ext_used.update(mat_ext)
+        materials.append(mat)
     mat_index = {k: i for i, k in enumerate(mat_keys)}
 
     off_nrm = len(pos_bytes_p)
@@ -2246,6 +2278,9 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
 
     gltf = {
         "asset": {"version": "2.0", "generator": "llm-bim-presentation"},
+        # Declare exactly the extensions actually emitted above (sorted =
+        # deterministic). Absent when the model has no window / emitter.
+        **({"extensionsUsed": sorted(ext_used)} if ext_used else {}),
         "buffers": [{"byteLength": len(blob), "uri": uri}],
         "bufferViews": buffer_views,
         "accessors": accessors,
