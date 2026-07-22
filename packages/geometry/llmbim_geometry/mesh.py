@@ -526,6 +526,66 @@ def _wall_box_mesh(
     return _box_solid(b)
 
 
+def _wall_with_openings_mesh(
+    x0: float, y0: float, x1: float, y1: float, thickness: float,
+    z0: float, z1: float,
+    openings: list[tuple[float, float, float, float]],
+) -> tuple[list[float], list[float], list[int]]:
+    """Wall solid with rectangular voids cut for its doors and windows.
+
+    The IFC carries real IfcOpeningElement voids, but the tessellation used to
+    emit a plain box per wall and float a thin panel inside it, so nothing
+    downstream of the mesh (glTF, viewer, STEP) had see-through openings.
+
+    Instead of boolean CSG this emits the solid that REMAINS: full-height
+    piers between openings, plus the sill block below and header block above
+    each one. Same result for rectangular openings in a straight wall, with no
+    dependency on a CSG kernel. The door/window leaf still meshes separately
+    (`_mesh_from_opening`) and now sits inside a real hole.
+
+    ``openings`` are wall-local ``(u0, u1, z_lo, z_hi)`` where u runs along the
+    baseline from (x0, y0).
+    """
+    dx, dy = x1 - x0, y1 - y0
+    length = math.hypot(dx, dy)
+    if length < 1e-6:
+        return [], [], []
+    ux, uy = dx / length, dy / length
+
+    def seg(a: float, b: float, za: float, zb: float):
+        if b - a < 1e-6 or zb - za < 1e-6:
+            return None
+        return _wall_box_mesh(
+            x0 + ux * a, y0 + uy * a, x0 + ux * b, y0 + uy * b,
+            thickness, za, zb,
+        )
+
+    ops: list[tuple[float, float, float, float]] = []
+    for a, b, za, zb in openings:
+        a, b = max(0.0, min(a, length)), max(0.0, min(b, length))
+        za, zb = max(z0, min(za, z1)), max(z0, min(zb, z1))
+        if b - a > 1e-6 and zb - za > 1e-6:
+            ops.append((a, b, za, zb))
+    if not ops:
+        return _wall_box_mesh(x0, y0, x1, y1, thickness, z0, z1)
+
+    ops.sort()
+    pieces = []
+    cursor = 0.0
+    for a, b, za, zb in ops:
+        if a > cursor:
+            pieces.append(seg(cursor, a, z0, z1))      # pier before it
+        a = max(a, cursor)                             # clip overlapping heads
+        if b - a < 1e-6:
+            continue
+        pieces.append(seg(a, b, z0, za))               # sill below
+        pieces.append(seg(a, b, zb, z1))               # header above
+        cursor = max(cursor, b)
+    if cursor < length:
+        pieces.append(seg(cursor, length, z0, z1))     # pier after the last
+    return _merge_meshes([p for p in pieces if p])
+
+
 # Legacy helper used by older call sites / tests that only need positions
 def _wall_box_positions(
     x0: float, y0: float, x1: float, y1: float, thickness: float, z0: float, z1: float
@@ -1674,6 +1734,10 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
 
     wall_by_id = {el.id: el for el in model.elements if el.category == "wall"}
     wall_ext = _wall_join_extensions(model)
+    openings_by_host: dict[str, list[Element]] = {}
+    for _o in model.elements:
+        if _o.category in {"door", "window"} and _o.host_id:
+            openings_by_host.setdefault(_o.host_id, []).append(_o)
 
     for el in model.elements:
         pos: list[float] = []
@@ -1701,6 +1765,21 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
                 y0 -= uy * ex0
                 x1 += ux * ex1
                 y1 += uy * ex1
+            # Openings in wall-local u. Offsets are measured from the AUTHORED
+            # start, so shift by ex0 to match the join-extended baseline.
+            wall_ops: list[tuple[float, float, float, float]] = []
+            for _o in openings_by_host.get(el.id, []):
+                try:
+                    _off = float(_o.params.get("offset_mm") or 0.0) + ex0
+                    _w = float(_o.params.get("width_mm") or 0.0)
+                    _h = float(_o.params.get("height_mm")
+                               or (2100 if _o.category == "door" else 1200))
+                    _sill = float(_o.params.get("sill_mm") or 0.0)
+                except (TypeError, ValueError):
+                    continue
+                if _w > 0 and _h > 0:
+                    wall_ops.append((_off, _off + _w, z0 + _sill, z0 + _sill + _h))
+
             layers = el.params.get("wall_layers")
             if not layers and el.type_id:
                 try:
@@ -1733,15 +1812,18 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
                         "finish": "wall_finish",
                         "membrane": "wall_membrane",
                     }.get(fn, "wall")
-                    p2, n2, i2 = _wall_box_mesh(
-                        x0 + ox, y0 + oy, x1 + ox, y1 + oy, lt, z0, z0 + ht
+                    p2, n2, i2 = _wall_with_openings_mesh(
+                        x0 + ox, y0 + oy, x1 + ox, y1 + oy, lt,
+                        z0, z0 + ht, wall_ops,
                     )
                     _record(parts, key, p2, n2, i2)
                     cursor += lt
                 if parts:
                     element_parts.append((el, parts))
                 continue  # layers already appended
-            pos, nrm, indices = _wall_box_mesh(x0, y0, x1, y1, th, z0, z0 + ht)
+            pos, nrm, indices = _wall_with_openings_mesh(
+                x0, y0, x1, y1, th, z0, z0 + ht, wall_ops
+            )
         elif el.category == "slab":
             pos, nrm, indices = _mesh_from_slab(el, model)
         elif el.category == "footing":
