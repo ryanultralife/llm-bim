@@ -13,7 +13,11 @@ list (W16x40 32', HSS6x6x1/4, SSW24x9 x4 + SSW24x12 x2, trusses),
 
 from __future__ import annotations
 
+import re
+
 import schad_design_basis as basis
+
+_REBAR_SPEC_RE = re.compile(r"\((\d+)\)\s*#(\d+)")
 
 # ---- loads ----------------------------------------------------------------
 SNOW_PSF = 75.0            # roof snow [RB framing notes]
@@ -152,6 +156,52 @@ def calc_summary() -> list[str]:
         % (lt['W_k'], lt['Cs'], lt['V_k'], lt['v_front_k'],
            lt['cap_front_k'], lt['DCR'], F(lt['ok'])),
     ]
+
+
+def place_foundation_rebar(p: object, *, level: str = 'L1') -> dict:
+    """Place foundation rebar as CSI 03 20 00 parts from the basis specs carried
+    on footing/stem/slab elements (schematic quantity → non-empty rebar takeoff).
+
+    HONESTY: only reinforcement the record actually specifies is quantified. The
+    basis fixes ``(2) #4 CONTINUOUS`` in the strip footings and Grade 60
+    [schad_design_basis foundation notes]; stems, pads and slabs carry no bar
+    callout in the record and are left UNQUANTIFIED (not invented). Continuous
+    bars bill count x element length. Design-development, not a bar-bending
+    schedule — the EOR's stamped rebar shop drawings govern.
+    """
+    placed = {'elements': 0, 'bars': 0, 'length_m': 0.0}
+    for el in list(p.model.elements):
+        if el.category not in ('footing', 'stem_wall', 'slab'):
+            continue
+        spec = str(el.params.get('rebar') or el.params.get('reinforcement') or '')
+        m = _REBAR_SPEC_RE.search(spec)
+        if not m:
+            continue
+        count = int(m.group(1))
+        size = m.group(2)
+        length_mm = float(el.params.get('length_mm') or 0.0)
+        if count <= 0 or length_mm <= 0.0:
+            continue
+        total_len_m = round(count * length_mm / 1000.0, 3)
+        pts = el.params.get('path_mm') or []
+        origin = (
+            el.params.get('origin_mm')
+            or el.params.get('position_mm')
+            or (pts[0] if pts else [0.0, 0.0])
+        )
+        mark = str(el.params.get('mark') or el.category)
+        p.place_part(
+            level=level,
+            kind='rebar',
+            bar_size=size,
+            origin=(float(origin[0]), float(origin[1])),
+            length_m=total_len_m,
+            name=f'{mark} rebar #{size}',
+        )
+        placed['elements'] += 1
+        placed['bars'] += count
+        placed['length_m'] = round(placed['length_m'] + total_len_m, 3)
+    return placed
 
 
 if __name__ == '__main__':
