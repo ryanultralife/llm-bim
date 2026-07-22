@@ -107,6 +107,27 @@ def test_elevation_opening_labels_stagger_when_crowded() -> None:
     assert 'stroke-width="0.4"' in grp  # leader dropped for the raised tag
 
 
+def test_no_storey_dim_above_topmost_level() -> None:
+    # Storey dims run between consecutive levels. The topmost level has nothing
+    # above it, so no dim to an arbitrary point above the roof should be drawn
+    # (it would land above the viewBox and bleed onto the sheet border or the
+    # neighbouring cell's title). Consecutive levels → len(levels) - 1 dims.
+    p = _proj("multi-lvl")  # adds L1 @ 0
+    p.add_level("L2", 3000)
+    p.add_level("ROOF", 6000)
+    p.create_wall(
+        level="L1", start=(0, 0), end=(8000, 0), thickness_mm=200, height_mm=6000,
+    )
+    svg = render_elevation_svg(p.model, "S")
+    storey_ys = [
+        float(m)
+        for m in re.findall(r'y="([\d.-]+)"[^>]*class="storey-height"', svg)
+    ]
+    assert len(storey_ys) == 2  # L1→L2 and L2→ROOF only, not a 3rd above ROOF
+    # every storey label sits within the drawn view, never above its top edge
+    assert min(storey_ys) >= 0.0
+
+
 # ── 2. material hatches ──────────────────────────────────────────────────────
 
 
