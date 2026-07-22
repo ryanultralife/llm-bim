@@ -178,14 +178,15 @@ def exploded_material_bom(model: ProjectModel) -> list[dict[str, Any]]:
                 mid = str(getattr(get_part(str(pid)), "primary_material_id", "") or "")
             mat = get_material(mid)
             mass = float(el.params["mass_kg"])
-            vol = el.params.get("volume_m3")
-            if vol is None and mat and mat.density_kg_m3:
-                vol = mass / mat.density_kg_m3
+            _vraw = el.params.get("volume_m3")
+            inst_vol: float | None = float(_vraw) if _vraw is not None else None
+            if inst_vol is None and mat and mat.density_kg_m3:
+                inst_vol = mass / float(mat.density_kg_m3)
             cost = 0.0
             if mat and mat.unit_cost_per_kg:
                 cost = mass * float(mat.unit_cost_per_kg)
-            elif vol is not None:
-                cost = material_cost(mid, float(vol))
+            elif inst_vol is not None:
+                cost = material_cost(mid, float(inst_vol))
             rows.append(
                 {
                     "source": "instance_mass",
@@ -196,7 +197,7 @@ def exploded_material_bom(model: ProjectModel) -> list[dict[str, Any]]:
                     "material_name": mat.name if mat else mid,
                     "qty": qty,
                     "unit": "ea",
-                    "volume_m3": round(float(vol), 6) if vol is not None else None,
+                    "volume_m3": round(float(inst_vol), 6) if inst_vol is not None else None,
                     "mass_kg": round(mass * qty, 3),
                     "est_cost": round(cost * qty, 2),
                     "csi_hint": mat.csi_hint if mat else "",
