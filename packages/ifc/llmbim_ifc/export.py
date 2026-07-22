@@ -22,12 +22,19 @@ class _Ifc:
     def __init__(self) -> None:
         self.lines: list[str] = []
         self.n = 1
+        self.materials: dict[str, int] = {}
 
     def add(self, entity: str) -> int:
         i = self.n
         self.n += 1
         self.lines.append(f"#{i}={entity};")
         return i
+
+    def material(self, name: str) -> int:
+        """Get-or-create a shared IfcMaterial by name (IFC4: Name, Desc, Category)."""
+        if name not in self.materials:
+            self.materials[name] = self.add(f"IFCMATERIAL('{_esc(name)}',$,$)")
+        return self.materials[name]
 
     def guid(self) -> str:
         # IFC compressed GUID is complex; use 22-char base64-ish placeholder
@@ -166,8 +173,56 @@ def _mep_name_tag(el) -> tuple[str, str]:
     return str(name), "-".join(tag_parts)[:40]
 
 
+_MATERIAL_LABELS: dict[str, str] = {
+    "copper": "Copper Type L",
+    "copper_c12200": "Copper Type L",
+    "pvc": "PVC Schedule 40",
+    "pvc_sch40": "PVC Schedule 40",
+    "galv_steel": "Galvanized Steel",
+    "steel_a36": "Steel A36",
+    "fire": "Black Steel A53",
+    "process": "Stainless Steel 316",
+    "rebar_g60": "Rebar Grade 60",
+    "concrete_4000psi": "Concrete f'c=4000psi",
+    "concrete": "Concrete f'c=4000psi",
+}
+_MATERIAL_BY_CATEGORY: dict[str, str] = {
+    "slab": "Concrete f'c=4000psi",
+    "footing": "Concrete f'c=4000psi",
+    "stem_wall": "Concrete f'c=4000psi",
+    "roof": "Standing Seam Metal",
+    "column": "Structural Steel A992",
+    "beam": "Structural Steel A992",
+    "pipe": "Copper Type L",
+    "plumbing_pipe": "Copper Type L",
+    "duct": "Galvanized Steel",
+    "conduit": "Galvanized Steel EMT",
+    "cable_tray": "Galvanized Steel",
+    "wall": "Wood Framing DF-L",
+    "door": "Wood / Hollow Metal",
+    "window": "Aluminum / Insulated Glass",
+    "rebar": "Rebar Grade 60",
+}
+
+
+def _material_name_for(el) -> str:
+    """Human material label for IfcMaterial association (explicit material_id wins,
+    else a sensible per-category default). Empty string → no material associated."""
+    mid = str(el.params.get("material_id") or "").strip().lower()
+    if mid:
+        return _MATERIAL_LABELS.get(mid, mid.replace("_", " ").title())
+    return _MATERIAL_BY_CATEGORY.get((el.category or "").lower(), "")
+
+
 def _attach_csi_pset(f: _Ifc, owner: int, product_id: int, model: ProjectModel, el) -> None:
-    """Attach Pset_CSIMasterFormat with CSI code + locator for IFC browsers."""
+    """Attach Pset_CSIMasterFormat + associate the element's IfcMaterial."""
+    matname = _material_name_for(el)
+    if matname:
+        mat_id = f.material(matname)
+        f.add(
+            f"IFCRELASSOCIATESMATERIAL('{f.guid()}',#{owner},$,$,"
+            f"(#{product_id}),#{mat_id})"
+        )
     try:
         from llmbim_core.csi import csi_for_element
 
