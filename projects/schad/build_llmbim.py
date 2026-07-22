@@ -744,6 +744,10 @@ def build_model(
             "typed SSW panels",
         )
     _build_foundations(p, ctx)
+    # Excellence-audit WS1b: quantify the specified footing rebar ((2) #4 CONT,
+    # Grade 60) as CSI 03 20 00 parts so rebar_takeoff / csi span concrete
+    # reinforcing. Unspecified stem/pad/slab bars are left unquantified.
+    struct.place_foundation_rebar(p)
     if on_stage:
         on_stage(
             p,

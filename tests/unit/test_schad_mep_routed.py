@@ -52,6 +52,18 @@ def test_ifc_carries_concrete_mep_and_systems(project, tmp_path):
     assert "IFCRELSERVICESBUILDINGS(" in text
 
 
+def test_foundation_rebar_quantified(project):
+    # WS1b: the specified footing rebar ((2) #4 CONT, Grade 60) is quantified as
+    # CSI 03 20 00 — previously rebar_takeoff was []. Unspecified stem/pad/slab
+    # reinforcement stays unquantified (not invented), so exactly the #4 line.
+    m = project.model
+    rt = ml.rebar_takeoff(m)
+    assert len(rt) >= 1, "footing rebar not quantified"
+    assert all(r["csi_code"] == "03 20 00" for r in rt)
+    total_m = sum(float(r["qty"]) for r in rt if r["unit"] == "m")
+    assert total_m > 100.0, total_m  # 2 x ~69.5 m continuous across 13 footings
+
+
 def test_conduit_fill_matches_nec():
     # 100 A feeder -> #3 Cu (75C), #8 EGC, in 1" EMT at <=40% fill
     assert sz.conductor_for_amps(100.0) == "3"
