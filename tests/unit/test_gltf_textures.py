@@ -8,21 +8,42 @@ buffer layout stays in-bounds and byte-deterministic."""
 from __future__ import annotations
 
 import base64
-import io
 import json
+import struct
 import sys
+import zlib
 from pathlib import Path
 
 from llmbim import Project
 from llmbim_geometry import gltf_textures as gt
 from llmbim_geometry.mesh import export_gltf_walls
-from PIL import Image
 
 _COMP_SIZE = {5126: 4, 5123: 2, 5125: 4}
 _TYPE_N = {"VEC2": 2, "VEC3": 3, "SCALAR": 1}
 
 _PNG_SIG = b"\x89PNG\r\n\x1a\n"
 _SCHAD_DIR = Path(__file__).resolve().parents[2] / "projects" / "schad"
+
+
+def _png_info(raw: bytes) -> tuple[int, int, int]:
+    """(width, height, color_type) from a PNG's IHDR, and zlib-decompress the
+    IDAT stream so a corrupt image raises. Stdlib only — Pillow is not a repo
+    dependency, so tests must not import it (CI installs only .[dev,server])."""
+    assert raw[:8] == _PNG_SIG, "not a PNG"
+    assert raw[12:16] == b"IHDR", "no IHDR"
+    width, height, _bit_depth, color_type = struct.unpack(">IIBB", raw[16:26])
+    idat = b""
+    pos = 8
+    while pos < len(raw):
+        length = struct.unpack(">I", raw[pos : pos + 4])[0]
+        ctype = raw[pos + 4 : pos + 8]
+        if ctype == b"IDAT":
+            idat += raw[pos + 8 : pos + 8 + length]
+        pos += 12 + length
+        if ctype == b"IEND":
+            break
+    zlib.decompress(idat)  # raises zlib.error on a corrupt pixel stream
+    return width, height, color_type
 
 
 def _bounds_violations(g: dict) -> int:
@@ -49,8 +70,7 @@ def _decode_embedded_pngs(g: dict) -> int:
         uri = img["uri"]
         assert uri.startswith("data:image/png;base64,"), uri[:32]
         raw = base64.b64decode(uri.split(",", 1)[1])
-        assert raw[:8] == _PNG_SIG
-        Image.open(io.BytesIO(raw)).verify()  # raises on a corrupt PNG
+        _png_info(raw)  # raises on a corrupt PNG (signature + IHDR + IDAT)
         n += 1
     return n
 
@@ -79,9 +99,9 @@ def test_texture_and_normal_pngs_valid_and_deterministic() -> None:
         assert norm[:8] == _PNG_SIG, pat
         assert gt.texture_png(pat) == base, f"{pat} base not deterministic"
         assert gt.normal_png(pat) == norm, f"{pat} normal not deterministic"
-        # a flat (unperturbed) normal encodes to ~(128,128,255); the map's blue
-        # channel must dominate so relief stays subtle (nz close to 1.0).
-        assert Image.open(io.BytesIO(norm)).mode == "RGB", pat
+        # normal maps are RGB (PNG colour type 2); a flat normal encodes to
+        # ~(128,128,255) so the blue channel dominates and relief stays subtle.
+        assert _png_info(norm)[2] == 2, pat
 
 
 def test_build_gltf_textures_maps_base_and_normal_for_architectural_keys() -> None:
