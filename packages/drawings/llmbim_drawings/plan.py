@@ -216,6 +216,7 @@ def render_plan_view(
     callouts: Sequence[Mapping[str, Any]] | None = None,
     match_lines: Sequence[Mapping[str, Any]] | None = None,
     keynotes: bool = False,
+    hide_note_disciplines: set[str] | None = None,
     clouds: Sequence[Mapping[str, Any]] | None = None,
 ) -> DrawingView:
     """Build a plan DrawingView (inner body + size).
@@ -292,6 +293,10 @@ def render_plan_view(
       (1, 2, 3… in draw order) with a leader to the note position, plus a
       KEYNOTES legend block (number → text, long texts wrapped) at the plan
       edge — replacing the plain inline note text.
+    - ``hide_note_disciplines``: drop note elements whose ``discipline``
+      param is in this set before they render (as keynotes or inline).
+      Untagged notes are treated as architectural and always kept. Lets an
+      architectural plan omit MEP fixture notes that live on the MEP sheets.
     """
     if units not in {"metric", "imperial"}:
         raise ValidationError(
@@ -405,6 +410,12 @@ def render_plan_view(
         and _in_crop(el)
     ]
     notes = [el for el in model.query(category="note", level=lvl.name) if _in_crop(el)]
+    if hide_note_disciplines:
+        notes = [
+            el
+            for el in notes
+            if str(el.params.get("discipline") or "") not in hide_note_disciplines
+        ]
     # MEP + catalog proxies on this level
     mep_els = [
         el
