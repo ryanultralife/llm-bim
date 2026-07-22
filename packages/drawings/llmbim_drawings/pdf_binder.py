@@ -298,16 +298,28 @@ def _parse_svg_drawing(svg_path: Path) -> tuple[float, float, list[str]]:
         elif tag == "text":
             x = mapx(_num(el.get("x"), vw))
             y = mapy(_num(el.get("y"), vh))
-            content = (el.text or "").strip()
+            content = (el.text or "").strip()[:80]
             if content:
-                fs = max(4.0, 9.0 * sx)
+                # Honor the SVG font-size (was fixed 9, so titles and fine
+                # print all came out the same size), clamped to a sane range.
+                _fsa = el.get("font-size")
+                fs = max(3.5, min(28.0, (_num(_fsa) if _fsa else 9.0) * sx))
+                # Honor text-anchor: the binder used to left-anchor everything,
+                # so centered dimensions were shifted right and right-aligned
+                # datum labels ran past the drawing edge.
+                anchor = el.get("text-anchor", "start")
+                tw = len(content) * fs * 0.5   # Helvetica avg advance ~0.5 em
+                if anchor == "middle":
+                    x -= tw / 2.0
+                elif anchor == "end":
+                    x -= tw
                 # PDF text unflipped: temporarily invert
                 ops.append("q")
                 ops.append(f"1 0 0 -1 0 {2*y:.2f} cm")  # local flip for text
                 ops.append(f"BT /F1 {fs:.1f} Tf")
                 ops.append("0 0 0 rg")
                 ops.append(f"1 0 0 1 {x:.2f} {y:.2f} Tm")
-                ops.append(f"({_pdf_escape(content[:80])}) Tj")
+                ops.append(f"({_pdf_escape(content)}) Tj")
                 ops.append("ET")
                 ops.append("Q")
 
