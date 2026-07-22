@@ -589,7 +589,7 @@ def _build_roofs(p: Project, ctx: dict[str, Any]) -> None:
     b, pj = s["bay_L"], s["bay2_proj"]
     rx, rL, rW = s["rear_off_x"], s["rear_L"], s["rear_W"]
 
-    p.create_gable_roof(
+    main_id = p.create_gable_roof(
         level="L1",
         footprint=[(0.0, 0.0), (ft(L), 0.0), (ft(L), ft(W)), (0.0, ft(W))],
         ridge_axis="x",
@@ -633,6 +633,14 @@ def _build_roofs(p: Project, ctx: dict[str, Any]) -> None:
         "set_param", id=shed_id, key="status",
         value="Q-SHED open — verify 1.5:12 w/ truss fab against 75 psf snow",
     )
+
+    # Roofing assembly for the takeoff (roof area is priced on-slope in the
+    # BOQ). R-38 is the USER directive; the 75 psf snow load and 18" overhang
+    # are basis. The FINISH is NOT specified in the basis — asphalt shingle is
+    # assumed here so the takeoff has an assembly to price.
+    # OPEN: confirm asphalt vs standing-seam metal (R-METAL-R38) with owner.
+    for _rid in (main_id, bay_id, shed_id):
+        p.op("set_type", id=_rid, type_id="R-ASPHALT-R38")
 
 
 def _build_mep_content(p: Project, ctx: dict[str, Any]) -> None:

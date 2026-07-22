@@ -261,6 +261,73 @@ def _wall_solid(
     return corners, _BOX_FACES
 
 
+def _wall_solids(
+    el: Element, model: ProjectModel,
+    openings: list[tuple[float, float, float, float]],
+) -> list[tuple[list[tuple[float, float, float]], list[tuple[int, ...]]]]:
+    """Wall as the solid pieces that REMAIN once its openings are cut.
+
+    Mirrors `_wall_with_openings_mesh`: piers between openings plus sill and
+    header blocks. Corners follow the wall's own axis rather than an AABB, so
+    a diagonal wall is no longer squared off to its bounding box. All units
+    metres. Empty list if the wall is degenerate.
+    """
+    try:
+        s = el.params["start_mm"]
+        e = el.params["end_mm"]
+        th = float(el.params.get("thickness_mm", 200)) / 1000.0
+        ht = float(el.params.get("height_mm", 3000)) / 1000.0
+    except (KeyError, TypeError, ValueError):
+        return []
+    x0, y0 = float(s[0]) / 1000.0, float(s[1]) / 1000.0
+    x1, y1 = float(e[0]) / 1000.0, float(e[1]) / 1000.0
+    dx, dy = x1 - x0, y1 - y0
+    length = math.hypot(dx, dy)
+    if length < 1e-9:
+        return []
+    ux, uy = dx / length, dy / length
+    nx, ny = -uy, ux
+    h = th / 2.0
+    z0 = _level_z(model, el.level_id) / 1000.0
+
+    def block(
+        a: float, b: float, za: float, zb: float
+    ) -> tuple[list[tuple[float, float, float]], list[tuple[int, ...]]] | None:
+        if b - a < 1e-9 or zb - za < 1e-9:
+            return None
+        ax, ay = x0 + ux * a, y0 + uy * a
+        bx, by = x0 + ux * b, y0 + uy * b
+        plan = [(ax + nx * h, ay + ny * h), (bx + nx * h, by + ny * h),
+                (bx - nx * h, by - ny * h), (ax - nx * h, ay - ny * h)]
+        return ([(px, py, za) for px, py in plan]
+                + [(px, py, zb) for px, py in plan], _BOX_FACES)
+
+    ops = []
+    for a, b, za, zb in openings:
+        a, b = max(0.0, min(a, length)), max(0.0, min(b, length))
+        za, zb = max(z0, min(za, z0 + ht)), max(z0, min(zb, z0 + ht))
+        if b - a > 1e-9 and zb - za > 1e-9:
+            ops.append((a, b, za, zb))
+    if not ops:
+        blk = block(0.0, length, z0, z0 + ht)
+        return [blk] if blk else []
+
+    ops.sort()
+    out, cursor = [], 0.0
+    for a, b, za, zb in ops:
+        if a > cursor:
+            out.append(block(cursor, a, z0, z0 + ht))
+        a = max(a, cursor)
+        if b - a < 1e-9:
+            continue
+        out.append(block(a, b, z0, za))
+        out.append(block(a, b, zb, z0 + ht))
+        cursor = max(cursor, b)
+    if cursor < length:
+        out.append(block(cursor, length, z0, z0 + ht))
+    return [b for b in out if b]
+
+
 def _opening_solid(
     el: Element, model: ProjectModel, wall_by_id: dict[str, Element]
 ) -> tuple[list[tuple[float, float, float]], list[tuple[int, ...]]] | None:
@@ -432,6 +499,10 @@ def export_step(
 
     solids: list[tuple[str, list[tuple[float, float, float]], list[tuple[int, ...]]]] = []
     wall_by_id = {el.id: el for el in model.elements if el.category == "wall"}
+    step_openings: dict[str, list[Element]] = {}
+    for _o in model.elements:
+        if _o.category in {"door", "window"} and _o.host_id:
+            step_openings.setdefault(_o.host_id, []).append(_o)
     proxy_cats = {
         "fitting",
         "fittings",
@@ -498,9 +569,24 @@ def export_step(
             if solid:
                 solids.append((pname, solid[0], solid[1]))
         elif el.category == "wall" and include_walls:
-            solid = _wall_solid(el, model)
-            if solid:
-                solids.append((pname, solid[0], solid[1]))
+            # real voids for hosted openings, in wall-local u (see mesh.py)
+            wops = []
+            for o in step_openings.get(el.id, []):
+                try:
+                    off = float(o.params.get("offset_mm") or 0.0) / 1000.0
+                    ow = float(o.params.get("width_mm") or 0.0) / 1000.0
+                    oh = float(o.params.get("height_mm")
+                               or (2100 if o.category == "door" else 1200)) / 1000.0
+                    sill = float(o.params.get("sill_mm") or 0.0) / 1000.0
+                except (TypeError, ValueError):
+                    continue
+                zb = _level_z(model, el.level_id) / 1000.0 + sill
+                if ow > 0 and oh > 0:
+                    wops.append((off, off + ow, zb, zb + oh))
+            pieces = _wall_solids(el, model, wops)
+            for pi, (corners, faces) in enumerate(pieces):
+                nm = pname if len(pieces) == 1 else f"{pname}#{pi + 1}"
+                solids.append((nm, corners, faces))
         elif el.category in {"door", "window"} and include_walls:
             solid = _opening_solid(el, model, wall_by_id)
             if solid:
