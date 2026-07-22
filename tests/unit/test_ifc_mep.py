@@ -19,7 +19,7 @@ def test_ifc_exports_pipe_and_fitting(tmp_path: Path) -> None:
     text = out.read_text(encoding="utf-8")
     assert "IFCPROJECT" in text
     # pipes → FlowSegment; fittings → FlowFitting; fixtures → FlowTerminal or proxy
-    assert "IFCFLOWSEGMENT" in text
+    assert "IFCPIPESEGMENT" in text
     assert "IFCFLOWFITTING" in text or "IFCBUILDINGELEMENTPROXY" in text
     assert "NPS" in text or "PIPE" in text or "elbow" in text.lower() or "ELBOW" in text
 
@@ -38,7 +38,7 @@ def test_ifc_exports_vertical_riser(tmp_path: Path) -> None:
     out = tmp_path / "riser.ifc"
     export_ifc(p.model, out)
     text = out.read_text(encoding="utf-8")
-    assert "IFCFLOWSEGMENT" in text
+    assert "IFCPIPESEGMENT" in text
     assert "RISER" in text
 
 

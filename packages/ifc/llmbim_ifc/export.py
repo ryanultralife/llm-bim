@@ -209,6 +209,23 @@ def _attach_csi_pset(f: _Ifc, owner: int, product_id: int, model: ProjectModel, 
     )
 
 
+def _flow_segment_kind(el) -> tuple[str, str]:
+    """Concrete IFC4 distribution-segment entity + PredefinedType for a segment.
+
+    IfcFlowSegment is abstract; IFC4 coordination tools key off the concrete
+    subtypes, so map by category: pipe→IfcPipeSegment, duct→IfcDuctSegment,
+    conduit/cable_tray→IfcCableCarrierSegment.
+    """
+    cat = (el.category or "").lower()
+    if cat in {"duct", "hvac"}:
+        return "IFCDUCTSEGMENT", ".RIGIDSEGMENT."
+    if cat == "cable_tray":
+        return "IFCCABLECARRIERSEGMENT", ".CABLETRAYSEGMENT."
+    if cat == "conduit":
+        return "IFCCABLECARRIERSEGMENT", ".CONDUITSEGMENT."
+    return "IFCPIPESEGMENT", ".RIGIDSEGMENT."
+
+
 def _export_pipe_proxy(
     f: _Ifc,
     el,
@@ -217,7 +234,8 @@ def _export_pipe_proxy(
     extrude_rect,
     parent_local: int | None = None,
 ) -> int | None:
-    """Pipe as elongated box; vertical risers extruded in Z. Emits IfcFlowSegment."""
+    """Pipe/duct/conduit as elongated box; vertical risers extruded in Z.
+    Emits the concrete IFC4 distribution-segment subtype for the category."""
     par = f"#{parent_local}" if parent_local is not None else "$"
     try:
         vertical = bool(el.params.get("vertical") or el.params.get("orientation") == "vertical")
@@ -285,9 +303,10 @@ def _export_pipe_proxy(
         return None
     prod = f.add(f"IFCPRODUCTDEFINITIONSHAPE($,$,(#{body}))")
     name, tag = _mep_name_tag(el)
+    ent, pdt = _flow_segment_kind(el)
     return f.add(
-        f"IFCFLOWSEGMENT('{f.guid()}',#{owner},"
-        f"'{_esc(name)}','{_esc(tag)}',$,#{loc},#{prod},$)"
+        f"{ent}('{f.guid()}',#{owner},"
+        f"'{_esc(name)}','{_esc(tag)}',$,#{loc},#{prod},$,{pdt})"
     )
 
 
@@ -465,6 +484,15 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
         )
 
     contained: dict[int, list[int]] = {s: [] for s in storey_ids.values()}
+    # MEP distribution elements grouped by system tag → IfcSystem (emitted below)
+    mep_systems: dict[str, list[int]] = {}
+
+    def _add_system(el, ifc_eid: int | None) -> None:
+        if ifc_eid is None:
+            return
+        sysname = str(el.params.get("system") or "").strip()
+        if sysname:
+            mep_systems.setdefault(sysname, []).append(ifc_eid)
     if default_storey not in contained:
         contained[default_storey] = []
     # IfcSpace id → MEP/product ids inside that room (coordination linkage)
@@ -751,9 +779,10 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
                 contained[storey].append(eid)
                 _link_to_space(el, eid)
                 _attach_csi_pset(f, owner, eid, model, el)
+                _add_system(el, eid)
 
         elif el.category in {"duct", "hvac", "cable_tray"}:
-            # rectangular duct / cable tray as FlowSegment envelope
+            # rectangular duct / cable tray as concrete distribution segment
             eid = _export_pipe_proxy(f, el, owner, axis_z, extrude_rect, parent_local)
             if eid is None:
                 eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect, parent_local)
@@ -761,6 +790,7 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
                 contained[storey].append(eid)
                 _link_to_space(el, eid)
                 _attach_csi_pset(f, owner, eid, model, el)
+                _add_system(el, eid)
 
         elif el.category in {
             "fitting",
@@ -782,6 +812,9 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
                 contained[storey].append(eid)
                 _link_to_space(el, eid)
                 _attach_csi_pset(f, owner, eid, model, el)
+                if el.category in {"fitting", "fittings", "fixture", "accessory",
+                                   "fire_protection", "process_piping"}:
+                    _add_system(el, eid)
 
         elif el.category in {"door", "window"}:
             # Hosted openings: place the door/window in WALL-LOCAL coordinates
@@ -860,6 +893,22 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
         f.add(
             f"IFCRELCONTAINEDINSPATIALSTRUCTURE('{f.guid()}',#{owner},$,$,"
             f"({ids}),#{storey})"
+        )
+
+    # MEP systems: group routed distribution elements by system tag as IfcSystem
+    # and relate each to the building (IfcRelServicesBuildings) so coordination
+    # tools can isolate/clash/quantify per trade.
+    for sysname, sys_members in sorted(mep_systems.items()):
+        if not sys_members:
+            continue
+        sys_id = f.add(f"IFCSYSTEM('{f.guid()}',#{owner},'{_esc(sysname)}',$,$)")
+        ids = ",".join(f"#{e}" for e in sys_members)
+        f.add(
+            f"IFCRELASSIGNSTOGROUP('{f.guid()}',#{owner},$,$,({ids}),$,#{sys_id})"
+        )
+        f.add(
+            f"IFCRELSERVICESBUILDINGS('{f.guid()}',#{owner},'{_esc(sysname)}',$,"
+            f"#{sys_id},(#{building}))"
         )
 
     # Space membership: MEP products contained in IfcSpace (room linkage for agents)
