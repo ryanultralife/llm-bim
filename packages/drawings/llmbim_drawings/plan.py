@@ -485,6 +485,12 @@ def render_plan_view(
 
     width = (max_x - min_x) * scale
     height = (max_y - min_y) * scale
+    # Right-hand annotation gutter: the key plan and keynote legend live in a
+    # reserved column to the RIGHT of the plan (like a real CD sheet's note
+    # column) instead of floating over the drawing. Only reserved when those
+    # blocks are on, so plans without them are unaffected.
+    _gutter_x = width + 12.0
+    _gutter_w = 216.0 if (keynotes or key_plan) else 0.0
 
     def project(x: float, y: float) -> tuple[float, float]:
         return (x - min_x) * scale, (max_y - y) * scale
@@ -1967,8 +1973,8 @@ def render_plan_view(
             if (wp := _wall_endpoints(el)) is not None
         ]
         if kp_walls:
-            kw, kh = 110.0, 86.0
-            bx = max(width - kw - 6.0, 6.0)
+            kw, kh = _gutter_w - 6.0, 86.0
+            bx = _gutter_x
             by = 6.0
             kxs = [v for w in kp_walls for v in (w[0], w[2])]
             kys = [v for w in kp_walls for v in (w[1], w[3])]
@@ -2112,14 +2118,14 @@ def render_plan_view(
     # KEYNOTES legend block: number → text at the plan edge (under the key
     # plan when both are on); long texts wrapped to continuation lines.
     if keynotes and keynote_items:
-        lg_w = 210.0
+        lg_w = _gutter_w - 6.0 if _gutter_w else 210.0
         wrapped_rows: list[tuple[str, str]] = []
         for kn_i, kn_text in keynote_items:
             kn_lines = textwrap.wrap(kn_text, width=KEYNOTE_WRAP_CHARS) or [""]
             wrapped_rows.append((str(kn_i), kn_lines[0]))
             wrapped_rows.extend(("", cont) for cont in kn_lines[1:])
         lg_h = 30.0 + 14.0 * len(wrapped_rows)
-        lx = max(width - lg_w - 6.0, 6.0)
+        lx = _gutter_x if _gutter_w else max(width - lg_w - 6.0, 6.0)
         ly = _legend_top
         parts.append('  <g class="keynote-legend" font-family="sans-serif">')
         parts.append(
@@ -2184,11 +2190,14 @@ def render_plan_view(
         body = (
             f'<defs><clipPath id="{cid}">'
             f'<rect x="{fmt(-dim_pad)}" y="{fmt(-dim_pad)}" '
-            f'width="{fmt(width + 2 * dim_pad)}" height="{fmt(height + 2 * dim_pad)}"/>'
+            f'width="{fmt(width + _gutter_w + 2 * dim_pad)}" '
+            f'height="{fmt(height + 2 * dim_pad)}"/>'
             f"</clipPath></defs>\n"
             f'<g clip-path="url(#{cid})">\n{body}\n</g>'
         )
-    return DrawingView(width=width, height=height, body=body, title=label, pad=dim_pad)
+    return DrawingView(
+        width=width + _gutter_w, height=height, body=body, title=label, pad=dim_pad
+    )
 
 
 def render_plan_svg(

@@ -840,31 +840,36 @@ def _foundation_plan_view(model: Any) -> Any:
             f'<text x="{tx:.1f}" y="{ty:.1f}" text-anchor="middle" font-size="11" '
             f'font-family="Segoe UI,Arial">{html.escape(str(mark))} — {t_in:.0f}" SLAB</text>'
         )
+    # Footings are the primary structural element on a foundation plan — heavy
+    # dashed (shown below-grade), stems solid medium, so the structure reads.
     for el in footings:
         if el.params.get("kind") == "pad":
             poly = el.params.get("polygon_mm") or []
             parts.append(
-                f'<path d="{poly_d(poly)}" fill="#e8ddc8" stroke="#8B4513" '
-                f'stroke-width="1.4" stroke-dasharray="6 3"/>'
+                f'<path d="{poly_d(poly)}" fill="#e8ddc8" stroke="#5a3310" '
+                f'stroke-width="2.4" stroke-dasharray="8 4"/>'
             )
             cx, cy = (float(v) for v in el.params.get("center_mm") or [0, 0])
             tx, ty = T(cx, cy)
             parts.append(
-                f'<text x="{tx:.1f}" y="{ty - 10:.1f}" text-anchor="middle" font-size="8" '
-                f'font-family="Segoe UI,Arial" fill="#5a3310">F2</text>'
+                f'<rect x="{tx - 8:.1f}" y="{ty - 7:.1f}" width="16" height="12" '
+                f'fill="#fff" stroke="#5a3310" stroke-width="0.8"/>'
+                f'<text x="{tx:.1f}" y="{ty + 2:.1f}" text-anchor="middle" font-size="8" '
+                f'font-weight="bold" font-family="Segoe UI,Arial" fill="#5a3310">F2</text>'
             )
         else:
             path = el.params.get("path_mm") or []
             for rect in strip_segment_rects(path, float(el.params.get("width_mm") or 0)):
                 parts.append(
-                    f'<path d="{poly_d(list(rect))}" fill="none" stroke="#8B4513" '
-                    f'stroke-width="1.2" stroke-dasharray="7 4" opacity="0.9"/>'
+                    f'<path d="{poly_d(list(rect))}" fill="none" stroke="#5a3310" '
+                    f'stroke-width="2.2" stroke-dasharray="9 4"/>'
                 )
     for el in stems:
         path = el.params.get("path_mm") or []
         for rect in strip_segment_rects(path, float(el.params.get("thickness_mm") or 0)):
             parts.append(
-                f'<path d="{poly_d(list(rect))}" fill="#cfcfcf" stroke="#333" stroke-width="0.9"/>'
+                f'<path d="{poly_d(list(rect))}" fill="#bdbdbd" stroke="#1a1a1a" '
+                f'stroke-width="1.6"/>'
             )
 
     # legend + notes column (basis values quoted, check from the record)
@@ -1144,8 +1149,26 @@ def build_pack(out_dir: Path) -> tuple[Project, dict[str, Any]]:
     from llmbim_drawings.schedules import export_drawing_list
 
     cons = out_dir / "construction"
+    # Full professional CD anatomy (WP-SCHAD-ANATOMY-REBUILD): grid bubbles
+    # with fractional intermediates + per-discipline sides, 3-tier dimension
+    # chains, material hatches, 3-tier line-weight hierarchy, boxed room tags
+    # with areas, numbered keynotes + legend, key plan, and a reserved PE/SE
+    # stamp block on structural sheets. Per docs/CD_COMPLETENESS_STANDARD.md
+    # (Ryan Group Architects / CFBR Structural = the Sierra Star + Verseon
+    # reference sets). Revisions omitted — first DD issue, nothing to cloud yet.
     register = export_construction_set(
-        p.model, cons, plan_level="L1", plan_scale=0.01, sheets=schad_sheet_register(p)
+        p.model, cons, plan_level="L1", plan_scale=0.04,
+        units="imperial",
+        dim_tiers=True,
+        fractional_grids=True,
+        grid_sides=True,
+        room_areas=True,
+        key_plan=True,
+        keynotes=True,
+        line_weights=True,
+        hatches=True,
+        stamp_block=True,
+        sheets=schad_sheet_register(p),
     )
     export_pdf_binder(cons, out_dir / "PLOT_SET.pdf", title=p.model.name)
     export_drawing_list(out_dir)
