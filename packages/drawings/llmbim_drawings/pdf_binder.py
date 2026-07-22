@@ -7,9 +7,10 @@ circle, text) so plot sets open without Cairo/ReportLab.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 from xml.etree import ElementTree as ET
-
 
 # Typographic characters the drawing engine emits that a WinAnsi PDF font
 # cannot show — fold to ASCII so they don't render as "?" mojibake.
@@ -58,7 +59,9 @@ def _num(value: str | None, base: float = 0.0) -> float:
 _PATH_TOK = re.compile(r"([MmLlHhVvCcSsQqTtAaZz])|(-?\d*\.?\d+(?:[eE][-+]?\d+)?)")
 
 
-def _path_construct(d: str, mapx, mapy) -> list[str]:
+def _path_construct(
+    d: str, mapx: Callable[[float], float], mapy: Callable[[float], float]
+) -> list[str]:
     """Translate an SVG path ``d`` into PDF path-construction ops (m/l/c/h).
 
     Handles M/L/H/V/C/S/Q/Z (abs + rel); the drawing engine emits paths for
@@ -66,11 +69,11 @@ def _path_construct(d: str, mapx, mapy) -> list[str]:
     <path> element was dropped from the PDF, so foundation/framing plans (and
     any path-based custom sheet) rendered blank. Arcs (A) are skipped.
     """
-    items: list[tuple[str, float]] = []
+    # each token is ("c", command_letter) or ("n", number)
+    items: list[tuple[str, Any]] = []
     for c, n in _PATH_TOK.findall(d or ""):
         if c:
-            items.append(("c", 0.0))
-            items[-1] = ("c", c)  # type: ignore[assignment]
+            items.append(("c", c))
         elif n:
             items.append(("n", float(n)))
     ops: list[str] = []
@@ -82,7 +85,7 @@ def _path_construct(d: str, mapx, mapy) -> list[str]:
 
     def take(k: int) -> list[float]:
         nonlocal i
-        out = []
+        out: list[float] = []
         while len(out) < k and i < len(items) and items[i][0] == "n":
             out.append(float(items[i][1]))
             i += 1
