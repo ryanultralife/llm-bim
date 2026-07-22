@@ -275,9 +275,12 @@ def title_block_svg(
     y += 12
     caption(pad_x, y, "PROJECT")
     y += 13
+    # auto-size so a long project name fits the column instead of truncating
+    _pj_fs = 11.0 if len(project) <= 26 else (9.5 if len(project) <= 32 else 8.5)
     blocks.append(
-        f'  <text x="{fmt(cx)}" y="{fmt(y)}" text-anchor="middle" font-size="11" '
-        f'font-weight="bold">{escape(_trunc(project, 28))}</text>'
+        f'  <text x="{fmt(cx)}" y="{fmt(y)}" text-anchor="middle" '
+        f'font-size="{fmt(_pj_fs)}" font-weight="bold">'
+        f"{escape(_trunc(project, 40))}</text>"
     )
     y += 12
     hline(y)
