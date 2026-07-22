@@ -1992,8 +1992,26 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
     idx_ctype = 5125 if use_u32 else 5123
     idx_size = 4 if use_u32 else 2
 
+    # Triplanar UVs (world-scaled) so REPEAT-sampled detail textures tile at a
+    # realistic period regardless of surface orientation (glTF is Y-up here).
+    _uv_s = 1.0 / 0.6  # ~0.6 m texture period
+    all_uv: list[float] = []
+    for _i in range(len(all_pos) // 3):
+        _px, _py, _pz = all_pos[3 * _i], all_pos[3 * _i + 1], all_pos[3 * _i + 2]
+        _nx, _ny, _nz = all_nrm[3 * _i], all_nrm[3 * _i + 1], all_nrm[3 * _i + 2]
+        _ax, _ay, _az = abs(_nx), abs(_ny), abs(_nz)
+        if _ay >= _ax and _ay >= _az:  # horizontal (floor/roof) → x,z plane
+            _u, _v = _px, _pz
+        elif _ax >= _az:  # x-facing → z,y plane
+            _u, _v = _pz, _py
+        else:  # z-facing → x,y plane
+            _u, _v = _px, _py
+        all_uv.append(_u * _uv_s)
+        all_uv.append(_v * _uv_s)
+
     pos_bytes = b"".join(struct.pack("<f", float(v)) for v in all_pos)
     nrm_bytes = b"".join(struct.pack("<f", float(v)) for v in all_nrm)
+    uv_bytes = b"".join(struct.pack("<f", float(v)) for v in all_uv)
     idx_bytes = b"".join(struct.pack(idx_fmt, int(i)) for i in all_idx)
     el_idx_bytes = b"".join(struct.pack(idx_fmt, int(i)) for i in el_idx)
     # align
@@ -2004,7 +2022,10 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
     pos_bytes_p = _pad(pos_bytes)
     nrm_bytes_p = _pad(nrm_bytes)
     idx_bytes_p = _pad(idx_bytes)
-    blob = pos_bytes_p + nrm_bytes_p + idx_bytes_p + _pad(el_idx_bytes)
+    el_idx_bytes_p = _pad(el_idx_bytes)
+    uv_bytes_p = _pad(uv_bytes)
+    # UV appended LAST so pos/nrm/idx/el_idx byteOffsets are unchanged.
+    blob = pos_bytes_p + nrm_bytes_p + idx_bytes_p + el_idx_bytes_p + uv_bytes_p
     b64 = base64.b64encode(blob).decode("ascii")
     uri = f"data:application/octet-stream;base64,{b64}"
 
@@ -2020,22 +2041,30 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
     for key, *_ in prim_meta:
         if key not in mat_keys:
             mat_keys.append(key)
+    from llmbim_geometry.gltf_textures import build_gltf_textures
+
+    # Procedural tiling detail textures (concrete/drywall/metal/wood) multiply the
+    # palette colour so flat pastels gain grain in every glTF viewer.
+    tex_images, tex_textures, tex_samplers, tex_key = build_gltf_textures(mat_keys)
     materials = []
     for key in mat_keys:
         rgba, metal, rough = _MATERIAL_PBR.get(key, _MATERIAL_PBR["default"])
         # Only true glass/translucent layers use BLEND — walls must stay OPAQUE
         # so solids occlude (no "blocks showing through each other").
         is_trans = key == "window" or (len(rgba) > 3 and float(rgba[3]) < 0.99 and key != "wall")
+        pbr: dict[str, Any] = {
+            "baseColorFactor": list(rgba),
+            "metallicFactor": float(metal),
+            "roughnessFactor": float(rough),
+        }
+        if key in tex_key:
+            pbr["baseColorTexture"] = {"index": tex_key[key]}
         materials.append(
             {
                 "name": key,
                 "doubleSided": bool(is_trans),
                 "alphaMode": "BLEND" if is_trans else "OPAQUE",
-                "pbrMetallicRoughness": {
-                    "baseColorFactor": list(rgba),
-                    "metallicFactor": float(metal),
-                    "roughnessFactor": float(rough),
-                },
+                "pbrMetallicRoughness": pbr,
             }
         )
     mat_index = {k: i for i, k in enumerate(mat_keys)}
@@ -2057,6 +2086,11 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
                 "target": 34963,
             }
         )
+    off_uv = off_el_idx + len(el_idx_bytes_p)
+    uv_bv = len(buffer_views)
+    buffer_views.append(
+        {"buffer": 0, "byteOffset": off_uv, "byteLength": len(uv_bytes), "target": 34962}
+    )
 
     accessors: list[dict[str, Any]] = [
         {
@@ -2102,6 +2136,16 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
                 "type": "VEC3",
             }
         )
+        uv_acc = len(accessors)
+        accessors.append(
+            {
+                "bufferView": uv_bv,
+                "byteOffset": (pos_start // 3) * 8,  # VEC2 float per vertex
+                "componentType": 5126,
+                "count": n_verts,
+                "type": "VEC2",
+            }
+        )
         idx_acc = len(accessors)
         accessors.append(
             {
@@ -2118,7 +2162,11 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
                 "name": key,
                 "primitives": [
                     {
-                        "attributes": {"POSITION": pos_acc, "NORMAL": nrm_acc},
+                        "attributes": {
+                            "POSITION": pos_acc,
+                            "NORMAL": nrm_acc,
+                            "TEXCOORD_0": uv_acc,
+                        },
                         "indices": idx_acc,
                         "mode": 4,
                         "material": mat_index[key],
@@ -2157,6 +2205,16 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
                     "type": "VEC3",
                 }
             )
+            uv_acc = len(accessors)
+            accessors.append(
+                {
+                    "bufferView": uv_bv,
+                    "byteOffset": gstart * 8,  # VEC2 float per vertex
+                    "componentType": 5126,
+                    "count": nv,
+                    "type": "VEC2",
+                }
+            )
             idx_acc = len(accessors)
             accessors.append(
                 {
@@ -2169,7 +2227,11 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
             )
             prim_list.append(
                 {
-                    "attributes": {"POSITION": pos_acc, "NORMAL": nrm_acc},
+                    "attributes": {
+                        "POSITION": pos_acc,
+                        "NORMAL": nrm_acc,
+                        "TEXCOORD_0": uv_acc,
+                    },
                     "indices": idx_acc,
                     "mode": 4,
                     "material": mat_index[pkey],
@@ -2192,6 +2254,8 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
         "nodes": nodes,
         "scenes": [{"nodes": scene_nodes, "name": model.name or "llm-bim"}],
         "scene": 0,
+        **({"images": tex_images, "textures": tex_textures, "samplers": tex_samplers}
+           if tex_images else {}),
         "extras": {
             "material_legend": {k: _MATERIAL_RGBA.get(k) for k in mat_keys},
             "layer_names": list(mat_keys),
