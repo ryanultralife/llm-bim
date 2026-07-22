@@ -1700,6 +1700,8 @@ def _export_custom_register(
             if lvl not in level_ids:
                 raise ValidationError("plan sheet references unknown level", no=no, level=lvl)
             include = set(spec["include"]) if spec.get("include") else None
+            _hnd = spec.get("hide_note_disciplines")
+            hide_note_disciplines = {str(d) for d in _hnd} if _hnd else None
             crop_raw = spec.get("crop")
             crop = tuple(float(v) for v in crop_raw) if crop_raw else None
             if crop is not None and len(crop) != 4:
@@ -1755,7 +1757,7 @@ def _export_custom_register(
                 lvl,
                 scale=sc,
                 show_dimensions=bool(spec.get("dimensions", True)),
-                grid_dims=include is None,
+                grid_dims=bool(spec.get("grid_dims", include is None)),
                 room_tags=bool(spec.get("room_tags", include is None)),
                 tags=bool(spec.get("tags", False)),
                 units=sheet_units,
@@ -1770,6 +1772,7 @@ def _export_custom_register(
                 callouts=sheet_callouts,
                 match_lines=sheet_match_lines,
                 keynotes=bool(spec.get("keynotes", keynotes)),
+                hide_note_disciplines=hide_note_disciplines,
                 clouds=[{**r, "number": rev_delta} for r in rev_clouds.get(lvl, [])] or None,
                 title=f"{model.name} — {title}",
             )

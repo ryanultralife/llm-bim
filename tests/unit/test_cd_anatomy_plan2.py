@@ -266,6 +266,27 @@ def test_keynotes_skipped_when_no_notes() -> None:
     assert 'class="keynote-legend"' not in body  # no empty legend block
 
 
+def test_hide_note_disciplines_drops_tagged_notes_only() -> None:
+    # An architectural plan omits MEP fixture notes (which live on the MEP
+    # sheets) while keeping untagged architectural notes. Tagging is a
+    # ``discipline`` param on the note element.
+    p = _project(notes=False)
+    p.create_note(level="L1", text="ROOM OCCUPANCY U", position=(2000, 2000))
+    nid = p.create_note(level="L1", text="HB: hose bib", position=(6000, 4500))
+    p.op("set_param", id=nid, key="discipline", value="P")
+    body = render_plan_view(
+        p.model, "L1", scale=0.02, keynotes=True,
+        hide_note_disciplines={"M", "E", "P"},
+    ).body
+    legend = body.split('class="keynote-legend"')[1].split("</g>")[0]
+    assert ">ROOM OCCUPANCY U</text>" in legend  # untagged arch note kept
+    assert "hose bib" not in legend  # P-tagged MEP note dropped
+    assert legend.count("<rect") == 2  # frame + 1 remaining number square
+    # None set (default) keeps every note — backward compatible
+    all_body = render_plan_view(p.model, "L1", scale=0.02, keynotes=True).body
+    assert "hose bib" in all_body
+
+
 # ── 5. defaults byte-stable + register passthrough ──────────────────────────
 
 
