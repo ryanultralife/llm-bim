@@ -1385,6 +1385,7 @@ def render_elevation_svg(
             f'  <g class="{oe_cls}" stroke="#1565c0" stroke-width="1" '
             'font-family="sans-serif" text-anchor="middle">'
         )
+        _label_items: list[tuple[float, float, str]] = []
         for h0, h1, z0, z1, fill, lab in opening_rects:
             x, y = project(h0, z1)
             w = (h1 - h0) * scale
@@ -1396,9 +1397,38 @@ def render_elevation_svg(
                 f'fill="{fill}"/>'
             )
             mx, my = project((h0 + h1) / 2, z1)
+            _label_items.append((mx, my, lab[:18]))
+        # Collision-avoiding stagger: openings with heads at the same height
+        # (typical — window/door heads align) would otherwise stack their tags
+        # at one point. Assign each tag the lowest free row above the opening
+        # head, left-to-right, dropping a thin leader when it is raised.
+        _fs = 9.0
+        _row = _fs + 2.0
+        _placed: list[tuple[float, float, float]] = []  # (x_lo, x_hi, y)
+        for mx, my, text in sorted(_label_items, key=lambda t: t[0]):
+            half = max(len(text) * _fs * 0.28, 6.0)
+            base_y = my - 3.0
+            row = 0
+            ty = base_y
+            while row <= 6:
+                ty = base_y - row * _row
+                if not any(
+                    mx - half <= px_hi
+                    and mx + half >= px_lo
+                    and abs(ty - py) < _row - 0.5
+                    for px_lo, px_hi, py in _placed
+                ):
+                    break
+                row += 1
+            _placed.append((mx - half, mx + half, ty))
+            if row > 0:
+                parts.append(
+                    f'    <line x1="{fmt(mx)}" y1="{fmt(ty + 1.5)}" x2="{fmt(mx)}" '
+                    f'y2="{fmt(my - 1.5)}" stroke="#1565c0" stroke-width="0.4"/>'
+                )
             parts.append(
-                f'    <text x="{fmt(mx)}" y="{fmt(my - 2)}" font-size="{fmt(max(6, 9))}" '
-                f'fill="#0d47a1">{esc(lab[:18])}</text>'
+                f'    <text x="{fmt(mx)}" y="{fmt(ty)}" font-size="{fmt(_fs)}" '
+                f'fill="#0d47a1">{esc(text)}</text>'
             )
         parts.append("  </g>")
     if equip_rects:
