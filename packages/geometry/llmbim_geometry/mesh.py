@@ -552,7 +552,9 @@ def _wall_with_openings_mesh(
         return [], [], []
     ux, uy = dx / length, dy / length
 
-    def seg(a: float, b: float, za: float, zb: float):
+    def seg(
+        a: float, b: float, za: float, zb: float
+    ) -> tuple[list[float], list[float], list[int]] | None:
         if b - a < 1e-6 or zb - za < 1e-6:
             return None
         return _wall_box_mesh(
