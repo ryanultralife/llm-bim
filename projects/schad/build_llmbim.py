@@ -1152,7 +1152,7 @@ def build_pack(out_dir: Path) -> tuple[Project, dict[str, Any]]:
     # (Ryan Group Architects / CFBR Structural = the Sierra Star + Verseon
     # reference sets). Revisions omitted — first DD issue, nothing to cloud yet.
     register = export_construction_set(
-        p.model, cons, plan_level="L1", plan_scale=0.01,
+        p.model, cons, plan_level="L1", plan_scale=0.04,
         units="imperial",
         dim_tiers=True,
         fractional_grids=True,
