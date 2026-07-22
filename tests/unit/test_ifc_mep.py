@@ -152,3 +152,18 @@ def test_ifc_column_and_beam_entities(tmp_path: Path) -> None:
     assert "W12x26" in text
     assert "Pset_CSIMasterFormat" in text
     assert "05 12 00" in text
+
+
+def test_ifc_material_association(tmp_path: Path) -> None:
+    """Elements carry IfcMaterial via IfcRelAssociatesMaterial (coordination model)."""
+    p = Project.create("Mat IFC", vcs=False)
+    p.add_level("L1", 0)
+    p.create_wall(level="L1", start=(0, 0), end=(5000, 0), thickness_mm=150, height_mm=3000)
+    p.place_pipe(level="L1", nps="3/4", start=(0, 0), end=(3000, 0), material="copper")
+    out = tmp_path / "mat.ifc"
+    export_ifc(p.model, out)
+    text = out.read_text(encoding="utf-8")
+    assert "IFCMATERIAL(" in text
+    assert "IFCRELASSOCIATESMATERIAL(" in text
+    assert "Copper" in text  # pipe material
+    assert "Wood Framing" in text  # wall material
