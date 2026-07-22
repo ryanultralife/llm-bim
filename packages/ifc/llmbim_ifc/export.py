@@ -205,17 +205,82 @@ _MATERIAL_BY_CATEGORY: dict[str, str] = {
 }
 
 
+def _material_label(mid: str) -> str:
+    """Human material label from a raw material id (shared by the single-material
+    and per-layer associations). Empty id → empty string."""
+    raw = (mid or "").strip()
+    if not raw:
+        return ""
+    return _MATERIAL_LABELS.get(raw.lower(), raw.replace("_", " ").title())
+
+
 def _material_name_for(el) -> str:
     """Human material label for IfcMaterial association (explicit material_id wins,
     else a sensible per-category default). Empty string → no material associated."""
-    mid = str(el.params.get("material_id") or "").strip().lower()
-    if mid:
-        return _MATERIAL_LABELS.get(mid, mid.replace("_", " ").title())
+    label = _material_label(str(el.params.get("material_id") or ""))
+    if label:
+        return label
     return _MATERIAL_BY_CATEGORY.get((el.category or "").lower(), "")
 
 
-def _attach_csi_pset(f: _Ifc, owner: int, product_id: int, model: ProjectModel, el) -> None:
-    """Attach Pset_CSIMasterFormat + associate the element's IfcMaterial."""
+def _wall_layers_for(el) -> list[tuple[str, float]]:
+    """Ordered ``(material label, thickness_mm)`` for a wall's multi-layer assembly.
+
+    Prefers the resolved ``wall_layers`` params (written by ``set_type`` from the
+    element's WallType); falls back to resolving ``el.type_id`` in the shared
+    catalog. Returns ``[]`` when there is no real layer data — the caller then
+    keeps the single-material association (no invented thicknesses)."""
+    raw_layers: list = []
+    stored = el.params.get("wall_layers")
+    if isinstance(stored, list) and stored:
+        raw_layers = stored
+    elif el.type_id:
+        try:
+            from llmbim_core.types_catalog import DEFAULT_WALL_TYPES
+
+            wt = DEFAULT_WALL_TYPES.get(str(el.type_id))
+            if wt and wt.layers:
+                raw_layers = [layer.model_dump() for layer in wt.layers]
+        except Exception:  # noqa: BLE001
+            raw_layers = []
+    out: list[tuple[str, float]] = []
+    for layer in raw_layers:
+        try:
+            name = _material_label(str(layer.get("material") or "")) or "Layer"
+            th = float(layer.get("thickness_mm") or 0.0)
+        except (AttributeError, TypeError, ValueError):
+            continue
+        if th > 0:
+            out.append((name, th))
+    return out
+
+
+def _associate_material(f: _Ifc, owner: int, product_id: int, el) -> None:
+    """Associate the element's material with the product.
+
+    Walls with a resolvable multi-layer assembly get an ``IfcMaterialLayerSet``
+    (ordered per-layer ``IfcMaterial`` + mm thickness); every other element —
+    and walls with no layer data — keep the single-``IfcMaterial`` association
+    exactly as PR #23 does. A wall is never double-associated."""
+    if (el.category or "").lower() == "wall":
+        layers = _wall_layers_for(el)
+        if layers:
+            layer_ids: list[int] = []
+            for name, th in layers:
+                mat_id = f.material(name)
+                layer_ids.append(
+                    f.add(
+                        f"IFCMATERIALLAYER(#{mat_id},{float(th)},$,'{_esc(name)}',$,$,$)"
+                    )
+                )
+            set_name = _esc(str(el.type_id or el.name or "Wall Assembly"))
+            ids = ",".join(f"#{i}" for i in layer_ids)
+            lset = f.add(f"IFCMATERIALLAYERSET(({ids}),'{set_name}',$)")
+            f.add(
+                f"IFCRELASSOCIATESMATERIAL('{f.guid()}',#{owner},$,$,"
+                f"(#{product_id}),#{lset})"
+            )
+            return
     matname = _material_name_for(el)
     if matname:
         mat_id = f.material(matname)
@@ -223,6 +288,12 @@ def _attach_csi_pset(f: _Ifc, owner: int, product_id: int, model: ProjectModel, 
             f"IFCRELASSOCIATESMATERIAL('{f.guid()}',#{owner},$,$,"
             f"(#{product_id}),#{mat_id})"
         )
+
+
+def _attach_csi_pset(f: _Ifc, owner: int, product_id: int, model: ProjectModel, el) -> None:
+    """Attach Pset_CSIMasterFormat + associate the element's material (single
+    IfcMaterial, or an IfcMaterialLayerSet for multi-layer walls)."""
+    _associate_material(f, owner, product_id, el)
     try:
         from llmbim_core.csi import csi_for_element
 
