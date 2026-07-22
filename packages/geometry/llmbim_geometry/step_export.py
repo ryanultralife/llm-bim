@@ -290,7 +290,9 @@ def _wall_solids(
     h = th / 2.0
     z0 = _level_z(model, el.level_id) / 1000.0
 
-    def block(a: float, b: float, za: float, zb: float):
+    def block(
+        a: float, b: float, za: float, zb: float
+    ) -> tuple[list[tuple[float, float, float]], list[tuple[int, ...]]] | None:
         if b - a < 1e-9 or zb - za < 1e-9:
             return None
         ax, ay = x0 + ux * a, y0 + uy * a

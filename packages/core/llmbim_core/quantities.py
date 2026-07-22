@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -69,7 +70,7 @@ def wall_net_area_m2(el: Element, model: ProjectModel | None = None) -> float:
     return max(0.0, wall_area_m2(el) - wall_opening_area_m2(el, model))
 
 
-def polygon_area_3d_m2(pts) -> float:
+def polygon_area_3d_m2(pts: Sequence[Sequence[float]]) -> float:
     """Area of a planar polygon in 3D (mm) -> m2, via the cross-product sum."""
     n = len(pts)
     if n < 3:
@@ -84,7 +85,7 @@ def polygon_area_3d_m2(pts) -> float:
     return 0.5 * math.sqrt(cx * cx + cy * cy + cz * cz) / 1e6
 
 
-def roof_planes_mm(el: Element) -> list[list]:
+def roof_planes_mm(el: Element) -> list[list[Any]]:
     """Normalise a roof's plane polygons across representations.
 
     Kernel roofs store `planes` as a list of dicts ({polygon_mm, slope, ...});
@@ -172,11 +173,12 @@ def _poly_clip_area(subject: list[tuple[float, float]],
     """
     subject = _ccw(subject)
     clip = _ccw(clip)
+    _P = tuple[float, float]
 
-    def inside(p, a, b):
+    def inside(p: _P, a: _P, b: _P) -> bool:
         return (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]) >= -1e-9
 
-    def isect(p1, p2, a, b):
+    def isect(p1: _P, p2: _P, a: _P, b: _P) -> _P:
         r = (p2[0] - p1[0], p2[1] - p1[1])
         s = (b[0] - a[0], b[1] - a[1])
         den = r[0] * s[1] - r[1] * s[0]
@@ -218,14 +220,18 @@ def wall_corner_overlap_m3(model: ProjectModel) -> float:
     only touch at an edge) contribute nothing and tees/crosses are handled
     on their true geometry rather than a t x t guess.
     """
-    walls = [el for el in model.elements if el.category == "wall"]
-    fps = [(el, _wall_footprint(el)) for el in walls]
-    fps = [(el, fp) for el, fp in fps if fp is not None]
+    fps: list[tuple[list[tuple[float, float]], float, float]] = []
+    for el in model.elements:
+        if el.category != "wall":
+            continue
+        fp = _wall_footprint(el)
+        if fp is not None:
+            fps.append(fp)
     total = 0.0
     for i in range(len(fps)):
-        _ea, (pa, za0, za1) = fps[i]
+        pa, za0, za1 = fps[i]
         for j in range(i + 1, len(fps)):
-            _eb, (pb, zb0, zb1) = fps[j]
+            pb, zb0, zb1 = fps[j]
             area_mm2 = _poly_clip_area(pa, pb)
             if area_mm2 <= 1.0:
                 continue
