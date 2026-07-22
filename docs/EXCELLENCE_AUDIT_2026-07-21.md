@@ -17,10 +17,11 @@ rendering**, not new science.
 
 | # | Workstream | Impact | Effort | Owner | Status |
 |---|------------|--------|--------|-------|--------|
-| 1 | Wire routing+sizing engine into flagship (real MEP + trades) | **critical** | XL | **Claude** | ▶ in progress |
-| 2 | CD plot-set fidelity (legibility, lineweights, scale, pagination) | **critical** | L | **Grok** (live) | ▶ in progress by Grok |
-| 3 | Discipline-sheet depth (symbols, underlay, schedule columns) | high | XL | Grok/drawings (after WS1) | queued |
-| 4 | Presentation rendering (textured PBR, material ext, AO, hero) | high | XL | **Claude** | queued |
+| 1 | Wire routing+sizing engine into flagship (real MEP + trades) | **critical** | XL | **Claude** | ✅ done — PR #21 + #22 merged |
+| 2 | CD plot-set fidelity (legibility, lineweights, scale, pagination) | **critical** | L | **Grok** | ✅ done — PR #20 merged |
+| 3 | Discipline-sheet depth (symbols, underlay, schedule columns) | high | XL | Grok/drawings (after WS1) | queued (WS1 MEP geometry now on main) |
+| 4 | Presentation rendering (textured PBR, material ext, AO, hero) | high | XL | **Claude** | queued — glTF binary + churned mesh.py; needs care |
+| + | IFC fidelity: IfcMaterial associations | med | S | **Claude** | ✅ done — PR #23 merged |
 
 Lane split (observed from live git log 2026-07-21): **Grok owns `packages/drawings/**` + schad
 plan-anatomy (WS2/WS3).** **Claude owns `packages/core` + `packages/geometry` kernel lanes
@@ -88,3 +89,25 @@ takeoff from foundations geometry; drift-pin test that flagship takeoffs are non
 
 ## Execution log
 - 2026-07-21: audit complete (B-); Claude claims WS1+WS4 (kernel lanes); Grok live on WS2 (drawings).
+- 2026-07-21: **WS1a merged (PR #21)** — route_mep places 30 pipe / 3 duct / 7 conduit / 13
+  fittings sized from mep_sizing (+ NEC Ch.9 conduit fill); IFC gains concrete IFC4 subtypes
+  (IfcPipeSegment/DuctSegment/CableCarrierSegment) in 9 IfcSystem trades. Full pytest 503.
+- 2026-07-21: **WS1b merged (PR #22)** — footing rebar `(2) #4 CONT` quantified as CSI 03 20 00
+  (139 m #4 Grade 60); unspecified stem/pad/slab bars left unquantified (not invented).
+- 2026-07-22: **IFC materials merged (PR #23)** — 13 IfcMaterial + 132 IfcRelAssociatesMaterial
+  (wall→Wood Framing, pipe→Copper, footing→Concrete…). Full pytest 510.
+- 2026-07-22: **WS2 merged (PR #20, Grok)** — CD plot-set fidelity (path rendering, keynote gutter,
+  scale). WS3 (discipline-sheet depth) now unblocked — WS1 routed MEP geometry is on main for Grok.
+
+## Remaining (next)
+- **WS4 rendering (Claude, high, XL):** glTF textured PBR (TEXCOORD_0 UVs + tiling normal/roughness
+  textures) is the biggest render win. Analyzed injection points: add a UV bufferView after nrm in
+  the blob, a TEXCOORD_0 accessor per primitive in BOTH node loops (aggregate + per-element), and
+  images/textures/samplers on materials. Risk: binary buffer offsets + `mesh.py` is a churned file
+  (recent glTF commits) + the viewer (`viewer3d.py`, Grok's lane) consumes it. Do with worktree
+  isolation or coordinated with Grok. Material extensions (KHR transmission/lights) risk regressing
+  the in-app viewer's own light rig — coordinate before adding.
+- **IFC follow-ons (Claude, low/med):** IfcMaterialLayerSet for multi-layer walls; georeferencing
+  (IfcMapConversion) only if the basis carries a site CRS (else don't invent).
+- **Coordination note:** the shared working tree races with a live Grok (a commit-race was
+  untangled 2026-07-22). Prefer git worktrees for concurrent work.
