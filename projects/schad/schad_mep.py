@@ -196,6 +196,128 @@ def mech_equipment_layout() -> list[dict]:
     ]
 
 
+# ---- routed systems (real geometry, sized from mep_sizing) ------------------
+_FT_MM = 304.8
+
+
+def _ft(v: float) -> float:
+    return float(v) * _FT_MM
+
+
+def route_mep(p: object, *, level: str = 'L1') -> dict:
+    """Route real MEP systems as design-intent schematic geometry.
+
+    Places sized pipe/duct/conduit segments (+ branch tees) so the material
+    takeoffs, IFC MEP entities, and MEP sheets carry routed geometry instead of
+    note markers. Sizes come from ``llmbim_core.mep_sizing`` (Hunter's curve /
+    Hazen-Williams for water, NEC Ch.9 fill for conduit) so the drawn size, the
+    takeoff, and the calc trace to one source. Schematic — coordinate in field.
+    Additive: call once after equipment/fixtures are placed.
+    """
+    from llmbim_core import mep_sizing as sz
+
+    n = {'pipe': 0, 'duct': 0, 'conduit': 0, 'fitting': 0}
+
+    def PIPE(nps: str, a: tuple[float, float], b: tuple[float, float],
+             material: str, system: str, name: str, z: float = 2600.0) -> None:
+        p.place_pipe(level=level, nps=nps, start=(_ft(a[0]), _ft(a[1])),
+                     end=(_ft(b[0]), _ft(b[1])), material=material,
+                     system=system, name=name, z0_mm=z)
+        n['pipe'] += 1
+
+    def DUCT(a: tuple[float, float], b: tuple[float, float], w: float, h: float,
+             system: str, name: str, z: float = 2700.0) -> None:
+        p.place_duct(level=level, start=(_ft(a[0]), _ft(a[1])),
+                     end=(_ft(b[0]), _ft(b[1])), width_mm=w, height_mm=h,
+                     system=system, name=name, z0_mm=z)
+        n['duct'] += 1
+
+    def CONDUIT(a: tuple[float, float], b: tuple[float, float], trade: str,
+                system: str, name: str, z: float = 2800.0) -> None:
+        p.place_conduit(level=level, start=(_ft(a[0]), _ft(a[1])),
+                        end=(_ft(b[0]), _ft(b[1])), trade_size=trade,
+                        system=system, name=name, z0_mm=z)
+        n['conduit'] += 1
+
+    def TEE(nps: str, at: tuple[float, float], material: str, system: str) -> None:
+        p.place_fitting(level=level, fitting_type='tee', nps=nps,
+                        origin=(_ft(at[0]), _ft(at[1])), material=material,
+                        system=system)
+        n['fitting'] += 1
+
+    mech = (42.0, 26.0)          # Mech/Bath plant node (ft)
+    panel_a = (39.0, 47.4)       # 200A service
+    panel_b = (21.0, 47.4)       # ADU 100A subpanel
+
+    # ---- DOMESTIC COLD WATER (copper), main sized from total WSFU ------------
+    dcw_nps = str(sz.size_pipe(sz.wsfu_to_lps(13.5), material='copper')['nps'])
+    PIPE(dcw_nps, (42.0, 21.0), mech, 'copper', 'DCW', 'DCW main from PT-1', z=600.0)
+    PIPE(dcw_nps, mech, (42.0, 47.0), 'copper', 'DCW', 'DCW riser to spine', z=2900.0)
+    PIPE(dcw_nps, (42.0, 47.0), (9.0, 47.0), 'copper', 'DCW', 'DCW spine (rear wall)')
+    for fx, fy, label in ((10.0, 47.0, 'KS'), (12.2, 46.6, 'LAV'),
+                          (13.4, 46.6, 'WC'), (15.0, 46.6, 'SHR')):
+        PIPE('1/2', (fx, 47.0), (fx, fy), 'copper', 'DCW', f'DCW branch {label}')
+        TEE(dcw_nps, (fx, 47.0), 'copper', 'DCW')
+    for a, b, label in ((mech, (44.5, 31.0), '1/2-bath lav'),
+                        ((44.5, 31.0), (46.5, 30.5), '1/2-bath WC'),
+                        (mech, (40.5, 30.0), 'dog wash'),
+                        (mech, (23.0, 33.6), 'workshop util'),
+                        (mech, (0.4, 16.0), 'hose bib W'),
+                        (mech, (47.6, 16.0), 'hose bib E')):
+        PIPE('1/2', a, b, 'copper', 'DCW', f'DCW branch {label}')
+
+    # ---- SANITARY DWV (ABS/PVC), 3" building drain + fixture branches --------
+    PIPE('3', (15.0, 46.6), (42.0, 46.6), 'pvc', 'SAN', '3in building drain', z=-300.0)
+    PIPE('3', (42.0, 46.6), (42.0, 20.0), 'pvc', 'SAN', '3in drain to septic', z=-400.0)
+    for fx, fy, nps, on_horiz in ((10.0, 47.0, '2', True), (12.2, 46.6, '1-1/2', True),
+                                  (13.4, 46.6, '3', True), (15.0, 46.6, '2', True),
+                                  (23.0, 33.6, '2', False), (41.5, 27.0, '2', False),
+                                  (40.5, 30.0, '2', False), (46.5, 30.5, '3', False),
+                                  (44.5, 31.0, '1-1/2', False)):
+        tap = (fx, 46.6) if on_horiz else (42.0, fy)
+        PIPE(nps, (fx, fy), tap, 'pvc', 'SAN', 'waste branch', z=-250.0)
+        TEE('3', tap, 'pvc', 'SAN')
+    # 2" vents up through the roof at the two WC risers
+    for fx, fy in ((13.4, 46.6), (46.5, 30.5)):
+        p.place_riser(level=level, nps='2', origin=(_ft(fx), _ft(fy)),
+                      z0_mm=0.0, z1_mm=4200.0, material='pvc', system='V',
+                      name='vent through roof')
+        n['pipe'] += 1
+
+    # ---- RADIANT PEX (copper NPS proxy), supply/return mains from manifold ---
+    man = (40.5, 26.0)
+    PIPE('3/4', man, (24.0, 16.0), 'copper', 'RAD', 'radiant PEX supply - garage')
+    PIPE('3/4', (24.5, 16.0), man, 'copper', 'RAD', 'radiant PEX return - garage')
+    PIPE('3/4', man, (15.0, 40.0), 'copper', 'RAD', 'radiant PEX supply - ADU')
+    PIPE('3/4', (15.5, 40.0), man, 'copper', 'RAD', 'radiant PEX return - ADU')
+
+    # ---- MECHANICAL ductwork (galv), sized from CFM --------------------------
+    ef = sz.size_duct(50.0 * 1.699)          # 50 CFM bath exhaust -> m3/h
+    DUCT((46.5, 31.0), (47.6, 31.0), float(ef['width_mm']), float(ef['height_mm']),
+         'EA', 'EF-1 bath exhaust to exterior')
+    sa = sz.size_duct(120.0 * 1.699)         # ~120 CFM ADU ventilation
+    DUCT((40.0, 33.0), (16.0, 40.0), float(sa['width_mm']), float(sa['height_mm']),
+         'SA', 'ADU supply trunk')
+    DUCT((16.0, 41.0), (40.0, 34.0), float(sa['width_mm']), float(sa['height_mm']),
+         'RA', 'ADU return trunk')
+
+    # ---- POWER conduit feeders, trade size from NEC Ch.9 fill -----------------
+    for a, b, amps, name in ((panel_a, panel_b, 100.0, 'ADU subfeed 100A'),
+                             (panel_a, (47.4, 4.0), 50.0, 'EV feeder 50A'),
+                             (panel_a, (39.5, 40.0), 30.0, 'workshop 240V 30A'),
+                             (panel_a, (40.0, 26.0), 23.0, 'radiant RF circuit')):
+        trade = str(sz.feeder_conduit(amps)['trade_size'])
+        CONDUIT(a, b, trade, 'PWR', name)
+    # branch-circuit homeruns (20A) to device clusters
+    for a, b, name in ((panel_a, (8.0, 31.4), 'garage recept HR'),
+                       (panel_b, (14.0, 33.6), 'ADU branch HR'),
+                       (panel_a, (24.0, 10.7), 'garage lighting HR')):
+        trade = str(sz.size_conduit([('12', 3)])['trade_size'])
+        CONDUIT(a, b, trade, 'LTG' if 'lighting' in name else 'PWR', name)
+
+    return n
+
+
 if __name__ == '__main__':
     for ln in (electrical_service_calc() + plumbing_calc()
                + mechanical_calc()):
