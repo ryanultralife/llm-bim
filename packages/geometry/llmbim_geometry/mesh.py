@@ -87,6 +87,17 @@ _MATERIAL_PBR: dict[str, tuple[list[float], float, float]] = {
     "bolt": ([0.42, 0.44, 0.48, 1.0], 0.9, 0.28),  # A325 steel
     "flange": ([0.48, 0.5, 0.54, 1.0], 0.75, 0.35),  # joined material section
     "fab_part": ([0.55, 0.58, 0.62, 1.0], 0.88, 0.32),  # machined steel BREP
+    # Machined BREP parts keyed by STOCK MATERIAL, so a fab pack reads as a
+    # material takeoff in the viewer rather than one undifferentiated grey mass
+    "fab_aluminum": ([0.72, 0.80, 0.88, 1.0], 0.82, 0.30),
+    "fab_steel": ([0.50, 0.53, 0.58, 1.0], 0.85, 0.38),
+    "fab_moly": ([0.78, 0.80, 0.84, 1.0], 0.92, 0.18),
+    "fab_magnet": ([0.28, 0.34, 0.58, 1.0], 0.50, 0.38),
+    "fab_copper": ([0.85, 0.45, 0.20, 1.0], 0.88, 0.26),
+    # machine service detail that previously fell into the generic bucket
+    "equip_tie_rod": ([0.62, 0.64, 0.68, 1.0], 0.90, 0.28),
+    "equip_header": ([0.20, 0.62, 0.72, 1.0], 0.55, 0.38),
+    "equip_rail": ([0.68, 0.70, 0.74, 1.0], 0.80, 0.32),
     "default": ([0.62, 0.62, 0.65, 1.0], 0.2, 0.7),
 }
 
@@ -110,6 +121,15 @@ EQUIP_KIND_MATERIAL: dict[str, str] = {
     "mag_spacer": "equip_spacer",
     "spacer": "equip_spacer",
     "pedestal": "equip_pedestal",
+    "tie_rod": "equip_tie_rod",
+    "tierod": "equip_tie_rod",
+    "stud": "equip_tie_rod",
+    "fastener": "equip_tie_rod",
+    "header": "equip_header",
+    "header_ring": "equip_header",
+    "rail": "equip_rail",
+    "mount": "equip_rail",
+    "bracket": "equip_rail",
     "step_ref": "equip_step_ref",
     "step": "equip_step_ref",
     # §5.3D additions — machine systems
@@ -1600,6 +1620,16 @@ def _gltf_material_key(el: Element) -> str:
         kind = str(el.params.get("kind") or "").lower()
         if "ultem" in mat or "peek" in mat or "cartridge" in kind:
             return "fab_ultem"
+        if "alumin" in mat or "6061" in mat:
+            return "fab_aluminum"
+        if "moly" in mat or "molybden" in mat:
+            return "fab_moly"
+        if "ndfeb" in mat or "magnet" in mat or "n42" in mat:
+            return "fab_magnet"
+        if "copper" in mat or mat == "cu":
+            return "fab_copper"
+        if "steel" in mat or "iron" in mat or "a36" in mat:
+            return "fab_steel"
         return "fab_part"
     if cat in {"duct", "hvac"} or ftype == "duct":
         return "duct"
@@ -1617,7 +1647,7 @@ def _gltf_material_key(el: Element) -> str:
         return "coil"
     if cat == "wire_path" or ftype == "wire_path":
         return _wire_material_key(el, default="wire")
-    if cat == "wire" or ftype == "wire":
+    if cat in {"wire", "conductor"} or ftype == "wire":
         phased = _wire_material_key(el, default="")
         if phased:
             return phased

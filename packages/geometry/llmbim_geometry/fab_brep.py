@@ -78,6 +78,8 @@ def rebuild_solid(features: list[dict[str, Any]]) -> Any:
             solid = _apply_union_box(solid, feat)
         elif op in {"extrude_circle"}:
             solid = _apply_extrude_circle(solid, feat)
+        elif op in {"cut_revolve", "groove"}:
+            solid = _apply_cut_revolve(solid, feat)
         elif op in {"revolve", "lathe"}:
             solid = _apply_revolve(solid, feat)
         elif op in {"hole_pattern", "pattern_holes"}:
@@ -405,6 +407,30 @@ def _apply_revolve(solid: Any, feat: dict[str, Any]) -> Any:
     if solid is None:
         return part
     return solid.union(part)
+
+
+def _apply_cut_revolve(solid: Any, feat: dict[str, Any]) -> Any:
+    """Annular revolved CUT about Z — O-ring grooves, relief grooves, counterbores.
+
+    The mirror of :func:`_apply_revolve`: same rectangular profile swept about
+    Z, but subtracted. Without this a sealed flange cannot be modelled — the
+    feature set could add a revolved boss but never cut one.
+    """
+    if solid is None:
+        raise FabBrepError("cut_revolve requires a base solid first")
+    r_out = float(feat.get("radius_mm") or feat.get("outer_radius_mm") or 20)
+    r_in = float(feat.get("inner_radius_mm") or 0)
+    h = float(feat.get("height_mm") or 5)
+    ox, oy, oz = _origin(feat)
+    pts = [(r_in, 0), (r_out, 0), (r_out, h), (r_in, h)]
+    tool = (
+        cq.Workplane("XZ")
+        .transformed(offset=(ox, oy, oz))
+        .polyline(pts)
+        .close()
+        .revolve(360)
+    )
+    return solid.cut(tool)
 
 
 def _apply_hole_pattern(solid: Any, feat: dict[str, Any]) -> Any:

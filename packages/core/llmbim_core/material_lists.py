@@ -252,6 +252,45 @@ def exploded_material_bom(model: ProjectModel) -> list[dict[str, Any]]:
     for el in model.elements:
         qty = float(el.params.get("part_qty") or 1)
         pid = el.params.get("part_id")
+        # INSTANCE OVERRIDES TYPE: an element carrying an explicit mass_kg (e.g.
+        # computed from its own BREP solid, or measured) is authoritative over
+        # the catalog part's generic BOM. A catalog part is a TYPE; several
+        # instances of one part routinely differ in geometry, and an
+        # envelope-derived type mass cannot know about an instance's bores,
+        # slots or cut features. Mirrors instance-over-type parameters in
+        # mainstream BIM tools.
+        if el.params.get("mass_kg") is not None:
+            mid = str(el.params.get("material_id") or "")
+            if not mid and pid and get_part(str(pid)):
+                mid = str(getattr(get_part(str(pid)), "primary_material_id", "") or "")
+            mat = get_material(mid)
+            mass = float(el.params["mass_kg"])
+            _vraw = el.params.get("volume_m3")
+            inst_vol: float | None = float(_vraw) if _vraw is not None else None
+            if inst_vol is None and mat and mat.density_kg_m3:
+                inst_vol = mass / float(mat.density_kg_m3)
+            cost = 0.0
+            if mat and mat.unit_cost_per_kg:
+                cost = mass * float(mat.unit_cost_per_kg)
+            elif inst_vol is not None:
+                cost = material_cost(mid, float(inst_vol))
+            rows.append(
+                {
+                    "source": "instance_mass",
+                    "element_id": el.id,
+                    "element_name": el.name,
+                    "part_id": pid,
+                    "material_id": mid,
+                    "material_name": mat.name if mat else mid,
+                    "qty": qty,
+                    "unit": "ea",
+                    "volume_m3": round(float(inst_vol), 6) if inst_vol is not None else None,
+                    "mass_kg": round(mass * qty, 3),
+                    "est_cost": round(cost * qty, 2),
+                    "csi_hint": mat.csi_hint if mat else "",
+                }
+            )
+            continue
         if pid and get_part(str(pid)):
             for line in explode_part_bom(get_part(str(pid)), qty):  # type: ignore[arg-type]
                 line["source"] = "part_bom"

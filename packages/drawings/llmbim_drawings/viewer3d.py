@@ -237,6 +237,7 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
     <button type="button" id="btnTop">Top</button>
     <button type="button" id="btnReset">Reset cam</button>
     <button type="button" id="btnAll">All layers</button>
+    <button type="button" id="btnSnap" title="Save this view as a PNG (2x; Shift+P = 4x)">Save PNG</button>
     <button type="button" id="btnNone">None</button>
   </div>
 
@@ -843,6 +844,36 @@ document.getElementById('btnReset').addEventListener('click', () => {
   controls.update();
 });
 document.getElementById('btnFit').addEventListener('click', () => fitCamera(root));
+
+// Save PNG — capture the STUDIO render (PBR + bloom + ACES), not a flat
+// re-draw. The renderer has no preserveDrawingBuffer (it costs perf), so we
+// must render and read back in the SAME tick or the buffer is already
+// cleared and toDataURL returns a blank image.
+function saveViewPNG(scale) {
+  const prevRatio = renderer.getPixelRatio();
+  const w = window.innerWidth, h = window.innerHeight;
+  try {
+    renderer.setPixelRatio(scale);
+    composer.setSize(w, h);
+    composer.render();
+    const url = renderer.domElement.toDataURL('image/png');
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    a.href = url; a.download = 'view_' + stamp + '.png';
+    document.body.appendChild(a); a.click(); a.remove();
+  } catch (err) {
+    console.error('snapshot failed', err);
+    alert('Snapshot failed: ' + err.message);
+  } finally {
+    renderer.setPixelRatio(prevRatio);
+    composer.setSize(w, h);
+  }
+}
+document.getElementById('btnSnap').addEventListener('click', () => saveViewPNG(2));
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'p' && !e.ctrlKey && !e.metaKey && !e.altKey) saveViewPNG(2);
+  if (e.key === 'P' && e.shiftKey) saveViewPNG(4);
+});
 
 // Camera presets (SSOT P3.11): iso / end views / top for equipment review.
 // Section-through-bore = preset + the existing cutaway plane controls.
