@@ -89,6 +89,24 @@ def test_line_legend_only_when_weights() -> None:
     assert "lw-" not in render_elevation_svg(p.model, "S")
 
 
+def test_elevation_opening_labels_stagger_when_crowded() -> None:
+    # Two openings with heads at the same height, close together: their tags
+    # would print on top of each other at one point. The renderer assigns the
+    # nearer-left tag to a higher row and drops a leader to its opening.
+    p = _wall_proj("elev-stagger")
+    wid = p.model.query(category="wall", level="L1")[0].id
+    for off, tid in ((1000.0, "WIN-AAAAAA-01"), (1700.0, "WIN-BBBBBB-02")):
+        p.place_window(
+            host=wid, offset_mm=off, width_mm=400, height_mm=1200,
+            sill_mm=1000, type_id=tid,
+        )
+    grp = render_elevation_svg(p.model, "S").split('class="openings-elev')[1].split("</g>")[0]
+    ys = [float(m) for m in re.findall(r'<text x="[\d.-]+" y="([\d.-]+)"', grp)]
+    assert len(ys) == 2  # both tags present
+    assert len(set(ys)) == 2  # ...on distinct rows (staggered, not piled)
+    assert 'stroke-width="0.4"' in grp  # leader dropped for the raised tag
+
+
 # ── 2. material hatches ──────────────────────────────────────────────────────
 
 
