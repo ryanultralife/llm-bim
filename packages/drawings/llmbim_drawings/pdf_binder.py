@@ -55,6 +55,108 @@ def _num(value: str | None, base: float = 0.0) -> float:
     return float(m.group(1)) if m else 0.0
 
 
+_PATH_TOK = re.compile(r"([MmLlHhVvCcSsQqTtAaZz])|(-?\d*\.?\d+(?:[eE][-+]?\d+)?)")
+
+
+def _path_construct(d: str, mapx, mapy) -> list[str]:
+    """Translate an SVG path ``d`` into PDF path-construction ops (m/l/c/h).
+
+    Handles M/L/H/V/C/S/Q/Z (abs + rel); the drawing engine emits paths for
+    footings, stems, slab outlines and revision clouds. Without this the whole
+    <path> element was dropped from the PDF, so foundation/framing plans (and
+    any path-based custom sheet) rendered blank. Arcs (A) are skipped.
+    """
+    items: list[tuple[str, float]] = []
+    for c, n in _PATH_TOK.findall(d or ""):
+        if c:
+            items.append(("c", 0.0))
+            items[-1] = ("c", c)  # type: ignore[assignment]
+        elif n:
+            items.append(("n", float(n)))
+    ops: list[str] = []
+    i = 0
+    cx = cy = sx0 = sy0 = 0.0
+    px = py = 0.0  # last control reflection point
+    cmd = ""
+    started = False
+
+    def take(k: int) -> list[float]:
+        nonlocal i
+        out = []
+        while len(out) < k and i < len(items) and items[i][0] == "n":
+            out.append(float(items[i][1]))
+            i += 1
+        return out
+
+    n_items = len(items)
+    while i < n_items:
+        if items[i][0] == "c":
+            cmd = str(items[i][1])
+            i += 1
+        rel = cmd.islower()
+        C = cmd.upper()
+        if C == "M":
+            v = take(2)
+            if len(v) < 2:
+                break
+            cx, cy = (cx + v[0], cy + v[1]) if rel else (v[0], v[1])
+            sx0, sy0 = cx, cy
+            ops.append(f"{mapx(cx):.2f} {mapy(cy):.2f} m")
+            started = True
+            cmd = "l" if rel else "L"       # subsequent pairs are lineto
+        elif C == "L":
+            v = take(2)
+            if len(v) < 2:
+                break
+            cx, cy = (cx + v[0], cy + v[1]) if rel else (v[0], v[1])
+            ops.append(f"{mapx(cx):.2f} {mapy(cy):.2f} l")
+        elif C == "H":
+            v = take(1)
+            if not v:
+                break
+            cx = cx + v[0] if rel else v[0]
+            ops.append(f"{mapx(cx):.2f} {mapy(cy):.2f} l")
+        elif C == "V":
+            v = take(1)
+            if not v:
+                break
+            cy = cy + v[0] if rel else v[0]
+            ops.append(f"{mapx(cx):.2f} {mapy(cy):.2f} l")
+        elif C in ("C", "S", "Q"):
+            k = 6 if C == "C" else 4
+            v = take(k)
+            if len(v) < k:
+                break
+            pts = []
+            for j in range(0, k, 2):
+                ax = cx + v[j] if rel else v[j]
+                ay = cy + v[j + 1] if rel else v[j + 1]
+                pts.append((ax, ay))
+            if C == "C":
+                (c1x, c1y), (c2x, c2y), (ex, ey) = pts
+            elif C == "Q":  # quadratic → cubic
+                (qx, qy), (ex, ey) = pts
+                c1x, c1y = cx + 2 / 3 * (qx - cx), cy + 2 / 3 * (qy - cy)
+                c2x, c2y = ex + 2 / 3 * (qx - ex), ey + 2 / 3 * (qy - ey)
+            else:  # S: smooth cubic, reflect prev control
+                (c2x, c2y), (ex, ey) = pts
+                c1x, c1y = 2 * cx - px, 2 * cy - py
+            ops.append(
+                f"{mapx(c1x):.2f} {mapy(c1y):.2f} {mapx(c2x):.2f} "
+                f"{mapy(c2y):.2f} {mapx(ex):.2f} {mapy(ey):.2f} c"
+            )
+            px, py = c2x, c2y
+            cx, cy = ex, ey
+        elif C == "Z":
+            ops.append("h")
+            cx, cy = sx0, sy0
+        elif C == "A":
+            take(7)   # skip arcs — end point isn't advanced (rare)
+        else:
+            i += 1
+    return ops if started else []
+
+
 def _parse_svg_drawing(svg_path: Path) -> tuple[float, float, list[str]]:
     """Return (width, height, PDF content stream operators)."""
     text = svg_path.read_text(encoding="utf-8", errors="replace")
@@ -168,6 +270,28 @@ def _parse_svg_drawing(svg_path: Path) -> tuple[float, float, list[str]]:
                     ops.append(f"{x0:.2f} {y0:.2f} m")
                 ops.append(f"{x1:.2f} {y1:.2f} l")
             ops.append("h S")
+        elif tag == "path":
+            pops = _path_construct(el.get("d") or "", mapx, mapy)
+            if pops:
+                stroke = el.get("stroke")
+                has_fill = bool(fill and fill not in ("none",))
+                has_stroke = bool(stroke and stroke not in ("none",))
+                if not has_fill and not has_stroke:
+                    has_stroke = True   # default: outline
+                dash = el.get("stroke-dasharray")
+                ops.append("q")
+                if dash and dash not in ("none",):
+                    dl = [f"{_num(t) * sx:.2f}" for t in re.split(r"[\s,]+", dash) if t]
+                    if dl:
+                        ops.append(f"[{' '.join(dl)}] 0 d")
+                if has_fill:
+                    ops.append("0.85 0.85 0.9 rg")
+                if has_stroke:
+                    ops.append("0 0 0 RG")
+                ops.extend(pops)
+                paint = "B" if (has_fill and has_stroke) else ("f" if has_fill else "S")
+                ops.append(paint)
+                ops.append("Q")
         elif tag == "text":
             x = mapx(_num(el.get("x"), vw))
             y = mapy(_num(el.get("y"), vh))
