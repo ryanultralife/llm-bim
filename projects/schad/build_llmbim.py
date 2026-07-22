@@ -663,12 +663,15 @@ def _build_mep_content(p: Project, ctx: dict[str, Any]) -> None:
             mark = "MAN"
         else:
             # thermostats / propane stub / exhaust fan / CO alarm: no recorded
-            # dimensions — carried as design-intent notes, not boxes
-            p.create_note(
+            # dimensions — carried as design-intent notes, not boxes.
+            # Tagged M(echanical) so the arch plan (A1.1) omits them — the
+            # devices render on the MEP sheets; A1.1 stays architectural.
+            _nid = p.create_note(
                 level="L1",
                 text=f"{sym}: {note}"[:120],
                 position=(ft(entry["x"]), ft(entry["y"])),
             )
+            p.op("set_param", id=_nid, key="discipline", value="M")
             continue
         kind, ew, ed, eh = MECH_EQUIP_SIZE_FT_ASSUMED[mark]
         eid = p.create_equipment_box(
@@ -686,21 +689,23 @@ def _build_mep_content(p: Project, ctx: dict[str, Any]) -> None:
     # Plumbing fixtures [RB MEP-201 + USER]: plan positions only in the record
     # — carried as marked notes (fixture dimensions are not recorded).
     for fi in mep.plumbing_fixtures_layout():
-        p.create_note(
+        _nid = p.create_note(
             level="L1",
             text=f"{fi['sym']}: {fi['note']}"[:120],
             position=(ft(fi["x"]), ft(fi["y"])),
         )
+        p.op("set_param", id=_nid, key="discipline", value="P")
 
     # Electrical panels + EV receptacle [RB MEP-101] — anchor devices only;
     # the full device layout renders on MEP-101 from the basis.
     for dev in mep.electrical_devices():
         if dev["sym"] in {"P", "EV"}:
-            p.create_note(
+            _nid = p.create_note(
                 level="L1",
                 text=f"{dev['sym']} ckt {dev['ckt']}: {dev.get('note') or dev['sym']}"[:120],
                 position=(ft(dev["x"]), ft(dev["y"])),
             )
+            p.op("set_param", id=_nid, key="discipline", value="E")
 
     # ADU ADA basis note at the ADU center (full build-out on sheet A1.2)
     import schad_adu as adu
@@ -1064,7 +1069,21 @@ def schad_sheet_register(p: Project) -> list[dict[str, Any]]:
             ],
         ),
         e("C1.1", "custom_svg", view=svg_plans.site_plan_svg()),
-        e("A1.1", "plan", level="L1", tags=True),
+        # A1.1 is the ARCHITECTURAL floor plan: whitelist arch + structural-
+        # overhead groups so the routed MEP (pipe/duct/conduit) and mech
+        # equipment boxes stay on the MEP sheets (MEP-101/201/301), and hide
+        # the M/E/P fixture keynotes (they render on those sheets). Grid dims
+        # + room tags are re-asserted (an ``include`` set would drop them).
+        e(
+            "A1.1",
+            "plan",
+            level="L1",
+            tags=True,
+            include={"walls", "openings", "rooms", "grids", "columns", "beams", "notes"},
+            hide_note_disciplines={"M", "E", "P"},
+            grid_dims=True,
+            room_tags=True,
+        ),
         e("A1.2", "custom_svg", view=svg_plans.adu_plan_svg()),
         e("A2.1", "elevations", pair=["S", "N"]),
         e("A2.2", "elevations", pair=["E", "W"]),
