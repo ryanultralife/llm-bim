@@ -433,6 +433,176 @@ def check_duct(
     }
 
 
+# --- electrical / conduit fill (NEC Chapter 9) --------------------------------
+
+_IN2_TO_MM2 = 645.16
+
+# NEC Chapter 9, Table 5 — THHN/THWN-2 approximate total area per conductor
+# (copper), in^2 -> mm^2. Engineering estimate, not a stamped design.
+THHN_AREA_MM2: dict[str, float] = {
+    "14": 0.0097 * _IN2_TO_MM2,
+    "12": 0.0133 * _IN2_TO_MM2,
+    "10": 0.0211 * _IN2_TO_MM2,
+    "8": 0.0366 * _IN2_TO_MM2,
+    "6": 0.0507 * _IN2_TO_MM2,
+    "4": 0.0824 * _IN2_TO_MM2,
+    "3": 0.0973 * _IN2_TO_MM2,
+    "2": 0.1158 * _IN2_TO_MM2,
+    "1": 0.1562 * _IN2_TO_MM2,
+    "1/0": 0.1855 * _IN2_TO_MM2,
+    "2/0": 0.2223 * _IN2_TO_MM2,
+    "3/0": 0.2679 * _IN2_TO_MM2,
+    "4/0": 0.3237 * _IN2_TO_MM2,
+    "250": 0.3970 * _IN2_TO_MM2,
+    "300": 0.4608 * _IN2_TO_MM2,
+    "350": 0.5242 * _IN2_TO_MM2,
+    "400": 0.5863 * _IN2_TO_MM2,
+    "500": 0.7073 * _IN2_TO_MM2,
+}
+
+# NEC Chapter 9, Table 4 — EMT (Art. 358) internal area at 40% fill (>2 wires),
+# in^2 -> mm^2, ordered small -> large.
+EMT_FILL_40_MM2: tuple[tuple[str, float], ...] = tuple(
+    (t, a * _IN2_TO_MM2)
+    for t, a in (
+        ("1/2", 0.122),
+        ("3/4", 0.213),
+        ("1", 0.346),
+        ("1-1/4", 0.598),
+        ("1-1/2", 0.814),
+        ("2", 1.342),
+        ("2-1/2", 2.343),
+        ("3", 3.538),
+        ("3-1/2", 4.618),
+        ("4", 5.901),
+    )
+)
+
+# THHN copper ampacity at 75C (NEC 310.16), (size, amps) small -> large.
+_THHN_AMPACITY_75C: tuple[tuple[str, float], ...] = (
+    ("14", 20.0),
+    ("12", 25.0),
+    ("10", 35.0),
+    ("8", 50.0),
+    ("6", 65.0),
+    ("4", 85.0),
+    ("3", 100.0),
+    ("2", 115.0),
+    ("1", 130.0),
+    ("1/0", 150.0),
+    ("2/0", 175.0),
+    ("3/0", 200.0),
+    ("4/0", 230.0),
+    ("250", 255.0),
+    ("300", 285.0),
+    ("350", 310.0),
+    ("400", 335.0),
+    ("500", 380.0),
+)
+
+# 240.4(D) small-conductor overcurrent limits (A).
+_OCPD_MAX: dict[str, float] = {"14": 15.0, "12": 20.0, "10": 30.0}
+
+# NEC 250.122 copper equipment grounding conductor by OCPD rating (A -> size).
+_EGC_250_122: tuple[tuple[float, str], ...] = (
+    (15.0, "14"),
+    (20.0, "12"),
+    (60.0, "10"),
+    (100.0, "8"),
+    (200.0, "6"),
+    (300.0, "4"),
+    (400.0, "3"),
+    (500.0, "2"),
+    (600.0, "1"),
+)
+
+
+def conductor_for_amps(amps: float) -> str:
+    """Smallest THHN copper size whose 75C ampacity carries ``amps``, honoring
+    the 240.4(D) small-conductor limits. Engineering estimate."""
+    if amps <= 0:
+        raise ValidationError("amps must be > 0", amps=amps)
+    for size, amp in _THHN_AMPACITY_75C:
+        rating = min(amp, _OCPD_MAX.get(size, amp))
+        if rating >= amps:
+            return size
+    raise ValidationError(
+        "Load exceeds single-conductor table (parallel sets needed)", amps=amps
+    )
+
+
+def egc_for_amps(amps: float) -> str:
+    """NEC 250.122 copper equipment grounding conductor size for the OCPD rating."""
+    for ocpd, size in _EGC_250_122:
+        if amps <= ocpd:
+            return size
+    return "2"
+
+
+def size_conduit(
+    conductors: Sequence[tuple[str, int]],
+    *,
+    conduit_type: str = "EMT",
+) -> dict[str, Any]:
+    """Smallest EMT trade size for ``conductors`` = [(awg, count), ...] at the
+    NEC Chapter 9, Table 1 40% fill limit (3+ conductors). Engineering estimate."""
+    if conduit_type != "EMT":
+        raise ValidationError("Only EMT conduit fill is implemented", conduit_type=conduit_type)
+    if not conductors:
+        raise ValidationError("conductors required")
+    total = 0.0
+    detail: list[dict[str, Any]] = []
+    for size, count in conductors:
+        if size not in THHN_AREA_MM2:
+            raise ValidationError(
+                "Unknown conductor size", size=size, supported=sorted(THHN_AREA_MM2)
+            )
+        if count <= 0:
+            continue
+        total += THHN_AREA_MM2[size] * count
+        detail.append(
+            {"size": size, "count": count, "area_mm2": round(THHN_AREA_MM2[size], 2)}
+        )
+    for trade, cap40 in EMT_FILL_40_MM2:
+        if total <= cap40:
+            return {
+                "ok": True,
+                "trade_size": trade,
+                "conduit_type": conduit_type,
+                "conductor_area_mm2": round(total, 2),
+                "fill_capacity_mm2": round(cap40, 2),
+                "fill_pct": round(total / (cap40 / 0.40) * 100.0, 1),
+                "conductors": detail,
+                "honesty": HONESTY_NOTE,
+            }
+    raise ValidationError(
+        "Conductors exceed 4in EMT at 40% fill", conductor_area_mm2=round(total, 2)
+    )
+
+
+def feeder_conduit(
+    amps: float,
+    *,
+    phase_conductors: int = 2,
+    neutral: bool = True,
+    ground: bool = True,
+    conduit_type: str = "EMT",
+) -> dict[str, Any]:
+    """Size a feeder's conductor set (ungrounded + neutral + EGC) and the EMT
+    trade size that carries it. Engineering estimate — not a stamped design."""
+    hot = conductor_for_amps(amps)
+    conductors: list[tuple[str, int]] = [(hot, max(1, phase_conductors))]
+    if neutral:
+        conductors.append((hot, 1))
+    if ground:
+        conductors.append((egc_for_amps(amps), 1))
+    out = size_conduit(conductors, conduit_type=conduit_type)
+    out.update(
+        {"amps": amps, "hot_size": hot, "neutral": neutral, "ground": ground}
+    )
+    return out
+
+
 # --- route application ---------------------------------------------------------
 
 

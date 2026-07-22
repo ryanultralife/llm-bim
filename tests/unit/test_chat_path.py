@@ -60,7 +60,7 @@ def test_full_multi_trade_pack_artifacts(tmp_path: Path) -> None:
     assert (out / "views" / "elev_E.dxf").is_file()
     ifc = (out / "model.ifc").read_text(encoding="utf-8")
     assert "IFCSPACE" in ifc
-    assert "IFCFLOWSEGMENT" in ifc
+    assert "IFCPIPESEGMENT" in ifc
     step = (out / "model.step").read_text(encoding="utf-8")
     assert "PIPE-CU:" in step or "DUCT:" in step
     gltf = (out / "model.gltf").read_text(encoding="utf-8")

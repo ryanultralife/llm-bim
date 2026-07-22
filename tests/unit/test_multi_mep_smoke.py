@@ -112,7 +112,11 @@ def test_multi_mep_pack_smoke(tmp_path: Path):
     ifc = tmp_path / "m.ifc"
     export_ifc(p.model, ifc)
     text = ifc.read_text(encoding="utf-8")
-    assert "IFCFLOWSEGMENT" in text
+    assert (
+        "IFCPIPESEGMENT" in text
+        or "IFCDUCTSEGMENT" in text
+        or "IFCCABLECARRIERSEGMENT" in text
+    )
     assert "Pset_CSIMasterFormat" in text
     if host:
         assert "IFCDOOR" in text

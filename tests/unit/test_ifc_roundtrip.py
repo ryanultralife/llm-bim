@@ -208,7 +208,7 @@ def test_second_export_same_entity_counts(tmp_path: Path) -> None:
         "IFCRELFILLSELEMENT",
         "IFCSLAB",
         "IFCBUILDINGELEMENTPROXY",
-        "IFCFLOWSEGMENT",
+        "IFCPIPESEGMENT",
         "IFCSPACE",
     )
     c1 = _entity_counts(first, types)
@@ -216,7 +216,7 @@ def test_second_export_same_entity_counts(tmp_path: Path) -> None:
     assert c1 == c2, f"first={c1} second={c2}"
     # sanity: the population is what the build script placed
     assert c1["IFCWALLSTANDARDCASE"] == 4
-    assert c1["IFCFLOWSEGMENT"] == 2
+    assert c1["IFCPIPESEGMENT"] == 2
     assert c1["IFCOPENINGELEMENT"] == 2
 
 
