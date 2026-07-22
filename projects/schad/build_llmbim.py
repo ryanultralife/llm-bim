@@ -1144,8 +1144,26 @@ def build_pack(out_dir: Path) -> tuple[Project, dict[str, Any]]:
     from llmbim_drawings.schedules import export_drawing_list
 
     cons = out_dir / "construction"
+    # Full professional CD anatomy (WP-SCHAD-ANATOMY-REBUILD): grid bubbles
+    # with fractional intermediates + per-discipline sides, 3-tier dimension
+    # chains, material hatches, 3-tier line-weight hierarchy, boxed room tags
+    # with areas, numbered keynotes + legend, key plan, and a reserved PE/SE
+    # stamp block on structural sheets. Per docs/CD_COMPLETENESS_STANDARD.md
+    # (Ryan Group Architects / CFBR Structural = the Sierra Star + Verseon
+    # reference sets). Revisions omitted — first DD issue, nothing to cloud yet.
     register = export_construction_set(
-        p.model, cons, plan_level="L1", plan_scale=0.01, sheets=schad_sheet_register(p)
+        p.model, cons, plan_level="L1", plan_scale=0.01,
+        units="imperial",
+        dim_tiers=True,
+        fractional_grids=True,
+        grid_sides=True,
+        room_areas=True,
+        key_plan=True,
+        keynotes=True,
+        line_weights=True,
+        hatches=True,
+        stamp_block=True,
+        sheets=schad_sheet_register(p),
     )
     export_pdf_binder(cons, out_dir / "PLOT_SET.pdf", title=p.model.name)
     export_drawing_list(out_dir)

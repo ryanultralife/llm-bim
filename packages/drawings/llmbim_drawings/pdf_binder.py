@@ -11,8 +11,48 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 
+# Typographic characters the drawing engine emits that a WinAnsi PDF font
+# cannot show — fold to ASCII so they don't render as "?" mojibake.
+_UNI_ASCII = {
+    "—": "-", "–": "-", "‒": "-", "−": "-",
+    "‘": "'", "’": "'", "“": '"', "”": '"',
+    "′": "'", "″": '"',
+    "·": ".", "•": "*", "…": "...",
+    "→": "->", "←": "<-", "⇒": "=>",
+    "×": "x", "÷": "/", "°": "deg",
+    "²": "2", "³": "3", "½": "1/2", "¼": "1/4",
+    "¾": "3/4", "⅓": "1/3", "⅔": "2/3",
+    "≤": "<=", "≥": ">=", "≈": "~", "±": "+/-",
+    "ℓ": "L", "µ": "u", "μ": "u",
+    " ": " ", " ": " ", " ": " ", " ": " ",
+}
+
+
 def _pdf_escape(s: str) -> str:
+    for u, a in _UNI_ASCII.items():
+        if u in s:
+            s = s.replace(u, a)
+    # anything still non-Latin-1 would corrupt the stream — drop to '?'
+    s = s.encode("cp1252", "replace").decode("cp1252")
     return s.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+
+def _num(value: str | None, base: float = 0.0) -> float:
+    """Parse an SVG length. Handles ``100%`` (of ``base``) and unit suffixes
+    (``10px``, ``2.5pt``) that a bare ``float()`` chokes on — a single such
+    attribute used to fail the whole sheet ("Failed to render")."""
+    if value is None:
+        return 0.0
+    v = str(value).strip()
+    if not v:
+        return 0.0
+    if v.endswith("%"):
+        try:
+            return float(v[:-1]) * base / 100.0
+        except ValueError:
+            return 0.0
+    m = re.match(r"^\s*(-?\d*\.?\d+)", v)
+    return float(m.group(1)) if m else 0.0
 
 
 def _parse_svg_drawing(svg_path: Path) -> tuple[float, float, list[str]]:
@@ -78,17 +118,17 @@ def _parse_svg_drawing(svg_path: Path) -> tuple[float, float, list[str]]:
         fill = el.get("fill")
         # default black stroke for lines
         if tag == "line":
-            x1 = mapx(float(el.get("x1", 0)))
-            y1 = mapy(float(el.get("y1", 0)))
-            x2 = mapx(float(el.get("x2", 0)))
-            y2 = mapy(float(el.get("y2", 0)))
+            x1 = mapx(_num(el.get("x1"), vw))
+            y1 = mapy(_num(el.get("y1"), vh))
+            x2 = mapx(_num(el.get("x2"), vw))
+            y2 = mapy(_num(el.get("y2"), vh))
             ops.append("0 0 0 RG")
             ops.append(f"{x1:.2f} {y1:.2f} m {x2:.2f} {y2:.2f} l S")
         elif tag == "rect":
-            x = mapx(float(el.get("x", 0)))
-            y = mapy(float(el.get("y", 0)))
-            w = float(el.get("width", 0)) * sx
-            h = float(el.get("height", 0)) * sy
+            x = mapx(_num(el.get("x"), vw))
+            y = mapy(_num(el.get("y"), vh))
+            w = _num(el.get("width"), vw) * sx
+            h = _num(el.get("height"), vh) * sy
             if fill and fill not in ("none",):
                 ops.append("0.9 0.9 0.95 rg")
                 ops.append(f"{x:.2f} {y:.2f} {w:.2f} {h:.2f} re f")
@@ -99,7 +139,10 @@ def _parse_svg_drawing(svg_path: Path) -> tuple[float, float, list[str]]:
             pairs = []
             for tok in re.split(r"[\s,]+", pts):
                 if tok:
-                    pairs.append(float(tok))
+                    try:
+                        pairs.append(float(tok))
+                    except ValueError:
+                        pass
             if len(pairs) >= 4:
                 ops.append("0.8 0.8 0.85 rg")
                 ops.append("0 0 0 RG")
@@ -108,9 +151,9 @@ def _parse_svg_drawing(svg_path: Path) -> tuple[float, float, list[str]]:
                     ops.append(f"{mapx(pairs[i]):.2f} {mapy(pairs[i+1]):.2f} l")
                 ops.append("h B")
         elif tag == "circle":
-            cx = mapx(float(el.get("cx", 0)))
-            cy = mapy(float(el.get("cy", 0)))
-            r = float(el.get("r", 0)) * sx
+            cx = mapx(_num(el.get("cx"), vw))
+            cy = mapy(_num(el.get("cy"), vh))
+            r = _num(el.get("r"), vw) * sx
             # approximate circle with a 16-gon
             ops.append("0 0 0 RG")
             n = 16
@@ -126,8 +169,8 @@ def _parse_svg_drawing(svg_path: Path) -> tuple[float, float, list[str]]:
                 ops.append(f"{x1:.2f} {y1:.2f} l")
             ops.append("h S")
         elif tag == "text":
-            x = mapx(float(el.get("x", 0)))
-            y = mapy(float(el.get("y", 0)))
+            x = mapx(_num(el.get("x"), vw))
+            y = mapy(_num(el.get("y"), vh))
             content = (el.text or "").strip()
             if content:
                 fs = max(4.0, 9.0 * sx)
