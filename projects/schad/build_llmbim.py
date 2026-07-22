@@ -711,6 +711,12 @@ def _build_mep_content(p: Project, ctx: dict[str, Any]) -> None:
         position=(ft(s["rear_off_x"] + s["adu_L"] / 2), ft(s["main_W"] + s["rear_W"] / 2)),
     )
 
+    # Excellence-audit WS1: route real MEP systems (sized pipe/duct/conduit +
+    # branch tees) so the material takeoffs, IFC MEP entities, and MEP sheets
+    # carry routed geometry instead of only note markers. Design-intent
+    # schematic; sizes trace to llmbim_core.mep_sizing.
+    mep.route_mep(p)
+
 
 def build_model(
     *,

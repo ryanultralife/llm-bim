@@ -47,6 +47,9 @@ _HANDLED = {
     "IFCWINDOW",
     "IFCSPACE",
     "IFCFLOWSEGMENT",
+    "IFCPIPESEGMENT",
+    "IFCDUCTSEGMENT",
+    "IFCCABLECARRIERSEGMENT",
     "IFCBUILDINGELEMENTPROXY",
     "IFCCOLUMN",
     "IFCBEAM",
@@ -637,8 +640,17 @@ def import_ifc(model: ProjectModel, path: str | Path) -> dict[str, Any]:
         _count("equipment" if category == "equipment" else category)
 
     # --- flow segments: horizontal pipe runs + vertical risers ---------------
+    # Accept the abstract IfcFlowSegment and the concrete IFC4 subtypes
+    # (IfcPipeSegment/IfcDuctSegment/IfcCableCarrierSegment) — all share the
+    # first 7 attributes (…, Placement, Representation) the parser reads.
+    _flow_seg_types = {
+        "IFCFLOWSEGMENT",
+        "IFCPIPESEGMENT",
+        "IFCDUCTSEGMENT",
+        "IFCCABLECARRIERSEGMENT",
+    }
     for i, (typ, _body) in ent.items():
-        if typ != "IFCFLOWSEGMENT":
+        if typ not in _flow_seg_types:
             continue
         a = spf.args(i)
         if len(a) < 7:
