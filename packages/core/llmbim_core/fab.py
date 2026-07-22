@@ -201,6 +201,29 @@ def fab_cut_box(
     return fab_add_feature(model, element_id, feat)
 
 
+def fab_cut_revolve(
+    model: ProjectModel,
+    element_id: str,
+    *,
+    radius_mm: float,
+    height_mm: float,
+    inner_radius_mm: float = 0.0,
+    origin_mm: list[float] | tuple[float, float, float] = (0, 0, 0),
+) -> dict[str, Any]:
+    """Annular revolved CUT about Z (O-ring groove, relief groove)."""
+    return fab_add_feature(
+        model,
+        element_id,
+        {
+            "op": "cut_revolve",
+            "radius_mm": float(radius_mm),
+            "inner_radius_mm": float(inner_radius_mm),
+            "height_mm": float(height_mm),
+            "origin_mm": [float(x) for x in origin_mm],
+        },
+    )
+
+
 def fab_revolve(
     model: ProjectModel,
     element_id: str,

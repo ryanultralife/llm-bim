@@ -12,6 +12,23 @@ from llmbim_drawings.sheets import title_block_svg
 from llmbim_drawings.svg_util import esc, fmt
 
 
+def _filename_slug(name: str, max_len: int = 40) -> str:
+    """Sanitise an element name into a safe filename fragment.
+
+    Element names are free text and may contain path separators or other
+    characters that are invalid in filenames (e.g. a spec like
+    "shell 320OD/300ID"). Without this a "/" silently becomes a directory
+    separator and the whole pack export fails on an unwritable path.
+    """
+    out = []
+    for ch in (name or ""):
+        out.append(ch if (ch.isalnum() or ch in "-_.") else "_")
+    slug = "".join(out).strip("._") or "unnamed"
+    while "__" in slug:
+        slug = slug.replace("__", "_")
+    return slug[:max_len]
+
+
 def _part_views_svg(el: Element, *, scale: float = 0.5) -> str:
     """Orthographic plan + front + side for an equipment box/cylinder."""
     try:
@@ -106,9 +123,9 @@ def export_part_pack(
             notes="Envelope geometry for exchange · FAB detail in Fusion STEP if required",
             body=body,
         )
-        svg_name = f"{sn}_{(el.name or el.id).replace(' ', '_')[:40]}.svg"
+        svg_name = f"{sn}_{_filename_slug(el.name or el.id)}.svg"
         (drawings / svg_name).write_text(sheet, encoding="utf-8")
-        step_name = f"{sn}_{(el.name or el.id).replace(' ', '_')[:40]}.step"
+        step_name = f"{sn}_{_filename_slug(el.name or el.id)}.step"
         export_step_part(el, model, step_dir / step_name)
         parts_index.append(
             {
