@@ -36,6 +36,50 @@ def _height_label(dz_mm: float, imperial: bool) -> str:
     return f"{dz_mm / 1000:.2f} m"
 
 
+def _staggered_opening_labels(
+    label_items: list[tuple[float, float, str]],
+    seed_boxes: list[tuple[float, float, float]] | None = None,
+    *,
+    fs: float = 9.0,
+) -> list[str]:
+    """SVG for opening tags placed to avoid piling up.
+
+    Openings whose heads share a height (the common case) would otherwise
+    stack every tag at one point. Assign each tag the lowest free row above
+    its opening head (greedy, left→right; tag width estimated from the text)
+    and drop a thin leader when it is raised. ``seed_boxes`` are
+    ``(x_lo, x_hi, y)`` spans already occupied — e.g. steel-member tags at the
+    plate line — that opening tags must also route around.
+    """
+    out: list[str] = []
+    row_h = fs + 2.0
+    placed: list[tuple[float, float, float]] = list(seed_boxes or [])
+    for mx, my, text in sorted(label_items, key=lambda t: t[0]):
+        half = max(len(text) * fs * 0.33, 7.0)
+        base_y = my - 3.0
+        row = 0
+        ty = base_y
+        while row <= 6:
+            ty = base_y - row * row_h
+            if not any(
+                mx - half <= px_hi and mx + half >= px_lo and abs(ty - py) < row_h - 0.5
+                for px_lo, px_hi, py in placed
+            ):
+                break
+            row += 1
+        placed.append((mx - half, mx + half, ty))
+        if row > 0:
+            out.append(
+                f'    <line x1="{fmt(mx)}" y1="{fmt(ty + 1.5)}" x2="{fmt(mx)}" '
+                f'y2="{fmt(my - 1.5)}" stroke="#1565c0" stroke-width="0.4"/>'
+            )
+        out.append(
+            f'    <text x="{fmt(mx)}" y="{fmt(ty)}" font-size="{fmt(fs)}" '
+            f'fill="#0d47a1">{esc(text)}</text>'
+        )
+    return out
+
+
 def _wall_endpoints(el: Element) -> tuple[float, float, float, float, float, float] | None:
     """x0,y0,x1,y1,thickness,height."""
     try:
@@ -758,6 +802,7 @@ def render_section_svg(
             f'  <g class="{o_cls}" stroke="#1565c0" stroke-width="1" '
             'font-family="sans-serif" text-anchor="middle">'
         )
+        _sec_labels: list[tuple[float, float, str]] = []
         for s0, z0, s1, z1, fill, lab in opening_rects:
             x, y = project(s0, z1)
             w = (s1 - s0) * scale
@@ -769,10 +814,8 @@ def render_section_svg(
                 f'fill="{fill}"/>'
             )
             mx, my = project((s0 + s1) / 2, z1)
-            parts.append(
-                f'    <text x="{fmt(mx)}" y="{fmt(my - 2)}" font-size="{fmt(max(6, 9))}" '
-                f'fill="#0d47a1">{esc(lab[:18])}</text>'
-            )
+            _sec_labels.append((mx, my, lab[:18]))
+        parts.extend(_staggered_opening_labels(_sec_labels))
         parts.append("  </g>")
     pi_cls = "pipes-section lw-medium" if weights else "pipes-section"
     parts.append(f'  <g class="{pi_cls}" fill="none" stroke-width="1.5">')
@@ -886,8 +929,11 @@ def render_section_svg(
             z0 = float(lv.elevation_mm)
             if i + 1 < len(levels):
                 z1 = float(levels[i + 1].elevation_mm)
-            else:
+            elif len(levels) == 1:
                 z1 = z_top if max_z > z0 + 500 else z0 + 3000
+            else:
+                # topmost of several levels — nothing above it to dimension
+                continue
             if z1 - z0 < 100:
                 continue
             p0, p1 = project(dim_s, z0), project(dim_s, z1)
@@ -1398,38 +1444,15 @@ def render_elevation_svg(
             )
             mx, my = project((h0 + h1) / 2, z1)
             _label_items.append((mx, my, lab[:18]))
-        # Collision-avoiding stagger: openings with heads at the same height
-        # (typical — window/door heads align) would otherwise stack their tags
-        # at one point. Assign each tag the lowest free row above the opening
-        # head, left-to-right, dropping a thin leader when it is raised.
-        _fs = 9.0
-        _row = _fs + 2.0
-        _placed: list[tuple[float, float, float]] = []  # (x_lo, x_hi, y)
-        for mx, my, text in sorted(_label_items, key=lambda t: t[0]):
-            half = max(len(text) * _fs * 0.28, 6.0)
-            base_y = my - 3.0
-            row = 0
-            ty = base_y
-            while row <= 6:
-                ty = base_y - row * _row
-                if not any(
-                    mx - half <= px_hi
-                    and mx + half >= px_lo
-                    and abs(ty - py) < _row - 0.5
-                    for px_lo, px_hi, py in _placed
-                ):
-                    break
-                row += 1
-            _placed.append((mx - half, mx + half, ty))
-            if row > 0:
-                parts.append(
-                    f'    <line x1="{fmt(mx)}" y1="{fmt(ty + 1.5)}" x2="{fmt(mx)}" '
-                    f'y2="{fmt(my - 1.5)}" stroke="#1565c0" stroke-width="0.4"/>'
-                )
-            parts.append(
-                f'    <text x="{fmt(mx)}" y="{fmt(ty)}" font-size="{fmt(_fs)}" '
-                f'fill="#0d47a1">{esc(text)}</text>'
-            )
+        # Seed with the column tags (drawn at the plate line, ``columns-elev``
+        # below) so an opening tag that staggers upward routes around them
+        # instead of landing on an HSS/steel-member mark.
+        _seed: list[tuple[float, float, float]] = []
+        for _ch, _cz, _csec in col_labels:
+            _cpx, _cpy = project(_ch, _cz)
+            _chalf = max(len(str(_csec)[:16]) * 10.0 * 0.33, 7.0)
+            _seed.append((_cpx - _chalf, _cpx + _chalf, _cpy - 4.0))
+        parts.extend(_staggered_opening_labels(_label_items, _seed))
         parts.append("  </g>")
     if equip_rects:
         # Hidden-line treatment: equipment standing behind a nearer parallel wall
@@ -1524,9 +1547,14 @@ def render_elevation_svg(
             z0 = float(lv.elevation_mm)
             if i + 1 < len(levels):
                 z1 = float(levels[i + 1].elevation_mm)
-            else:
+            elif len(levels) == 1:
                 # single storey: dim to max wall top on elev
                 z1 = z_top if max_z > z0 + 500 else z0 + 3000
+            else:
+                # topmost of several levels — nothing above it to dimension;
+                # a dim to z_top would land above the viewBox and bleed into
+                # the sheet border / neighbouring cell's title.
+                continue
             if z1 - z0 < 100:
                 continue
             p0, p1 = project(dim_x, z0), project(dim_x, z1)
