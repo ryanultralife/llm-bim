@@ -124,6 +124,70 @@ def texture_data_uri(pattern: str) -> str:
     return "data:image/png;base64," + base64.b64encode(texture_png(pattern)).decode("ascii")
 
 
+# --- Tangent-space normal maps -------------------------------------------------
+# A companion normal map per pattern gives the surfaces subtle relief without a
+# TANGENT accessor: three.js (and glTF viewers generally) derive tangents from
+# the shared TEXCOORD_0 UVs, so the same detail UVs drive both base colour and
+# bump. Encoding is the standard tangent-space convention: a flat normal is
+# (0,0,1) -> RGB (128,128,255); a perturbed normal tilts R/G away from 128.
+#
+# Per-pattern bump strength — kept small so the relief reads as texture, not
+# geometry (nz stays close to 1.0, RGB blue channel near 255).
+_NORMAL_STRENGTH: dict[str, float] = {
+    "concrete": 1.5,
+    "drywall": 0.8,
+    "metal": 1.2,
+    "wood": 1.6,
+}
+
+
+def _pattern_height(pattern: str, x: int, y: int) -> float:
+    """Scalar surface height (~0..1) whose gradient yields the normal map. Mirrors
+    the relief cues of ``_pattern_pixel`` so bump lines up with the base colour."""
+    if pattern == "concrete":
+        h = _value_noise(x / 8.0, y / 8.0, 11)
+        if _hash01(x, y, 12) > 0.93:
+            h -= 0.4  # aggregate pits sit lower
+        return h
+    if pattern == "drywall":
+        return _value_noise(x / 12.0, y / 12.0, 21)
+    if pattern == "metal":
+        # brushed: shallow horizontal streaks along the rows + fine jitter
+        return 0.5 + math.sin(y * 0.9) * 0.15 + (_hash01(x, y, 32) - 0.5) * 0.1
+    if pattern == "wood":
+        band = math.sin((y + _value_noise(x / 20.0, y / 6.0, 41) * 6.0) * 0.7)
+        return 0.5 + band * 0.5
+    return 0.5
+
+
+def _normal_pixel(pattern: str, x: int, y: int, strength: float) -> tuple[int, int, int]:
+    """Encode a tangent-space normal (0..255 RGB) from the wrapped height gradient.
+    Neighbours wrap on ``_TILE`` so the normal map tiles seamlessly like the base."""
+    h_l = _pattern_height(pattern, (x - 1) % _TILE, y)
+    h_r = _pattern_height(pattern, (x + 1) % _TILE, y)
+    h_d = _pattern_height(pattern, x, (y - 1) % _TILE)
+    h_u = _pattern_height(pattern, x, (y + 1) % _TILE)
+    dx = (h_l - h_r) * strength
+    dy = (h_d - h_u) * strength
+    inv = 1.0 / math.sqrt(dx * dx + dy * dy + 1.0)
+    nx, ny, nz = dx * inv, dy * inv, inv
+    return (
+        _clampb((nx * 0.5 + 0.5) * 255.0),
+        _clampb((ny * 0.5 + 0.5) * 255.0),
+        _clampb((nz * 0.5 + 0.5) * 255.0),
+    )
+
+
+def normal_png(pattern: str) -> bytes:
+    """Deterministic tiling tangent-space normal-map PNG bytes for a pattern."""
+    strength = _NORMAL_STRENGTH.get(pattern, 1.0)
+    return _png_rgb(_TILE, _TILE, lambda x, y: _normal_pixel(pattern, x, y, strength))
+
+
+def normal_data_uri(pattern: str) -> str:
+    return "data:image/png;base64," + base64.b64encode(normal_png(pattern)).decode("ascii")
+
+
 # Material key (from _MATERIAL_PBR) → detail pattern. Only surfaces that read as
 # flat pastels get a detail texture; metals/glass/equipment keep their factor.
 _PATTERN_FOR: dict[str, str] = {
@@ -143,27 +207,43 @@ _PATTERN_FOR: dict[str, str] = {
 
 def build_gltf_textures(
     mat_keys: list[str],
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], dict[str, int]]:
-    """Return (images, textures, samplers, key->texture_index) for the material
-    keys present. One image+texture per distinct pattern actually used; a single
-    REPEAT sampler. Materials with no pattern are absent from the returned map."""
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    dict[str, int],
+    dict[str, int],
+]:
+    """Return (images, textures, samplers, key->baseColor_tex, key->normal_tex) for
+    the material keys present. Each distinct pattern actually used contributes one
+    base-colour detail image+texture AND one tangent-space normal image+texture,
+    all sharing a single REPEAT sampler and the same TEXCOORD_0 UVs. Materials
+    with no pattern are absent from both returned maps."""
     patterns: list[str] = []
     for key in mat_keys:
         pat = _PATTERN_FOR.get(key)
         if pat and pat not in patterns:
             patterns.append(pat)
     if not patterns:
-        return [], [], [], {}
+        return [], [], [], {}, {}
     samplers = [{"wrapS": 10497, "wrapT": 10497, "magFilter": 9729, "minFilter": 9987}]
     images: list[dict[str, Any]] = []
     textures: list[dict[str, Any]] = []
     pat_to_tex: dict[str, int] = {}
+    pat_to_norm: dict[str, int] = {}
     for pat in patterns:
-        img_i = len(images)
+        base_img = len(images)
         images.append({"name": f"{pat}_detail", "uri": texture_data_uri(pat)})
         pat_to_tex[pat] = len(textures)
-        textures.append({"name": f"{pat}_tex", "source": img_i, "sampler": 0})
+        textures.append({"name": f"{pat}_tex", "source": base_img, "sampler": 0})
+        norm_img = len(images)
+        images.append({"name": f"{pat}_normal", "uri": normal_data_uri(pat)})
+        pat_to_norm[pat] = len(textures)
+        textures.append({"name": f"{pat}_normal_tex", "source": norm_img, "sampler": 0})
     key_to_tex = {
         key: pat_to_tex[_PATTERN_FOR[key]] for key in mat_keys if key in _PATTERN_FOR
     }
-    return images, textures, samplers, key_to_tex
+    key_to_norm = {
+        key: pat_to_norm[_PATTERN_FOR[key]] for key in mat_keys if key in _PATTERN_FOR
+    }
+    return images, textures, samplers, key_to_tex, key_to_norm
