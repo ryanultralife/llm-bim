@@ -20,7 +20,7 @@ rendering**, not new science.
 | 1 | Wire routing+sizing engine into flagship (real MEP + trades) | **critical** | XL | **Claude** | ✅ done — PR #21 + #22 merged |
 | 2 | CD plot-set fidelity (legibility, lineweights, scale, pagination) | **critical** | L | **Grok** | ✅ done — PR #20 merged |
 | 3 | Discipline-sheet depth (symbols, underlay, schedule columns) | high | XL | Grok/drawings (after WS1) | queued (WS1 MEP geometry now on main) |
-| 4 | Presentation rendering (textured PBR, material ext, AO, hero) | high | XL | **Claude** | queued — glTF binary + churned mesh.py; needs care |
+| 4 | Presentation rendering (textured PBR, material ext, AO, hero) | high | XL | **Claude** | 🟡 textured PBR done — PR #25 merged; material-ext/AO/hero remain (viewer lane) |
 | + | IFC fidelity: IfcMaterial associations | med | S | **Claude** | ✅ done — PR #23 merged |
 
 Lane split (observed from live git log 2026-07-21): **Grok owns `packages/drawings/**` + schad
@@ -98,6 +98,11 @@ takeoff from foundations geometry; drift-pin test that flagship takeoffs are non
   (wall→Wood Framing, pipe→Copper, footing→Concrete…). Full pytest 510.
 - 2026-07-22: **WS2 merged (PR #20, Grok)** — CD plot-set fidelity (path rendering, keynote gutter,
   scale). WS3 (discipline-sheet depth) now unblocked — WS1 routed MEP geometry is on main for Grok.
+- 2026-07-22: **WS4 textured PBR merged (PR #25)** — new `gltf_textures.py` (pure-stdlib procedural
+  concrete/drywall/metal/wood detail PNGs) + triplanar `TEXCOORD_0` UVs + `baseColorTexture` on
+  architectural material layers. UVs appended at blob end (offsets unchanged); 0 buffer-bounds
+  violations. Full pytest 513. glTF surfaces no longer flat pastels.
+- 2026-07-22: Grok `pdf_binder` (PR #24) merged. Shared-tree race resolved — Grok isolated its tree.
 
 ## Remaining (next)
 - **WS4 rendering (Claude, high, XL):** glTF textured PBR (TEXCOORD_0 UVs + tiling normal/roughness
