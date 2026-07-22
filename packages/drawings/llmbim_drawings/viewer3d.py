@@ -210,6 +210,10 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
     <input type="checkbox" id="shadows" checked/>
   </div>
   <div class="row">
+    <label for="contactAO">Contact shadow (grounding)</label>
+    <input type="checkbox" id="contactAO" checked/>
+  </div>
+  <div class="row">
     <label for="ghostWalls">Ghost shells / walls (see-through)</label>
     <input type="checkbox" id="ghostWalls"/>
   </div>
@@ -384,6 +388,10 @@ const groundGroup = new THREE.Group();
 scene.add(groundGroup);
 const skyGroup = new THREE.Group();
 scene.add(skyGroup);
+// Additive: soft contact-shadow "grounding" decal (AO substitute). Own group so
+// it can never interfere with model / ground / sky rendering.
+const contactGroup = new THREE.Group();
+scene.add(contactGroup);
 
 // --- Step 1: clipping ---
 const clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
@@ -473,12 +481,27 @@ function applyLayerStyle(name) {
     if (ghostWalls && equipGhost) {
       op = Math.min(op, name === 'equip_shell' || name === 'equip_step_ref' ? 0.22 : 0.35);
     }
-    // Preserve PBR from glTF; only adjust transparency when user ghosts / slides opacity
-    const opaque = op >= 0.995 && !isGlass;
-    mat.transparent = !opaque;
-    mat.opacity = isGlass ? Math.min(op, 0.55) : Math.max(0.05, Math.min(1, op));
-    // Solid layers must depth-write so meshes occlude correctly
-    mat.depthWrite = opaque || (op > 0.85 && !isGlass);
+    // Preserve PBR from glTF; only adjust transparency when user ghosts / slides opacity.
+    // Physical glass: a window whose glTF declared KHR_materials_transmission is
+    // loaded by three r160 as a MeshPhysicalMaterial with transmission > 0. Let
+    // that transmission pass drive the see-through look instead of forcing a flat
+    // 55% alpha blend. Purely additive — a window WITHOUT transmission (the
+    // current export) and every other layer take the exact same path as before.
+    const physicalGlass = isGlass && (mat.transmission ?? 0) > 0;
+    if (physicalGlass) {
+      const gop = Math.max(0.05, Math.min(1, op));
+      mat.opacity = gop;
+      // Transmission renders cleanly as "opaque"; only alpha-blend when the user
+      // actually dims it via ghost walls / global-opacity so the fade still works.
+      mat.transparent = gop < 0.99;
+      mat.depthWrite = gop >= 0.99;
+    } else {
+      const opaque = op >= 0.995 && !isGlass;
+      mat.transparent = !opaque;
+      mat.opacity = isGlass ? Math.min(op, 0.55) : Math.max(0.05, Math.min(1, op));
+      // Solid layers must depth-write so meshes occlude correctly
+      mat.depthWrite = opaque || (op > 0.85 && !isGlass);
+    }
     mat.depthTest = true;
     // DoubleSide for thin tubes/shells so hollow rings don't disappear when viewed from inside
     const tubeLike = name.startsWith('equip_') || name.startsWith('pipe') || name === 'conduit' || name === 'coil' || name === 'wire';
@@ -616,6 +639,54 @@ function updateGround() {
   groundGroup.add(grid);
 }
 
+// --- Contact-shadow grounding (screen-space AO substitute) ---
+// The vendored three r160 build ships NO AO pass (SSAO/GTAO/N8AO), and
+// hand-adding a heavy screen-space pass here would risk the existing render.
+// Instead we ground the model with one soft radial "blob" shadow decal on the
+// floor — the cheap trick that gives contact depth without a post pass. It is
+// fully procedural (a canvas gradient, so still offline / self-contained),
+// lives in its own group, is guarded + try/caught, and is gated behind the
+// "Contact shadow" checkbox next to "Soft shadows". If anything throws we skip
+// it and the scene renders exactly as before.
+let _contactTex = null;
+function contactShadowTexture() {
+  if (_contactTex) return _contactTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(128, 128, 6, 128, 128, 128);
+  g.addColorStop(0.0, 'rgba(0,0,0,0.55)');
+  g.addColorStop(0.5, 'rgba(0,0,0,0.30)');
+  g.addColorStop(1.0, 'rgba(0,0,0,0.0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 256, 256);
+  _contactTex = new THREE.CanvasTexture(c);
+  _contactTex.colorSpace = THREE.SRGBColorSpace;
+  return _contactTex;
+}
+function updateContactShadow() {
+  contactGroup.clear();
+  const on = document.getElementById('contactAO');
+  if (!on || !on.checked || modelBox.isEmpty()) return;
+  try {
+    const size = modelBox.getSize(new THREE.Vector3());
+    const center = modelBox.getCenter(new THREE.Vector3());
+    const geo = new THREE.PlaneGeometry(Math.max(size.x, 1) * 1.35, Math.max(size.z, 1) * 1.35);
+    const mat = new THREE.MeshBasicMaterial({
+      map: contactShadowTexture(),
+      transparent: true,   // draws in the transparent pass → blends over the floor
+      depthWrite: false,   // never occludes the model
+      opacity: 0.9,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.x = -Math.PI / 2;
+    // Just above the concrete floor (min.y - 0.03), below model + grid, so it
+    // reads as a shadow cast on the floor rather than z-fighting anything.
+    mesh.position.set(center.x, modelBox.min.y - 0.012, center.z);
+    contactGroup.add(mesh);
+  } catch (_) { /* grounding is cosmetic — never let it break the render */ }
+}
+
 function updateSky() {
   skyGroup.clear();
   skyMesh = null;
@@ -670,6 +741,7 @@ function fitCamera(object) {
   initialCam = { pos: camera.position.clone(), target: controls.target.clone() };
   scene.fog.density = 0.28 / maxDim;
   updateGround();
+  updateContactShadow();
   updateSky();
   updateClipFromUI();
 }
@@ -813,6 +885,7 @@ document.getElementById('exposure').addEventListener('input', () => {
   renderer.toneMappingExposure = Number(document.getElementById('exposure').value) / 100;
 });
 document.getElementById('ground').addEventListener('change', updateGround);
+document.getElementById('contactAO').addEventListener('change', updateContactShadow);
 document.getElementById('studioSky').addEventListener('change', updateSky);
 ['clipOn', 'clipAxis', 'clipFlip'].forEach(id => {
   document.getElementById(id).addEventListener('change', updateClipFromUI);
