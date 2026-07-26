@@ -1,5 +1,13 @@
 # Excellence Audit & Remediation — 2026-07-21
 
+> **RE-GRADE 2026-07-22 (post PRs #20–#31, skeptic-verified): B — up from B-.**
+> Both MEP blockers closed (routed, engine-sized, CSI-coded, in IFC w/ materials+layer sets,
+> drift-pinned); glTF path legitimately good (textures/normals on 187/187 prims, transmission
+> glass, valid buffers); SVG sheet masters near-submittable. All three legs individually B-.
+> The gap is now mostly **mechanical wiring in the presentation layer**, not missing capability.
+> Ranked residual list: see §Re-grade residuals below. Combined gate at re-grade: pytest 535
+> passed / 0 failed; `llmbim case schad` verify_ok (193 elements).
+
 Adversarially-verified 9-dimension audit of the flagship Schad CD deliverable against the
 north star: **anyone can create AE-quality renderings and CD sheets with FULL MEP and other
 trades.** 74 agents, 63/64 findings survived verification. Full raw result archived at
@@ -103,6 +111,26 @@ takeoff from foundations geometry; drift-pin test that flagship takeoffs are non
   architectural material layers. UVs appended at blob end (offsets unchanged); 0 buffer-bounds
   violations. Full pytest 513. glTF surfaces no longer flat pastels.
 - 2026-07-22: Grok `pdf_binder` (PR #24) merged. Shared-tree race resolved — Grok isolated its tree.
+
+## Re-grade residuals (2026-07-22, ranked — the authoritative "what's left")
+
+| # | Item | Sev | Effort | Lane |
+|---|------|-----|--------|------|
+| 1 | **MEP-101/201/301 draw the routed model geometry** (switch register from `svg_plans.mep_plan_svg` note-overlays to plan-kind with MEP include-set; symbols, size/slope tags, home runs, legend) | blocker | L | grok-drawings |
+| 2 | **Wire `render_hero_svg` into `export_deliverables` + index.html** (exists, tested, zero callers — deliverables.py:429) | high | S | either |
+| 3 | PDF binder: stroke-width `w` ops, dashes on `<line>` (not just `<path>`), per-element fills, arc segments (door swings) | high | M | grok-drawings |
+| 4 | Imperial graphic scale bar (`sheets.py:82` still `m/mm`-only) | high | S | grok-drawings |
+| 5 | PDF MediaBox ANSI B/ARCH D for imperial + written scale note derived from actual fit | high | M | grok-drawings |
+| 6 | System connectivity: `IfcDistributionPort`/`IfcRelConnectsPorts`/`IfcFlowTerminal`; route via `mep_autoroute` A* (0 callers in projects/); kill diagonal runs | high | L | claude-kernel |
+| 7 | `size_route` accept `kind='conduit'` (mep_sizing.py:733) + calc strings from computed sizes — **calc says 3/4" DCW but routed takeoff is NPS 1** (schad_mep.py:108) | medium | S | claude-kernel |
+| 8 | Fire protection: route sprinklers OR record basis exemption; annotate empty takeoffs "n/a per basis" vs "not modeled" | medium | M | claude-kernel |
+| 9 | LINE LEGEND still occludes elevations/sections (A2-1/A2-2/A3-1 — same gutter fix as A1-1 keynotes) | medium | S | grok-drawings |
+| 10 | PDF pagination from SHEET_INDEX.json; cover rows "C1.1 — SITE PLAN" not "13 MEP-101_custom.svg" | medium | S | grok-drawings |
+| 11 | Emissive luminaires + KHR_lights_punctual (bloom has nothing to bloom) | medium | M | either |
+| 12 | Texture the MEP/equipment materials (9/16 mats still flat: pipes/duct/conduit/equipment) | medium | M | claude-kernel |
+| 13 | A1-1 annotation collision pass (type diamonds vs column labels/tag bubbles) | low | M | grok-drawings |
+| 14 | Photoreal ceiling: HDR IBL, true AO (needs three-bundle upgrade), hi-res textures, shadowed raster hero | low | L | either |
+| 15 | `fab_brep.py` mypy --strict (4 errors) | low | S | claude-kernel |
 
 ## Remaining (next)
 - **WS4 rendering (Claude, high, XL):** glTF textured PBR (TEXCOORD_0 UVs + tiling normal/roughness
