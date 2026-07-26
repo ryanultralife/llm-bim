@@ -1,0 +1,320 @@
+{
+  "summary": "Re-grade the three north-star legs against the fresh integrated Schad artifact",
+  "agentCount": 7,
+  "logs": [],
+  "result": {
+    "grade": "B",
+    "final": {
+      "overall_grade": "B",
+      "justification": "Up half a notch from B-, and the movement is real but asymmetric. The original grade's core complaint — \"A-grade kernel, C-grade flagship\" — has been half-answered: both MEP blockers are genuinely closed (30 routed pipes / 3 ducts / 7 conduits, engine-sized via mep_sizing, CSI-coded, costed, exported to IFC with material associations, pinned by 5 passing drift tests, all skeptic-verified), the glTF path is now legitimately good (valid buffers, textures on 187/187 primitives, transmission glass, PMREM IBL), and the SVG sheet masters are near-submittable. But all three legs independently re-graded B- with skeptic agreement, and the residuals cluster exactly where a human judges the product: the MEP discipline sheets draw none of the routed geometry (still dots-and-squares diagrams over a real model — the one remaining blocker-severity item), the canonical PLOT_SET.pdf destroys the lineweight/dash/fill hierarchy the SVGs carry and prints at ~1:145 on A4 while claiming 1/4\"=1'-0\", the pack ships no presentation image despite a merged-but-unwired hero renderer, and the 9 IfcSystems are name-groupings of loose segments with zero ports/connections and the A* router unused. In short: the data pipeline earned its A, the presentation layer is still C+, and the gap between them is now mostly mechanical wiring rather than missing capability — which is why B rather than B- is honest, and why B+ must wait until a permit reviewer's first glance at the PDF and the MEP sheets stops failing.",
+      "remaining_development": [
+        {
+          "rank": 1,
+          "title": "MEP-101/201/301 sheets must draw the routed model geometry",
+          "severity": "blocker",
+          "effort": "L",
+          "lane": "grok-drawings",
+          "detail": "The single biggest north-star gap, flagged by both the MEP and CD legs. route_mep's 30 pipes / 3 ducts / 7 conduits exist in model.llmbim.json and model.ifc, but MEP-101/201/301 are built from svg_plans.mep_plan_svg('E'/'P'/'M') hand note-overlays (projects/schad/build_llmbim.py ~1107-1117): MEP-201 has 0 polylines and zero DCW/SAN labels (11 KB vs 60 KB for A1-1_plan.svg). Switch the register entries to 'plan' kind with an MEP include-set (the plan renderer already draws pipes/ducts/conduits — A1.1's include comment whitelists them away expecting the MEP sheets to draw them), add discipline symbol glyphs, pipe-size/slope tags, home runs, panel symbol, legend, and a scale bar."
+        },
+        {
+          "rank": 2,
+          "title": "Wire render_hero_svg into export_deliverables and index.html",
+          "severity": "high",
+          "effort": "S",
+          "lane": "either",
+          "detail": "Highest grade-impact-to-effort ratio anywhere. render_hero_svg (packages/geometry/llmbim_geometry/render_hero.py, merged PR #31, 3 passing tests, deterministic) has zero callers outside its tests; export_deliverables (packages/drawings/llmbim_drawings/deliverables.py:429) never invokes it and index.html has no image reference. One _try(...) call plus an <img> (and optionally the PDF cover) gives the pack its first presentation image; today the only raster path is the viewer's manual Save-PNG button."
+        },
+        {
+          "rank": 3,
+          "title": "PDF binder: honor stroke-width, dashes on all element types, and per-element fills",
+          "severity": "high",
+          "effort": "M",
+          "lane": "grok-drawings",
+          "detail": "pdf_binder.py emits zero 'w' linewidth ops in the entire 437 KB PLOT_SET.pdf, honors stroke-dasharray only in the <path> branch (lines 284-289) so A1-1's 14 and A2-1/A3-1's 10 dashed <line> elements print solid, and hardcodes three lavender fills (lines 238/252/291) collapsing wall poche, roof color, and fixture teal. The SVG masters genuinely carry the 0.4-2.2 lineweight hierarchy — the printed LINE LEGEND itself renders as four identical lines. Fix is mechanical: parse stroke-width -> 'w', hoist dash handling above the per-tag branches, map fill hex -> 'rg'. Also add arc (A) segment support so door swings stop dropping from the PDF plan."
+        },
+        {
+          "rank": 4,
+          "title": "Imperial graphic scale bar (sheets.py:82 still metric-only)",
+          "severity": "high",
+          "effort": "S",
+          "lane": "grok-drawings",
+          "detail": "graphic_scale_bar is verbatim unchanged: unit = 'm' if use_m else 'mm' — A1-1/A2-1/A2-2/A3-1 all print '0 1 2 m' bars on an imperial California permit set. Bar length is now honest to the plotted scale (construction.py:110), so the remaining work is only an imperial branch (0/4/8/16 ft segments) keyed off the units param the sheet register already carries."
+        },
+        {
+          "rank": 5,
+          "title": "PDF page size and scale honesty: ANSI/ARCH MediaBox + written note derived from actual plot",
+          "severity": "high",
+          "effort": "M",
+          "lane": "grok-drawings",
+          "detail": "pdf_binder.py:178 hardcodes A4 landscape (842x595); at A4 the A1.1 plan plots at ~1:145 while the title block claims 1/4\"=1'-0\" — off ~3x, and a reviewer cannot scale off the sheet. Separately, the custom register copies basis scales verbatim (build_llmbim.py:1051) while _sheet_from_view refits each view (A1-1 x0.793 vs A2-1 x1.102 — 39% apart, same printed note). Emit ANSI B/ARCH D when units=='imperial', and either lock the fit to the named scale or recompute the note via the existing _scale_note_for/imperial_scale_note helpers."
+        },
+        {
+          "rank": 6,
+          "title": "System connectivity: ports, connections, terminals, and actually use the A* router",
+          "severity": "high",
+          "effort": "L",
+          "lane": "claude-kernel",
+          "detail": "connections.json is [], IFC has 0 IfcDistributionPort / 0 IfcRelConnectsPorts / 0 IfcFlowTerminal — the 9 IfcSystems are name-groupings of loose segments. route_mep places straight place_pipe segments directly (some frankly diagonal, e.g. ADU supply trunk (40,33)->(16,40) ft cutting across rooms); packages/core/llmbim_core/mep_route.py (Manhattan A*) has zero callers in projects/. Route via the engine, terminate fixture branches with IfcFlowTerminal + port connections so clash/validate can reason about systems and diagonal runs disappear from the plans."
+        },
+        {
+          "rank": 7,
+          "title": "size_route conduit support + feed computed sizes back into calc strings",
+          "severity": "medium",
+          "effort": "S",
+          "lane": "claude-kernel",
+          "detail": "Two explicit open checklist items from the original audit. mep_sizing.py:733 still whitelists ('pipe','duck'/'duct') and raises on kind='conduit' even though size_conduit/feeder_conduit exist 150 lines up. And the calc-string layer drifted: projects/schad/schad_mep.py:108 states 3/4\" DCW service/main while the routed main and pipe_takeoff.json carry NPS 1 (17.98 m of 1\" copper), propagating into the deliverable's MEP_CALCS.md and PLOT_SET.pdf — the drawing==takeoff==calc single-source guarantee fails on the very first pipe. Generate calc strings from the same sz.* results route_mep uses."
+        },
+        {
+          "rank": 8,
+          "title": "Fire protection: route it or record the exemption",
+          "severity": "medium",
+          "effort": "M",
+          "lane": "claude-kernel",
+          "detail": "fire_takeoff.json is all-empty and there is no FP IfcSystem, despite '+ sprinkler' being explicitly in the WS1 remediation scope. If the design basis genuinely exempts sprinklers (detached garage/ADU), record that decision in the design-basis module so it flows to MEP_CALCS.md and VERIFY.json; otherwise route it like DCW/SAN. Same treatment for the empty cable_tray_takeoff.json: annotate 'not applicable per design basis' vs 'not modeled' in every emitted takeoff so empty files stop being ambiguous."
+        },
+        {
+          "rank": 9,
+          "title": "LINE LEGEND still occludes elevations/sections on A2-1/A2-2/A3-1",
+          "severity": "medium",
+          "effort": "S",
+          "lane": "grok-drawings",
+          "detail": "The opaque fill=#fff legend is emitted inside the scaled drawing group at translate(-26,-26) (A2-1_elevations.svg:241-253); at sheet coords (65,43)-(250,129) it paints over the roof plane and clips the 4'-0\" storey dimension in all four elevation/section cells. Apply the same sheet-space gutter treatment that fixed A1-1's keynotes (which now verify with 0 overlapped elements)."
+        },
+        {
+          "rank": 10,
+          "title": "PDF pagination from SHEET_INDEX.json; human-readable cover rows",
+          "severity": "medium",
+          "effort": "S",
+          "lane": "grok-drawings",
+          "detail": "export_pdf_binder (pdf_binder.py:391-421) still orders pages by sorted glob (ASCII: A0.1, A1.1... H... MEP... S) and the rasterized cover literally reads '13 MEP-101_custom.svg'. SHEET_INDEX.json sits in the same directory with the curated order and no/title fields — read it, order by it, print 'C1.1 - SITE PLAN' rows, glob fallback only when absent."
+        },
+        {
+          "rank": 11,
+          "title": "Emissive luminaires + KHR_lights_punctual rig",
+          "severity": "medium",
+          "effort": "M",
+          "lane": "either",
+          "detail": "0 materials with nonzero emissiveFactor and no KHR_lights_punctual anywhere in mesh.py output — the viewer's bloom pass (viewer3d.py:359) has nothing plausible to bloom and interior/night shots read dead. Kernel side: emit emissive materials for luminaire elements and punctual lights in the glTF; viewer side: consume the extension in the r160 loader light rig. Original WS4 checklist item, unstarted."
+        },
+        {
+          "rank": 12,
+          "title": "Texture the MEP and equipment materials (9/16 still flat)",
+          "severity": "medium",
+          "effort": "M",
+          "lane": "claude-kernel",
+          "detail": "pipe_copper, pipe_pvc, duct, conduit, fitting, equipment, equip_chiller, window, default have no texture in model.gltf — the trades that distinguish this product render as flat pastels while walls/roofs are textured. gltf_textures.py already has a metal pattern; extend coverage plus metallicRoughnessTexture for the metallic MEP materials."
+        },
+        {
+          "rank": 13,
+          "title": "Annotation collision pass on A1-1 (diamonds vs column labels/tag bubbles, ticks through labels)",
+          "severity": "low",
+          "effort": "M",
+          "lane": "grok-drawings",
+          "detail": "EXT-2x6-BNB wall-type diamonds overprint HSS6x6x1/4 column labels and swallow D/W tag bubbles along shared wall lines; witness ticks still slash the two 0'-6\" feature-tier labels; keynote reference boxes sit on room-name text. A label-vs-label collision nudge (the codebase already has a legend-vs-drawing collision test to pattern off) clears the last legibility noise. Also fix the one remaining '…' truncation in H2-2_custom.svg."
+        },
+        {
+          "rank": 14,
+          "title": "Photoreal ceiling: HDR IBL, true AO, higher-res textures, shadowed raster hero",
+          "severity": "low",
+          "effort": "L",
+          "lane": "either",
+          "detail": "Remaining quality caps against 'AE-quality': 64x64 procedural tiles (gltf_textures.py:23) read as uniform noise up close; IBL is procedural RoomEnvironment + LDR studio_sky.jpg, no HDR equirect (viewer3d.py:365, 708); contact-shadow decals are a stand-in because the vendored three r160 has no SSAO/GTAO pass (viewer3d.py:643-646); the hero renderer is flat-shaded vector SVG (ambient+diffuse only). Long-pole item — sequence after ranks 2/11/12 land, since those move perceived quality more per unit effort."
+        },
+        {
+          "rank": 15,
+          "title": "fab_brep.py mypy --strict cleanup (4 errors)",
+          "severity": "low",
+          "effort": "S",
+          "lane": "claude-kernel",
+          "detail": "Unchanged: 2 errors at fab_brep.py:669 (cadquery getSVG attr-defined + no-untyped-call), 1 unused type: ignore at line 18, 1 None-to-Module assignment at line 28. A typed shim or targeted cast + ignore clears the strict gate."
+        }
+      ]
+    },
+    "legs": [
+      {
+        "leg": "FULL MEP + trades",
+        "grade": "B- — the two blockers are genuinely closed (routed, engine-sized, CSI-coded, costed MEP in model + IFC + takeoffs, pinned by passing tests), but the MEP sheets a builder would actually read draw none of it, routes are unconnected schematic single-runs placed directly rather than via the A* engine, and fire protection is still empty — the leg is now a real data pipeline without the drawing/connectivity depth the north star demands."
+      },
+      {
+        "leg": "renderings/3D",
+        "grade": "B- — the interactive render path is now genuinely good (textured PBR with valid buffers, transmission glass, contact shadows, PMREM IBL), but the deliverable pack still ships zero presentation image (hero renderer merged yet unwired) and MEP/lighting render flat, so 'a render an architect shows a client' still requires manually screenshotting the viewer."
+      },
+      {
+        "leg": "CD sheets (plot-set fidelity, legibility, scale honesty, pagination, MEP sheet depth)",
+        "grade": "B- — the SVG masters are now near-submittable (gutter keynotes, clean plan, honest-length scale bars, full title blocks) but the canonical PLOT_SET.pdf still fails a permit reviewer's first-glance tests: zero lineweight ops, dashes lost on all but one sheet, hardcoded lavender fills, ASCII page order on A4 paper at ~1:145 true scale labeled 1/4\"=1'-0\", and MEP-101/201/301 are still undifferentiated note-marker diagrams."
+      }
+    ]
+  },
+  "workflowProgress": [
+    {
+      "type": "workflow_phase",
+      "index": 1,
+      "title": "Re-audit"
+    },
+    {
+      "type": "workflow_phase",
+      "index": 2,
+      "title": "Verify"
+    },
+    {
+      "type": "workflow_phase",
+      "index": 3,
+      "title": "Grade"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 1,
+      "label": "regrade:mep",
+      "phaseIndex": 1,
+      "phaseTitle": "Re-audit",
+      "agentId": "aba3f65a41083a88f",
+      "agentType": "general-purpose",
+      "model": "claude-fable-5",
+      "state": "done",
+      "startedAt": 1785075960879,
+      "queuedAt": 1785075960834,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "B- — the two blockers are genuinely closed (routed, engine-…",
+      "promptPreview": "You are re-grading llm-bim (root <HOME>/llm-bim, cwd = repo root) after a remediation sprint.\nNORTH STAR: \"anyone can create AE-quality renderings and CD sheets with FULL MEP and other trades.\"\nThe ORIGINAL audit (2026-07-21, grade B-) and its findings are in docs/EXCELLENCE_AUDIT_2026-07-21.md\nand docs/audit/2026-07-21-excellence-audit.json — READ the sections for your dimension first.\nA …",
+      "lastProgressAt": 1785076162715,
+      "tokens": 75228,
+      "toolCalls": 22,
+      "durationMs": 201835,
+      "resultPreview": "{\"findings_status\":[{\"original_finding\":\"BLOCKER: Schad CD has ZERO routed MEP — duct/pipe/conduit/cable_tray/rebar/connections takeoffs all [] ; no place_pipe/place_duct/place_conduit call in projects/schad\",\"status\":\"CLOSED\",\"evidence\":\"output/_audit/schad_final/materials now real: pipe_takeoff.json 6 rows (NPS 1/2–3, copper_C12200 + pvc_sch40, e.g. 26.77 m of 1/2\\\" copper @ $18/m = $481.89, per…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 2,
+      "label": "regrade:render",
+      "phaseIndex": 1,
+      "phaseTitle": "Re-audit",
+      "agentId": "a284e29772161ec88",
+      "agentType": "general-purpose",
+      "model": "claude-fable-5",
+      "state": "done",
+      "startedAt": 1785075960885,
+      "queuedAt": 1785075960835,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "B- — the interactive render path is now genuinely good (tex…",
+      "promptPreview": "You are re-grading llm-bim (root <HOME>/llm-bim, cwd = repo root) after a remediation sprint.\nNORTH STAR: \"anyone can create AE-quality renderings and CD sheets with FULL MEP and other trades.\"\nThe ORIGINAL audit (2026-07-21, grade B-) and its findings are in docs/EXCELLENCE_AUDIT_2026-07-21.md\nand docs/audit/2026-07-21-excellence-audit.json — READ the sections for your dimension first.\nA …",
+      "lastProgressAt": 1785076149645,
+      "tokens": 64237,
+      "toolCalls": 23,
+      "durationMs": 188760,
+      "resultPreview": "{\"findings_status\":[{\"original_finding\":\"HIGH: glTF has zero textures/UVs (all POSITION+NORMAL) — flat pastels\",\"status\":\"CLOSED\",\"evidence\":\"output/_audit/schad_final/model.gltf now carries 8 embedded 64x64 PNGs (4 procedural detail + 4 normal maps: drywall/wood/metal/concrete, 1-10.5 KB each), 8 textures, 1 REPEAT sampler; 187/187 mesh primitives have TEXCOORD_0; 7/16 materials (wall_structure, …"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 3,
+      "label": "regrade:cd",
+      "phaseIndex": 1,
+      "phaseTitle": "Re-audit",
+      "agentId": "aefee40458f577afb",
+      "agentType": "general-purpose",
+      "model": "claude-fable-5",
+      "state": "done",
+      "startedAt": 1785075960887,
+      "queuedAt": 1785075960835,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "CD sheets (plot-set fidelity, legibility, scale honesty, pa…",
+      "promptPreview": "You are re-grading llm-bim (root <HOME>/llm-bim, cwd = repo root) after a remediation sprint.\nNORTH STAR: \"anyone can create AE-quality renderings and CD sheets with FULL MEP and other trades.\"\nThe ORIGINAL audit (2026-07-21, grade B-) and its findings are in docs/EXCELLENCE_AUDIT_2026-07-21.md\nand docs/audit/2026-07-21-excellence-audit.json — READ the sections for your dimension first.\nA …",
+      "lastProgressAt": 1785076727971,
+      "tokens": 146795,
+      "toolCalls": 59,
+      "durationMs": 767084,
+      "resultPreview": "{\"leg\":\"CD sheets (plot-set fidelity, legibility, scale honesty, pagination, MEP sheet depth)\",\"grade\":\"B- — the SVG masters are now near-submittable (gutter keynotes, clean plan, honest-length scale bars, full title blocks) but the canonical PLOT_SET.pdf still fails a permit reviewer's first-glance tests: zero lineweight ops, dashes lost on all but one sheet, hardcoded lavender fills, ASCII page …"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 4,
+      "label": "verify:render",
+      "phaseIndex": 2,
+      "phaseTitle": "Verify",
+      "agentId": "a6f07d9b8997887f1",
+      "agentType": "general-purpose",
+      "model": "claude-fable-5",
+      "state": "done",
+      "startedAt": 1785076149701,
+      "queuedAt": 1785076149661,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "Only one trivial imprecision found: the fab_brep mypy claim…",
+      "promptPreview": "You are re-grading llm-bim (root <HOME>/llm-bim, cwd = repo root) after a remediation sprint.\nNORTH STAR: \"anyone can create AE-quality renderings and CD sheets with FULL MEP and other trades.\"\nThe ORIGINAL audit (2026-07-21, grade B-) and its findings are in docs/EXCELLENCE_AUDIT_2026-07-21.md\nand docs/audit/2026-07-21-excellence-audit.json — READ the sections for your dimension first.\nA …",
+      "lastProgressAt": 1785076197040,
+      "tokens": 43008,
+      "toolCalls": 6,
+      "durationMs": 47339,
+      "resultPreview": "{\"agrees\":true,\"corrections\":\"Only one trivial imprecision found: the fab_brep mypy claim says all 4 strict errors are \\\"around cadquery getSVG at fab_brep.py:669\\\", but re-running `.venv/Scripts/python.exe -m mypy --strict packages/geometry/llmbim_geometry/fab_brep.py` shows only 2 of the 4 at line 669 (attr-defined + no-untyped-call); the others are at line 18 (unused \\\"type: ignore\\\") and line …"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 5,
+      "label": "verify:mep",
+      "phaseIndex": 2,
+      "phaseTitle": "Verify",
+      "agentId": "ae187899aecc4c04e",
+      "agentType": "general-purpose",
+      "model": "claude-fable-5",
+      "state": "done",
+      "startedAt": 1785076162718,
+      "queuedAt": 1785076162717,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "Substantively none — every spot-checked number reproduced e…",
+      "promptPreview": "You are re-grading llm-bim (root <HOME>/llm-bim, cwd = repo root) after a remediation sprint.\nNORTH STAR: \"anyone can create AE-quality renderings and CD sheets with FULL MEP and other trades.\"\nThe ORIGINAL audit (2026-07-21, grade B-) and its findings are in docs/EXCELLENCE_AUDIT_2026-07-21.md\nand docs/audit/2026-07-21-excellence-audit.json — READ the sections for your dimension first.\nA …",
+      "lastProgressAt": 1785076232335,
+      "tokens": 45371,
+      "toolCalls": 7,
+      "durationMs": 69617,
+      "resultPreview": "{\"agrees\":true,\"corrections\":\"Substantively none — every spot-checked number reproduced exactly. Re-verified: (1) pipe_takeoff.json shows 26.772 m of 1/2\\\" copper @ $481.89 and 17.983 m NPS 1 copper main, as claimed; (2) ifcopenshell on output/_audit/schad_final/model.ifc gives exactly 30 IfcPipeSegment / 3 IfcDuctSegment / 7 IfcCableCarrierSegment / 13 IfcFlowFitting / 9 IfcSystem with membership…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 6,
+      "label": "verify:cd",
+      "phaseIndex": 2,
+      "phaseTitle": "Verify",
+      "agentId": "a464ef5b0348d1fb6",
+      "agentType": "general-purpose",
+      "model": "claude-fable-5",
+      "state": "done",
+      "startedAt": 1785076727992,
+      "queuedAt": 1785076727984,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "none of substance. All spot-checked evidence reproduced: (1…",
+      "promptPreview": "You are re-grading llm-bim (root <HOME>/llm-bim, cwd = repo root) after a remediation sprint.\nNORTH STAR: \"anyone can create AE-quality renderings and CD sheets with FULL MEP and other trades.\"\nThe ORIGINAL audit (2026-07-21, grade B-) and its findings are in docs/EXCELLENCE_AUDIT_2026-07-21.md\nand docs/audit/2026-07-21-excellence-audit.json — READ the sections for your dimension first.\nA …",
+      "lastProgressAt": 1785076829251,
+      "tokens": 52600,
+      "toolCalls": 18,
+      "durationMs": 101259,
+      "resultPreview": "{\"agrees\":true,\"corrections\":\"none of substance. All spot-checked evidence reproduced: (1) sheets.py:82 is verbatim `unit = \\\"m\\\" if use_m else \\\"mm\\\"` and all four imperial sheets (A1-1/A2-1/A2-2/A3-1) print metric scale-bar units — OPEN confirmed. (2) PLOT_SET.pdf (437,724 bytes, 22 streams): zero `w` linewidth ops document-wide; pdf_binder.py contains no `stroke-width` parsing at all; hardcoded…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 7,
+      "label": "final-grade",
+      "phaseIndex": 3,
+      "phaseTitle": "Grade",
+      "agentId": "aa8326c85d5ebd187",
+      "model": "claude-fable-5",
+      "state": "done",
+      "startedAt": 1785076829308,
+      "queuedAt": 1785076829256,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "B",
+      "promptPreview": "Synthesize the re-grade of llm-bim. Original overall grade: B- (\"A-grade kernel, C-grade flagship\").\nPer-leg re-audits with skeptic passes:\n[\n {\n  \"findings_status\": [\n   {\n    \"original_finding\": \"BLOCKER: Schad CD has ZERO routed MEP — duct/pipe/conduit/cable_tray/rebar/connections takeoffs all [] ; no place_pipe/place_duct/place_conduit call in projects/schad\",\n    \"status\": \"CLOSED\",\n    \"evid…",
+      "lastProgressAt": 1785076921825,
+      "tokens": 48279,
+      "toolCalls": 1,
+      "durationMs": 92516,
+      "resultPreview": "{\"overall_grade\":\"B\",\"justification\":\"Up half a notch from B-, and the movement is real but asymmetric. The original grade's core complaint — \\\"A-grade kernel, C-grade flagship\\\" — has been half-answered: both MEP blockers are genuinely closed (30 routed pipes / 3 ducts / 7 conduits, engine-sized via mep_sizing, CSI-coded, costed, exported to IFC with material associations, pinned by 5 passing dri…"
+    }
+  ],
+  "totalTokens": 475518,
+  "totalToolCalls": 136
+}
