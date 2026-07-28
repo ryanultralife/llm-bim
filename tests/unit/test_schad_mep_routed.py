@@ -78,6 +78,30 @@ def test_no_diagonal_plan_runs(project):
     assert not diagonals, f"diagonal MEP runs placed: {diagonals}"
 
 
+def test_mep_sheets_draw_routed_geometry(tmp_path_factory):
+    """Residual #1: MEP-101/201/301 are plan sheets of model geometry, not overlays."""
+    out = tmp_path_factory.mktemp("schad_mep_sheets") / "pack"
+    _proj, verify = build.build_pack(out)
+    assert verify.get("ok") is True or (out / "construction").is_dir()
+    constr = out / "construction"
+    e_svg = (constr / "MEP-101_plan.svg").read_text(encoding="utf-8")
+    p_svg = (constr / "MEP-201_plan.svg").read_text(encoding="utf-8")
+    m_svg = (constr / "MEP-301_plan.svg").read_text(encoding="utf-8")
+    # No stale custom overlay filenames
+    assert not (constr / "MEP-101_custom.svg").exists()
+    assert not (constr / "MEP-201_custom.svg").exists()
+    assert not (constr / "MEP-301_custom.svg").exists()
+    # Plan renderer groups for real routed runs
+    assert 'class="conduit"' in e_svg or 'class="pipes"' in e_svg or "conduit" in e_svg
+    assert e_svg.count("<line ") >= 3, "electrical sheet should draw conduit runs"
+    assert 'class="pipes"' in p_svg
+    assert p_svg.count("<line ") >= 10, "plumbing sheet should draw many pipe segments"
+    assert 'class="ducts"' in m_svg
+    assert m_svg.count("<line ") >= 4, "mechanical sheet should draw duct edges"
+    # Substantially larger than the old ~11 KB note-overlay sheets
+    assert len(p_svg) > 20000, f"MEP-201 still looks like an overlay ({len(p_svg)} bytes)"
+
+
 def test_routed_graph_and_connections(project):
     # mep_autoroute records every run as a mep_graph edge mirrored into
     # meta['connections'] — this is what fills materials/connections.json.

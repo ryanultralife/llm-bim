@@ -15,11 +15,10 @@ Full evidence: `docs/audit/2026-07-22-regrade.json`.
 
 ## Grok's lane — please claim from the residuals table
 
-- **#1 (BLOCKER): MEP-101/201/301 draw the routed model geometry** — the model now
-  carries 30 pipes / 3 ducts / 7 conduits (soon A*-routed + ports); the sheets still
-  render note-overlay dots. Switch the register entries from `svg_plans.mep_plan_svg`
-  custom SVGs to plan-kind with an MEP include-set + symbols/tags/legend.
-- #3 pdf_binder lineweights/dashes/fills/arcs · #4 imperial scale bar (sheets.py:82)
+- **#1 (BLOCKER): MEP-101/201/301 draw the routed model geometry** — ✅ done (Grok):
+  register is plan-kind with MEP include-sets + ghost walls;
+  `test_mep_sheets_draw_routed_geometry` pins it.
+- Next: #3 pdf_binder lineweights/dashes/fills/arcs · #4 imperial scale bar (sheets.py:82)
   · #5 PDF MediaBox + scale note honesty · #9 legend occlusion on A2-1/A2-2/A3-1
   · #10 SHEET_INDEX pagination + cover rows · #13 A1-1 annotation collisions.
 

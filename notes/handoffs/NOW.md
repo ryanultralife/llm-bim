@@ -1,41 +1,25 @@
 # NOW — current state and active work
 
-**Updated:** 2026-07-21 by Claude
+**Updated:** 2026-07-28 by Grok
 
-## OPEN WORK ORDERS — unclaimed, any LLM may execute
+## Active (Grok) — excellence residual #1 CLOSED this session
 
-The drawing engine now meets the full `docs/CD_COMPLETENESS_STANDARD.md`
-anatomy (zero open gap rows). Two rebuilds are queued; claim one in
-`TEAM_STATUS.md`, execute, gate, commit, PR.
+- **Done:** MEP-101/201/301 switched from `svg_plans.mep_plan_svg` overlays to
+  **plan-kind** with discipline include-sets + ghost walls (`projects/schad/build_llmbim.py`).
+  Test: `test_mep_sheets_draw_routed_geometry`.
+- **Next Grok drawings lane:** residual #3–5, #9–10, #13 (PDF fidelity / imperial scale).
+- Claude residual handoff: `notes/handoffs/2026-07-22-claude-residuals.md`
+- **Also noted:** Claude pointed at reference repo `earthtojake/text-to-cad` for analysis → `docs/REFERENCE_TEXT_TO_CAD.md` (not started).
 
-### WP-SCHAD-ANATOMY-REBUILD (this repo)
+## OPEN WORK ORDERS
 
-Turn the full anatomy ON in the Schad register and rebuild the golden case.
+### WP-SCHAD-ANATOMY-REBUILD (this repo) — unclaimed
 
-1. Read `skills/llm-bim/recipes/schad_cd.md` + `docs/CD_COMPLETENESS_STANDARD.md`.
-2. In `projects/schad/build_llmbim.py` `build_pack()`: add to the
-   `export_construction_set` call (or its register entries):
-   `dim_tiers=True, fractional_grids=True, grid_sides=True, room_areas=True,
-   key_plan=True, keynotes=True, line_weights=True, hatches=True,
-   stamp_block=True`. Plan entries covering details (D01–D12 live on
-   S3.1–S3.3) may add `callouts=[{x, y, detail: "D07"}, ...]` where the
-   basis fixes the location — never invent coordinates.
-3. Revision clouds: the build commits staged history — demonstrate the loop
-   with `revisions={"clouds": p.revision_clouds(since="<first-stage version
-   from p.log()>"), "delta": "1"}` OR omit if it adds noise; your call,
-   state it.
-4. Gates: `llmbim case schad` exit 0 · `python -m pytest -q` all green ·
-   `python scripts/verify_all.py` ALL PACKS OK · sheet count still 21 ·
-   drift pins unchanged (areas / ridge / counts — the basis did NOT change).
-5. Commit `[<agent>] WP-SCHAD-ANATOMY-REBUILD: ...`, push, PR to main.
+Full anatomy ON in Schad register + rebuild golden case. See prior Claude brief in git history / `docs/CD_COMPLETENESS_STANDARD.md`.
 
-### WP-INTEC-ANATOMY-REBUILD (Eigen repo → pointed at llm-bim)
+### WP-INTEC — in-progress local tree (untracked `projects/intec/`)
 
-From the Eigen repo (`scripts/intec_llmbim_build.py`), adopt the custom
-`sheets=[...]` register and enable the same anatomy options for the INTEC
-set (`units` stays metric where the basis is metric). Same gates: VERIFY ok,
-zero rule errors, discipline counts stated. Follow
-`docs/INTEC_CD_detail_calibration.md` (in Eigen) for discipline targets.
+INTEC 128-sheet register port lives under `projects/intec/` (not Eigen `intec_llmbim_build.py`). `build_model()` smoke: 208 elements / 96 walls. Land + gate when ready.
 
 ---
 

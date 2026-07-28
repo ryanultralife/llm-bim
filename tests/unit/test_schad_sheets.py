@@ -43,7 +43,7 @@ EXPECTED_SHEET_FILES = {
     "S1-1_custom.svg", "S2-1_custom.svg",
     "S3-1_details.svg", "S3-2_details.svg", "S3-3_details.svg",
     "A4-1_schedule.svg", "S4-1_custom.svg",
-    "MEP-101_custom.svg", "MEP-201_custom.svg", "MEP-301_custom.svg",
+    "MEP-101_plan.svg", "MEP-201_plan.svg", "MEP-301_plan.svg",
     "H1-1_doc.svg", "H1-2_doc.svg", "H2-1_doc.svg", "H2-2_custom.svg",
 }
 

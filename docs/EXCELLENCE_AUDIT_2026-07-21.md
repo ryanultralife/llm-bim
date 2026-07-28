@@ -116,7 +116,7 @@ takeoff from foundations geometry; drift-pin test that flagship takeoffs are non
 
 | # | Item | Sev | Effort | Lane |
 |---|------|-----|--------|------|
-| 1 | **MEP-101/201/301 draw the routed model geometry** (switch register from `svg_plans.mep_plan_svg` note-overlays to plan-kind with MEP include-set; symbols, size/slope tags, home runs, legend) | blocker | L | grok-drawings |
+| 1 | **MEP-101/201/301 draw the routed model geometry** (switch register from `svg_plans.mep_plan_svg` note-overlays to plan-kind with MEP include-set; symbols, size/slope tags, home runs, legend) | blocker | L | grok-drawings | ✅ done — plan-kind include sets + ghost walls; `test_mep_sheets_draw_routed_geometry` |
 | 2 | **Wire `render_hero_svg` into `export_deliverables` + index.html** (exists, tested, zero callers — deliverables.py:429) | high | S | either |
 | 3 | PDF binder: stroke-width `w` ops, dashes on `<line>` (not just `<path>`), per-element fills, arc segments (door swings) | high | M | grok-drawings |
 | 4 | Imperial graphic scale bar (`sheets.py:82` still `m/mm`-only) | high | S | grok-drawings |
