@@ -36,7 +36,7 @@ def _title_block(
 <rect width="100%" height="100%" fill="#fff"/>
 <rect x="12" y="12" width="{w-24:.0f}" height="{h-24:.0f}" fill="none" stroke="#111" stroke-width="2"/>
 <text x="28" y="40" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="700">{html.escape(sheet_no)} — {html.escape(title)}</text>
-<text x="28" y="60" font-family="Segoe UI,Arial,sans-serif" font-size="12" fill="#444">SCHAD 2024-008 · 100 Example Way, Sampletown CA · Demo Studio · DESIGN DEVELOPMENT — NOT FOR CONSTRUCTION</text>
+<text x="28" y="60" font-family="Segoe UI,Arial,sans-serif" font-size="12" fill="#444">SCHAD 2024-008 · 100 Example Way, Sample County CA · Demo Studio LLC · DESIGN DEVELOPMENT — NOT FOR CONSTRUCTION</text>
 <text x="{w-28}" y="40" text-anchor="end" font-family="Segoe UI,Arial,sans-serif" font-size="12" fill="#333">Scale: {html.escape(scale_note)}</text>
 {body}
 <text x="28" y="{h-22}" font-family="Segoe UI,Arial,sans-serif" font-size="10" fill="#666">Note-driven from projects/schad SSOT · dims to face of stud U.N.O. · verify in field · PE reserved</text>
@@ -780,8 +780,8 @@ def cover_sheet_svg() -> str:
     parts = [
         '<text x="80" y="140" font-size="32" font-weight="700" font-family="Segoe UI,Arial">SCHAD</text>',
         '<text x="80" y="175" font-size="18" font-family="Segoe UI,Arial">Garage / ADU / Workshop Complex</text>',
-        '<text x="80" y="210" font-size="14" font-family="Segoe UI,Arial">100 Example Way, Sample County CA 90000 · APN 000-000-000</text>',
-        '<text x="80" y="235" font-size="13" font-family="Segoe UI,Arial">Demo Studio · Project 2024-008 · Designer: the Designer</text>',
+        '<text x="80" y="210" font-size="14" font-family="Segoe UI,Arial">100 Example Way, Sample County, CA 90000 · APN 000-000-000</text>',
+        '<text x="80" y="235" font-size="13" font-family="Segoe UI,Arial">Demo Studio LLC · Project 2024-008 · Designer: Demo Designer</text>',
         f'<text x="80" y="280" font-size="14" font-family="Segoe UI,Arial">Total {s["area_total"]:.0f} SF · '
         f'Garage {s["area_garage"]:.0f} · ADU {s["area_adu"]:.0f} · Workshop {s["area_workshop"]:.0f}</text>',
         '<text x="80" y="320" font-size="16" fill="#c00" font-weight="700" font-family="Segoe UI,Arial">'

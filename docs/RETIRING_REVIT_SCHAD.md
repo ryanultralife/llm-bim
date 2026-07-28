@@ -1,6 +1,6 @@
 # Retiring Revit for Schad Phase 1 — decision record
 
-**Project:** Schad Garage / ADU / Workshop, Demo Studio 2024-008, 100 Example Way, Sampletown CA
+**Project:** Schad Garage / ADU / Workshop, Demo Studio 2024-008, 100 Example Way, Sample County CA
 **Directive (human, 2026-07-19):** *Transition away from Revit to our own llm-bim at the same or better quality and execution.*
 **Governing review:** `docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md` (Gates A–D)
 **Stamp:** every regenerated pack is **[DESIGN DEVELOPMENT — NOT FOR CONSTRUCTION]**.
@@ -9,7 +9,7 @@
 
 llm-bim is the sole authoring host for Schad Phase 1. The design basis lives
 in this repo (`projects/schad/`) and is the only number source. The Revit
-thread (`<LOCAL_ARCHIVE>\Schad Garage\Revit\` adapters, local `.rvt` files) is
+thread (`[archive path redacted]/IED OUT OF REPO]` adapters, local `.rvt` files) is
 **archived**: it is kept read-only as a visual-regression benchmark
 (`sheet_renders/`, `model_qa/`), and there is **no edit path via `.rvt`** —
 design changes are made in the basis modules and regenerated here.

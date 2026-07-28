@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """SCHAD design basis — the single source of truth for the Revit thread.
 
-Phase 1: Garage / ADU / Workshop complex, 100 Example Way, Sampletown CA 90000
-([COUNTY], APN 000-000-000-000). Owner: the Owners. Designer:
-the Designer, Demo Studio.
+Phase 1: Garage / ADU / Workshop complex, 100 Example Way, Sample County CA 90000
+(Sample County, APN 000-000-000-000). Owner: Demo Homeowners. Designer:
+Demo Designer, Demo Studio LLC.
 
 Every dimension here is TRANSCRIBED ONCE from the project record and cited:
   [RB]      Schads_Permit_Set.rb (permit-set generator, the drawn plan;
@@ -400,7 +400,7 @@ def mech_equipment() -> list[tuple]:
 
 def sheet_register() -> list[dict]:
     """The permit-set index [RB A0.1], one entry per sheet. Sign-off per
-    the project record: the Designer / Demo Studio is designer of
+    the project record: Demo Designer / Demo Studio LLC is designer of
     record; structural PE spot is RESERVED (by others per HANDOFF)."""
     idx = [
         ('A0.1', 'COVER SHEET & SITE PLAN', 'AS NOTED', 'A'),
@@ -432,7 +432,7 @@ def sheet_register() -> list[dict]:
          '1/4" = 1\'-0"', 'H'),
     ]
     return [{'number': n, 'title': t, 'scale': sc, 'discipline': d,
-             'drawn_by': 'the Designer — Demo Studio',
+             'drawn_by': 'Demo Designer — Demo Studio LLC',
              'checked_by': '-',
              'approved_by': 'PE (reserved — structural by others)'}
             for n, t, sc, d in idx]
@@ -524,7 +524,7 @@ def open_questions() -> list[dict]:
               'OWNERS ALSO OWN THE ADJACENT PARCEL [USER 2026-07-13] -> '
               'options: (a) confirm actual zone setbacks and build '
               'within -001, (b) lot-line adjustment, (c) merger. '
-              'Identify adjacent APN w/ assessor, talk to [COUNTY] '
+              'Identify adjacent APN w/ assessor, talk to Sample County '
               'planning, commission survey. Garage anchor (150\', 35\') '
               'adjusts to the chosen path.'},
         {'id': 'Q-HANDOFF10', 'status': 'open',

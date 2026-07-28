@@ -1,7 +1,7 @@
 # Vision-loop OVERSEER (30-minute health agent)
 
 **Role:** Watchdog for the 5-minute vision alignment loop — not a feature builder.  
-**Repo:** `<HOME>\llm-bim`  
+**Repo:** `[repo root]`  
 **Cadence:** every **30 minutes**  
 **Companion loop:** `notes/handoffs/VISION_LOOP.md` (5m builder, ~120 passes / 10h)  
 **Health log:** `notes/handoffs/OVERSEER_LOG.md` (append-only)
@@ -23,7 +23,7 @@ This overseer **detects** that within ~30m and **repairs or escalates**.
 ## Every fire — checklist
 
 ```text
-1. cd <HOME>\llm-bim
+1. cd [repo root]
 2. python scripts/vision_overseer_check.py --json
    (uses .venv if present: .\.venv\Scripts\python.exe scripts\vision_overseer_check.py --json)
 3. Read notes/handoffs/VISION_LOOP.md last 5 pass rows
@@ -55,7 +55,7 @@ This overseer **detects** that within ~30m and **repairs or escalates**.
 ## Manual run
 
 ```powershell
-cd <HOME>\llm-bim
+cd [repo root]
 .\.venv\Scripts\python.exe scripts\vision_overseer_check.py --json
 ```
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """SCHAD structural design basis + member checks (Phase 1 garage).
 
-DESIGN-SUPPORT CALCULATIONS by the designer of record (the Designer,
-Demo Studio). NOT a substitute for the structural PE review the
+DESIGN-SUPPORT CALCULATIONS by the designer of record (Demo Designer,
+Demo Studio LLC). NOT a substitute for the structural PE review the
 record reserves ("PE stamp and approval" by others, [HANDOFF]); every
 ASSUMED value is flagged and must be confirmed by the EOR.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""SCHAD site design basis — 100 Example Way, Sampletown CA.
+"""SCHAD site design basis — 100 Example Way, Sample County CA.
 
-v2 (2026-07-13): GEOREFERENCED. Parcel geometry from the [COUNTY]
+v2 (2026-07-13): GEOREFERENCED. Parcel geometry from the Sample County
 Parcels feature service (7/2025 layer — county notes it is informational,
 NOT a legal survey); building/driveway positions measured from Esri World
 Imagery aerial (~0.23 m/px, fetched 2026-07-13). Geocoder pin for the
@@ -15,7 +15,7 @@ FACTS:
   parcels (000-000-011 12.6 ac etc.); meadow west; Example Way ~300 ft NE
   House sits in the SW third; open thinned ground east = garage site
   KEY CONFLICT: the 30/40 ft setback assumption CANNOT hold on a 112 ft
-  deep lot -> Q-SETBACK (confirm zoning setbacks w/ [COUNTY] planning)
+  deep lot -> Q-SETBACK (confirm zoning setbacks w/ Sample County planning)
 
 Local frame: garage SW corner = (0,0), +x East, +y North (model frame).
 Garage anchor chosen at parcel-local (150 ft E, 35 ft N of the parcel SW
@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import math
 
-# WGS84 parcel ring, [COUNTY] GIS 7/2025 (lon, lat), closed
+# WGS84 parcel ring, Sample County GIS 7/2025 (lon, lat), closed
 PARCEL_RING_LL = [
     (-120.9121329, 39.9684127),   # SE
     (-120.9130736, 39.9683972),   # SW
@@ -51,11 +51,11 @@ def site_basis() -> dict:
     ring = [_ft(lo, la) for lo, la in PARCEL_RING_LL]
     return {
         'apn': '000-000-000 (0.63 ac, ~263\' x ~112\')',
-        'address': '100 Example Way, Sample County CA 90000',
+        'address': '100 Example Way, Sample County, CA 90000',
         'latlon': (39.96850, -120.91260),
-        'jurisdiction': '[COUNTY] Building Dept.',
+        'jurisdiction': 'Sample County Building Dept.',
         'zone': 'R-1 [RB] — CONFIRM for this parcel (Q-SETBACK)',
-        'sources': 'Parcel: [COUNTY] GIS 7/2025 (informational, not '
+        'sources': 'Parcel: Sample County GIS 7/2025 (informational, not '
                    'a survey). Features: Esri World Imagery ~0.23 m/px, '
                    'read 2026-07-13. Survey supersedes.',
         'parcel_ring': ring,
@@ -105,7 +105,7 @@ def site_basis() -> dict:
             'PARCEL LINES FROM COUNTY GIS — NOT A SURVEY; commission '
             'survey before permit site plan is final',
             'SETBACKS TBD (Q-SETBACK): 112\' lot depth cannot take '
-            '30\'+40\'; confirm zone setbacks w/ [COUNTY] planning; '
+            '30\'+40\'; confirm zone setbacks w/ Sample County planning; '
             'garage anchor (150\',35\') adjusts accordingly',
             'GRADING: slope slab 1/8"/ft to doors; perimeter drain to '
             'daylight [RB]; site slopes gently W toward meadow (aerial)',

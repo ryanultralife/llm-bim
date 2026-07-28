@@ -15,6 +15,6 @@ __all__ = ["SCHAD_PROJECT"]
 SCHAD_PROJECT = {
     "number": "2024-008",
     "name": "SCHAD Garage / ADU / Workshop",
-    "address": "100 Example Way, Sample County CA 90000",
+    "address": "100 Example Way, Sample County, CA 90000",
     "status": "[DESIGN DEVELOPMENT — NOT FOR CONSTRUCTION]",
 }

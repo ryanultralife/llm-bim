@@ -299,7 +299,7 @@
 
 **Status:** Vision alignment loop **ENDED** (pass count **120 / 120**, wall-clock hard stop executed).  
 **Ended:** 2026-07-16 (hard-stop task)  
-**Repo:** `<HOME>\llm-bim` · branch `main`
+**Repo:** `[repo root]` · branch `main`
 
 ### Totals
 
@@ -392,7 +392,7 @@
 
 1. Read this file + `docs/VISION.md` + `docs/CAPABILITY.md` + `docs/OUTPUT_MATRIX.md`
 2. Pick **one** highest-impact gap from backlog or a new discovered gap
-3. Implement fix in repo `<HOME>\llm-bim`
+3. Implement fix in repo `[repo root]`
 4. Run focused tests (`pytest tests/unit -q` or subset)
 5. Commit if green: `[grok] vision-loop N: <summary>`
 6. Append pass row to this log; update backlog

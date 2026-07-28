@@ -24,6 +24,10 @@ you already pay for or run locally — does the work against the instructions
 and framework in this repo, on your device or in your LLM's sandbox. Reading,
 cloning, and the ZIP are all anonymous. All paths: [`docs/MOBILE.md`](docs/MOBILE.md).
 
+**Privacy / demo data:** fixture projects under `projects/` use **synthetic site
+identity** (not live client addresses). See [`docs/SHAREABILITY.md`](docs/SHAREABILITY.md)
+before forking or publishing derived packs.
+
 ## 60-second start
 
 ```bash

@@ -20,11 +20,12 @@ import schad_site as site
 import schad_structural as struct
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-HDR = ('**Project:** SCHAD Garage/ADU/Workshop + House Remodel — 3730 '
-       'Example Way, Sampletown CA (APN 000-000-000-000) · **Demo Studio '
-       '2024-008** · Designer: the Designer\n\n> DESIGN-SUPPORT DOCUMENT '
+HDR = ('**Project:** DEMO Garage/ADU/Workshop + House Remodel — '
+       '100 Example Way, Sample County CA (APN 000-000-000-000) · **Demo Studio '
+       '2024-008** · Designer: Demo Designer\n\n> DESIGN-SUPPORT DOCUMENT '
        '— values marked (ASSUMED) require confirmation; structural PE '
-       'review reserved per contract. NOT FOR CONSTRUCTION.\n')
+       'review reserved per contract. NOT FOR CONSTRUCTION. Synthetic site '
+       'identity for the public repo — see docs/SHAREABILITY.md.\n')
 
 
 def write(name: str, lines: list[str]) -> str:
@@ -88,7 +89,7 @@ def spec_doc() -> list[str]:
             '2022 CBC/CRC, 2022 CPC/CMC, 2023 CEC, Title 24-2022 [RB]',
             'Verify all dimensions in field; RFIs to designer',
             'Deferred submittals: roof trusses (fab-engineered)',
-            'Cost-plus contract, Demo Studio [CONTRACT]']),
+            'Cost-plus contract, Demo Studio LLC [CONTRACT]']),
         ('03 CONCRETE', [
             '3,500 psi @ 28 days [RB] (BOM budget notes 3,000-4,000 psi; '
             'freeze climate: air entrain 5-7%, slump 4" +/- 1)',

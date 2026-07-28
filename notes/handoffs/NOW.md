@@ -23,8 +23,16 @@
 
 - Landed: `projects/intec/` + `llmbim case intec` → 128-sheet pack (`7a14389`)
 
+## Shareability (2026-07-28)
+
+**Repo is already PUBLIC.** HEAD redacted Schad street/owners/APN/designer name
+to demo placeholders (`docs/SHAREABILITY.md`). **Git history is not scrubbed** —
+force-push rewrite still needed for a full purge. INTEC remains a company
+facility design-basis demo (IP judgment, not PII).
+
 ## Open (optional next)
 
 - `llmbim inspect` geometry assertions (text-to-cad adoption #1)
 - True SSAO requires three.js bundle upgrade
 - Author reply to CAD Skills author (draft in REFERENCE doc — human sends)
+- Optional: `git filter-repo` history scrub of old Schad identity strings

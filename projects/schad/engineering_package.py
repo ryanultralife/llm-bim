@@ -25,7 +25,7 @@ import schad_structural as struct
 
 DISCLAIMER = (
     "DESIGN-SUPPORT ENGINEERING PACKAGE — Prepared for construction "
-    "documentation development by Demo Studio / the Designer. "
+    "documentation development by Demo Studio LLC / Demo Designer. "
     "NOT a substitute for California-licensed Structural Engineer (EOR) "
     "stamp. Values marked (ASSUMED) require confirmation. Geotech, "
     "site-specific seismic (SDS), and truss fabricator calcs are deferred "
@@ -61,7 +61,7 @@ def load_criteria() -> dict[str, Any]:
         "R_note": "Light-frame wood shear walls (wood structural panels)",
         "soil_q_allow_psf": struct.SOIL_Q_ALLOW_PSF,
         "soil_note": "CBC 1806.2 presumptive 1500 psf (ASSUMED) — geotech supersedes",
-        "frost": "[COUNTY] frost depth — verify w/ building dept (ASSUMED 18\" min ftg)",
+        "frost": "Sample County frost depth — verify w/ building dept (ASSUMED 18\" min ftg)",
         "area_sf": s["area_total"],
         "ridge_ft": s["ridge"],
         "pitch": "6:12",
@@ -279,7 +279,7 @@ def structural_engineering_report() -> str:
         "# SCHAD Structural Engineering Package",
         "",
         "**Project:** 2024-008 SCHAD Garage/ADU/Workshop",
-        "**Address:** 100 Example Way, Sampletown CA 90000",
+        "**Address:** 100 Example Way, Sample County CA 90000",
         f"**Generated:** {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
         "",
         f"> {DISCLAIMER}",

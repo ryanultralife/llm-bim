@@ -365,7 +365,7 @@ def _build_shell(p: Project) -> dict[str, Any]:
     p.create_note(
         level="L1",
         text=(
-            f"SCHAD 2024-008 | 100 Example Way Sampletown CA | "
+            f"SCHAD 2024-008 | 100 Example Way Sample County CA | "
             f"{s['area_total']:.0f} SF total | {HONESTY} | "
             f"see docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md"
         ),
@@ -1057,7 +1057,7 @@ def schad_sheet_register(p: Project) -> list[dict[str, Any]]:
         e(
             "A0.1",
             "cover",
-            subtitle="SCHAD 2024-008 · 100 Example Way, Sampletown CA 90000 · Demo Studio",
+            subtitle="SCHAD 2024-008 · 100 Example Way, Sample County CA 90000 · Demo Studio LLC",
             notes=[
                 HONESTY,
                 f"AREAS [RB A0.1]: {s['area_total']:.0f} SF TOTAL — GARAGE "
@@ -1154,7 +1154,7 @@ def _basis_snapshot() -> dict[str, Any]:
     return {
         "source": "projects/schad/schad_design_basis.py (in-repo SSOT)",
         "project": "2024-008 SCHAD Garage/ADU/Workshop",
-        "address": "100 Example Way, Sample County CA 90000",
+        "address": "100 Example Way, Sample County, CA 90000",
         "scalars_ft": s,
         "areas": {
             "total": s["area_total"],

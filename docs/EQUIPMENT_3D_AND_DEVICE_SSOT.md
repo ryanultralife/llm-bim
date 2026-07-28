@@ -86,7 +86,7 @@ Do **not** reintroduce packing schemes that add a global `vert_base` to indices 
 ### 3.3 Serve recipe (canonical)
 
 ```powershell
-cd <HOME>\llm-bim\output\proto10_separator
+cd ./output/proto10_separator
 python -m http.server 8765
 # only:
 # http://127.0.0.1:8765/viewer3d.html

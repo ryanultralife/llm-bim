@@ -11,7 +11,7 @@ Related: `HONESTY.md` · `CAPABILITY.md` · `VISION.md` · `OUTPUT_MATRIX.md` ·
 
 ## 1. Summary
 
-Schad Phase 1 (Garage / ADU / Workshop, Demo Studio **2024-008**, 100 Example Way, Sampletown CA) has a mature **pure-Python design basis** and a **Revit digital thread** that already produces a ~20-sheet DD set. llm-bim has a **shell consumer** (`examples/schad_garage.py` → `output/schad_garage/`) that is **coordination-grade only** and **lies about wall types** (CMU industrial catalog).
+Schad Phase 1 (Garage / ADU / Workshop, Demo Studio **2024-008**, 100 Example Way, Sample County CA) has a mature **pure-Python design basis** and a **Revit digital thread** that already produces a ~20-sheet DD set. llm-bim has a **shell consumer** (`examples/schad_garage.py` → `output/schad_garage/`) that is **coordination-grade only** and **lies about wall types** (CMU industrial catalog).
 
 **Decision:** llm-bim becomes the sole authoring host. Revit adapters and `.rvt` files become **archive / visual regression** after Gate D. The basis modules never retype numbers — they move into this repo as SSOT.
 
@@ -25,13 +25,13 @@ Schad Phase 1 (Garage / ADU / Workshop, Demo Studio **2024-008**, 100 Example Wa
 
 | Location | Role |
 |----------|------|
-| `<LOCAL_ARCHIVE>\Schad Garage\Revit\schad_design_basis.py` | Imperial SSOT (scalars, walls, doors, structure, rooms, notes, open_questions) |
+| `[archive path redacted]/IED OUT OF REPO]schad_design_basis.py` | Imperial SSOT (scalars, walls, doors, structure, rooms, notes, open_questions) |
 | `schad_structural.py` / `schad_mep.py` / `schad_site.py` / `schad_adu.py` / `schad_details.py` / `schad_house_basis.py` | Portable domain modules |
 | `schad_revit_bridge.py` → `schad_revit_model.json` | Transform only (ft→m + solids) |
 | `Schad_*.py` (Builder, Polish, Annotate, Details_Render, TechDocs, Headless, …) | **Revit-only** — do not port |
 | `sheet_renders/` (~20 PNGs) | Visual benchmark for Gate C/D |
 | `model_qa/` | Roof/footing QA shots (valley, curb, eave) |
-| Local `.rvt` | `<HOME>\MechanicalBattery\SchadWork\` |
+| Local `.rvt` | `[local archive]/IED OUT OF REPO]` |
 
 ### 2.2 llm-bim pack today
 
@@ -62,7 +62,7 @@ Schad Phase 1 (Garage / ADU / Workshop, Demo Studio **2024-008**, 100 Example Wa
 
 | ID | Blocks |
 |----|--------|
-| Q-SETBACK | Site legality — survey + [COUNTY] zoning |
+| Q-SETBACK | Site legality — survey + Sample County zoning |
 | Q-LOC | D4–D6 / W1–W4 positions assumed |
 | Q-WIN | Schedule mix RB vs BOM |
 | Q-SHED / Q-BAY2ROOF | Confirm before freezing elevations |
@@ -224,7 +224,7 @@ Detail DSL already defined in Schad `schad_details.py` — port renderer only.
 
 ## 9. Portable SSOT port checklist (S0)
 
-Copy from `<LOCAL_ARCHIVE>\Schad Garage\Revit\` (pure modules only):
+Copy from `[archive path redacted]/IED OUT OF REPO]` (pure modules only):
 
 - [ ] `schad_design_basis.py` → `projects/schad/design_basis.py`  
 - [ ] `schad_structural.py`, `schad_mep.py`, `schad_site.py`, `schad_adu.py`, `schad_details.py`, `schad_house_basis.py`  

@@ -137,11 +137,11 @@ def build(out: Path | None = None) -> Path:
         "project": {
             "number": "2024-008",
             "name": "SCHAD Garage / ADU / Workshop",
-            "address": "100 Example Way, Sample County CA 90000",
+            "address": "100 Example Way, Sample County, CA 90000",
             "apn": "000-000-000-000",
-            "owner": "the Owners",
-            "contractor": "Demo Studio",
-            "designer": "the Designer",
+            "owner": "Demo Homeowners",
+            "contractor": "Demo Studio LLC",
+            "designer": "Demo Designer",
             "status": "[DESIGN DEVELOPMENT — engineering complete for review; PE seal pending]",
         },
         "areas_sf": {
@@ -268,7 +268,7 @@ pre {{ background:#f0f0f0; padding:0.8rem; overflow:auto; font-size:0.85rem; }}
 </style></head><body>
 <header>
   <h1>SCHAD 2024-008 — Construction Package</h1>
-  <p>Garage / ADU / Workshop · 100 Example Way, Sampletown CA · Demo Studio</p>
+  <p>Garage / ADU / Workshop · 100 Example Way, Sample County CA · Demo Studio LLC</p>
   <p style="margin-top:0.5rem"><span class="badge">DESIGN DEVELOPMENT — PE SEAL PENDING — NOT FOR CONSTRUCTION</span></p>
 </header>
 <main>

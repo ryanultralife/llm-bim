@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SCHAD Phase 2 — EXISTING HOUSE record (100 Example Way residence).
+"""SCHAD Phase 2 — EXISTING HOUSE record (Example Way demo residence).
 
 Source [HPLAN]: hand-drawn scaled plans (1/4" = 1'-0", initialed CBM,
 photographed 2024-09-30, found 2026-07-12 in OneDrive Demo Studio

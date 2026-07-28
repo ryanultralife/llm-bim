@@ -6,7 +6,7 @@ Schad digital thread (imperial basis, already used for the Revit model):
   G:\\LOCAL_ARCHIVE\\Schad Garage\\Revit\\schad_design_basis.py
   (target after WP-SCHAD-S0: projects/schad/design_basis.py)
 
-Phase 1: 100 Example Way, Sampletown CA 90000 — Garage/ADU/Workshop complex
+Phase 1: 100 Example Way, Sample County CA 90000 — Garage/ADU/Workshop complex
   48' x 32' main + Bay 2 +2' south + rear ADU/workshop shed
   2,080 SF published; W16x40 beams; SSW panels; Mech/Bath in Bay 3 NE
 
@@ -351,7 +351,7 @@ def build_schad(out_dir: Path, schad_root: Path | None = None) -> Project:
     p.create_note(
         level="L1",
         text=(
-            f"SCHAD 2024-008 | 100 Example Way Sampletown CA | "
+            f"SCHAD 2024-008 | 100 Example Way Sample County CA | "
             f"{s['area_total']:.0f} SF total | "
             f"[DESIGN DEVELOPMENT — NOT FOR CONSTRUCTION] | "
             f"see docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md"
@@ -362,7 +362,7 @@ def build_schad(out_dir: Path, schad_root: Path | None = None) -> Project:
     basis_dump = {
         "source": str(root),
         "project": "2024-008 SCHAD Garage/ADU/Workshop",
-        "address": "100 Example Way, Sample County CA 90000",
+        "address": "100 Example Way, Sample County, CA 90000",
         "scalars_ft": s,
         "areas": {
             "total": s["area_total"],
