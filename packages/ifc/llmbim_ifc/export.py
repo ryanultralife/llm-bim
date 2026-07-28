@@ -3,7 +3,10 @@
 Writes IfcProject / Site / Building / BuildingStorey / Wall / Slab /
 Door / Window / Space / IfcFlowSegment (pipes+risers) / IfcFlowFitting /
 IfcFlowTerminal (fixtures) / BuildingElementProxy (equipment, modules)
-with extruded area solids where possible.
+with extruded area solids where possible. Routed MEP runs recorded in
+``model.meta['mep_graph']`` additionally emit IfcDistributionPort pairs
+(IfcRelConnectsPortToElement + IfcRelConnectsPorts) so segments, fittings,
+and terminals form connected systems instead of loose solids.
 Opens in many IFC viewers (BlenderBIM, FreeCAD).
 
 Engineering-estimate geometry — not a certified MVD delivery.
@@ -612,6 +615,9 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
     contained: dict[int, list[int]] = {s: [] for s in storey_ids.values()}
     # MEP distribution elements grouped by system tag → IfcSystem (emitted below)
     mep_systems: dict[str, list[int]] = {}
+    # model element id → IFC entity id (MEP segments/fittings/terminals/
+    # equipment) so routed mep_graph runs can be stitched with ports below
+    ifc_by_element: dict[str, int] = {}
 
     def _add_system(el, ifc_eid: int | None) -> None:
         if ifc_eid is None:
@@ -880,6 +886,7 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
             eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect, parent_local)
             if eid is not None:
                 contained[storey].append(eid)
+                ifc_by_element[el.id] = eid
                 _link_to_space(el, eid)
                 _attach_csi_pset(f, owner, eid, model, el)
 
@@ -903,6 +910,7 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
             eid = _export_pipe_proxy(f, el, owner, axis_z, extrude_rect, parent_local)
             if eid is not None:
                 contained[storey].append(eid)
+                ifc_by_element[el.id] = eid
                 _link_to_space(el, eid)
                 _attach_csi_pset(f, owner, eid, model, el)
                 _add_system(el, eid)
@@ -914,6 +922,7 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
                 eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect, parent_local)
             if eid is not None:
                 contained[storey].append(eid)
+                ifc_by_element[el.id] = eid
                 _link_to_space(el, eid)
                 _attach_csi_pset(f, owner, eid, model, el)
                 _add_system(el, eid)
@@ -936,6 +945,7 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
             eid = _export_box_proxy(f, el, owner, axis_z, axis_x, extrude_rect, parent_local)
             if eid is not None:
                 contained[storey].append(eid)
+                ifc_by_element[el.id] = eid
                 _link_to_space(el, eid)
                 _attach_csi_pset(f, owner, eid, model, el)
                 if el.category in {"fitting", "fittings", "fixture", "accessory",
@@ -1036,6 +1046,50 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
             f"IFCRELSERVICESBUILDINGS('{f.guid()}',#{owner},'{_esc(sysname)}',$,"
             f"#{sys_id},(#{building}))"
         )
+
+    # MEP connectivity: every routed run recorded in model.meta['mep_graph']
+    # (mep_route / mep_autoroute / mep_tap) gets IfcDistributionPort pairs along
+    # its ordered chain — segment→fitting→segment, plus the from/to endpoint
+    # elements (equipment / flow terminals) when they were exported. Each port
+    # attaches to its host via IfcRelConnectsPortToElement and facing ports mate
+    # via IfcRelConnectsPorts, so coordination tools see connected systems.
+    port_pdt = {"pipe": ".PIPE.", "duct": ".DUCT.", "conduit": ".CABLECARRIER."}
+
+    def _emit_port(host_ifc: int, name: str, direction: str, pdt: str) -> int:
+        # IFC4 IfcDistributionPort: placement/representation optional ($) —
+        # connectivity is topological; geometry lives on the host element.
+        port_id = f.add(
+            f"IFCDISTRIBUTIONPORT('{f.guid()}',#{owner},'{_esc(name)}',$,$,$,$,"
+            f"{direction},{pdt},$)"
+        )
+        f.add(
+            f"IFCRELCONNECTSPORTTOELEMENT('{f.guid()}',#{owner},$,$,"
+            f"#{port_id},#{host_ifc})"
+        )
+        return port_id
+
+    for edge in model.meta.get("mep_graph") or []:
+        if not isinstance(edge, dict):
+            continue
+        kind = str(edge.get("route_kind") or "pipe")
+        pdt = port_pdt.get(kind, ".NOTDEFINED.")
+        medium = str(edge.get("medium") or kind)
+        refs = [
+            edge.get("from_id"),
+            *(edge.get("chain") or edge.get("segment_ids") or []),
+            edge.get("to_id"),
+        ]
+        seq: list[int] = []
+        for ref in refs:
+            ent = ifc_by_element.get(str(ref or ""))
+            if ent is not None and (not seq or seq[-1] != ent):
+                seq.append(ent)
+        for up, down in zip(seq, seq[1:], strict=False):
+            pa = _emit_port(up, f"{medium} OUT", ".SOURCE.", pdt)
+            pb = _emit_port(down, f"{medium} IN", ".SINK.", pdt)
+            f.add(
+                f"IFCRELCONNECTSPORTS('{f.guid()}',#{owner},$,$,#{pa},#{pb},$)"
+            )
 
     # Space membership: MEP products contained in IfcSpace (room linkage for agents)
     for space_id, members in space_members.items():

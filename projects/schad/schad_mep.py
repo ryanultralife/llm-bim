@@ -45,8 +45,11 @@ def electrical_service_calc() -> list[str]:
         '(conservative)',
         'TOTAL DEMAND ~%.1f kVA -> %.0f A @ 240V vs 200A service -> OK '
         '(%.0f%% loaded)' % (total / 1000.0, amps, amps / 200.0 * 100),
-        'FEEDERS: service 200A; ADU subpanel 100A [RB ckt 21-23]; EV 50A '
-        '[RB 13/15]; workshop 30A-240V [RB 14/16]',
+        'FEEDERS: service 200A; ADU subpanel 100A [RB ckt 21-23] in %s" '
+        'EMT; EV 50A [RB 13/15] in %s" EMT; workshop 30A-240V [RB 14/16] '
+        'in %s" EMT (NEC Ch.9 fill via mep_sizing — the same source '
+        'route_mep draws)' % (_feeder_trade(100.0), _feeder_trade(50.0),
+                              _feeder_trade(30.0)),
         '(ASSUMED): EV load 40A continuous; verify charger + HPWH specs.',
     ]
 
@@ -98,16 +101,48 @@ def electrical_devices() -> list[dict]:
 
 
 # ---- plumbing ----------------------------------------------------------------
+# Fixture-unit tables [RB MEP-201 + USER 2026-07-13] — the ONLY fixture-unit
+# source; plumbing_calc() text and route_mep() geometry both derive from these
+# (drawing == takeoff == calc).
+_DCW_WSFU = {'WC': 2.5, 'LAV': 1.0, 'SHR': 2.0, 'KS': 1.5, 'US': 1.5,
+             'HB x2': 5.0}
+_SAN_DFU = {'WC': 3.0, 'LAV': 1.0, 'SHR': 2.0, 'KS': 2.0, 'US': 2.0}
+# CPC 703 building drain (DFU-based; single source for calc text + routing —
+# DWV sizing is a code-table lookup, not a mep_sizing hydraulic calc)
+_SAN_MAIN_NPS = '3'
+
+
+def _dcw_main_sizing() -> dict:
+    """DCW service/main sizing — the ONE source for calc text AND routing.
+
+    Hunter's-curve WSFU -> flow + velocity-limit copper size from
+    ``llmbim_core.mep_sizing`` (engineering estimate, not a stamped design).
+    """
+    from llmbim_core import mep_sizing as sz
+
+    return sz.size_pipe(sz.wsfu_to_lps(sum(_DCW_WSFU.values())),
+                        material='copper')
+
+
+def _feeder_trade(amps: float) -> str:
+    """Feeder EMT trade size (NEC Ch.9 fill) — one source for calc + routing."""
+    from llmbim_core import mep_sizing as sz
+
+    return str(sz.feeder_conduit(amps)['trade_size'])
+
+
 def plumbing_calc() -> list[str]:
-    dfu = {'WC': 3.0, 'LAV': 1.0, 'SHR': 2.0, 'KS': 2.0, 'US': 2.0}
-    wsfu = {'WC': 2.5, 'LAV': 1.0, 'SHR': 2.0, 'KS': 1.5, 'US': 1.5,
-            'HB x2': 5.0}
+    dcw = _dcw_main_sizing()
     return [
-        'DFU total %.0f (WC3+LAV1+SHR2+KS2+US2) -> 3" building drain @ '
-        '1/4"/ft (CPC 703, 42 DFU cap) OK; 2" vents' % sum(dfu.values()),
-        'WSFU total %.1f -> 3/4" service/main OK to ~60 ft dev. length '
-        'at 46-60 psi (CPC 610) — (ASSUMED) verify WELL system pressure '
-        'tank setting on site' % sum(wsfu.values()),
+        'DFU total %.0f (WC3+LAV1+SHR2+KS2+US2) -> %s" building drain @ '
+        '1/4"/ft (CPC 703, 42 DFU cap) OK; 2" vents'
+        % (sum(_SAN_DFU.values()), _SAN_MAIN_NPS),
+        'WSFU total %.1f -> %.2f L/s (Hunter) -> %s" copper service/main '
+        '(%.2f m/s <= 2.4 m/s; sized by mep_sizing — the same source '
+        'route_mep draws) OK to ~60 ft dev. length at 46-60 psi (CPC '
+        '610) — (ASSUMED) verify WELL system pressure tank setting on '
+        'site' % (sum(_DCW_WSFU.values()), dcw['flow_lps'], dcw['nps'],
+                  dcw['velocity_ms']),
         'WH: 50-gal electric [RB] in ADU mech closet; T&P to exterior; '
         'seismic straps x2 (Q-WH: HANDOFF heat-pump option open)',
         'DWV: schedule 40 ABS/PVC; slope 1/4"/ft; cleanouts at ends of '
@@ -204,40 +239,57 @@ def _ft(v: float) -> float:
     return float(v) * _FT_MM
 
 
-def route_mep(p: object, *, level: str = 'L1') -> dict:
-    """Route real MEP systems as design-intent schematic geometry.
+# Catalog part where an exact match exists; other fixtures are honest generic
+# boxes (category 'fixture' -> IfcFlowTerminal in the IFC), sizes ASSUMED.
+_FIXTURE_PART = {'WC': 'PT-PLB-WC-FLOOR', 'LAV': 'PT-PLB-LAV-WALL',
+                 'FD': 'PT-PLB-FD-3'}
 
-    Places sized pipe/duct/conduit segments (+ branch tees) so the material
-    takeoffs, IFC MEP entities, and MEP sheets carry routed geometry instead of
-    note markers. Sizes come from ``llmbim_core.mep_sizing`` (Hunter's curve /
-    Hazen-Williams for water, NEC Ch.9 fill for conduit) so the drawn size, the
-    takeoff, and the calc trace to one source. Schematic — coordinate in field.
-    Additive: call once after equipment/fixtures are placed.
+
+def route_mep(p: object, *, level: str = 'L1') -> dict:
+    """Route real MEP systems through the Manhattan A* engine (mep_autoroute).
+
+    Every run goes through ``p.mep_autoroute`` — axis-aligned (orthogonal)
+    segments with elbows at every bend, wall/equipment obstacles respected via
+    the grid A*; where walls fully enclose a target the engine honestly falls
+    back to an orthogonal dogleg (the run penetrates the wall — schematic).
+    NO diagonal plan runs are placed. Real flow-terminal elements (category
+    ``fixture`` -> IfcFlowTerminal) are placed at the plumbing-fixture basis
+    positions and used as route endpoints, so the routed graph
+    (``model.meta['mep_graph']``/``connections``) links terminals to runs and
+    feeds connections.json + IfcDistributionPort emission in the IFC export.
+
+    Sizes come from ``llmbim_core.mep_sizing`` through the SAME module-level
+    helpers the calc text prints (``_dcw_main_sizing`` / ``_feeder_trade`` /
+    ``_SAN_MAIN_NPS``) — drawing == takeoff == calc. Fire protection is NOT
+    routed per the basis (CRC R313 detached-accessory exemption,
+    ``build_notes()['fire_protection']``); the exemption is threaded into
+    ``model.meta['fire_basis_note']`` so the empty fire takeoff carries the
+    reason. Schematic — coordinate in field. Additive: call once after
+    equipment/fixtures are placed.
     """
     from llmbim_core import mep_sizing as sz
+    from llmbim_core.errors import ValidationError
 
-    n = {'pipe': 0, 'duct': 0, 'conduit': 0, 'fitting': 0}
+    n = {'pipe': 0, 'duct': 0, 'conduit': 0, 'fitting': 0, 'terminal': 0,
+         'runs': 0}
 
-    def PIPE(nps: str, a: tuple[float, float], b: tuple[float, float],
-             material: str, system: str, name: str, z: float = 2600.0) -> None:
-        p.place_pipe(level=level, nps=nps, start=(_ft(a[0]), _ft(a[1])),
-                     end=(_ft(b[0]), _ft(b[1])), material=material,
-                     system=system, name=name, z0_mm=z)
-        n['pipe'] += 1
+    def _pt(a):
+        # (x, y) feet -> mm, or pass an element id through untouched
+        return a if isinstance(a, str) else (_ft(a[0]), _ft(a[1]))
 
-    def DUCT(a: tuple[float, float], b: tuple[float, float], w: float, h: float,
-             system: str, name: str, z: float = 2700.0) -> None:
-        p.place_duct(level=level, start=(_ft(a[0]), _ft(a[1])),
-                     end=(_ft(b[0]), _ft(b[1])), width_mm=w, height_mm=h,
-                     system=system, name=name, z0_mm=z)
-        n['duct'] += 1
-
-    def CONDUIT(a: tuple[float, float], b: tuple[float, float], trade: str,
-                system: str, name: str, z: float = 2800.0) -> None:
-        p.place_conduit(level=level, start=(_ft(a[0]), _ft(a[1])),
-                        end=(_ft(b[0]), _ft(b[1])), trade_size=trade,
-                        system=system, name=name, z0_mm=z)
-        n['conduit'] += 1
+    def AUTO(kind, a, b, *, system, name, nps='2', material='copper',
+             z=None, w=400.0, h=250.0, trade='3/4'):
+        try:
+            res = p.mep_autoroute(
+                level=level, start=_pt(a), end=_pt(b), kind=kind, nps=nps,
+                material=material, system=system, z0_mm=z, width_mm=w,
+                height_mm=h, trade_size=trade, name=name)
+        except ValidationError:
+            return None  # endpoints coincide (fixture sits ON the main)
+        n[kind] += len(res['segment_ids']) + (1 if res.get('riser_id') else 0)
+        n['fitting'] += len(res['fitting_ids'])
+        n['runs'] += 1
+        return res
 
     def TEE(nps: str, at: tuple[float, float], material: str, system: str) -> None:
         p.place_fitting(level=level, fitting_type='tee', nps=nps,
@@ -245,38 +297,77 @@ def route_mep(p: object, *, level: str = 'L1') -> dict:
                         system=system)
         n['fitting'] += 1
 
+    # ---- flow terminals at the plumbing-fixture basis positions --------------
+    terminals: dict[tuple[str, float, float], str] = {}
+    for fi in plumbing_fixtures_layout():
+        sym = str(fi['sym'])
+        if sym == 'WH':
+            continue  # DHW tank already placed as Mech/Bath equipment (WH-1)
+        origin = (_ft(fi['x']), _ft(fi['y']))
+        pid = _FIXTURE_PART.get(sym)
+        if pid:
+            eid = p.place_part(level=level, part_id=pid, origin=origin,
+                               name=f"{sym}: {fi['note']}"[:60])
+        else:
+            r = p.op('create_generic', category='fixture', level=level,
+                     name=f"{sym}: {fi['note']}"[:60],
+                     params={'origin_mm': [origin[0], origin[1]],
+                             'size_mm': [500.0, 500.0, 400.0],
+                             'shape': 'box', 'z0_mm': 0.0, 'system': 'DCW',
+                             'fixture': sym, 'size_assumed': True})
+            eid = str(r['id'])
+        terminals[(sym, float(fi['x']), float(fi['y']))] = eid
+        n['terminal'] += 1
+
+    def T(sym: str, x: float, y: float) -> str:
+        return terminals[(sym, x, y)]
+
     mech = (42.0, 26.0)          # Mech/Bath plant node (ft)
     panel_a = (39.0, 47.4)       # 200A service
     panel_b = (21.0, 47.4)       # ADU 100A subpanel
 
     # ---- DOMESTIC COLD WATER (copper), main sized from total WSFU ------------
-    dcw_nps = str(sz.size_pipe(sz.wsfu_to_lps(13.5), material='copper')['nps'])
-    PIPE(dcw_nps, (42.0, 21.0), mech, 'copper', 'DCW', 'DCW main from PT-1', z=600.0)
-    PIPE(dcw_nps, mech, (42.0, 47.0), 'copper', 'DCW', 'DCW riser to spine', z=2900.0)
-    PIPE(dcw_nps, (42.0, 47.0), (9.0, 47.0), 'copper', 'DCW', 'DCW spine (rear wall)')
+    dcw_nps = str(_dcw_main_sizing()['nps'])
+    AUTO('pipe', (42.0, 21.0), mech, nps=dcw_nps, system='DCW',
+         name='DCW main from PT-1', z=600.0)
+    AUTO('pipe', mech, (42.0, 47.0), nps=dcw_nps, system='DCW',
+         name='DCW riser to spine', z=2900.0)
+    AUTO('pipe', (42.0, 47.0), (9.0, 47.0), nps=dcw_nps, system='DCW',
+         name='DCW spine (rear wall)', z=2600.0)
     for fx, fy, label in ((10.0, 47.0, 'KS'), (12.2, 46.6, 'LAV'),
                           (13.4, 46.6, 'WC'), (15.0, 46.6, 'SHR')):
-        PIPE('1/2', (fx, 47.0), (fx, fy), 'copper', 'DCW', f'DCW branch {label}')
+        AUTO('pipe', (fx, 47.0), T(label, fx, fy), nps='1/2', system='DCW',
+             name=f'DCW branch {label}', z=2600.0)
         TEE(dcw_nps, (fx, 47.0), 'copper', 'DCW')
-    for a, b, label in ((mech, (44.5, 31.0), '1/2-bath lav'),
-                        ((44.5, 31.0), (46.5, 30.5), '1/2-bath WC'),
-                        (mech, (40.5, 30.0), 'dog wash'),
-                        (mech, (23.0, 33.6), 'workshop util'),
-                        (mech, (0.4, 16.0), 'hose bib W'),
-                        (mech, (47.6, 16.0), 'hose bib E')):
-        PIPE('1/2', a, b, 'copper', 'DCW', f'DCW branch {label}')
+    for a, b, label in ((mech, T('LAV', 44.5, 31.0), '1/2-bath lav'),
+                        (T('LAV', 44.5, 31.0), T('WC', 46.5, 30.5),
+                         '1/2-bath WC'),
+                        (mech, T('DW', 40.5, 30.0), 'dog wash'),
+                        (mech, T('US', 23.0, 33.6), 'workshop util'),
+                        (mech, T('HB', 0.4, 16.0), 'hose bib W'),
+                        (mech, T('HB', 47.6, 16.0), 'hose bib E')):
+        AUTO('pipe', a, b, nps='1/2', system='DCW',
+             name=f'DCW branch {label}', z=2600.0)
 
-    # ---- SANITARY DWV (ABS/PVC), 3" building drain + fixture branches --------
-    PIPE('3', (15.0, 46.6), (42.0, 46.6), 'pvc', 'SAN', '3in building drain', z=-300.0)
-    PIPE('3', (42.0, 46.6), (42.0, 20.0), 'pvc', 'SAN', '3in drain to septic', z=-400.0)
-    for fx, fy, nps, on_horiz in ((10.0, 47.0, '2', True), (12.2, 46.6, '1-1/2', True),
-                                  (13.4, 46.6, '3', True), (15.0, 46.6, '2', True),
-                                  (23.0, 33.6, '2', False), (41.5, 27.0, '2', False),
-                                  (40.5, 30.0, '2', False), (46.5, 30.5, '3', False),
-                                  (44.5, 31.0, '1-1/2', False)):
+    # ---- SANITARY DWV (ABS/PVC), building drain + fixture branches -----------
+    AUTO('pipe', (15.0, 46.6), (42.0, 46.6), nps=_SAN_MAIN_NPS, material='pvc',
+         system='SAN', name='3in building drain', z=-300.0)
+    AUTO('pipe', (42.0, 46.6), (42.0, 20.0), nps=_SAN_MAIN_NPS, material='pvc',
+         system='SAN', name='3in drain to septic', z=-400.0)
+    for sym, fx, fy, nps, on_horiz in (
+            ('KS', 10.0, 47.0, '2', True),
+            ('LAV', 12.2, 46.6, '1-1/2', True),
+            ('WC', 13.4, 46.6, _SAN_MAIN_NPS, True),
+            ('SHR', 15.0, 46.6, '2', True),
+            ('US', 23.0, 33.6, '2', False),
+            ('FD', 41.5, 27.0, '2', False),
+            ('DW', 40.5, 30.0, '2', False),
+            ('WC', 46.5, 30.5, _SAN_MAIN_NPS, False),
+            ('LAV', 44.5, 31.0, '1-1/2', False)):
         tap = (fx, 46.6) if on_horiz else (42.0, fy)
-        PIPE(nps, (fx, fy), tap, 'pvc', 'SAN', 'waste branch', z=-250.0)
-        TEE('3', tap, 'pvc', 'SAN')
+        AUTO('pipe', T(sym, fx, fy), tap, nps=nps, material='pvc',
+             system='SAN', name='waste branch', z=-250.0)
+        TEE(_SAN_MAIN_NPS, tap, 'pvc', 'SAN')
     # 2" vents up through the roof at the two WC risers
     for fx, fy in ((13.4, 46.6), (46.5, 30.5)):
         p.place_riser(level=level, nps='2', origin=(_ft(fx), _ft(fy)),
@@ -286,34 +377,46 @@ def route_mep(p: object, *, level: str = 'L1') -> dict:
 
     # ---- RADIANT PEX (copper NPS proxy), supply/return mains from manifold ---
     man = (40.5, 26.0)
-    PIPE('3/4', man, (24.0, 16.0), 'copper', 'RAD', 'radiant PEX supply - garage')
-    PIPE('3/4', (24.5, 16.0), man, 'copper', 'RAD', 'radiant PEX return - garage')
-    PIPE('3/4', man, (15.0, 40.0), 'copper', 'RAD', 'radiant PEX supply - ADU')
-    PIPE('3/4', (15.5, 40.0), man, 'copper', 'RAD', 'radiant PEX return - ADU')
+    for a, b, name in ((man, (24.0, 16.0), 'radiant PEX supply - garage'),
+                       ((24.5, 16.0), man, 'radiant PEX return - garage'),
+                       (man, (15.0, 40.0), 'radiant PEX supply - ADU'),
+                       ((15.5, 40.0), man, 'radiant PEX return - ADU')):
+        AUTO('pipe', a, b, nps='3/4', system='RAD', name=name, z=2600.0)
 
     # ---- MECHANICAL ductwork (galv), sized from CFM --------------------------
     ef = sz.size_duct(50.0 * 1.699)          # 50 CFM bath exhaust -> m3/h
-    DUCT((46.5, 31.0), (47.6, 31.0), float(ef['width_mm']), float(ef['height_mm']),
-         'EA', 'EF-1 bath exhaust to exterior')
+    AUTO('duct', (46.5, 31.0), (47.6, 31.0), system='EA',
+         name='EF-1 bath exhaust to exterior', z=2700.0,
+         w=float(ef['width_mm']), h=float(ef['height_mm']))
     sa = sz.size_duct(120.0 * 1.699)         # ~120 CFM ADU ventilation
-    DUCT((40.0, 33.0), (16.0, 40.0), float(sa['width_mm']), float(sa['height_mm']),
-         'SA', 'ADU supply trunk')
-    DUCT((16.0, 41.0), (40.0, 34.0), float(sa['width_mm']), float(sa['height_mm']),
-         'RA', 'ADU return trunk')
+    AUTO('duct', (40.0, 33.0), (16.0, 40.0), system='SA',
+         name='ADU supply trunk', z=2700.0,
+         w=float(sa['width_mm']), h=float(sa['height_mm']))
+    AUTO('duct', (16.0, 41.0), (40.0, 34.0), system='RA',
+         name='ADU return trunk', z=2700.0,
+         w=float(sa['width_mm']), h=float(sa['height_mm']))
 
     # ---- POWER conduit feeders, trade size from NEC Ch.9 fill -----------------
     for a, b, amps, name in ((panel_a, panel_b, 100.0, 'ADU subfeed 100A'),
                              (panel_a, (47.4, 4.0), 50.0, 'EV feeder 50A'),
                              (panel_a, (39.5, 40.0), 30.0, 'workshop 240V 30A'),
                              (panel_a, (40.0, 26.0), 23.0, 'radiant RF circuit')):
-        trade = str(sz.feeder_conduit(amps)['trade_size'])
-        CONDUIT(a, b, trade, 'PWR', name)
+        AUTO('conduit', a, b, system='PWR', name=name, z=2800.0,
+             trade=_feeder_trade(amps))
     # branch-circuit homeruns (20A) to device clusters
+    hr_trade = str(sz.size_conduit([('12', 3)])['trade_size'])
     for a, b, name in ((panel_a, (8.0, 31.4), 'garage recept HR'),
                        (panel_b, (14.0, 33.6), 'ADU branch HR'),
                        (panel_a, (24.0, 10.7), 'garage lighting HR')):
-        trade = str(sz.size_conduit([('12', 3)])['trade_size'])
-        CONDUIT(a, b, trade, 'LTG' if 'lighting' in name else 'PWR', name)
+        AUTO('conduit', a, b, system='LTG' if 'lighting' in name else 'PWR',
+             name=name, z=2800.0, trade=hr_trade)
+
+    # ---- FIRE PROTECTION: none routed, per basis (CRC R313 exemption) --------
+    # Threaded into model meta so material_lists.fire_takeoff can report the
+    # empty takeoff as "n/a per basis" instead of "not modeled".
+    fire_notes = basis.build_notes().get('fire_protection') or []
+    if fire_notes:
+        p.model.meta['fire_basis_note'] = fire_notes[0]
 
     return n
 
