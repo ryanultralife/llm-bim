@@ -3,7 +3,7 @@
 Requires Eigen checkout with scripts/ on PYTHONPATH (default sibling path).
 
   python projects/intec/freeze_eigen_snapshot.py
-  python projects/intec/freeze_eigen_snapshot.py --eigen <HOME>/Eigen
+  python projects/intec/freeze_eigen_snapshot.py --eigen <path-to-local-Eigen-checkout>
 """
 
 from __future__ import annotations

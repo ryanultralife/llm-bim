@@ -2,8 +2,8 @@
 """SCHAD Phase 2 — EXISTING HOUSE record (Example Way demo residence).
 
 Source [HPLAN]: hand-drawn scaled plans (1/4" = 1'-0", initialed CBM,
-photographed 2024-09-30, found 2026-07-12 in OneDrive Demo Studio
-"2024-008 Schad Garage/Plans"):
+photographed 2024-09-30, found 2026-07-12 in the design-office cloud archive
+under "2024-008 .../Plans"):
   - "Downstairs Scaled Plan.pdf"  -> main level
   - "Upstairs Scaled Plan.pdf"    -> upper level
   Both carry: "FLOORPLAN for PLANNING ONLY. CONFIRM ALL DIMENSIONS."
@@ -122,7 +122,7 @@ def remodel_scope() -> dict:
         'work': [
             'DEMO: existing roof structure (2x6 rafters @ 24"), dormers, '
             'and ceiling of upper half-story; protect main level '
-            '(weather-in plan REQUIRED — Sampletown snow country)',
+            '(weather-in plan REQUIRED — high-snow mountain site)',
             'NEW FLOOR SYSTEM: existing 2x6 @ 16" ceiling joists are NOT '
             'a bedroom floor (2x6 DF#2 ~9\'-9" max @ 40 psf LL) — new '
             'engineered joists (I-joist/LVL) or full sistering, per EOR',

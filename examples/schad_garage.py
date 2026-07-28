@@ -3,7 +3,7 @@
 Geometry is NOT invented here. Source of truth is the Demo Studio /
 Schad digital thread (imperial basis, already used for the Revit model):
 
-  G:\\LOCAL_ARCHIVE\\Schad Garage\\Revit\\schad_design_basis.py
+  <LOCAL_ARCHIVE>\\Schad Garage\\Revit\\schad_design_basis.py
   (target after WP-SCHAD-S0: projects/schad/design_basis.py)
 
 Phase 1: 100 Example Way, Sample County CA 90000 — Garage/ADU/Workshop complex
@@ -17,7 +17,7 @@ Transition review (Claude work until Gate D):
 
 Run:
   python examples/schad_garage.py
-  $env:SCHAD_ROOT = "G:\\LOCAL_ARCHIVE\\Schad Garage"
+  $env:SCHAD_ROOT = "<LOCAL_ARCHIVE>\\Schad Garage"
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ def _schad_root() -> Path | None:
     # In-repo projects/schad (preferred after SSOT port)
     here = Path(__file__).resolve().parent.parent
     candidates.append(here / "projects" / "schad")
-    candidates.append(Path(r"<LOCAL_ARCHIVE>\Schad Garage"))
+    
     candidates.append(
         Path(os.environ.get("USERPROFILE", "")) / "MechanicalBattery" / "SchadWork"
     )
@@ -126,7 +126,7 @@ def build_schad(out_dir: Path, schad_root: Path | None = None) -> Project:
         raise FileNotFoundError(
             "Schad design basis not found. Set SCHAD_ROOT to the folder that "
             "contains design_basis.py or Revit/schad_design_basis.py "
-            "(e.g. G:\\LOCAL_ARCHIVE\\Schad Garage). After S0: projects/schad/."
+            "(your local design archive). After S0: projects/schad/."
         )
     basis = _load_basis_module(root)
     s = basis.build_scalars()

@@ -31,8 +31,8 @@ from __future__ import annotations
 
 IN = 1.0 / 12.0     # inches -> feet
 
-# Demo Studio project number [SKP meta: original path
-# "...\Demo Studio\2024-008 Schad Garage\Plans\Schad Garage Plan.skp"]
+# Demo Studio project number [SKP meta: from the original design-office
+# archive path for this project's SketchUp plan file]
 PROJECT_CODE = '2024-008'
 
 

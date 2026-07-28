@@ -39,17 +39,19 @@
 | Private key / PEM files | None in current tree |
 
 ### Client / PII (Schad case) — **failed before redaction**
-Present on `main` prior to 2026-07-28 sanitization pass:
+Present on `main` prior to the 2026-07-28 sanitization pass (categories only —
+this doc deliberately does NOT repeat the redacted values; they remain in git
+history until a scrub):
 
-| Data | Examples |
-|------|----------|
-| Street address | `100 Example Way, Sample County CA 90000` |
-| Parcel | APN `000-000-000` (+ neighbors) |
-| Owners | `the Owners` |
-| Designer personal name | `the Designer` |
-| Firm / project no. | Demo Studio · 2024-008 |
-| Local paths (docs) | `<HOME>\…`, `<LOCAL_ARCHIVE>\Schad Garage\…` |
-| Site GIS narrative | [COUNTY] parcel geometry notes |
+| Data class | What was present |
+|------------|------------------|
+| Street address | full site street address + town + ZIP |
+| Parcel | county assessor parcel number (+ neighbors) |
+| Owners | client couple's personal names |
+| Designer personal name | designer-of-record's personal name |
+| Firm / project no. | design firm name + internal project number |
+| Local paths (docs) | contributor home-dir and personal cloud-drive paths |
+| Site GIS narrative | county parcel geometry notes |
 
 ### Company / facility cases
 | Case | Risk |
@@ -58,7 +60,7 @@ Present on `main` prior to 2026-07-28 sanitization pass:
 | Proto10 separator | Equipment geometry class shared with Fusion/Eigen threads — engineering estimate |
 
 ### Commit author emails (history)
-Visible via `git log`: `ryan@example.com`, GitHub noreply, agent noreply addresses. Normal for OSS; use GitHub noreply only if preferred.
+Visible via `git log`: the maintainer's personal commit email, GitHub noreply, and agent noreply addresses. Normal for OSS; switch to GitHub noreply going forward if preferred (past commits keep the old address unless history is rewritten).
 
 ---
 
@@ -104,7 +106,15 @@ text-to-cad adoption partial (review packet + repair refs); **`llmbim inspect`**
 - [x] Repo MIT-licensed  
 - [x] No API secrets in tree  
 - [x] `output/` not tracked  
-- [ ] Schad PII redacted on **HEAD** (see next commit)  
-- [ ] History scrub **or** accept residual disclosure risk  
-- [ ] Explicit decision on INTEC public vs private  
-- [ ] README points to this doc  
+- [x] Schad PII redacted on **HEAD** — Grok pass 2026-07-28 + Claude residue pass same day
+      (firm name, city, cloud-drive/home paths, audit-JSON paths, title-block firm string;
+      this doc no longer repeats redacted values verbatim; verified by tracked-tree sweep:
+      0 hits on all client-identity patterns)  
+- [ ] History scrub **or** accept residual disclosure risk — **HUMAN DECISION**
+      (7 public commits carry the site address; 3 carry owner/designer names;
+      `git filter-repo` + force-push required, breaks existing clones/forks)  
+- [ ] Explicit decision on INTEC public vs private — **HUMAN DECISION** (business IP,
+      not PII; currently tracked on public HEAD)  
+- [ ] Optional: case name "Schad" is itself the client surname — full de-identification
+      would rename the case (~180 files + CLI `llmbim case schad`) — **HUMAN DECISION**  
+- [x] README points to this doc  
