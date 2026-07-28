@@ -74,6 +74,20 @@ def test_verify_reflects_late_written_artifacts(tmp_path: Path) -> None:
     assert not any(k.endswith(".zip") for k in ck)
 
 
+def test_hero_svg_in_pack(tmp_path: Path) -> None:
+    """export_deliverables bakes a hero.svg presentation still; the index
+    references it and the manifest/VERIFY record it like any other artifact."""
+    p = _mini_facility()
+    m = p.export_deliverables(tmp_path / "pack")
+    out = tmp_path / "pack"
+    assert (out / "hero.svg").is_file()
+    assert m["outputs"]["hero"] == "hero.svg"
+    assert "hero.svg" in m["checksums_sha256"]
+    assert m["verification"]["has_hero_svg"] is True
+    index = (out / "index.html").read_text(encoding="utf-8")
+    assert 'src="hero.svg"' in index
+
+
 def test_part_step_files(tmp_path: Path) -> None:
     p = Project.create("PartOnly")
     p.add_level("Bench", 0)
