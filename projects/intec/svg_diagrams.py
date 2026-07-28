@@ -151,20 +151,20 @@ def zoning_svg() -> str:
     sc = 8.0
     ox, oy = 80.0, 80.0 + s["bldg_W"] * sc
     body = [
-        f'<text x="40" y="36" font-size="14" font-weight="600" fill="#333" '
-        f'font-family="Segoe UI,Arial,sans-serif">'
-        f"RADIATION AREA ZONING — overall building (estimate; dose-rate by DS-2)</text>",
+        '<text x="40" y="36" font-size="14" font-weight="600" fill="#333" '
+        'font-family="Segoe UI,Arial,sans-serif">'
+        "RADIATION AREA ZONING — overall building (estimate; dose-rate by DS-2)</text>",
         _footprint_paths(s, pl, ox=ox, oy=oy, sc=sc),
         f'<rect x="{ox + 5.5 * sc:.1f}" y="{oy - (2.5 + 19.3) * sc:.1f}" '
         f'width="{36.5 * sc:.1f}" height="{19.3 * sc:.1f}" fill="none" '
         f'stroke="#888" stroke-dasharray="6 4" stroke-width="1.2"/>',
         # legend
-        f'<rect x="720" y="80" width="22" height="14" fill="#f0c0b0"/>'
-        f'<text x="750" y="91" font-size="10" font-family="Segoe UI,Arial,sans-serif">'
-        f"Shielded / R area</text>",
-        f'<rect x="720" y="104" width="22" height="14" fill="#c8e6c9"/>'
-        f'<text x="750" y="115" font-size="10" font-family="Segoe UI,Arial,sans-serif">'
-        f"Occupied / low dose</text>",
+        '<rect x="720" y="80" width="22" height="14" fill="#f0c0b0"/>'
+        '<text x="750" y="91" font-size="10" font-family="Segoe UI,Arial,sans-serif">'
+        "Shielded / R area</text>",
+        '<rect x="720" y="104" width="22" height="14" fill="#c8e6c9"/>'
+        '<text x="750" y="115" font-size="10" font-family="Segoe UI,Arial,sans-serif">'
+        "Occupied / low dose</text>",
     ]
     return _wrap_svg("\n".join(body), w=920, h=640)
 
@@ -278,11 +278,11 @@ def sequence_svg() -> str:
     bar_h, row_h = 18.0, 36.0
     chart_w = 620.0
     parts = [
-        f'<text x="40" y="36" font-size="14" font-weight="600" fill="#333" '
-        f'font-family="Segoe UI,Arial,sans-serif">'
-        f"CONSTRUCTION SEQUENCE — SP-1..SP-10</text>",
-        f'<text x="40" y="54" font-size="9" fill="#f9a825" font-family="Segoe UI,Arial,sans-serif">'
-        f"Construction subtotal ~$59.4M (Class 4-5). SP-5 remote handling is critical path.</text>",
+        '<text x="40" y="36" font-size="14" font-weight="600" fill="#333" '
+        'font-family="Segoe UI,Arial,sans-serif">'
+        "CONSTRUCTION SEQUENCE — SP-1..SP-10</text>",
+        '<text x="40" y="54" font-size="9" fill="#f9a825" font-family="Segoe UI,Arial,sans-serif">'
+        "Construction subtotal ~$59.4M (Class 4-5). SP-5 remote handling is critical path.</text>",
     ]
     for wk in range(0, 41, 4):
         x = left + (wk - w0) / (w1 - w0) * chart_w
@@ -395,12 +395,12 @@ def framing_svg(*, roof: bool = False) -> str:
             )
     # steel table
     parts.append(
-        f'<g transform="translate(620,80)">'
-        f'<text font-size="11" font-weight="600">STEEL (this sheet)</text>'
-        f'<rect y="8" width="160" height="70" fill="none" stroke="#222"/>'
-        f'<text y="28" x="8" font-size="10">W14x90  · columns</text>'
-        f'<text y="46" x="8" font-size="10">W18x50  · roof beams</text>'
-        f'<text y="64" x="8" font-size="10">W24x84  · crane runway</text></g>'
+        '<g transform="translate(620,80)">'
+        '<text font-size="11" font-weight="600">STEEL (this sheet)</text>'
+        '<rect y="8" width="160" height="70" fill="none" stroke="#222"/>'
+        '<text y="28" x="8" font-size="10">W14x90  · columns</text>'
+        '<text y="46" x="8" font-size="10">W18x50  · roof beams</text>'
+        '<text y="64" x="8" font-size="10">W24x84  · crane runway</text></g>'
     )
     return _wrap_svg("\n".join(parts), w=900, h=520)
 
@@ -417,9 +417,9 @@ def pfd_svg() -> str:
         ("WASTE PKG", "#bcaaa4"),
     ]
     parts = [
-        f'<text x="40" y="36" font-size="14" font-weight="600" '
-        f'font-family="Segoe UI,Arial,sans-serif">'
-        f"PROCESS FLOW DIAGRAM — receipt → separation → product / waste</text>"
+        '<text x="40" y="36" font-size="14" font-weight="600" '
+        'font-family="Segoe UI,Arial,sans-serif">'
+        "PROCESS FLOW DIAGRAM — receipt → separation → product / waste</text>"
     ]
     x, y = 40.0, 100.0
     for i, (name, col) in enumerate(steps):
@@ -439,11 +439,11 @@ def pfd_svg() -> str:
             x = 40
             y += 90
     parts.append(
-        f'<text x="40" y="280" font-size="10" fill="#555" font-family="Segoe UI,Arial,sans-serif">'
-        f"Services: vacuum · CW · process gas · off-gas/HEPA · power · I&amp;C "
-        f"(see P-002 P&amp;IDs and line list)</text>"
-        f'<text x="40" y="300" font-size="10" fill="#b71c1c">'
-        f"SECURITY: vessels are black-box envelopes — no drive enabling detail.</text>"
+        '<text x="40" y="280" font-size="10" fill="#555" font-family="Segoe UI,Arial,sans-serif">'
+        "Services: vacuum · CW · process gas · off-gas/HEPA · power · I&amp;C "
+        "(see P-002 P&amp;IDs and line list)</text>"
+        '<text x="40" y="300" font-size="10" fill="#b71c1c">'
+        "SECURITY: vessels are black-box envelopes — no drive enabling detail.</text>"
     )
     return _wrap_svg("\n".join(parts), w=980, h=400)
 
@@ -458,11 +458,11 @@ def one_line_svg() -> str:
         # utility
         f'<rect x="400" y="60" width="120" height="36" fill="none" stroke="#f9a825" stroke-width="2"/>'
         f'<text x="460" y="82" text-anchor="middle" font-size="11">UTILITY {s["service_kv"]} kV</text>',
-        f'<line x1="460" y1="96" x2="460" y2="130" stroke="#333" stroke-width="2"/>',
-        f'<rect x="380" y="130" width="160" height="40" fill="none" stroke="#333" stroke-width="2"/>'
-        f'<text x="460" y="154" text-anchor="middle" font-size="11">MAIN XFMR / SWGR</text>',
-        f'<line x1="460" y1="170" x2="460" y2="210" stroke="#333" stroke-width="2"/>',
-        f'<line x1="120" y1="210" x2="800" y2="210" stroke="#333" stroke-width="2"/>',
+        '<line x1="460" y1="96" x2="460" y2="130" stroke="#333" stroke-width="2"/>',
+        '<rect x="380" y="130" width="160" height="40" fill="none" stroke="#333" stroke-width="2"/>'
+        '<text x="460" y="154" text-anchor="middle" font-size="11">MAIN XFMR / SWGR</text>',
+        '<line x1="460" y1="170" x2="460" y2="210" stroke="#333" stroke-width="2"/>',
+        '<line x1="120" y1="210" x2="800" y2="210" stroke="#333" stroke-width="2"/>',
     ]
     loads = [
         (160, "MCC-PROC", "Separators / e-beam"),
@@ -479,8 +479,8 @@ def one_line_svg() -> str:
             f'<text x="{x}" y="310" text-anchor="middle" font-size="8" fill="#666">{_esc(note)}</text>'
         )
     parts.append(
-        f'<text x="40" y="360" font-size="10" fill="#b71c1c">'
-        f"[ENGINEERING ESTIMATE] — service vs coincident load by DS-2; see E-008.</text>"
+        '<text x="40" y="360" font-size="10" fill="#b71c1c">'
+        "[ENGINEERING ESTIMATE] — service vs coincident load by DS-2; see E-008.</text>"
     )
     return _wrap_svg("\n".join(parts), w=920, h=420)
 
@@ -494,8 +494,8 @@ def vent_cascade_svg() -> str:
         ("STACK", "#b0bec5", "elevated"),
     ]
     parts = [
-        f'<text x="40" y="36" font-size="14" font-weight="600">'
-        f"CONFINEMENT VENTILATION CASCADE</text>"
+        '<text x="40" y="36" font-size="14" font-weight="600">'
+        "CONFINEMENT VENTILATION CASCADE</text>"
     ]
     x = 40.0
     for name, col, note in zones:
@@ -512,34 +512,34 @@ def vent_cascade_svg() -> str:
             )
         x += 160
     parts.append(
-        f'<text x="40" y="220" font-size="10" fill="#555">'
-        f"Cascade dP design basis [ENGINEERING ESTIMATE]; balance calc deferred (DOE-HDBK-1169).</text>"
+        '<text x="40" y="220" font-size="10" fill="#555">'
+        "Cascade dP design basis [ENGINEERING ESTIMATE]; balance calc deferred (DOE-HDBK-1169).</text>"
     )
     return _wrap_svg("\n".join(parts), w=900, h=300)
 
 
 def material_flow_svg() -> str:
     parts = [
-        f'<text x="40" y="36" font-size="14" font-weight="600">'
-        f"CASK &amp; MATERIAL-HANDLING FLOW</text>",
+        '<text x="40" y="36" font-size="14" font-weight="600">'
+        "CASK &amp; MATERIAL-HANDLING FLOW</text>",
         # main flow
-        f'<rect x="40" y="80" width="100" height="40" fill="#90caf9" stroke="#333"/>'
-        f'<text x="90" y="104" text-anchor="middle" font-size="10">CASK IN</text>',
-        f'<line x1="140" y1="100" x2="180" y2="100" stroke="#333" stroke-width="2"/>',
-        f'<rect x="180" y="80" width="100" height="40" fill="#ef9a9a" stroke="#333"/>'
-        f'<text x="230" y="104" text-anchor="middle" font-size="10">UNCASK</text>',
-        f'<line x1="280" y1="100" x2="320" y2="100" stroke="#333" stroke-width="2"/>',
-        f'<rect x="320" y="80" width="100" height="40" fill="#ef9a9a" stroke="#333"/>'
-        f'<text x="370" y="104" text-anchor="middle" font-size="10">DECLAD</text>',
+        '<rect x="40" y="80" width="100" height="40" fill="#90caf9" stroke="#333"/>'
+        '<text x="90" y="104" text-anchor="middle" font-size="10">CASK IN</text>',
+        '<line x1="140" y1="100" x2="180" y2="100" stroke="#333" stroke-width="2"/>',
+        '<rect x="180" y="80" width="100" height="40" fill="#ef9a9a" stroke="#333"/>'
+        '<text x="230" y="104" text-anchor="middle" font-size="10">UNCASK</text>',
+        '<line x1="280" y1="100" x2="320" y2="100" stroke="#333" stroke-width="2"/>',
+        '<rect x="320" y="80" width="100" height="40" fill="#ef9a9a" stroke="#333"/>'
+        '<text x="370" y="104" text-anchor="middle" font-size="10">DECLAD</text>',
         # fork
-        f'<line x1="420" y1="100" x2="480" y2="60" stroke="#2e7d32" stroke-width="2"/>',
-        f'<line x1="420" y1="100" x2="480" y2="140" stroke="#6d4c41" stroke-width="2"/>',
-        f'<rect x="480" y="40" width="120" height="40" fill="#a5d6a7" stroke="#333"/>'
-        f'<text x="540" y="64" text-anchor="middle" font-size="10">PRODUCT → CASKING</text>',
-        f'<rect x="480" y="120" width="120" height="40" fill="#bcaaa4" stroke="#333"/>'
-        f'<text x="540" y="144" text-anchor="middle" font-size="10">CLAD → WASTE</text>',
-        f'<text x="40" y="220" font-size="10" fill="#555">'
-        f"Fissile never recurses through cascade (N-012). Hub inventory ≤20 kg-U basis.</text>",
+        '<line x1="420" y1="100" x2="480" y2="60" stroke="#2e7d32" stroke-width="2"/>',
+        '<line x1="420" y1="100" x2="480" y2="140" stroke="#6d4c41" stroke-width="2"/>',
+        '<rect x="480" y="40" width="120" height="40" fill="#a5d6a7" stroke="#333"/>'
+        '<text x="540" y="64" text-anchor="middle" font-size="10">PRODUCT → CASKING</text>',
+        '<rect x="480" y="120" width="120" height="40" fill="#bcaaa4" stroke="#333"/>'
+        '<text x="540" y="144" text-anchor="middle" font-size="10">CLAD → WASTE</text>',
+        '<text x="40" y="220" font-size="10" fill="#555">'
+        "Fissile never recurses through cascade (N-012). Hub inventory ≤20 kg-U basis.</text>",
     ]
     return _wrap_svg("\n".join(parts), w=720, h=280)
 
@@ -581,12 +581,12 @@ def index_table_svg() -> str:
         "LS": "Life Safety",
     }
     parts = [
-        f'<text x="40" y="36" font-size="14" font-weight="600">'
-        f"DRAWING INDEX — full register (MB-INT-CAD-001)</text>",
-        f'<rect x="40" y="50" width="700" height="28" fill="#e3f2fd"/>',
-        f'<text x="50" y="68" font-size="11" font-weight="600">Disc</text>',
-        f'<text x="120" y="68" font-size="11" font-weight="600">Discipline</text>',
-        f'<text x="680" y="68" font-size="11" font-weight="600">Sheets</text>',
+        '<text x="40" y="36" font-size="14" font-weight="600">'
+        "DRAWING INDEX — full register (MB-INT-CAD-001)</text>",
+        '<rect x="40" y="50" width="700" height="28" fill="#e3f2fd"/>',
+        '<text x="50" y="68" font-size="11" font-weight="600">Disc</text>',
+        '<text x="120" y="68" font-size="11" font-weight="600">Discipline</text>',
+        '<text x="680" y="68" font-size="11" font-weight="600">Sheets</text>',
     ]
     y = 78
     total = 0

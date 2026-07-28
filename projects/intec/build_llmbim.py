@@ -23,8 +23,8 @@ if str(_HERE) not in sys.path:
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-import intec_design_basis as basis
 import intec_derived as derived
+import intec_design_basis as basis
 import svg_diagrams as diagrams
 from llmbim import Project
 

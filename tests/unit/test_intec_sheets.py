@@ -23,8 +23,9 @@ if str(_INTEC) not in sys.path:
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-import intec_design_basis as basis  # noqa: E402
 import intec_derived as derived  # noqa: E402
+import intec_design_basis as basis  # noqa: E402
+
 from projects.intec.build_llmbim import (  # noqa: E402
     WALL_TYPE_SHIELD,
     build_model,

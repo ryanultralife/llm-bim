@@ -71,7 +71,7 @@ def table_svg(
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{w:.0f}" height="{h:.0f}" '
         f'viewBox="0 0 {w:.0f} {h:.0f}">',
-        f'<rect width="100%" height="100%" fill="#fff"/>',
+        '<rect width="100%" height="100%" fill="#fff"/>',
         f'<text x="{x0}" y="28" font-size="13" font-weight="700" '
         f'font-family="Segoe UI,Arial,sans-serif" fill="#1a237e">{_esc(title)}</text>',
         f'<rect x="{x0}" y="{y0}" width="{total_w}" height="{header_h}" fill="#e3f2fd"/>',
@@ -126,8 +126,8 @@ def table_svg(
 def bullets_svg(title: str, lines: list[str], *, warn: str = "") -> str:
     y = 48.0
     parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="900" height="700" viewBox="0 0 900 700">',
-        f'<rect width="100%" height="100%" fill="#fff"/>',
+        '<svg xmlns="http://www.w3.org/2000/svg" width="900" height="700" viewBox="0 0 900 700">',
+        '<rect width="100%" height="100%" fill="#fff"/>',
         f'<text x="40" y="30" font-size="14" font-weight="700" fill="#1a237e" '
         f'font-family="Segoe UI,Arial,sans-serif">{_esc(title)}</text>',
     ]
