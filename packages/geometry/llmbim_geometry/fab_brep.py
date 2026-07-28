@@ -16,13 +16,15 @@ from typing import Any, cast
 
 _CQ_ERR: str | None = None
 try:
+    # Optional fab extra (not on default CI). Missing-import policy: pyproject
+    # ``[[tool.mypy.overrides]]`` for cadquery / OCP.
     import cadquery as cq
-    from OCP.BRep import BRep_Tool  # type: ignore
-    from OCP.BRepMesh import BRepMesh_IncrementalMesh  # type: ignore
-    from OCP.TopAbs import TopAbs_FACE, TopAbs_REVERSED  # type: ignore
-    from OCP.TopExp import TopExp_Explorer  # type: ignore
-    from OCP.TopLoc import TopLoc_Location  # type: ignore
-    from OCP.TopoDS import TopoDS  # type: ignore
+    from OCP.BRep import BRep_Tool
+    from OCP.BRepMesh import BRepMesh_IncrementalMesh
+    from OCP.TopAbs import TopAbs_FACE, TopAbs_REVERSED
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopLoc import TopLoc_Location
+    from OCP.TopoDS import TopoDS
 
     HAS_CADQUERY = True
 except Exception as exc:  # noqa: BLE001

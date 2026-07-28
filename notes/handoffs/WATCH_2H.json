@@ -1,0 +1,8 @@
+{
+  "started_iso": "2026-07-28T21:40:00Z",
+  "last_check_iso": "2026-07-28T21:40:00Z",
+  "tip_sha": "3e8b0a8",
+  "fires": 0,
+  "status": "CI red on mypy fab_brep cadquery — Grok fixing",
+  "scheduler_id": "019faaa4d435"
+}
