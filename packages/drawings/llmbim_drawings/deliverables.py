@@ -11,6 +11,7 @@ from typing import Any
 
 from llmbim_core.model import ProjectModel
 from llmbim_geometry.mesh import export_gltf_walls
+from llmbim_geometry.render_hero import render_hero_svg
 from llmbim_geometry.step_export import export_step
 from llmbim_ifc.export import export_ifc
 
@@ -326,6 +327,7 @@ def verify_pack(
         "schedules/column.csv",
         "schedules/beam.csv",
         "index.html",
+        "hero.svg",
     ):
         p = out / rel
         if p.is_file():
@@ -339,6 +341,7 @@ def verify_pack(
         out / "schedules" / "window.csv"
     ).is_file()
     checks["has_index_html"] = (out / "index.html").is_file()
+    checks["has_hero_svg"] = (out / "hero.svg").is_file()
     checks["has_viewer3d"] = (out / "viewer3d.html").is_file()
     if checks["has_viewer3d"]:
         vtxt = (out / "viewer3d.html").read_text(encoding="utf-8", errors="replace")
@@ -498,6 +501,12 @@ def export_deliverables(
         lambda: export_step(export_model, step_path, include_walls=has_walls),
     )
 
+    # Baked presentation still: shaded axonometric hero.svg reusing the exact
+    # glTF tessellation, so the still matches the 3D model. Optional artifact —
+    # a hero failure must never sink the pack.
+    hero_path = out / "hero.svg"
+    _try("render_hero", errors, lambda: render_hero_svg(export_model, hero_path))
+
     views = out / "views"
     views.mkdir(exist_ok=True)
     _try(
@@ -611,6 +620,7 @@ def export_deliverables(
         "ifc": ifc_path.name if ifc_path.exists() else None,
         "gltf": gltf_path.name if gltf_path.exists() else None,
         "step": step_path.name if step_path.exists() else None,
+        "hero": hero_path.name if hero_path.exists() else None,
         "views": "views/",
         "schedules": "schedules/",
         "phase_filter": phase_filter,
