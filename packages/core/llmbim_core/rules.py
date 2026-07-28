@@ -467,8 +467,13 @@ def _mep_design_rules(model: ProjectModel) -> list[dict[str, Any]]:
             rid = conn.get(key)
             if not rid:
                 continue
+            rid = str(rid)
+            if rid.startswith("xy:"):
+                # mep_autoroute coordinate anchor (route endpoint at a plain
+                # x,y — panel stub, tap point), not an element reference.
+                continue
             try:
-                model.get_element(str(rid))
+                model.get_element(rid)
             except Exception:  # noqa: BLE001
                 findings.append(
                     {
