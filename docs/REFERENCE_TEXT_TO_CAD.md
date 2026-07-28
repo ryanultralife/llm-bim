@@ -109,11 +109,21 @@ assemblies, and robots; we do buildings, sheets, and takeoffs. Zero collision.
    catalog search, "search the catalog before inventing placeholder geometry;
    record the miss." Effort: M.
 
+## Adoption status (2026-07-28)
+
+Adopted on `main`: progressive skill references (#3 — `skills/llm-bim/references/`),
+review-packet policy (#2 — `references/review_packet.md`), repair-loop playbook
+(#4 — `references/repair_loop.md`). Still queued: `llmbim inspect measure|align|diff`
+(#1), CI benchmark specs (#5), checksummed part sourcing (#6).
+
 ## Draft reply for the author (human sends this personally; do not post from repo)
 
 > Really impressive work — I build in an adjacent space (LLM-driven BIM, so
-> buildings rather than brackets) and your inspect/snapshot/repair loop is the
-> best post-generation verification discipline I've seen in an agent CAD project.
+> buildings rather than brackets: https://github.com/ryanultralife/llm-bim) and
+> your inspect/snapshot/repair loop is the best post-generation verification
+> discipline I've seen in an agent CAD project. We liked three of your patterns
+> enough to adopt them outright (progressive reference loading, the mandatory
+> snapshot-review packet, and the repair-loop playbook — credited in our docs).
 > A few suggestions from lessons we learned the hard way, in case any are useful:
 >
 > 1. **Turn the benchmarks into CI regression tests using your own `inspect`

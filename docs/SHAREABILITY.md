@@ -110,11 +110,28 @@ text-to-cad adoption partial (review packet + repair refs); **`llmbim inspect`**
       (firm name, city, cloud-drive/home paths, audit-JSON paths, title-block firm string;
       this doc no longer repeats redacted values verbatim; verified by tracked-tree sweep:
       0 hits on all client-identity patterns)  
-- [ ] History scrub **or** accept residual disclosure risk — **HUMAN DECISION**
-      (7 public commits carry the site address; 3 carry owner/designer names;
-      `git filter-repo` + force-push required, breaks existing clones/forks)  
-- [ ] Explicit decision on INTEC public vs private — **HUMAN DECISION** (business IP,
-      not PII; currently tracked on public HEAD)  
-- [ ] Optional: case name "Schad" is itself the client surname — full de-identification
-      would rename the case (~180 files + CLI `llmbim case schad`) — **HUMAN DECISION**  
+- [x] **History scrubbed — 2026-07-28 (human-approved).** `git filter-repo
+      --replace-text` rewrote all 330 commits (client identity → the same synthetic
+      demo values used on HEAD); force-pushed. **Verified by fresh clone from GitHub:
+      0 hits on every pattern across the entire history.** Merged side branches +
+      the backup tag were deleted from the public remote first.
+- [x] **Full-fidelity preservation:** complete pre-scrub mirror (all branches, tags,
+      unredacted history incl. Schad + INTEC) archived to the **PRIVATE** repo
+      `ryanultralife/llm-bim-archive`. Do not make it public.
+- [x] INTEC decision (human): **keep in the public repo** as a labeled
+      engineering-estimate demo case; real archive is private.
+- [x] Case name: **"Schad" stays** (human decision) — address/owners/designer are
+      synthetic everywhere; the name alone no longer links to a person or place.
 - [x] README points to this doc  
+
+### Residual exposure after the scrub (honest)
+
+- **GitHub `refs/pull/N/head` are immutable** — old PR refs still reference
+  pre-scrub objects on GitHub's servers until their GC (a GitHub Support request
+  can purge them explicitly). They are not in any clone of `main`.
+- **Anyone who cloned/forked before 2026-07-28** has the pre-scrub history.
+- ⚠️ **AGENTS: do not push any branch created before 2026-07-28** — it carries
+  pre-scrub history and would resurrect the redacted data on the public remote.
+  This includes **Grok's isolation worktree (`llm-bim-schad`)**: rebase your work
+  onto the new `main` (`git fetch && git rebase --onto origin/main <old-base>`)
+  or cherry-pick; never plain-push from an old base.
