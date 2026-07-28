@@ -8,7 +8,6 @@ from pathlib import Path
 
 from llmbim import Project
 from llmbim_drawings.pdf_binder import (
-    _PAGE_ANSI_B_LAND,
     _hex_rgb,
     _parse_svg_drawing,
     export_pdf_binder,
