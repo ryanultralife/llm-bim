@@ -334,6 +334,10 @@ def build_notes() -> dict:
             'LOW-FLOW FIXTURES: EPA WATERSENSE',
             'BACKFLOW PREVENTION: AT HOSE BIBS',
         ],
+        'fire_protection': [   # basis exemption — threaded into fire_takeoff
+            'Fire sprinklers: not provided — detached accessory structure; '
+            'CRC R313 exemption (ASSUMED — verify local amendments)',
+        ],
         'mechanical': [   # [RB MEP-301]
             'ALL WORK PER 2022 CALIFORNIA MECHANICAL CODE',
             'RADIANT FLOOR: 1/2" PEX @ 9" O.C. IN SLAB',
