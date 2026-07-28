@@ -1,7 +1,9 @@
 """WS4 (+extensions) — the presentation glTF carries triplanar UVs, procedural
 PBR detail textures AND tangent-space normal maps, so surfaces read as
-concrete/drywall/metal/wood with real relief instead of flat pastels. Also
-guards the additive KHR material extensions (transmission glass + declared
+concrete/drywall/metal/wood with real relief instead of flat pastels; the trade
+materials (pipes/ducts/conduit/tray/equipment) get brushed/painted-metal detail
+the same way, and only instrument-faced equipment carries a faint emissive.
+Also guards the additive KHR material extensions (transmission glass + declared
 ``extensionsUsed``), that every embedded PNG decodes, and that the binary
 buffer layout stays in-bounds and byte-deterministic."""
 
@@ -92,7 +94,7 @@ def _synthetic_gltf(tmp_path: Path) -> dict:
 
 
 def test_texture_and_normal_pngs_valid_and_deterministic() -> None:
-    for pat in ("concrete", "drywall", "metal", "wood"):
+    for pat in ("concrete", "drywall", "metal", "wood", "brushed_metal", "painted_metal"):
         base = gt.texture_png(pat)
         norm = gt.normal_png(pat)
         assert base[:8] == _PNG_SIG, pat
@@ -106,20 +108,30 @@ def test_texture_and_normal_pngs_valid_and_deterministic() -> None:
 
 def test_build_gltf_textures_maps_base_and_normal_for_architectural_keys() -> None:
     imgs, texs, samps, k2t, k2n = gt.build_gltf_textures(
-        ["wall", "slab", "roof", "window", "pipe_copper"]
+        ["wall", "slab", "roof", "window", "pipe_copper", "duct", "pipe_pvc", "equipment"]
     )
     # base + normal per distinct pattern -> images and textures match, even count
     assert len(imgs) == len(texs) >= 2
     assert len(imgs) % 2 == 0
     assert len(samps) == 1
-    for key in ("wall", "slab", "roof"):
+    for key in ("wall", "slab", "roof", "pipe_copper", "duct", "pipe_pvc", "equipment"):
         assert key in k2t and key in k2n
         # base and normal textures are distinct entries sharing the one sampler
         assert k2t[key] != k2n[key]
         assert texs[k2t[key]]["sampler"] == texs[k2n[key]]["sampler"] == 0
-    # glass and copper keep their factor colour — no detail/normal texture
+    # trade runs share the brushed pattern; PVC/equipment the smooth painted one
+    assert k2t["pipe_copper"] == k2t["duct"]
+    assert k2t["pipe_pvc"] == k2t["equipment"]
+    assert k2t["pipe_copper"] != k2t["pipe_pvc"]
+    # glass keeps its factor colour (transmission look) — no detail/normal texture
     assert "window" not in k2t and "window" not in k2n
-    assert "pipe_copper" not in k2t and "pipe_copper" not in k2n
+
+
+def test_pattern_map_excludes_glass_and_tiny_geometry() -> None:
+    # window stays glass, wire/coil/bolt texels are too small to read, and the
+    # generic fallback stays flat.
+    for key in ("window", "wire", "wire_steel", "wire_phase_a", "coil", "bolt", "default"):
+        assert key not in gt._PATTERN_FOR, key
 
 
 def test_synthetic_gltf_uvs_normal_extensions_and_bounds(tmp_path: Path) -> None:
@@ -159,6 +171,74 @@ def test_synthetic_gltf_uvs_normal_extensions_and_bounds(tmp_path: Path) -> None
 
     assert _bounds_violations(g) == 0
     assert _decode_embedded_pngs(g) == len(g["images"]) >= 4
+
+
+def test_trade_materials_textured_and_honest_emissive(tmp_path: Path) -> None:
+    """Residuals #12 + #11: a model with real MEP runs + equipment exports trade
+    materials with baseColorTexture AND normalTexture while keeping each key's
+    palette hue, and ONLY the instrument-faced equipment kinds emit — at low
+    strength, with KHR_materials_emissive_strength declared exactly when used."""
+    from llmbim_geometry.mesh import _MATERIAL_PBR
+
+    p = Project.create("Trades", vcs=False)
+    p.add_level("L1", 0)
+    p.place_pipe(level="L1", nps="3/4", start=(0, 0), end=(4000, 0), material="copper")
+    p.place_pipe(level="L1", nps="2", start=(0, 500), end=(4000, 500), material="pvc")
+    p.place_duct(level="L1", start=(0, 1000), end=(4000, 1000))
+    p.place_conduit(level="L1", start=(0, 1500), end=(4000, 1500))
+    p.place_cable_tray(level="L1", start=(0, 2000), end=(4000, 2000))
+    p.place_fitting(level="L1", fitting_type="elbow_90", nps="3/4", origin=(4000, 0))
+    p.create_equipment_box(level="L1", origin=(500, 3000), size=(800, 600, 1200))
+    p.create_equipment_box(
+        level="L1", origin=(2000, 3000), size=(200, 200, 300), kind="sensor"
+    )
+    p.create_equipment_box(
+        level="L1", origin=(3000, 3000), size=(600, 600, 1800), kind="controls"
+    )
+    out = tmp_path / "trades.gltf"
+    export_gltf_walls(p.model, out)
+    # determinism: trade textures + emissive stay byte-stable
+    out2 = tmp_path / "trades2.gltf"
+    export_gltf_walls(p.model, out2)
+    assert out.read_bytes() == out2.read_bytes()
+
+    g = json.loads(out.read_text(encoding="utf-8"))
+    mats = {m["name"]: m for m in g["materials"]}
+    trade = ("pipe_copper", "pipe_pvc", "duct", "conduit", "cable_tray", "fitting",
+             "equipment", "equip_sensor", "equip_controls")
+    for key in trade:
+        assert key in mats, key
+        pbr = mats[key]["pbrMetallicRoughness"]
+        assert "baseColorTexture" in pbr, key
+        assert "normalTexture" in mats[key], key
+        assert mats[key]["normalTexture"]["scale"] == 0.5, key
+        # the texture is multiplicative detail — the palette hue is untouched
+        assert pbr["baseColorFactor"] == list(_MATERIAL_PBR[key][0]), key
+
+    # honest emissive: instrument faces glow faintly; passive surfaces do not
+    for key in ("equip_sensor", "equip_controls"):
+        factor = mats[key].get("emissiveFactor")
+        assert factor is not None, key
+        assert 0.0 < max(factor) <= 0.2, key  # faint hue-matched tint only
+        ext = mats[key].get("extensions", {})
+        strength = ext["KHR_materials_emissive_strength"]["emissiveStrength"]
+        assert 1.0 < strength <= 2.0, key  # a dim indicator, not a light source
+    for key in ("pipe_copper", "pipe_pvc", "duct", "conduit", "cable_tray",
+                "fitting", "equipment"):
+        assert "emissiveFactor" not in mats[key], key
+        assert "KHR_materials_emissive_strength" not in mats[key].get("extensions", {}), key
+
+    # extensionsUsed == exactly what the materials emit; still no punctual lights
+    used = set(g.get("extensionsUsed", []))
+    assert "KHR_materials_emissive_strength" in used
+    emitted: set[str] = set()
+    for m in g["materials"]:
+        emitted.update(m.get("extensions", {}))
+    assert used == emitted
+    assert "KHR_lights_punctual" not in used
+
+    assert _bounds_violations(g) == 0
+    assert _decode_embedded_pngs(g) == len(g["images"])
 
 
 def test_gltf_export_is_byte_deterministic(tmp_path: Path) -> None:
