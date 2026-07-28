@@ -1019,7 +1019,15 @@ def shear_wall_schedule(model: ProjectModel) -> list[dict[str, Any]]:
 
 
 def fire_takeoff(model: ProjectModel) -> dict[str, Any]:
-    """Fire protection: pipe + fittings + heads."""
+    """Fire protection: pipe + fittings + heads.
+
+    An EMPTY takeoff is ambiguous ("n/a per basis" vs "not modeled"), so when
+    the model carries a fire-protection basis exemption
+    (``model.meta['fire_basis_note']`` — e.g. a CRC R313 detached-accessory
+    exemption recorded in the project design basis) and nothing fire-related
+    is placed, the reason is returned additively under ``note``. Shape is
+    otherwise unchanged for existing consumers.
+    """
     fits = fitting_takeoff(model, system="fire")
     heads = [r for r in fits if r["fitting_type"] == "sprinkler_head"]
     elbows = [r for r in fits if r["fitting_type"] == "elbow_90"]
@@ -1028,14 +1036,19 @@ def fire_takeoff(model: ProjectModel) -> dict[str, Any]:
         for r in pipe_takeoff(model)
         if "black" in str(r.get("material_id", "")).lower() or str(r.get("part_id", "")).startswith("PT-FP")
     ]
+    devices = system_takeoff(model, "fire")
     # also pipe from fire parts with length
-    return {
+    out: dict[str, Any] = {
         "fittings": fits,
         "sprinkler_heads": heads,
         "elbow_90_by_size": elbows,
         "pipe": pipes,
-        "devices": system_takeoff(model, "fire"),
+        "devices": devices,
     }
+    basis_note = (model.meta or {}).get("fire_basis_note")
+    if basis_note and not (fits or pipes or devices):
+        out["note"] = str(basis_note)
+    return out
 
 
 def full_trade_schedule(model: ProjectModel) -> dict[str, Any]:
