@@ -324,6 +324,19 @@ def write_pack_index(out_dir: str | Path) -> Path:
 </ul>
 """
 
+    # Baked presentation still (shaded axonometric) — embed prominently when present
+    hero_html = ""
+    if (out / "hero.svg").is_file():
+        hero_html = (
+            '<figure style="margin:1.2rem 0">'
+            '<a href="hero.svg" target="_blank">'
+            '<img src="hero.svg" alt="Shaded axonometric hero render of the model" '
+            'style="width:100%;height:auto;display:block;'
+            'border:1px solid #30363d;border-radius:8px"></a>'
+            '<figcaption style="color:#8b949e;font-size:0.85rem;margin-top:4px">'
+            "Presentation view — [NOT FOR CONSTRUCTION]</figcaption></figure>"
+        )
+
     ok = manifest.get("ok", manifest.get("verification", {}).get("ok"))
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{manifest.get("project", "LLM-BIM pack")}</title>
@@ -339,6 +352,7 @@ th{{background:#161b22}}
 <h1>{manifest.get("project", "Deliverables pack")}</h1>
 <p>Status: <span class="{"ok" if ok else "bad"}">{"OK" if ok else "CHECK VERIFY.json"}</span></p>
 <p>{manifest.get("honesty", "")}</p>
+{hero_html}
 {"<p><a href='viewer3d.html' style='font-size:1.05rem'>Open 3D Studio</a> — section cut · cinematic bloom · Imagine env · layer opacity</p>" if (out / "viewer3d.html").exists() else ""}
 <h2>3D / BIM</h2><ul>{"".join(threes)}</ul>
 <h2>Materials / takeoff / CSI</h2><ul>{"".join(data_links) or "<li>none — place fittings/parts then re-export</li>"}</ul>

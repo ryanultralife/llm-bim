@@ -64,3 +64,26 @@ def test_render_hero_svg_is_deterministic(schad_model, tmp_path):  # type: ignor
     a = render_hero_svg(schad_model, tmp_path / "a.svg").read_bytes()
     b = render_hero_svg(schad_model, tmp_path / "b.svg").read_bytes()
     assert a == b  # byte-identical: no RNG, no wall-clock
+
+
+def test_export_deliverables_bakes_hero(schad_model, tmp_path):  # type: ignore[no-untyped-def]
+    """The pack pipeline writes hero.svg, records it, and index.html embeds it."""
+    from llmbim_drawings.deliverables import export_deliverables
+
+    out = tmp_path / "pack"
+    man = export_deliverables(schad_model, out)
+
+    hero = out / "hero.svg"
+    assert hero.is_file()
+    # A real building tessellates to thousands of shaded polygons.
+    assert hero.stat().st_size > 20_000
+
+    # Recorded like every other artifact: manifest outputs + checksums + VERIFY.
+    assert man["outputs"]["hero"] == "hero.svg"
+    assert "hero.svg" in man["checksums_sha256"]
+    assert man["verification"]["has_hero_svg"] is True
+
+    # index.html embeds the hero prominently, with the honesty caption.
+    index = (out / "index.html").read_text(encoding="utf-8")
+    assert 'src="hero.svg"' in index
+    assert "NOT FOR CONSTRUCTION" in index
