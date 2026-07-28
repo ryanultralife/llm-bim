@@ -19,11 +19,15 @@
 
 Tests: `tests/unit/test_pdf_residuals.py` · prior `test_mep_sheets_draw_routed_geometry`
 
+## Also landed this session
+
+- **WP-INTEC** — `projects/intec/` + 13 Gate C tests + `llmbim case intec` → full 128-sheet pack
+  (`7a14389`). OPEN: `output/intec_construction/index.html` after rebuild.
+
 ## Remaining (low priority)
 
 - **#13** annotation collision nudge on A1-1
 - **#14** HDR IBL / true AO / raster hero
-- **WP-INTEC** land untracked `projects/intec/` + `test_intec_sheets.py`
 - **text-to-cad** reference writeup (Claude pointer)
 
 ## Standing contracts
