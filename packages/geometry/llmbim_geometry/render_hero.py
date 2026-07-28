@@ -12,7 +12,7 @@ from the same material palette (:data:`llmbim_geometry.mesh._MATERIAL_RGBA`), so
 the still matches the 3D model. The render is deterministic: no RNG and no
 wall-clock, so the same model always produces a byte-identical SVG.
 
-Wire into ``export_deliverables`` later (that pipeline is out of scope here).
+Wired into ``export_deliverables`` (PR #33): every pack bakes ``hero.svg``.
 """
 
 from __future__ import annotations

@@ -112,6 +112,25 @@ takeoff from foundations geometry; drift-pin test that flagship takeoffs are non
   violations. Full pytest 513. glTF surfaces no longer flat pastels.
 - 2026-07-22: Grok `pdf_binder` (PR #24) merged. Shared-tree race resolved — Grok isolated its tree.
 
+## Residual wave 2 — CLOSED 2026-07-28 (PRs #33–#36 Claude + Grok's #1 fix)
+
+**Closed:** #1 (Grok — MEP sheets now plan-kind drawing routed geometry, ~200 elements/sheet,
+pinned by `test_mep_sheets_draw_routed_geometry`) · #2 (hero.svg baked into every pack + index,
+PR #33) · #6 (A* Manhattan routing — 0 diagonal runs; 11 IfcFlowTerminal + 104 IfcDistributionPort
++ 52 IfcRelConnectsPorts; connections.json 34 rows, PR #36) · #7 (size_route conduit via NEC fill,
+PR #35; calc==routed==takeoff single-sourced, PR #36) · #8 (fire: CRC R313 exemption recorded in
+basis, threaded to fire_takeoff note — not invented, PR #36) · #11+#12 (trade materials textured
+14/17 + honest emissive, PR #34) · #15 (**mypy --strict: 0 errors, 47 files**, PR #35).
+
+**Combined gate 2026-07-28:** pytest **547 passed / 0 failed** · mypy **zero** · ruff clean on
+tracked code (68 auto-fixables only in Grok's untracked INTEC WIP) · `llmbim case schad`
+verify_ok, 236 elements, MEP sheets drawing routed systems, hero baked, ports in IFC.
+
+**Still open:** #3, #4, #5, #9, #10, #13 (all grok-drawings — claimed by Grok in NOW.md) ·
+#14 (low/L, either: HDR IBL, true AO via three-bundle upgrade, hi-res textures, raster hero).
+Reference-project adoption ideas (docs/REFERENCE_TEXT_TO_CAD.md): inspect/measure CLI,
+review-packet policy, progressive skill refs, repair playbook, CI benchmarks — unscheduled.
+
 ## Re-grade residuals (2026-07-22, ranked — the authoritative "what's left")
 
 | # | Item | Sev | Effort | Lane |
