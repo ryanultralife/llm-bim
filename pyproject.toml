@@ -125,3 +125,16 @@ mypy_path = [
   "packages/core",
   "packages/geometry",
 ]
+
+# cadquery/OCP are the optional [fab] extra — absent in CI, present in dev
+# venvs. Per-module override keeps mypy --strict green in BOTH environments
+# (inline ignores can't: they trip warn_unused_ignores where the package
+# exists and import-not-found where it doesn't).
+[[tool.mypy.overrides]]
+module = ["cadquery", "cadquery.*", "OCP", "OCP.*"]
+ignore_missing_imports = true
+
+# Optional fab stack (cadquery/OCP) — not installed on default CI.
+[[tool.mypy.overrides]]
+module = ["cadquery", "cadquery.*", "OCP", "OCP.*"]
+ignore_missing_imports = true
