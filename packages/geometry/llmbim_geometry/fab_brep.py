@@ -10,12 +10,13 @@ unit tests without the extra still collect (fab tests skip).
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 _CQ_ERR: str | None = None
 try:
-    import cadquery as cq  # type: ignore
+    import cadquery as cq
     from OCP.BRep import BRep_Tool  # type: ignore
     from OCP.BRepMesh import BRepMesh_IncrementalMesh  # type: ignore
     from OCP.TopAbs import TopAbs_FACE, TopAbs_REVERSED  # type: ignore
@@ -25,7 +26,9 @@ try:
 
     HAS_CADQUERY = True
 except Exception as exc:  # noqa: BLE001
-    cq = None
+    # ``cq`` (and the OCP names) intentionally stay unbound: every use sits
+    # behind ``require_cadquery()`` / ``HAS_CADQUERY``, and leaving the name to
+    # the typed import keeps mypy --strict clean without a Module=None cast.
     HAS_CADQUERY = False
     _CQ_ERR = str(exc)
 
@@ -645,6 +648,12 @@ def export_fab_ortho_svgs(
 ) -> dict[str, str]:
     """Three orthographic SVG projections (top / front / right) via CadQuery HLR SVG."""
     require_cadquery()
+    # ``getSVG`` is untyped upstream and only implicitly re-exported from
+    # ``cadquery.occ_impl.exporters``; import it from its defining module and
+    # give it a typed signature so mypy --strict accepts the call.
+    from cadquery.occ_impl.exporters.svg import getSVG
+
+    get_svg = cast(Callable[..., str], getSVG)
     solid = rebuild_solid(features)
     shape = solid.val()
     views = {
@@ -666,7 +675,7 @@ def export_fab_ortho_svgs(
             "hiddenColor": (0.55, 0.55, 0.58),
             "showHidden": True,
         }
-        out[name] = cq.exporters.getSVG(shape, opts=opts)
+        out[name] = get_svg(shape, opts=opts)
     return out
 
 

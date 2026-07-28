@@ -251,6 +251,82 @@ def test_size_route_accepts_segment_id_list_and_validates_input() -> None:
         size_route(m, [])
 
 
+def test_size_route_conduit_feeder_amps_apply_and_takeoff() -> None:
+    from llmbim import Project
+    from llmbim_core.material_lists import conduit_takeoff
+
+    p = Project.create("conduit-sizing")
+    p.add_level("L1", 0)
+    ids = [
+        p.place_conduit(level="L1", start=(0, 0), end=(6000, 0), trade_size="3/4"),
+        p.place_conduit(level="L1", start=(6000, 0), end=(6000, 4000), trade_size="3/4"),
+    ]
+    # 100 A feeder: hot = #3 THHN (75C ampacity exactly 100 A), neutral = #3,
+    # EGC = #8 (250.122 at 100 A OCPD). NEC ch.9 table 5 areas:
+    #   3 * 0.0973 + 0.0366 = 0.3285 in2 -> smallest EMT with 40% fill >= that
+    #   is 1" (0.346 in2), so trade size "1".
+    res = size_route(p.model, ids, amps=100.0, apply=True)
+    assert res["kind"] == "conduit"
+    assert res["sizing"]["trade_size"] == "1"
+    assert res["sizing"]["hot_size"] == "3"
+    assert res["applied"] is True and res["honesty"] == HONESTY_NOTE
+    for eid in ids:
+        el = p.model.get_element(eid)
+        assert el.params["trade_size"] == "1"
+        assert el.params["nps"] == "1"  # conduit_takeoff prefers params.nps
+        assert el.params["sized_by"] == "mep_sizing"
+        assert el.params["amps"] == pytest.approx(100.0)
+    # takeoff buckets the whole 6 m + 4 m run under the new trade size
+    rows = conduit_takeoff(p.model)
+    assert [r["trade_size"] for r in rows] == ["1"]
+    assert rows[0]["nps"] == "1"
+    assert rows[0]["segment_count"] == 2
+    assert float(rows[0]["length_m"]) == pytest.approx(10.0, abs=0.01)
+
+
+def test_size_route_conduit_conductor_fill_and_validation() -> None:
+    from llmbim import Project
+    from llmbim_core.material_lists import conduit_takeoff
+
+    p = Project.create("conduit-fill")
+    p.add_level("L1", 0)
+    eid = p.place_conduit(level="L1", start=(0, 0), end=(5000, 0), trade_size="2")
+    # 3 x #12 THHN: 3 * 0.0133 = 0.0399 in2 -> fits 1/2" EMT (0.122 in2 at 40%)
+    res = size_route(p.model, [eid], conductors=[("12", 3)], apply=True)
+    assert res["kind"] == "conduit"
+    assert res["sizing"]["trade_size"] == "1/2"
+    el = p.model.get_element(eid)
+    assert el.params["trade_size"] == "1/2" and el.params["nps"] == "1/2"
+    assert el.params["sized_by"] == "mep_sizing"
+    rows = conduit_takeoff(p.model)
+    assert [r["trade_size"] for r in rows] == ["1/2"]
+    assert float(rows[0]["length_m"]) == pytest.approx(5.0, abs=0.01)
+    # needs amps or conductors — and not both at once
+    with pytest.raises(ValidationError):
+        size_route(p.model, [eid])
+    with pytest.raises(ValidationError):
+        size_route(p.model, [eid], amps=50.0, conductors=[("12", 3)])
+
+
+def test_size_route_conduit_edge_updates_live_graph() -> None:
+    m, a, b = _model_with_endpoints()
+    mep_route(m, a, b, kind="conduit", trade_size="3/4", system="PWR")
+    edge = m.meta["mep_graph"][0]
+    res = size_route(m, edge, amps=100.0, apply=True)
+    assert res["kind"] == "conduit"
+    assert res["edge_id"] == edge["id"]
+    live = m.meta["mep_graph"][0]
+    assert live["nps"] == "1"  # conduit edges carry the trade size in nps
+    assert live["sized_by"] == "mep_sizing"
+    assert live["amps"] == pytest.approx(100.0)
+    # dry run (apply=False) leaves elements untouched
+    m2, a2, b2 = _model_with_endpoints()
+    r2 = mep_route(m2, a2, b2, kind="conduit", trade_size="3/4", system="PWR")
+    res2 = size_route(m2, m2.meta["mep_graph"][0], conductors=[("12", 3)])
+    assert res2["applied"] is False and res2["sizing"]["trade_size"] == "1/2"
+    assert m2.get_element(r2["segment_ids"][0]).params.get("sized_by") is None
+
+
 def test_validate_runs_ok_undersized_and_no_flow() -> None:
     m, a, b = _model_with_endpoints()
     # run 1: sized correctly at 1.0 L/s (apply stores flow on edge + segments)

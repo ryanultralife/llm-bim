@@ -27,9 +27,13 @@ Duct (standard air, rho = 1.2 kg/m3, nu = 1.5e-5 m2/s):
     ``De = 1.30 * (a*b)^0.625 / (a+b)^0.25`` (equal flow and equal friction),
     aspect ratio limited to 4:1, 50 mm size increments.
 
+Electrical conduit: NEC Chapter 9 fill (Table 1/4/5, THHN in EMT at 40%),
+ampacity per 310.16 (75C copper) with 240.4(D) limits and EGC per 250.122.
+
 Pure module: no I/O; mutations only happen in :func:`size_route` with
 ``apply=True`` and go through element params / part assignment so existing
-takeoffs (``material_lists.pipe_takeoff`` / ``duct_takeoff``) keep working.
+takeoffs (``material_lists.pipe_takeoff`` / ``duct_takeoff`` /
+``conduit_takeoff``) keep working.
 """
 
 from __future__ import annotations
@@ -670,6 +674,19 @@ def _apply_fitting_size(model: ProjectModel, fid: str, nps: str) -> bool:
     return True
 
 
+def _apply_conduit_size(el: Element, trade_size: str, *, amps: float | None) -> None:
+    """Resize a conduit element in place, keeping takeoff keys consistent.
+
+    ``conduit_takeoff`` buckets by ``params.nps`` first, then
+    ``params.trade_size`` — both are set to the new size.
+    """
+    el.params["trade_size"] = trade_size
+    el.params["nps"] = trade_size
+    if amps is not None:
+        el.params["amps"] = round(float(amps), 2)
+    el.params["sized_by"] = "mep_sizing"
+
+
 def _apply_duct_size(
     model: ProjectModel, el: Element, width_mm: float, height_mm: float, flow_m3h: float
 ) -> None:
@@ -702,15 +719,20 @@ def size_route(
     *,
     flow_lps: float | None = None,
     flow_m3h: float | None = None,
+    amps: float | None = None,
+    conductors: Sequence[tuple[str, int]] | None = None,
     apply: bool = False,
 ) -> dict[str, Any]:
     """Size an MEP run (a ``mep_graph`` edge dict or a list of segment ids).
 
-    Pipes need ``flow_lps`` (L/s), ducts ``flow_m3h`` (m3/h). With
+    Pipes need ``flow_lps`` (L/s), ducts ``flow_m3h`` (m3/h); conduit runs are
+    sized by NEC fill from ``conductors=[(awg, count), ...]`` or, for a feeder,
+    from ``amps`` (hot/neutral/EGC set via :func:`feeder_conduit`). With
     ``apply=True`` the segment elements (and, for an edge, its fittings) are
     updated in place — ``params.nps`` + part reassignment for pipes,
-    ``params.width_mm``/``height_mm`` (+ area/part_qty) for ducts — using the
-    same keys the material takeoffs read, plus ``sized_by="mep_sizing"``.
+    ``params.width_mm``/``height_mm`` (+ area/part_qty) for ducts,
+    ``params.trade_size``/``nps`` for conduit — using the same keys the
+    material takeoffs read, plus ``sized_by="mep_sizing"``.
     Engineering estimate — not a stamped hydraulic design.
     """
     edge: dict[str, Any] | None = None
@@ -727,9 +749,19 @@ def size_route(
         raise ValidationError("Route has no segment ids", edge=bool(edge))
     if not kind:
         cats = {model.get_element(s).category for s in seg_ids}
-        kind = "duct" if "duct" in cats else "pipe" if "pipe" in cats else ""
-    if kind not in ("pipe", "duct"):
-        raise ValidationError("size_route supports pipe and duct runs only", kind=kind or None)
+        kind = (
+            "duct"
+            if "duct" in cats
+            else "pipe"
+            if "pipe" in cats
+            else "conduit"
+            if "conduit" in cats
+            else ""
+        )
+    if kind not in ("pipe", "duct", "conduit"):
+        raise ValidationError(
+            "size_route supports pipe, duct and conduit runs only", kind=kind or None
+        )
 
     updated: list[str] = []
     if kind == "pipe":
@@ -753,7 +785,7 @@ def size_route(
                 for fid in [str(f) for f in (edge.get("fitting_ids") or [])]:
                     if _apply_fitting_size(model, fid, nps):
                         updated.append(fid)
-    else:
+    elif kind == "duct":
         if flow_m3h is None and flow_lps is not None:
             flow_m3h = flow_lps * 3.6
         if flow_m3h is None or flow_m3h <= 0:
@@ -768,6 +800,25 @@ def size_route(
                     model, el, float(sizing["width_mm"]), float(sizing["height_mm"]), flow_m3h
                 )
                 updated.append(el.id)
+    else:  # conduit — NEC fill from a conductor set or feeder amps
+        if amps is not None and conductors:
+            raise ValidationError(
+                "Give either amps (feeder sizing) or conductors (fill), not both", amps=amps
+            )
+        segments = _segment_elements(model, seg_ids, ("conduit",))
+        if not segments:
+            raise ValidationError("No conduit segments found for route", segment_ids=seg_ids)
+        if conductors:
+            sizing = size_conduit([(str(s), int(n)) for s, n in conductors])
+        elif amps is not None:
+            sizing = feeder_conduit(amps)
+        else:
+            raise ValidationError("Conduit run needs amps or conductors=[(awg, count), ...]")
+        if apply:
+            trade = str(sizing["trade_size"])
+            for el in segments:
+                _apply_conduit_size(el, trade, amps=amps)
+                updated.append(el.id)
 
     if apply and edge is not None:
         # update the live edge stored in model.meta (matched by id)
@@ -776,9 +827,13 @@ def size_route(
                 if kind == "pipe":
                     live["nps"] = sizing["nps"]
                     live["flow_lps"] = round(float(flow_lps or 0.0), 4)
-                else:
+                elif kind == "duct":
                     live["nps"] = f"{sizing['width_mm']:.0f}x{sizing['height_mm']:.0f}"
                     live["flow_m3h"] = round(float(flow_m3h or 0.0), 3)
+                else:
+                    live["nps"] = str(sizing["trade_size"])  # edge carries trade size
+                    if amps is not None:
+                        live["amps"] = round(float(amps), 2)
                 live["sized_by"] = "mep_sizing"
     return {
         "kind": kind,
@@ -786,6 +841,7 @@ def size_route(
         "segment_ids": seg_ids,
         "flow_lps": round(flow_lps, 4) if flow_lps is not None else None,
         "flow_m3h": round(flow_m3h, 3) if flow_m3h is not None else None,
+        "amps": amps,
         "sizing": sizing,
         "applied": bool(apply),
         "updated_elements": updated,
