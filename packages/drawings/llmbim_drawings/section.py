@@ -975,7 +975,9 @@ def render_section_svg(
             )
         parts.append("  </g>")
     if weights:
-        parts.append(_line_legend(-pad + 4.0, -pad + 4.0))
+        # Bottom gutter (below grade), not top-left — top-left overpainted the
+        # roof / storey dims when multi-sheet cells were composed (residual #9).
+        parts.append(_line_legend(-pad + 4.0, height + 4.0))
     parts.append("</svg>")
     return "\n".join(parts) + "\n"
 
@@ -1598,7 +1600,8 @@ def render_elevation_svg(
         parts.append("  </g>")
 
     if weights:
-        parts.append(_line_legend(-pad + 4.0, -pad + 4.0))
+        # Bottom gutter (below grade) — residual #9 occlusion fix (see section).
+        parts.append(_line_legend(-pad + 4.0, height + 4.0))
     parts.append("</svg>")
     return "\n".join(parts) + "\n"
 

@@ -1233,7 +1233,9 @@ def build_pack(out_dir: Path) -> tuple[Project, dict[str, Any]]:
         stamp_block=True,
         sheets=schad_sheet_register(p),
     )
-    export_pdf_binder(cons, out_dir / "PLOT_SET.pdf", title=p.model.name)
+    export_pdf_binder(
+        cons, out_dir / "PLOT_SET.pdf", title=p.model.name, units="imperial"
+    )
     export_drawing_list(out_dir)
 
     # Gate C calc / basis docs generated into the pack

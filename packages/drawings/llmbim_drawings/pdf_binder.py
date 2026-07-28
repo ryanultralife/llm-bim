@@ -154,13 +154,140 @@ def _path_construct(
             ops.append("h")
             cx, cy = sx0, sy0
         elif C == "A":
-            take(7)   # skip arcs — end point isn't advanced (rare)
+            # Elliptical arc → polyline (door swings, bubbles). Residual #3.
+            v = take(7)
+            if len(v) < 7:
+                break
+            import math as _math
+
+            rx, ry = abs(v[0]) or 1e-6, abs(v[1]) or 1e-6
+            x_rot = _math.radians(v[2])
+            large = int(v[3]) != 0
+            sweep = int(v[4]) != 0
+            ex = cx + v[5] if rel else v[5]
+            ey = cy + v[6] if rel else v[6]
+            # Endpoint-parameterized arc approximation (W3C SVG impl notes simplified)
+            dx = (cx - ex) / 2.0
+            dy = (cy - ey) / 2.0
+            cos_phi, sin_phi = _math.cos(x_rot), _math.sin(x_rot)
+            x1p = cos_phi * dx + sin_phi * dy
+            y1p = -sin_phi * dx + cos_phi * dy
+            rx = max(rx, abs(x1p))
+            ry = max(ry, abs(y1p))
+            sq = max(
+                0.0,
+                (rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p)
+                / max(rx * rx * y1p * y1p + ry * ry * x1p * x1p, 1e-12),
+            )
+            coef = _math.sqrt(sq)
+            if large == sweep:
+                coef = -coef
+            cxp = coef * (rx * y1p / ry)
+            cyp = coef * (-ry * x1p / rx)
+            cx_arc = cos_phi * cxp - sin_phi * cyp + (cx + ex) / 2.0
+            cy_arc = sin_phi * cxp + cos_phi * cyp + (cy + ey) / 2.0
+
+            def _angle(ux: float, uy: float, vx: float, vy: float) -> float:
+                n = _math.hypot(ux, uy) * _math.hypot(vx, vy)
+                if n < 1e-12:
+                    return 0.0
+                c = max(-1.0, min(1.0, (ux * vx + uy * vy) / n))
+                ang = _math.acos(c)
+                if ux * vy - uy * vx < 0:
+                    ang = -ang
+                return ang
+
+            th1 = _angle(1, 0, (x1p - cxp) / rx, (y1p - cyp) / ry)
+            dth = _angle(
+                (x1p - cxp) / rx,
+                (y1p - cyp) / ry,
+                (-x1p - cxp) / rx,
+                (-y1p - cyp) / ry,
+            )
+            if not sweep and dth > 0:
+                dth -= 2 * _math.pi
+            elif sweep and dth < 0:
+                dth += 2 * _math.pi
+            n_seg = max(4, int(abs(dth) / ( _math.pi / 8)) + 1)
+            for k in range(1, n_seg + 1):
+                th = th1 + dth * k / n_seg
+                cos_th, sin_th = _math.cos(th), _math.sin(th)
+                xx = cos_phi * rx * cos_th - sin_phi * ry * sin_th + cx_arc
+                yy = sin_phi * rx * cos_th + cos_phi * ry * sin_th + cy_arc
+                ops.append(f"{mapx(xx):.2f} {mapy(yy):.2f} l")
+            cx, cy = ex, ey
         else:
             i += 1
     return ops if started else []
 
 
-def _parse_svg_drawing(svg_path: Path) -> tuple[float, float, list[str]]:
+# Page sizes in PDF points (1 pt = 1/72"). Landscape (width x height).
+_PAGE_A4_LAND = (842.0, 595.0)       # metric default
+_PAGE_ANSI_B_LAND = (1224.0, 792.0)  # 17" x 11" — imperial construction sets
+_PAGE_ARCH_D_LAND = (2592.0, 1728.0)  # 36" x 24"
+
+
+def _hex_rgb(color: str | None) -> tuple[float, float, float] | None:
+    """Parse #rgb / #rrggbb (and named none-skips) to 0–1 RGB."""
+    if not color:
+        return None
+    c = color.strip().lower()
+    if c in ("none", "transparent"):
+        return None
+    if c.startswith("rgb"):
+        m = re.search(r"rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)", c)
+        if m:
+            return int(m.group(1)) / 255.0, int(m.group(2)) / 255.0, int(m.group(3)) / 255.0
+        return None
+    if c.startswith("#"):
+        h = c[1:]
+        if len(h) == 3:
+            r, g, b = int(h[0] * 2, 16), int(h[1] * 2, 16), int(h[2] * 2, 16)
+            return r / 255.0, g / 255.0, b / 255.0
+        if len(h) == 6:
+            return int(h[0:2], 16) / 255.0, int(h[2:4], 16) / 255.0, int(h[4:6], 16) / 255.0
+    named = {
+        "black": (0.0, 0.0, 0.0),
+        "white": (1.0, 1.0, 1.0),
+        "red": (1.0, 0.0, 0.0),
+        "gray": (0.5, 0.5, 0.5),
+        "grey": (0.5, 0.5, 0.5),
+    }
+    return named.get(c)
+
+
+def _pdf_color_ops(color: str | None, *, stroke: bool) -> list[str]:
+    rgb = _hex_rgb(color)
+    if rgb is None:
+        rgb = (0.0, 0.0, 0.0) if stroke else (0.85, 0.85, 0.9)
+    op = "RG" if stroke else "rg"
+    return [f"{rgb[0]:.3f} {rgb[1]:.3f} {rgb[2]:.3f} {op}"]
+
+
+def _stroke_style_ops(el: ET.Element, sx: float) -> list[str]:
+    """stroke-width → PDF ``w``; stroke-dasharray → ``d`` (residual #3)."""
+    out: list[str] = []
+    sw = el.get("stroke-width")
+    if sw is not None and str(sw).strip() not in ("", "none"):
+        # Keep a visible minimum so hairlines don't vanish when scaled down
+        w = max(0.25, _num(sw) * sx)
+        out.append(f"{w:.2f} w")
+    dash = el.get("stroke-dasharray")
+    if dash and dash not in ("none",):
+        dl = [f"{_num(t) * sx:.2f}" for t in re.split(r"[\s,]+", dash) if t]
+        if dl:
+            out.append(f"[{' '.join(dl)}] 0 d")
+    else:
+        out.append("[] 0 d")  # solid (reset after prior dashed siblings)
+    return out
+
+
+def _parse_svg_drawing(
+    svg_path: Path,
+    *,
+    page_w: float = 842.0,
+    page_h: float = 595.0,
+) -> tuple[float, float, list[str]]:
     """Return (width, height, PDF content stream operators)."""
     text = svg_path.read_text(encoding="utf-8", errors="replace")
     # viewBox
@@ -174,8 +301,6 @@ def _parse_svg_drawing(svg_path: Path) -> tuple[float, float, list[str]]:
     else:
         vw, vh = 1100.0, 850.0
 
-    # Scale SVG units to fit A4 landscape points (842 x 595)
-    page_w, page_h = 842.0, 595.0
     margin = 36.0
     usable_w, usable_h = page_w - 2 * margin, page_h - 2 * margin
     s = min(usable_w / max(vw, 1), usable_h / max(vh, 1))
@@ -221,24 +346,34 @@ def _parse_svg_drawing(svg_path: Path) -> tuple[float, float, list[str]]:
             return ty + v * sy
 
         fill = el.get("fill")
+        stroke = el.get("stroke")
         # default black stroke for lines
         if tag == "line":
             x1 = mapx(_num(el.get("x1"), vw))
             y1 = mapy(_num(el.get("y1"), vh))
             x2 = mapx(_num(el.get("x2"), vw))
             y2 = mapy(_num(el.get("y2"), vh))
-            ops.append("0 0 0 RG")
+            ops.append("q")
+            ops.extend(_stroke_style_ops(el, sx))
+            ops.extend(_pdf_color_ops(stroke or "#000", stroke=True))
             ops.append(f"{x1:.2f} {y1:.2f} m {x2:.2f} {y2:.2f} l S")
+            ops.append("Q")
         elif tag == "rect":
             x = mapx(_num(el.get("x"), vw))
             y = mapy(_num(el.get("y"), vh))
             w = _num(el.get("width"), vw) * sx
             h = _num(el.get("height"), vh) * sy
-            if fill and fill not in ("none",):
-                ops.append("0.9 0.9 0.95 rg")
+            has_fill = bool(fill and fill not in ("none",))
+            has_stroke = stroke is None or stroke not in ("none",)
+            ops.append("q")
+            ops.extend(_stroke_style_ops(el, sx))
+            if has_fill:
+                ops.extend(_pdf_color_ops(fill, stroke=False))
                 ops.append(f"{x:.2f} {y:.2f} {w:.2f} {h:.2f} re f")
-            ops.append("0 0 0 RG")
-            ops.append(f"{x:.2f} {y:.2f} {w:.2f} {h:.2f} re S")
+            if has_stroke:
+                ops.extend(_pdf_color_ops(stroke or "#000", stroke=True))
+                ops.append(f"{x:.2f} {y:.2f} {w:.2f} {h:.2f} re S")
+            ops.append("Q")
         elif tag == "polygon":
             pts = el.get("points", "").strip()
             pairs = []
@@ -249,48 +384,59 @@ def _parse_svg_drawing(svg_path: Path) -> tuple[float, float, list[str]]:
                     except ValueError:
                         pass
             if len(pairs) >= 4:
-                ops.append("0.8 0.8 0.85 rg")
-                ops.append("0 0 0 RG")
+                has_fill = bool(fill and fill not in ("none",))
+                has_stroke = stroke is None or stroke not in ("none",)
+                ops.append("q")
+                ops.extend(_stroke_style_ops(el, sx))
+                if has_fill:
+                    ops.extend(_pdf_color_ops(fill, stroke=False))
+                else:
+                    ops.append("1 1 1 rg")
+                ops.extend(_pdf_color_ops(stroke or "#000", stroke=True))
                 ops.append(f"{mapx(pairs[0]):.2f} {mapy(pairs[1]):.2f} m")
                 for i in range(2, len(pairs), 2):
                     ops.append(f"{mapx(pairs[i]):.2f} {mapy(pairs[i+1]):.2f} l")
-                ops.append("h B")
+                paint = "h B" if has_fill else "h S"
+                ops.append(paint)
+                ops.append("Q")
         elif tag == "circle":
+            import math as _math
+
             cx = mapx(_num(el.get("cx"), vw))
             cy = mapy(_num(el.get("cy"), vh))
             r = _num(el.get("r"), vw) * sx
-            # approximate circle with a 16-gon
-            ops.append("0 0 0 RG")
+            has_fill = bool(fill and fill not in ("none",))
+            ops.append("q")
+            ops.extend(_stroke_style_ops(el, sx))
+            if has_fill:
+                ops.extend(_pdf_color_ops(fill, stroke=False))
+            ops.extend(_pdf_color_ops(stroke or "#000", stroke=True))
             n = 16
             for i in range(n):
-                a0 = 2 * 3.14159265 * i / n
-                a1 = 2 * 3.14159265 * (i + 1) / n
-                x0 = cx + r * __import__("math").cos(a0)
-                y0 = cy + r * __import__("math").sin(a0)
-                x1 = cx + r * __import__("math").cos(a1)
-                y1 = cy + r * __import__("math").sin(a1)
+                a0 = 2 * _math.pi * i / n
+                a1 = 2 * _math.pi * (i + 1) / n
+                x0 = cx + r * _math.cos(a0)
+                y0 = cy + r * _math.sin(a0)
+                x1 = cx + r * _math.cos(a1)
+                y1 = cy + r * _math.sin(a1)
                 if i == 0:
                     ops.append(f"{x0:.2f} {y0:.2f} m")
                 ops.append(f"{x1:.2f} {y1:.2f} l")
-            ops.append("h S")
+            ops.append("h B" if has_fill else "h S")
+            ops.append("Q")
         elif tag == "path":
             pops = _path_construct(el.get("d") or "", mapx, mapy)
             if pops:
-                stroke = el.get("stroke")
                 has_fill = bool(fill and fill not in ("none",))
                 has_stroke = bool(stroke and stroke not in ("none",))
                 if not has_fill and not has_stroke:
                     has_stroke = True   # default: outline
-                dash = el.get("stroke-dasharray")
                 ops.append("q")
-                if dash and dash not in ("none",):
-                    dl = [f"{_num(t) * sx:.2f}" for t in re.split(r"[\s,]+", dash) if t]
-                    if dl:
-                        ops.append(f"[{' '.join(dl)}] 0 d")
+                ops.extend(_stroke_style_ops(el, sx))
                 if has_fill:
-                    ops.append("0.85 0.85 0.9 rg")
+                    ops.extend(_pdf_color_ops(fill, stroke=False))
                 if has_stroke:
-                    ops.append("0 0 0 RG")
+                    ops.extend(_pdf_color_ops(stroke or "#000", stroke=True))
                 ops.extend(pops)
                 paint = "B" if (has_fill and has_stroke) else ("f" if has_fill else "S")
                 ops.append(paint)
@@ -317,7 +463,7 @@ def _parse_svg_drawing(svg_path: Path) -> tuple[float, float, list[str]]:
                 ops.append("q")
                 ops.append(f"1 0 0 -1 0 {2*y:.2f} cm")  # local flip for text
                 ops.append(f"BT /F1 {fs:.1f} Tf")
-                ops.append("0 0 0 rg")
+                ops.extend(_pdf_color_ops(fill or stroke or "#000", stroke=False))
                 ops.append(f"1 0 0 1 {x:.2f} {y:.2f} Tm")
                 ops.append(f"({_pdf_escape(content)}) Tj")
                 ops.append("ET")
@@ -388,14 +534,109 @@ def _build_pdf(pages: list[tuple[float, float, list[str]]]) -> bytes:
     return bytes(out)
 
 
+def _order_sheets_from_index(
+    d: Path, sheets: list[Path]
+) -> tuple[list[Path], list[tuple[str, str]]]:
+    """Order SVG files by SHEET_INDEX.json; return (paths, cover labels).
+
+    Cover labels are ``(sheet_no, title)`` for human-readable rows
+    (residual #10). Falls back to filename-only labels when index missing.
+    """
+    import json
+
+    by_name = {s.name: s for s in sheets}
+    idx_path = d / "SHEET_INDEX.json"
+    if not idx_path.is_file() and d.name != "construction":
+        # pack root → construction/SHEET_INDEX.json
+        alt = d / "construction" / "SHEET_INDEX.json"
+        if alt.is_file():
+            idx_path = alt
+            d = alt.parent
+            by_name = {s.name: s for s in d.glob("*.svg")}
+    ordered: list[Path] = []
+    labels: list[tuple[str, str]] = []
+    if idx_path.is_file():
+        try:
+            data = json.loads(idx_path.read_text(encoding="utf-8"))
+            for row in data.get("sheets") or []:
+                fname = str(row.get("file") or "")
+                no = str(row.get("no") or "")
+                title = str(row.get("title") or fname)
+                path = by_name.get(fname) or (d / fname if fname else None)
+                if path and Path(path).is_file():
+                    ordered.append(Path(path))
+                    labels.append((no or Path(path).stem, title))
+        except Exception:  # noqa: BLE001
+            ordered = []
+            labels = []
+    if not ordered:
+        ordered = sorted(sheets)
+        labels = [(s.stem, s.name) for s in ordered]
+    else:
+        # append any SVGs not listed in the index (extras) after the register
+        seen = {p.resolve() for p in ordered}
+        for s in sorted(sheets):
+            if s.resolve() not in seen:
+                ordered.append(s)
+                labels.append((s.stem, s.name))
+    return ordered, labels
+
+
+def _detect_page_size(
+    sheet_dir: Path,
+    *,
+    page_size: str | None,
+    units: str | None,
+) -> tuple[float, float, str]:
+    """Pick MediaBox. Imperial construction packs → ANSI B landscape (residual #5)."""
+    if page_size:
+        key = page_size.strip().lower().replace(" ", "_")
+        mapping = {
+            "a4": _PAGE_A4_LAND,
+            "a4_landscape": _PAGE_A4_LAND,
+            "ansi_b": _PAGE_ANSI_B_LAND,
+            "ansi-b": _PAGE_ANSI_B_LAND,
+            "b": _PAGE_ANSI_B_LAND,
+            "arch_d": _PAGE_ARCH_D_LAND,
+            "arch-d": _PAGE_ARCH_D_LAND,
+            "d": _PAGE_ARCH_D_LAND,
+        }
+        if key in mapping:
+            w, h = mapping[key]
+            return w, h, key
+    u = (units or "").lower()
+    if u in {"imperial", "us", "ft"}:
+        return (*_PAGE_ANSI_B_LAND, "ansi_b")
+    # sniff SHEET_INDEX / a sample sheet for imperial scale notes
+    idx = sheet_dir / "SHEET_INDEX.json"
+    sample = ""
+    if idx.is_file():
+        sample = idx.read_text(encoding="utf-8", errors="replace")[:4000]
+    if not sample:
+        for svg in list(sheet_dir.glob("*.svg"))[:3]:
+            sample += svg.read_text(encoding="utf-8", errors="replace")[:1500]
+    if "1/4" in sample or "1'-0" in sample or "imperial" in sample.lower() or "ft" in sample:
+        return (*_PAGE_ANSI_B_LAND, "ansi_b")
+    return (*_PAGE_A4_LAND, "a4")
+
+
 def export_pdf_binder(
     sheet_dir: str | Path,
     path: str | Path,
     *,
     pattern: str = "*.svg",
     title: str = "LLM-BIM Plot Set",
+    page_size: str | None = None,
+    units: str | None = None,
 ) -> Path:
-    """Build multi-page PDF from SVG sheets in a directory (sorted)."""
+    """Build multi-page PDF from SVG sheets in a directory.
+
+    Order: ``SHEET_INDEX.json`` when present (residual #10), else sorted glob.
+    Cover rows use ``NO — TITLE`` not raw filenames.
+    Page size: A4 landscape (metric) or ANSI B landscape (imperial) (residual #5).
+    Stroke widths, dashes on ``<line>``, per-element fills, and path arcs are
+    honored (residual #3).
+    """
     d = Path(sheet_dir)
     sheets = sorted(d.glob(pattern))
     if not sheets:
@@ -405,30 +646,46 @@ def export_pdf_binder(
         pref = [s for s in sheets if "construction" in str(s) or "drawings" in str(s)]
         sheets = pref or sheets
 
+    sheets, labels = _order_sheets_from_index(d, sheets)
+    page_w, page_h, size_name = _detect_page_size(d, page_size=page_size, units=units)
+
     pages: list[tuple[float, float, list[str]]] = []
-    # cover
+    # cover — title y scaled to page height
+    title_y = page_h - 80
     cover_ops = [
-        "BT /F1 24 Tf 50 500 Td (LLM-BIM Plot Binder) Tj ET",
-        f"BT /F1 14 Tf 50 460 Td ({_pdf_escape(title)[:60]}) Tj ET",
-        "BT /F1 10 Tf 50 430 Td (ENGINEERING ESTIMATE - agent-derived plot set) Tj ET",
+        f"BT /F1 24 Tf 50 {title_y:.0f} Td (LLM-BIM Plot Binder) Tj ET",
+        f"BT /F1 14 Tf 50 {title_y - 40:.0f} Td ({_pdf_escape(title)[:60]}) Tj ET",
+        f"BT /F1 10 Tf 50 {title_y - 70:.0f} Td "
+        f"(ENGINEERING ESTIMATE - agent-derived plot set | page {size_name}) Tj ET",
     ]
-    y = 400
-    for i, s in enumerate(sheets[:40], start=1):
+    y = title_y - 100
+    for i, (s, (no, sheet_title)) in enumerate(
+        zip(sheets[:40], labels[:40], strict=False), start=1
+    ):
+        row = f"{i:02d}  {no} - {sheet_title}"
+        # drop if label was already the filename
+        if no == s.stem and sheet_title == s.name:
+            row = f"{i:02d}  {s.name}"
         cover_ops.append(
-            f"BT /F1 10 Tf 50 {y} Td ({i:02d}  {_pdf_escape(s.name)[:50]}) Tj ET"
+            f"BT /F1 10 Tf 50 {y:.0f} Td ({_pdf_escape(row)[:70]}) Tj ET"
         )
         y -= 14
-    pages.append((842.0, 595.0, cover_ops))
+        if y < 40:
+            break
+    pages.append((page_w, page_h, cover_ops))
 
     for s in sheets[:40]:
         try:
-            pages.append(_parse_svg_drawing(s))
+            pages.append(_parse_svg_drawing(s, page_w=page_w, page_h=page_h))
         except Exception:
             pages.append(
                 (
-                    842.0,
-                    595.0,
-                    [f"BT /F1 12 Tf 50 400 Td (Failed to render { _pdf_escape(s.name) }) Tj ET"],
+                    page_w,
+                    page_h,
+                    [
+                        f"BT /F1 12 Tf 50 400 Td "
+                        f"(Failed to render {_pdf_escape(s.name)}) Tj ET"
+                    ],
                 )
             )
 

@@ -166,9 +166,21 @@ def compose_sheet(
         )
         parts.append("  </g>")
         if px_per_mm:
+            # Infer imperial from scale note (e.g. 1/4" = 1'-0") so multi-view
+            # elev/section cells get ft bars without a units plumb-through.
+            sn_l = scale_note.lower()
+            cell_units = (
+                "imperial"
+                if ("'" in scale_note or "ft" in sn_l or '="' in sn_l or "in" in sn_l)
+                else "metric"
+            )
             parts.append(
                 graphic_scale_bar(
-                    px_per_mm * s, x=cw - 160, y=by - 2, max_px=140.0
+                    px_per_mm * s,
+                    x=cw - 160,
+                    y=by - 2,
+                    max_px=140.0,
+                    units=cell_units,
                 )
             )
         parts.append("</g>")

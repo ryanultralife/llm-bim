@@ -39,32 +39,56 @@ def graphic_scale_bar(
     y: float = 0.0,
     max_px: float = 140.0,
     segments: int = 4,
+    units: str = "metric",
 ) -> str:
     """Alternating black/white graphic scale bar sized from real view scale.
 
     ``px_per_mm``: on-sheet SVG units per model millimetre. Picks a round
     real-world segment length so the whole bar fits inside ``max_px``.
+
+    ``units``: ``"metric"`` → m/mm labels; ``"imperial"`` → feet (0 / 4' / 8' / 16').
     """
     if px_per_mm <= 0:
         return ""
-    candidates = [
-        50.0, 100.0, 200.0, 250.0, 500.0, 1000.0, 2000.0,
-        2500.0, 5000.0, 10000.0, 20000.0, 25000.0, 50000.0,
-    ]
-    seg_mm = candidates[0]
-    for c in candidates:
-        if c * segments * px_per_mm <= max_px:
-            seg_mm = c
-    seg_px = seg_mm * px_per_mm
-    bar_h = 6.0
-    total_mm = seg_mm * segments
-    use_m = total_mm >= 1000.0
+    imperial = str(units).lower() in {"imperial", "us", "ft", "inch", "in"}
+    if imperial:
+        # segment lengths in feet; 1 ft = 304.8 mm
+        ft_cands = [1.0, 2.0, 4.0, 5.0, 8.0, 10.0, 16.0, 20.0, 40.0, 50.0, 100.0]
+        seg_ft = ft_cands[0]
+        for c in ft_cands:
+            if c * segments * 304.8 * px_per_mm <= max_px:
+                seg_ft = c
+        seg_mm = seg_ft * 304.8
+        seg_px = seg_mm * px_per_mm
+        bar_h = 6.0
 
-    def _lab(mm: float) -> str:
-        if use_m:
-            v = mm / 1000.0
-            return f"{v:g}"
-        return f"{mm:g}"
+        def _lab(mm: float) -> str:
+            ft = mm / 304.8
+            if abs(ft - round(ft)) < 1e-6:
+                return f"{int(round(ft))}'"
+            return f"{ft:g}'"
+
+        unit = "ft"
+    else:
+        candidates = [
+            50.0, 100.0, 200.0, 250.0, 500.0, 1000.0, 2000.0,
+            2500.0, 5000.0, 10000.0, 20000.0, 25000.0, 50000.0,
+        ]
+        seg_mm = candidates[0]
+        for c in candidates:
+            if c * segments * px_per_mm <= max_px:
+                seg_mm = c
+        seg_px = seg_mm * px_per_mm
+        bar_h = 6.0
+        total_mm = seg_mm * segments
+        use_m = total_mm >= 1000.0
+
+        def _lab(mm: float) -> str:
+            if use_m:
+                return f"{mm / 1000.0:g}"
+            return f"{mm:g}"
+
+        unit = "m" if use_m else "mm"
 
     parts = ['<g class="scale-bar" font-family="sans-serif" font-size="7" fill="#111">']
     for i in range(segments):
@@ -79,7 +103,6 @@ def graphic_scale_bar(
             f'  <text x="{fmt(x + i * seg_px)}" y="{fmt(y - 2.5)}" '
             f'text-anchor="middle">{_lab(i * seg_mm)}</text>'
         )
-    unit = "m" if use_m else "mm"
     parts.append(
         f'  <text x="{fmt(x + segments * seg_px + 4)}" y="{fmt(y + bar_h)}" '
         f'text-anchor="start">{unit}</text>'
@@ -229,12 +252,14 @@ def title_block_svg(
     px_per_mm: float | None = None,
     north_arrow: bool = False,
     stamp_block: bool = False,
+    units: str = "metric",
 ) -> str:
     """Wrap drawing body in a CD-style frame with right-side title column.
 
     Backward compatible with the legacy bottom-strip signature; the new
     keyword-only params are all optional. ``px_per_mm`` (on-sheet units per
     model mm, i.e. view scale × fit factor) enables the graphic scale bar.
+    ``units``: ``metric``|``imperial`` — drives the scale bar labels (m/mm vs ft).
     ``stamp_block=True`` reserves an empty bordered PE/SE stamp square in the
     title column (S-discipline sheets, per the CD completeness standard).
     """
@@ -419,6 +444,7 @@ def title_block_svg(
                     x=pad_x,
                     y=gy,
                     max_px=(tb_w - 60 if north_arrow else tb_w - 34),
+                    units=units,
                 )
             )
         if north_arrow:

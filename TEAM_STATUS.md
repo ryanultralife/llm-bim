@@ -1,6 +1,6 @@
 # TEAM STATUS — live coordination board
 
-**Last updated:** 2026-07-28 by **Grok** (residual #1 MEP sheets draw routed geometry)  
+**Last updated:** 2026-07-28 by **Grok** (drawings residuals #3–5, #9–10 closed)  
 **Canonical “who does what right now”:** [`notes/handoffs/NOW.md`](notes/handoffs/NOW.md) ← **read first**  
 **Schad transition review (OPEN pending human sign-off vs `docs/CD_COMPLETENESS_STANDARD.md`):** [`docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md`](docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md)  
 **Excellence residuals:** [`docs/EXCELLENCE_AUDIT_2026-07-21.md`](docs/EXCELLENCE_AUDIT_2026-07-21.md) §Re-grade residuals
@@ -13,8 +13,8 @@ Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
 
 | Agent | Owns now | Next | Stay out of |
 |-------|----------|------|-------------|
-| **Claude** | Kernel residuals (#6–8, #11–12, #15) as claimed | Ports/A*/textures | Grok PDF/sheet drawings unless coordinating |
-| **Grok** | Drawings residuals — **#1 done**; next #3–5, #9–10, #13 | PDF binder fidelity + imperial scale | Claude kernel freeze paths |
+| **Claude** | Kernel wave 2 closed (#6–8, #11–12, #15) | Optional #14 / INTEC assist | — |
+| **Grok** | Drawings #1 + #3–5 + #9–10 **done** | Optional #13 collision; land INTEC | — |
 
 **Rule:** One agent per freeze zone. Claim in this file before coding. Announce next step in `notes/handoffs/NOW.md` when you change direction.
 
@@ -38,6 +38,7 @@ Also: `docs/AGENT_SPEED.md` · `docs/WORK_PACKAGES.md` · `docs/LAUNCH.md`
 | **WP-INTEC** | *WIP untracked* | — | **open** | `projects/intec/` 128-sheet port (Eigen SSOT frozen JSON); land + gates |
 | **RESIDUAL-#1 MEP sheets** | **Grok** | `main` | **done** | plan-kind MEP-101/201/301 + routed geometry test |
 | **RESIDUAL-#2 hero.svg** | Claude | `main` (PR #33) | **done** | deliverables bake hero + index |
+| **RESIDUAL-#3–5,9–10 PDF/scale** | **Grok** | `main` | **done** | pdf_binder fidelity, imperial scale bar, legend gutter, SHEET_INDEX |
 | GROK-SSOT-P0/P1/P2 | Claude | `main` (PR #7) | **done** | strict glTF VERIFY + llmbim view, place_tube/place_wire_path/material map/nps, DevicePack + fixture + recipe, viewer presets/auto-rotate/embed-auto |
 | LAUNCH / LAUNCH-POLISH | Grok | `main` | **done** | server/cli/mcp/docker |
 | WP-IFC / WP-DRAWINGS-V2 / AUDIT-2026-07 | Claude | `main` (PR #1) | **done** | see git history |

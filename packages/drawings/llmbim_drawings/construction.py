@@ -94,6 +94,7 @@ def _sheet_from_view(
     date: str | None = None,
     stamp_block: bool = False,
     revisions_rows: list[tuple[str, str, str]] | None = None,
+    units: str = "metric",
 ) -> str:
     _ax, _ay, aw, ah = drawing_area(sheet_w, sheet_h)
     # true scaled drawing views (px_per_mm known) may upscale to fill the sheet;
@@ -112,6 +113,7 @@ def _sheet_from_view(
         date=date,
         stamp_block=stamp_block,
         revisions=revisions_rows,
+        units=units,
     )
 
 
@@ -764,6 +766,7 @@ def export_construction_set(
             north_arrow=True,
             date=date,
             revisions_rows=rev_rows,
+            units=units,
         )
         fname = f"{sn}_plan.svg"
         (out / fname).write_text(plan_sheet, encoding="utf-8")
@@ -1782,6 +1785,7 @@ def _export_custom_register(
                 px_per_mm=sc, north_arrow=True, date=date,
                 stamp_block=_spec_stamp(spec),
                 revisions_rows=rev_rows,
+                units=sheet_units,
             )
             _emit(spec, svg)
 

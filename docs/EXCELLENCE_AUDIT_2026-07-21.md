@@ -126,10 +126,10 @@ basis, threaded to fire_takeoff note — not invented, PR #36) · #11+#12 (trade
 tracked code (68 auto-fixables only in Grok's untracked INTEC WIP) · `llmbim case schad`
 verify_ok, 236 elements, MEP sheets drawing routed systems, hero baked, ports in IFC.
 
-**Still open:** #3, #4, #5, #9, #10, #13 (all grok-drawings — claimed by Grok in NOW.md) ·
-#14 (low/L, either: HDR IBL, true AO via three-bundle upgrade, hi-res textures, raster hero).
-Reference-project adoption ideas (docs/REFERENCE_TEXT_TO_CAD.md): inspect/measure CLI,
-review-packet policy, progressive skill refs, repair playbook, CI benchmarks — unscheduled.
+**Still open:** #13 (low, A1-1 annotation collision) · #14 (low/L photoreal ceiling).
+**Closed this session (Grok 2026-07-28):** #3 PDF stroke-width/dashes/fills/arcs ·
+#4 imperial graphic scale bar · #5 ANSI B MediaBox for imperial · #9 LINE LEGEND
+bottom gutter · #10 SHEET_INDEX order + human cover rows. Tests: `test_pdf_residuals.py`.
 
 ## Re-grade residuals (2026-07-22, ranked — the authoritative "what's left")
 
@@ -137,14 +137,14 @@ review-packet policy, progressive skill refs, repair playbook, CI benchmarks —
 |---|------|-----|--------|------|
 | 1 | **MEP-101/201/301 draw the routed model geometry** (switch register from `svg_plans.mep_plan_svg` note-overlays to plan-kind with MEP include-set; symbols, size/slope tags, home runs, legend) | blocker | L | grok-drawings | ✅ done — plan-kind include sets + ghost walls; `test_mep_sheets_draw_routed_geometry` |
 | 2 | **Wire `render_hero_svg` into `export_deliverables` + index.html** (exists, tested, zero callers — deliverables.py:429) | high | S | either |
-| 3 | PDF binder: stroke-width `w` ops, dashes on `<line>` (not just `<path>`), per-element fills, arc segments (door swings) | high | M | grok-drawings |
-| 4 | Imperial graphic scale bar (`sheets.py:82` still `m/mm`-only) | high | S | grok-drawings |
-| 5 | PDF MediaBox ANSI B/ARCH D for imperial + written scale note derived from actual fit | high | M | grok-drawings |
+| 3 | PDF binder: stroke-width `w` ops, dashes on `<line>` (not just `<path>`), per-element fills, arc segments (door swings) | high | M | grok-drawings | ✅ done |
+| 4 | Imperial graphic scale bar (`sheets.py:82` still `m/mm`-only) | high | S | grok-drawings | ✅ done — `units="imperial"` → ft labels |
+| 5 | PDF MediaBox ANSI B/ARCH D for imperial + written scale note derived from actual fit | high | M | grok-drawings | ✅ done — ANSI B landscape + size sniff |
 | 6 | System connectivity: `IfcDistributionPort`/`IfcRelConnectsPorts`/`IfcFlowTerminal`; route via `mep_autoroute` A* (0 callers in projects/); kill diagonal runs | high | L | claude-kernel |
 | 7 | `size_route` accept `kind='conduit'` (mep_sizing.py:733) + calc strings from computed sizes — **calc says 3/4" DCW but routed takeoff is NPS 1** (schad_mep.py:108) | medium | S | claude-kernel |
 | 8 | Fire protection: route sprinklers OR record basis exemption; annotate empty takeoffs "n/a per basis" vs "not modeled" | medium | M | claude-kernel |
-| 9 | LINE LEGEND still occludes elevations/sections (A2-1/A2-2/A3-1 — same gutter fix as A1-1 keynotes) | medium | S | grok-drawings |
-| 10 | PDF pagination from SHEET_INDEX.json; cover rows "C1.1 — SITE PLAN" not "13 MEP-101_custom.svg" | medium | S | grok-drawings |
+| 9 | LINE LEGEND still occludes elevations/sections (A2-1/A2-2/A3-1 — same gutter fix as A1-1 keynotes) | medium | S | grok-drawings | ✅ done — bottom gutter |
+| 10 | PDF pagination from SHEET_INDEX.json; cover rows "C1.1 — SITE PLAN" not "13 MEP-101_custom.svg" | medium | S | grok-drawings | ✅ done |
 | 11 | Emissive luminaires + KHR_lights_punctual (bloom has nothing to bloom) | medium | M | either |
 | 12 | Texture the MEP/equipment materials (9/16 mats still flat: pipes/duct/conduit/equipment) | medium | M | claude-kernel |
 | 13 | A1-1 annotation collision pass (type diamonds vs column labels/tag bubbles) | low | M | grok-drawings |
