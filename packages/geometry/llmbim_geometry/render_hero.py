@@ -1,9 +1,8 @@
 """Baked, deterministic shaded axonometric hero render of a model, as an SVG.
 
-The deliverable pack has no baked hero image, so any presentation still has to
-be screenshotted from the WebGL viewer. This module renders one directly: a
-shaded axonometric of the whole building, emitted as a self-contained SVG using
-only the standard library.
+``export_deliverables`` writes ``hero.svg`` into every pack and ``index.html``
+embeds it (PR #33). This module is the renderer: a shaded axonometric of the
+whole building as a self-contained SVG (stdlib only — no WebGL snapshot).
 
 It reuses the exact tessellation the viewer shows by running
 :func:`llmbim_geometry.mesh.export_gltf_walls` and reading the triangles back
@@ -11,8 +10,6 @@ out of the glTF (positions in metres, glTF Y-up), and it shades each triangle
 from the same material palette (:data:`llmbim_geometry.mesh._MATERIAL_RGBA`), so
 the still matches the 3D model. The render is deterministic: no RNG and no
 wall-clock, so the same model always produces a byte-identical SVG.
-
-Wired into ``export_deliverables`` (PR #33): every pack bakes ``hero.svg``.
 """
 
 from __future__ import annotations
