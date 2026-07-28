@@ -38,8 +38,11 @@ _FALLBACK_RGBA: tuple[float, float, float, float] = (0.62, 0.62, 0.65, 1.0)
 # shoulder and slightly above, so roofs read bright and near walls read mid.
 _LIGHT: _Vec3 = (-0.38, 0.72, 0.58)
 
-_AMBIENT = 0.36
-_DIFFUSE = 0.64
+_AMBIENT = 0.32
+_DIFFUSE = 0.68
+# Second fill light (opposite shoulder) — residual #14 soft lighting lift
+_FILL: _Vec3 = (0.42, 0.25, 0.35)
+_FILL_W = 0.22
 
 
 def render_hero_svg(
@@ -191,10 +194,13 @@ def _project_and_shade(
         ndl = nx * _LIGHT[0] + ny * _LIGHT[1] + nz * _LIGHT[2]
         if ndl < 0.0:
             ndl = 0.0
-        lambert = _AMBIENT + _DIFFUSE * ndl
+        fill = nx * _FILL[0] + ny * _FILL[1] + nz * _FILL[2]
+        if fill < 0.0:
+            fill = 0.0
+        lambert = _AMBIENT + _DIFFUSE * ndl + _FILL_W * fill
         # Silhouette darkening: faces grazing the camera (small nz) go darker.
         facing = 0.55 + 0.45 * nz
-        shade = lambert * facing
+        shade = min(1.15, lambert * facing)
         base = _MATERIAL_RGBA.get(key) or _FALLBACK_RGBA
         color = _hex(base[0] * shade, base[1] * shade, base[2] * shade)
         depth = (c0[2] + c1[2] + c2[2]) / 3.0
@@ -263,9 +269,25 @@ def _emit_svg(faces: list[_Face], name: str, width: int, height: int) -> str:
         '<stop offset="0" stop-color="#eaf2fb"/>'
         '<stop offset="0.55" stop-color="#c7d3e0"/>'
         '<stop offset="1" stop-color="#9aa7b4"/>'
-        "</linearGradient></defs>"
+        "</linearGradient>"
+        # Residual #14 — soft contact shadow under the building mass
+        '<radialGradient id="groundShadow" cx="50%" cy="50%" r="50%">'
+        '<stop offset="0%" stop-color="#000" stop-opacity="0.38"/>'
+        '<stop offset="55%" stop-color="#000" stop-opacity="0.14"/>'
+        '<stop offset="100%" stop-color="#000" stop-opacity="0"/>'
+        "</radialGradient></defs>"
     )
     parts.append(f'<rect x="0" y="0" width="{width}" height="{height}" fill="url(#sky)"/>')
+
+    # Soft elliptical shadow on the ground plane of the massing (painter under faces)
+    cx = off_x + draw_w / 2.0
+    cy = off_y + draw_h * 0.92
+    rx = draw_w * 0.48
+    ry = max(12.0, draw_h * 0.08)
+    parts.append(
+        f'<ellipse cx="{cx:.1f}" cy="{cy:.1f}" rx="{rx:.1f}" ry="{ry:.1f}" '
+        f'fill="url(#groundShadow)"/>'
+    )
 
     parts.append('<g shape-rendering="geometricPrecision">')
     for _d, pts, color in faces:

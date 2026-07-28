@@ -148,3 +148,34 @@ assemblies, and robots; we do buildings, sheets, and takeoffs. Zero collision.
 **Calibration:** suggestions 1-4 are grounded in specific files read; #5 is the
 most speculative (soften with "if it doesn't already" when posting). Nothing was
 posted anywhere; no files in their repo were touched.
+
+---
+
+## Grok adoption status (2026-07-28)
+
+Repo visible: **https://github.com/earthtojake/text-to-cad** (CAD Skills, MIT).
+Not cloned locally; analysis from live GitHub + this report (Claude research).
+
+| Adoption idea | Status in llm-bim |
+|---------------|-------------------|
+| 1. `llmbim inspect measure\|align\|diff` | **Queued** — highest remaining gap; not shipped this session (kernel CLI) |
+| 2. Mandatory review-packet policy | **Done** — `skills/llm-bim/references/review_packet.md` + SKILL autonomy #7 |
+| 3. Progressive skill references | **Done** — `references/{review_packet,repair_loop}.md` + SKILL table |
+| 4. Failure-taxonomy repair playbook | **Done** — `references/repair_loop.md` |
+| 5. Public CI benchmarks + GIFs | **Queued** — Schad/INTEC cases already CI-pin; GIF demos still optional |
+| 6. Checksummed part sourcing | **Partial** — STEP import + VERIFY; full catalog sha search still open |
+
+### Complementary product note
+
+CAD Skills = **mechanical / robot / fab** agent skills (build123d → STEP).  
+llm-bim = **building / site / CD set** agent kernel (typed ops → IFC/sheets/PDF).
+
+Their SKILL forbids architectural BIM; our recipes forbid freehand STEP/SVG.
+Agents can install **both** skills on one machine without domain collision.
+
+### Live links
+
+- Source: https://github.com/earthtojake/text-to-cad  
+- Docs: https://www.cadskills.xyz  
+- Demo: https://demo.cadskills.xyz  
+

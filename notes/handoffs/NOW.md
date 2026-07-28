@@ -1,37 +1,30 @@
 # NOW — current state and active work
 
-**Updated:** 2026-07-28 by Grok
+**Updated:** 2026-07-28 by Grok (Claude offline — Grok closing remaining board)
 
-## Active — excellence residuals (Grok drawings lane) CLOSED this session
+## Excellence residuals — CLOSED (high/med/low drawings)
 
-| # | Item | Status |
-|---|------|--------|
-| 1 | MEP sheets draw routed geometry | ✅ Grok `fbf7d29` |
-| 2 | hero.svg in pack | ✅ Claude PR #33 |
-| 3 | PDF stroke-width / dashes / fills / arcs | ✅ this session |
-| 4 | Imperial graphic scale bar (ft) | ✅ this session |
-| 5 | PDF MediaBox ANSI B for imperial | ✅ this session |
-| 6–8, 11–12, 15 | Kernel / connectivity / textures | ✅ Claude wave 2 |
-| 9 | LINE LEGEND bottom gutter | ✅ this session |
-| 10 | SHEET_INDEX order + human cover rows | ✅ this session |
-| 13 | A1-1 annotation collision | open (low) |
-| 14 | Photoreal ceiling | open (low / either) |
+| # | Item | Commit / notes |
+|---|------|----------------|
+| 1–12, 15 | Prior wave | Claude + Grok |
+| 3–5, 9–10 | PDF / imperial scale / legend | `f44eee4` |
+| **13** | Plan label collision nudge | this session — `_LabelNudge` |
+| **14** | Photoreal polish | textures 128px · hero soft shadow + fill light · contact AO already in viewer (true SSAO deferred) |
 
-Tests: `tests/unit/test_pdf_residuals.py` · prior `test_mep_sheets_draw_routed_geometry`
+## text-to-cad
 
-## Also landed this session
+- **Yes, visible:** https://github.com/earthtojake/text-to-cad (CAD Skills)
+- Report + adoption status: `docs/REFERENCE_TEXT_TO_CAD.md`
+- Adopted this session: progressive refs + review packet + repair loop
+  (`skills/llm-bim/references/{review_packet,repair_loop}.md`)
+- Still queued from their strengths: `llmbim inspect measure|align|diff` (M)
 
-- **WP-INTEC** — `projects/intec/` + 13 Gate C tests + `llmbim case intec` → full 128-sheet pack
-  (`7a14389`). OPEN: `output/intec_construction/index.html` after rebuild.
+## INTEC
 
-## Remaining (low priority)
+- Landed: `projects/intec/` + `llmbim case intec` → 128-sheet pack (`7a14389`)
 
-- **#13** annotation collision nudge on A1-1
-- **#14** HDR IBL / true AO / raster hero
-- **text-to-cad** reference writeup (Claude pointer)
+## Open (optional next)
 
-## Standing contracts
-
-- Entry: `skills/llm-bim/SKILL.md` (+ `CLAUDE.md` / `AGENTS.md`)
-- Excellence queue: `docs/EXCELLENCE_AUDIT_2026-07-21.md`
-- Acceptance: `docs/CD_COMPLETENESS_STANDARD.md`
+- `llmbim inspect` geometry assertions (text-to-cad adoption #1)
+- True SSAO requires three.js bundle upgrade
+- Author reply to CAD Skills author (draft in REFERENCE doc — human sends)

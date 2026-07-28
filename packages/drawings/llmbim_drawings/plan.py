@@ -32,6 +32,50 @@ _MATCH_LINE_EDGES = ("N", "S", "E", "W")
 KEYNOTE_WRAP_CHARS = 30  # legend text wrap width (characters)
 
 
+class _LabelNudge:
+    """Axis-aligned label boxes + greedy offset (residual #13 collision pass).
+
+    Collects wall-type diamonds, door/window tags, and column marks so later
+    labels nudge off earlier ones instead of overprinting.
+    """
+
+    def __init__(self) -> None:
+        self.boxes: list[tuple[float, float, float, float]] = []
+
+    def _hit(self, x0: float, y0: float, x1: float, y1: float) -> bool:
+        for a, b, c, d in self.boxes:
+            if x0 < c and x1 > a and y0 < d and y1 > b:
+                return True
+        return False
+
+    def place(
+        self, x: float, y: float, hw: float, hh: float
+    ) -> tuple[float, float]:
+        """Return (x, y) that does not overlap prior boxes (or best-effort)."""
+        candidates: list[tuple[float, float]] = [(0.0, 0.0)]
+        for dist in (10.0, 16.0, 22.0, 30.0, 40.0):
+            candidates.extend(
+                [
+                    (0.0, -dist),
+                    (0.0, dist),
+                    (dist, 0.0),
+                    (-dist, 0.0),
+                    (dist * 0.7, -dist * 0.7),
+                    (-dist * 0.7, -dist * 0.7),
+                    (dist * 0.7, dist * 0.7),
+                    (-dist * 0.7, dist * 0.7),
+                ]
+            )
+        for dx, dy in candidates:
+            cx, cy = x + dx, y + dy
+            x0, y0, x1, y1 = cx - hw, cy - hh, cx + hw, cy + hh
+            if not self._hit(x0, y0, x1, y1):
+                self.boxes.append((x0, y0, x1, y1))
+                return cx, cy
+        self.boxes.append((x - hw, y - hh, x + hw, y + hh))
+        return x, y
+
+
 def _chain_segments(
     stations: Sequence[float], tol: float = 1.0
 ) -> list[tuple[float, float, str | None]]:
@@ -599,6 +643,9 @@ def render_plan_view(
                 parts.append(f'    <polygon points="{pts}"/>')
         parts.append("  </g>")
 
+    # Residual #13: shared collision grid for wall-type / opening / column marks
+    label_nudge = _LabelNudge()
+
     if _on("walls") and not ghost_walls:
         parts.append(
             f'  <g class="centerlines" stroke="#8a1a1a" stroke-width="{fmt(max(0.3, 8 * scale))}" '
@@ -638,6 +685,7 @@ def render_plan_view(
                 # wall-type tag anatomy: diamond with the type code (CD standard)
                 hw = max(14.0, len(short) * 3.4 + 8.0)
                 hh = 11.0
+                mx, my = label_nudge.place(mx, my, hw, hh)
                 parts.append(
                     f'    <polygon class="wall-type-tag" points="'
                     f'{fmt(mx)},{fmt(my - hh)} {fmt(mx + hw)},{fmt(my)} '
@@ -649,8 +697,9 @@ def render_plan_view(
                     f'text-anchor="middle" fill="#1a1a1a">{esc(short)}</text>'
                 )
             else:
+                mx, my = label_nudge.place(mx, my - 4, max(12.0, len(short) * 2.5), 6.0)
                 parts.append(
-                    f'    <text class="wall-type" x="{fmt(mx)}" y="{fmt(my - 4)}" '
+                    f'    <text class="wall-type" x="{fmt(mx)}" y="{fmt(my)}" '
                     f'text-anchor="middle" fill="#1a1a1a">{esc(short)}</text>'
                 )
         parts.append("  </g>")
@@ -701,10 +750,11 @@ def render_plan_view(
             # window, text from params ``mark`` (fallback: name, short id).
             mark = _element_mark(opening)
             r = max(7.0, 90 * scale)
+            pm_x, pm_y = label_nudge.place(pm[0], pm[1], r * 1.05, r * 1.05)
             if opening.category == "door":
                 hex_pts = " ".join(
-                    f"{fmt(pm[0] + r * math.cos(math.radians(a)))},"
-                    f"{fmt(pm[1] + r * math.sin(math.radians(a)))}"
+                    f"{fmt(pm_x + r * math.cos(math.radians(a)))},"
+                    f"{fmt(pm_y + r * math.sin(math.radians(a)))}"
                     for a in (0, 60, 120, 180, 240, 300)
                 )
                 parts.append(
@@ -712,21 +762,21 @@ def render_plan_view(
                     f'fill="#e8ffe8" stroke="#228822" stroke-width="1.2"/>'
                 )
                 parts.append(
-                    f'    <text x="{fmt(pm[0])}" y="{fmt(pm[1] + r * 0.3)}" '
+                    f'    <text x="{fmt(pm_x)}" y="{fmt(pm_y + r * 0.3)}" '
                     f'text-anchor="middle" font-size="{fmt(max(7, r * 0.8))}" '
                     f'fill="#145214" font-family="sans-serif">{esc(mark[:6])}</text>'
                 )
             else:
                 dia_pts = (
-                    f"{fmt(pm[0])},{fmt(pm[1] - r)} {fmt(pm[0] + r)},{fmt(pm[1])} "
-                    f"{fmt(pm[0])},{fmt(pm[1] + r)} {fmt(pm[0] - r)},{fmt(pm[1])}"
+                    f"{fmt(pm_x)},{fmt(pm_y - r)} {fmt(pm_x + r)},{fmt(pm_y)} "
+                    f"{fmt(pm_x)},{fmt(pm_y + r)} {fmt(pm_x - r)},{fmt(pm_y)}"
                 )
                 parts.append(
                     f'    <polygon class="window-tag" points="{dia_pts}" '
                     f'fill="#e8f0ff" stroke="#0066aa" stroke-width="1.2"/>'
                 )
                 parts.append(
-                    f'    <text x="{fmt(pm[0])}" y="{fmt(pm[1] + r * 0.3)}" '
+                    f'    <text x="{fmt(pm_x)}" y="{fmt(pm_y + r * 0.3)}" '
                     f'text-anchor="middle" font-size="{fmt(max(7, r * 0.7))}" '
                     f'fill="#003366" font-family="sans-serif">{esc(mark[:6])}</text>'
                 )
@@ -911,10 +961,12 @@ def render_plan_view(
                     f'    <line x1="{fmt(c[0])}" y1="{fmt(c[1])}" x2="{fmt(dpt[0])}" y2="{fmt(dpt[1])}"/>'
                 )
             mx, my = project(ox, oy - half_d - 80)
+            sec_s = str(sec)[:16]
+            mx, my = label_nudge.place(mx, my, max(14.0, len(sec_s) * 2.8), 7.0)
             parts.append(
-                f'    <text x="{fmt(mx)}" y="{fmt(my)}" text-anchor="middle" '
+                f'    <text class="column-label" x="{fmt(mx)}" y="{fmt(my)}" text-anchor="middle" '
                 f'font-size="{fmt(max(6, 9))}" fill="#263238" font-family="sans-serif">'
-                f"{esc(str(sec)[:16])}</text>"
+                f"{esc(sec_s)}</text>"
             )
         except (KeyError, TypeError, ValueError, IndexError):
             continue

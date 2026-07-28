@@ -23,7 +23,7 @@ import zlib
 from collections.abc import Callable
 from typing import Any
 
-_TILE = 64  # texture is _TILE x _TILE, tiled by REPEAT sampler
+_TILE = 128  # residual #14 — hi-res detail tiles (was 64); still pure-stdlib PNG
 
 
 def _hash01(x: int, y: int, seed: int) -> float:

@@ -88,8 +88,22 @@ The repo judges only **outcomes**, and you self-check them before saying done:
 4. Types match occupancy (see Wall types) on anything handed over as a design.
 5. Model VCS commits at meaningful stages — `p.log()` is the history, not chat.
 6. Exactly one path handed over: `output/<slug>/index.html`.
+7. **Review packet** after export — open `hero.svg` + plan; convert visual
+   concerns into checks (`references/review_packet.md`). Do not claim done
+   on an unreviewed pack.
 
 If your output passes these, nobody second-guesses how you got there.
+
+## Progressive references (load when needed)
+
+| Trigger | Read |
+|---------|------|
+| After export / “is it done?” | `references/review_packet.md` |
+| Validation / clash / blank 3D | `references/repair_loop.md` |
+| Full CD / multi-sheet set | `recipes/design_program.md` |
+| Schad residential CD | `recipes/schad_cd.md` |
+| Always produce pack | `recipes/produce_pack.md` |
+| Peer CAD skills analysis | `docs/REFERENCE_TEXT_TO_CAD.md` |
 
 ## Authoring contract (what the LLM must know)
 
@@ -557,9 +571,12 @@ Window: `WIN-CASE-48x48`. Headers: `HDR-1`, `HDR-2` (LVL). Shear panels:
 ## Reference files in repo
 
 - `skills/llm-bim/ops.schema.json` — op catalog (regenerate: `llmbim ops --schema`)  
+- `skills/llm-bim/references/` — progressive load: review_packet, repair_loop  
 - `skills/llm-bim/recipes/` — worked examples; **`design_program.md`** = full
   plan/CD-set workflow, **`schad_cd.md`** = worked residential CD instance  
+- `docs/REFERENCE_TEXT_TO_CAD.md` — CAD Skills (text-to-cad) comparison + adoption  
 - `docs/CAPABILITY.md` · `docs/HONESTY.md` · `docs/LOCAL.md` · `docs/RETIRING_REVIT_SCHAD.md`  
+
 - `docs/DIGITAL_TWIN_TRL.md` — twin fidelity levels (F0–F3), TRL→artifact
   mapping for device development, `trl`/`trl_evidence`/`verification` param
   convention (carried claims with evidence pointers, never certifications)  

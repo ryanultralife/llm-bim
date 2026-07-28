@@ -126,10 +126,10 @@ basis, threaded to fire_takeoff note — not invented, PR #36) · #11+#12 (trade
 tracked code (68 auto-fixables only in Grok's untracked INTEC WIP) · `llmbim case schad`
 verify_ok, 236 elements, MEP sheets drawing routed systems, hero baked, ports in IFC.
 
-**Still open:** #13 (low, A1-1 annotation collision) · #14 (low/L photoreal ceiling).
-**Closed this session (Grok 2026-07-28):** #3 PDF stroke-width/dashes/fills/arcs ·
-#4 imperial graphic scale bar · #5 ANSI B MediaBox for imperial · #9 LINE LEGEND
-bottom gutter · #10 SHEET_INDEX order + human cover rows. Tests: `test_pdf_residuals.py`.
+**Still open:** none at high/med; photoreal “true SSAO” deferred (three-bundle).
+**Closed (Grok 2026-07-28):** #3–5, #9–10 PDF/scale/legend · **#13** plan label
+nudge · **#14** hi-res textures + hero soft shadow/fill light + existing contact AO.
+Tests: `test_pdf_residuals.py`, `test_plan_label_nudge.py`.
 
 ## Re-grade residuals (2026-07-22, ranked — the authoritative "what's left")
 
@@ -147,8 +147,8 @@ bottom gutter · #10 SHEET_INDEX order + human cover rows. Tests: `test_pdf_resi
 | 10 | PDF pagination from SHEET_INDEX.json; cover rows "C1.1 — SITE PLAN" not "13 MEP-101_custom.svg" | medium | S | grok-drawings | ✅ done |
 | 11 | Emissive luminaires + KHR_lights_punctual (bloom has nothing to bloom) | medium | M | either |
 | 12 | Texture the MEP/equipment materials (9/16 mats still flat: pipes/duct/conduit/equipment) | medium | M | claude-kernel |
-| 13 | A1-1 annotation collision pass (type diamonds vs column labels/tag bubbles) | low | M | grok-drawings |
-| 14 | Photoreal ceiling: HDR IBL, true AO (needs three-bundle upgrade), hi-res textures, shadowed raster hero | low | L | either |
+| 13 | A1-1 annotation collision pass (type diamonds vs column labels/tag bubbles) | low | M | grok-drawings | ✅ done — `_LabelNudge` on wall/opening/column marks |
+| 14 | Photoreal ceiling: HDR IBL, true AO (needs three-bundle upgrade), hi-res textures, shadowed raster hero | low | L | either | ✅ partial — textures 128, hero ground shadow + fill light; contact AO already in viewer; true SSAO needs three upgrade |
 | 15 | `fab_brep.py` mypy --strict (4 errors) | low | S | claude-kernel |
 
 ## Remaining (next)
