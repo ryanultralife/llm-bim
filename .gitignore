@@ -17,6 +17,9 @@ build/
 examples/output/
 output/
 data/
+# Keep frozen Eigen → INTEC pack SSOT (CI/agents without Eigen checkout)
+!projects/intec/data/
+!projects/intec/data/**
 *.llmbim.json
 !skills/**/*.json
 

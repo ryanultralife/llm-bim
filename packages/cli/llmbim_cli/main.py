@@ -1049,6 +1049,31 @@ def cmd_case(args: argparse.Namespace) -> int:
             return _serve_pack_dir(out, open_browser=True)
         return 0 if ok else 1
     if args.name == "intec":
+        # Prefer projects/intec Gate C pack (128-sheet MB-INT-CAD-001) when present;
+        # fall back to examples/intec_site for lean smoke.
+        intec_proj = root / "projects" / "intec" / "build_llmbim.py"
+        if intec_proj.is_file():
+            from projects.intec.build_llmbim import build_pack as build_intec_pack
+
+            out = Path(args.out) if args.out else project_output_dir("intec_construction")
+            p, verify = build_intec_pack(out)
+            ok = bool(verify.get("ok"))
+            print(
+                json.dumps(
+                    {
+                        "case": "intec",
+                        "out": str(out.resolve()),
+                        "stats": p.stats(),
+                        "verify_ok": ok,
+                        "open": str(out / "index.html"),
+                        "register": "MB-INT-CAD-001",
+                    },
+                    indent=2,
+                )
+            )
+            if getattr(args, "open_viewer", False):
+                return _serve_pack_dir(out, open_browser=True)
+            return 0 if ok else 1
         from examples.intec_site import build_intec
 
         out = Path(args.out) if args.out else project_output_dir("intec")

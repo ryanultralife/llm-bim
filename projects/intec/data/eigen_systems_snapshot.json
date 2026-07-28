@@ -1,0 +1,3882 @@
+{
+  "source": "Eigen/scripts freeze 2026-07-22",
+  "honesty": "[ENGINEERING ESTIMATE] design-basis from intec_facility_systems / bid_basis / module_basis",
+  "support_rooms": [
+    {
+      "room": "CONTROL",
+      "name": "Main control room",
+      "area_m2": 80,
+      "h_m": 3.5,
+      "vol_m3": 280,
+      "zone": "R1",
+      "driver": "OPS.REQUIRED_ROOMS; consoles for 17/shift remote crew"
+    },
+    {
+      "room": "ROBMAINT",
+      "name": "Robot maintenance / decon bay",
+      "area_m2": 96,
+      "h_m": 3.5,
+      "vol_m3": 336,
+      "zone": "R2",
+      "driver": "OPS.REQUIRED_ROOMS; only place hot equipment is hands-on"
+    },
+    {
+      "room": "DECON",
+      "name": "Personnel decon + change",
+      "area_m2": 48,
+      "h_m": 3.5,
+      "vol_m3": 168,
+      "zone": "R2",
+      "driver": "OPS.REQUIRED_ROOMS; 10 CFR 835 step-off + shower"
+    },
+    {
+      "room": "MCA",
+      "name": "MC&A vault / count room",
+      "area_m2": 30,
+      "h_m": 3.5,
+      "vol_m3": 105,
+      "zone": "R2",
+      "driver": "MC&A measurement point (LEID); 10 CFR 74"
+    },
+    {
+      "room": "BREAK",
+      "name": "Break / muster room",
+      "area_m2": 36,
+      "h_m": 3.5,
+      "vol_m3": 126,
+      "zone": "R1",
+      "driver": "22 occupancy; OSHA welfare + emergency muster"
+    },
+    {
+      "room": "OFFICE",
+      "name": "Shift offices / RP office",
+      "area_m2": 54,
+      "h_m": 3.5,
+      "vol_m3": 189,
+      "zone": "R1",
+      "driver": "1 SUP + RP/MCA desks"
+    },
+    {
+      "room": "TOILET-M",
+      "name": "Toilets / lockers (M)",
+      "area_m2": 28,
+      "h_m": 3.5,
+      "vol_m3": 98,
+      "zone": "R1",
+      "driver": "IPC 403.1 off 22 occupancy (see plumbing())"
+    },
+    {
+      "room": "TOILET-F",
+      "name": "Toilets / lockers (F)",
+      "area_m2": 28,
+      "h_m": 3.5,
+      "vol_m3": 98,
+      "zone": "R1",
+      "driver": "IPC 403.1 off 22 occupancy (see plumbing())"
+    },
+    {
+      "room": "MECH",
+      "name": "Mechanical room (AHU/plant)",
+      "area_m2": 110,
+      "h_m": 3.5,
+      "vol_m3": 385,
+      "zone": "R1",
+      "driver": "AHU-1 + exhaust fans + water heater (see hvac()/plumbing())"
+    },
+    {
+      "room": "ELEC",
+      "name": "Electrical room (480 V)",
+      "area_m2": 70,
+      "h_m": 3.5,
+      "vol_m3": 245,
+      "zone": "R1",
+      "driver": "T3 + LP/RP/MP/EP panels + UPS (see electrical())"
+    },
+    {
+      "room": "BATT",
+      "name": "Battery / charger bay",
+      "area_m2": 30,
+      "h_m": 3.5,
+      "vol_m3": 105,
+      "zone": "R1",
+      "driver": "forklift+AGV charging (see logistics()); Li-ion \u2014 detection not H2 vent"
+    },
+    {
+      "room": "WHSE",
+      "name": "Warehouse / receiving (cold)",
+      "area_m2": 140,
+      "h_m": 3.5,
+      "vol_m3": 490,
+      "zone": "R1",
+      "driver": "consumables + PPE + spares; dock leveler (see logistics())"
+    },
+    {
+      "room": "LOBBY",
+      "name": "Entry control / badge lobby",
+      "area_m2": 25,
+      "h_m": 3.5,
+      "vol_m3": 88,
+      "zone": "R1",
+      "driver": "PA portal: badge + PCM exit monitors (SECURITY_ZONES PA)"
+    }
+  ],
+  "lighting": [
+    {
+      "room": "CASK",
+      "lux": 300,
+      "fixture": "LF-1",
+      "n_fixtures": 2,
+      "kw": 0.33,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 75.6 m2 / (24000 lm x 0.51)"
+    },
+    {
+      "room": "DECLAD",
+      "lux": 300,
+      "fixture": "LF-1",
+      "n_fixtures": 2,
+      "kw": 0.33,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 75.6 m2 / (24000 lm x 0.51)"
+    },
+    {
+      "room": "EBEAM",
+      "lux": 300,
+      "fixture": "LF-1",
+      "n_fixtures": 2,
+      "kw": 0.33,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 75.6 m2 / (24000 lm x 0.51)"
+    },
+    {
+      "room": "CHLOR-1",
+      "lux": 300,
+      "fixture": "LF-1",
+      "n_fixtures": 2,
+      "kw": 0.33,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 75.6 m2 / (24000 lm x 0.51)"
+    },
+    {
+      "room": "CHLOR-2",
+      "lux": 300,
+      "fixture": "LF-1",
+      "n_fixtures": 2,
+      "kw": 0.33,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 75.6 m2 / (24000 lm x 0.51)"
+    },
+    {
+      "room": "MAINT",
+      "lux": 300,
+      "fixture": "LF-1",
+      "n_fixtures": 2,
+      "kw": 0.33,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 75.6 m2 / (24000 lm x 0.51)"
+    },
+    {
+      "room": "WASTE",
+      "lux": 300,
+      "fixture": "LF-1",
+      "n_fixtures": 2,
+      "kw": 0.33,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 75.6 m2 / (24000 lm x 0.51)"
+    },
+    {
+      "room": "BLEND",
+      "lux": 300,
+      "fixture": "LF-1",
+      "n_fixtures": 2,
+      "kw": 0.33,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 75.6 m2 / (24000 lm x 0.51)"
+    },
+    {
+      "room": "ER-1",
+      "lux": 300,
+      "fixture": "LF-1",
+      "n_fixtures": 2,
+      "kw": 0.33,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 63.9 m2 / (24000 lm x 0.51)"
+    },
+    {
+      "room": "SEP-1",
+      "lux": 300,
+      "fixture": "LF-1",
+      "n_fixtures": 2,
+      "kw": 0.33,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 63.9 m2 / (24000 lm x 0.51)"
+    },
+    {
+      "room": "SEP-2",
+      "lux": 300,
+      "fixture": "LF-1",
+      "n_fixtures": 2,
+      "kw": 0.33,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 63.9 m2 / (24000 lm x 0.51)"
+    },
+    {
+      "room": "ER-2",
+      "lux": 300,
+      "fixture": "LF-1",
+      "n_fixtures": 2,
+      "kw": 0.33,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 63.9 m2 / (24000 lm x 0.51)"
+    },
+    {
+      "room": "ER-3",
+      "lux": 300,
+      "fixture": "LF-1",
+      "n_fixtures": 2,
+      "kw": 0.33,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 63.9 m2 / (24000 lm x 0.51)"
+    },
+    {
+      "room": "ER-4",
+      "lux": 300,
+      "fixture": "LF-1",
+      "n_fixtures": 2,
+      "kw": 0.33,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 63.9 m2 / (24000 lm x 0.51)"
+    },
+    {
+      "room": "ER-5",
+      "lux": 300,
+      "fixture": "LF-1",
+      "n_fixtures": 2,
+      "kw": 0.33,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 63.9 m2 / (24000 lm x 0.51)"
+    },
+    {
+      "room": "RIF",
+      "lux": 300,
+      "fixture": "LF-1",
+      "n_fixtures": 2,
+      "kw": 0.33,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 63.9 m2 / (24000 lm x 0.51)"
+    },
+    {
+      "room": "CASKING",
+      "lux": 300,
+      "fixture": "LF-1",
+      "n_fixtures": 2,
+      "kw": 0.33,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 63.9 m2 / (24000 lm x 0.51)"
+    },
+    {
+      "room": "CONTROL",
+      "lux": 500,
+      "fixture": "LF-2",
+      "n_fixtures": 20,
+      "kw": 0.66,
+      "circuits": 2,
+      "driver": "lumen method: 500 lx x 80 m2"
+    },
+    {
+      "room": "ROBMAINT",
+      "lux": 500,
+      "fixture": "LF-2",
+      "n_fixtures": 24,
+      "kw": 0.79,
+      "circuits": 2,
+      "driver": "lumen method: 500 lx x 96 m2"
+    },
+    {
+      "room": "DECON",
+      "lux": 200,
+      "fixture": "LF-2",
+      "n_fixtures": 5,
+      "kw": 0.17,
+      "circuits": 1,
+      "driver": "lumen method: 200 lx x 48 m2"
+    },
+    {
+      "room": "MCA",
+      "lux": 500,
+      "fixture": "LF-2",
+      "n_fixtures": 8,
+      "kw": 0.26,
+      "circuits": 1,
+      "driver": "lumen method: 500 lx x 30 m2"
+    },
+    {
+      "room": "BREAK",
+      "lux": 300,
+      "fixture": "LF-2",
+      "n_fixtures": 6,
+      "kw": 0.2,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 36 m2"
+    },
+    {
+      "room": "OFFICE",
+      "lux": 400,
+      "fixture": "LF-2",
+      "n_fixtures": 11,
+      "kw": 0.36,
+      "circuits": 1,
+      "driver": "lumen method: 400 lx x 54 m2"
+    },
+    {
+      "room": "TOILET-M",
+      "lux": 200,
+      "fixture": "LF-2",
+      "n_fixtures": 3,
+      "kw": 0.1,
+      "circuits": 1,
+      "driver": "lumen method: 200 lx x 28 m2"
+    },
+    {
+      "room": "TOILET-F",
+      "lux": 200,
+      "fixture": "LF-2",
+      "n_fixtures": 3,
+      "kw": 0.1,
+      "circuits": 1,
+      "driver": "lumen method: 200 lx x 28 m2"
+    },
+    {
+      "room": "MECH",
+      "lux": 200,
+      "fixture": "LF-2",
+      "n_fixtures": 11,
+      "kw": 0.36,
+      "circuits": 1,
+      "driver": "lumen method: 200 lx x 110 m2"
+    },
+    {
+      "room": "ELEC",
+      "lux": 300,
+      "fixture": "LF-2",
+      "n_fixtures": 11,
+      "kw": 0.36,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 70 m2"
+    },
+    {
+      "room": "BATT",
+      "lux": 300,
+      "fixture": "LF-2",
+      "n_fixtures": 5,
+      "kw": 0.17,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 30 m2"
+    },
+    {
+      "room": "WHSE",
+      "lux": 250,
+      "fixture": "LF-2",
+      "n_fixtures": 18,
+      "kw": 0.59,
+      "circuits": 2,
+      "driver": "lumen method: 250 lx x 140 m2"
+    },
+    {
+      "room": "LOBBY",
+      "lux": 300,
+      "fixture": "LF-2",
+      "n_fixtures": 4,
+      "kw": 0.13,
+      "circuits": 1,
+      "driver": "lumen method: 300 lx x 25 m2"
+    }
+  ],
+  "electrical": {
+    "service_design_mw": 10.25,
+    "n_sep": 2,
+    "coincident_mw": 5.75,
+    "cooling_mw": 5.89,
+    "lighting_kw": 9.9,
+    "bop_split_kw": 490.0,
+    "bop_cap_kw": 500.0,
+    "panels": [
+      {
+        "id": "SWGR-1",
+        "v": "13.8 kV",
+        "fed_from": "INTEC substation",
+        "load_kw": 5750,
+        "main": "1200 A vacuum breaker",
+        "driver": "EN coincident demand N=2: 5.75 MW (design svc 10.25 MW)"
+      },
+      {
+        "id": "T1/MV-1",
+        "v": "13.8 kV -> 4.16 kV, 5 MVA",
+        "fed_from": "SWGR-1",
+        "load_kw": 1960,
+        "main": "4.16 kV starter lineup",
+        "driver": "e-beam 4000 kW (DF 0.3) + 2x drive 380 kW"
+      },
+      {
+        "id": "T2/MCC-1",
+        "v": "480 V, 2 MVA",
+        "fed_from": "SWGR-1",
+        "load_kw": 740,
+        "main": "3000 A switchboard, 65 kAIC",
+        "driver": "BOP station split 490 kW (<= engine P_BOP 500 kW) + ICRH HV supply share"
+      },
+      {
+        "id": "T3/LP-RP",
+        "v": "480/208 V, 1 MVA",
+        "fed_from": "SWGR-1",
+        "load_kw": 120,
+        "main": "1600 A board",
+        "driver": "lighting 10 kW + receptacles 60 kW (NEC 220) + charging 50 kW (logistics)"
+      },
+      {
+        "id": "EP-1 (gen)",
+        "v": "480 V standby",
+        "fed_from": "G-1 100 kW",
+        "load_kw": 71,
+        "main": "100 kW diesel + ATS",
+        "driver": "sum of life-safety/confinement loads below x1.25"
+      }
+    ],
+    "emergency_loads": [
+      [
+        "confinement exhaust fans (2x50%)",
+        19.4,
+        "hvac() cascade must survive LOOP \u2014 DOE-HDBK-1169"
+      ],
+      [
+        "CAM/ARM/CAAS + stack monitor",
+        15.0,
+        "rad_monitoring() loads"
+      ],
+      [
+        "safety PLC + network + consoles",
+        20.0,
+        "controls() UPS-fed"
+      ],
+      [
+        "egress + exit lighting",
+        5.0,
+        "egress() unit loads"
+      ],
+      [
+        "freeze protection + sump",
+        12.0,
+        "site() winter design [EST]"
+      ]
+    ],
+    "gen_kw": 100,
+    "ups_kva": 100,
+    "branch_breakers": "QO/QOB 20 A lighting + receptacle branches; bolt-on in NQ panelboards (see specs)"
+  },
+  "hvac": {
+    "rooms": [
+      {
+        "room": "CASK",
+        "zone": "R2",
+        "atmosphere": "air",
+        "dp_Pa": -25.0,
+        "class": "once-through 4 ACH -> HEPA exhaust",
+        "m3h": 2724,
+        "cfm": 1603,
+        "driver": "atmosphere+zone -> class; vol 681 m3"
+      },
+      {
+        "room": "DECLAD",
+        "zone": "R5",
+        "atmosphere": "air",
+        "dp_Pa": -125.0,
+        "class": "once-through 10 ACH -> HEPA exhaust",
+        "m3h": 6810,
+        "cfm": 4008,
+        "driver": "atmosphere+zone -> class; vol 681 m3"
+      },
+      {
+        "room": "EBEAM",
+        "zone": "R5",
+        "atmosphere": "vac-inert",
+        "dp_Pa": -125.0,
+        "class": "closed vac-inert recirc; purge -> offgas",
+        "m3h": 340,
+        "cfm": 200,
+        "driver": "atmosphere+zone -> class; vol 681 m3"
+      },
+      {
+        "room": "CHLOR-1",
+        "zone": "R5",
+        "atmosphere": "Cl2",
+        "dp_Pa": -125.0,
+        "class": "closed Cl2 recirc; purge -> offgas",
+        "m3h": 340,
+        "cfm": 200,
+        "driver": "atmosphere+zone -> class; vol 681 m3"
+      },
+      {
+        "room": "CHLOR-2",
+        "zone": "R5",
+        "atmosphere": "Cl2",
+        "dp_Pa": -125.0,
+        "class": "closed Cl2 recirc; purge -> offgas",
+        "m3h": 340,
+        "cfm": 200,
+        "driver": "atmosphere+zone -> class; vol 681 m3"
+      },
+      {
+        "room": "MAINT",
+        "zone": "R2",
+        "atmosphere": "air",
+        "dp_Pa": -25.0,
+        "class": "once-through 4 ACH -> HEPA exhaust",
+        "m3h": 2724,
+        "cfm": 1603,
+        "driver": "atmosphere+zone -> class; vol 681 m3"
+      },
+      {
+        "room": "WASTE",
+        "zone": "R3",
+        "atmosphere": "melter",
+        "dp_Pa": -62.0,
+        "class": "closed melter recirc; purge -> offgas",
+        "m3h": 340,
+        "cfm": 200,
+        "driver": "atmosphere+zone -> class; vol 681 m3"
+      },
+      {
+        "room": "BLEND",
+        "zone": "R3",
+        "atmosphere": "inert",
+        "dp_Pa": -62.0,
+        "class": "closed inert recirc; purge -> offgas",
+        "m3h": 340,
+        "cfm": 200,
+        "driver": "atmosphere+zone -> class; vol 681 m3"
+      },
+      {
+        "room": "ER-1",
+        "zone": "R5",
+        "atmosphere": "Ar",
+        "dp_Pa": -125.0,
+        "class": "closed Ar recirc; purge -> offgas",
+        "m3h": 288,
+        "cfm": 169,
+        "driver": "atmosphere+zone -> class; vol 575 m3"
+      },
+      {
+        "room": "SEP-1",
+        "zone": "R5",
+        "atmosphere": "vacuum",
+        "dp_Pa": -125.0,
+        "class": "closed vacuum recirc; purge -> offgas",
+        "m3h": 288,
+        "cfm": 169,
+        "driver": "atmosphere+zone -> class; vol 575 m3"
+      },
+      {
+        "room": "SEP-2",
+        "zone": "R5",
+        "atmosphere": "vacuum",
+        "dp_Pa": -125.0,
+        "class": "closed vacuum recirc; purge -> offgas",
+        "m3h": 288,
+        "cfm": 169,
+        "driver": "atmosphere+zone -> class; vol 575 m3"
+      },
+      {
+        "room": "ER-2",
+        "zone": "R5",
+        "atmosphere": "Ar",
+        "dp_Pa": -125.0,
+        "class": "closed Ar recirc; purge -> offgas",
+        "m3h": 288,
+        "cfm": 169,
+        "driver": "atmosphere+zone -> class; vol 575 m3"
+      },
+      {
+        "room": "ER-3",
+        "zone": "R5",
+        "atmosphere": "Ar",
+        "dp_Pa": -125.0,
+        "class": "closed Ar recirc; purge -> offgas",
+        "m3h": 288,
+        "cfm": 169,
+        "driver": "atmosphere+zone -> class; vol 575 m3"
+      },
+      {
+        "room": "ER-4",
+        "zone": "R5",
+        "atmosphere": "Ar",
+        "dp_Pa": -125.0,
+        "class": "closed Ar recirc; purge -> offgas",
+        "m3h": 288,
+        "cfm": 169,
+        "driver": "atmosphere+zone -> class; vol 575 m3"
+      },
+      {
+        "room": "ER-5",
+        "zone": "R5",
+        "atmosphere": "Ar",
+        "dp_Pa": -125.0,
+        "class": "closed Ar recirc; purge -> offgas",
+        "m3h": 288,
+        "cfm": 169,
+        "driver": "atmosphere+zone -> class; vol 575 m3"
+      },
+      {
+        "room": "RIF",
+        "zone": "R5",
+        "atmosphere": "vac-inert",
+        "dp_Pa": -125.0,
+        "class": "closed vac-inert recirc; purge -> offgas",
+        "m3h": 288,
+        "cfm": 169,
+        "driver": "atmosphere+zone -> class; vol 575 m3"
+      },
+      {
+        "room": "CASKING",
+        "zone": "R3",
+        "atmosphere": "air",
+        "dp_Pa": -62.0,
+        "class": "once-through 6 ACH -> HEPA exhaust",
+        "m3h": 3450,
+        "cfm": 2031,
+        "driver": "atmosphere+zone -> class; vol 575 m3"
+      },
+      {
+        "room": "CONTROL",
+        "zone": "R1",
+        "atmosphere": "air",
+        "dp_Pa": 0.0,
+        "class": "AHU supply/return",
+        "m3h": 1680,
+        "cfm": 989,
+        "driver": "6 ACH x 280 m3"
+      },
+      {
+        "room": "ROBMAINT",
+        "zone": "R2",
+        "atmosphere": "air",
+        "dp_Pa": -25.0,
+        "class": "once-through -> HEPA exhaust",
+        "m3h": 1344,
+        "cfm": 791,
+        "driver": "6 ACH x 336 m3"
+      },
+      {
+        "room": "DECON",
+        "zone": "R2",
+        "atmosphere": "air",
+        "dp_Pa": -25.0,
+        "class": "once-through -> HEPA exhaust",
+        "m3h": 672,
+        "cfm": 396,
+        "driver": "6 ACH x 168 m3"
+      },
+      {
+        "room": "MCA",
+        "zone": "R2",
+        "atmosphere": "air",
+        "dp_Pa": -25.0,
+        "class": "once-through -> HEPA exhaust",
+        "m3h": 420,
+        "cfm": 247,
+        "driver": "6 ACH x 105 m3"
+      },
+      {
+        "room": "BREAK",
+        "zone": "R1",
+        "atmosphere": "air",
+        "dp_Pa": 0.0,
+        "class": "AHU supply/return",
+        "m3h": 756,
+        "cfm": 445,
+        "driver": "6 ACH x 126 m3"
+      },
+      {
+        "room": "OFFICE",
+        "zone": "R1",
+        "atmosphere": "air",
+        "dp_Pa": 0.0,
+        "class": "AHU supply/return",
+        "m3h": 1134,
+        "cfm": 667,
+        "driver": "6 ACH x 189 m3"
+      },
+      {
+        "room": "TOILET-M",
+        "zone": "R1",
+        "atmosphere": "air",
+        "dp_Pa": 0.0,
+        "class": "AHU supply/return",
+        "m3h": 588,
+        "cfm": 346,
+        "driver": "6 ACH x 98 m3"
+      },
+      {
+        "room": "TOILET-F",
+        "zone": "R1",
+        "atmosphere": "air",
+        "dp_Pa": 0.0,
+        "class": "AHU supply/return",
+        "m3h": 588,
+        "cfm": 346,
+        "driver": "6 ACH x 98 m3"
+      },
+      {
+        "room": "MECH",
+        "zone": "R1",
+        "atmosphere": "air",
+        "dp_Pa": 0.0,
+        "class": "AHU supply/return",
+        "m3h": 2310,
+        "cfm": 1360,
+        "driver": "6 ACH x 385 m3"
+      },
+      {
+        "room": "ELEC",
+        "zone": "R1",
+        "atmosphere": "air",
+        "dp_Pa": 0.0,
+        "class": "AHU supply/return",
+        "m3h": 1470,
+        "cfm": 865,
+        "driver": "6 ACH x 245 m3"
+      },
+      {
+        "room": "BATT",
+        "zone": "R1",
+        "atmosphere": "air",
+        "dp_Pa": 0.0,
+        "class": "AHU supply/return",
+        "m3h": 630,
+        "cfm": 371,
+        "driver": "6 ACH x 105 m3"
+      },
+      {
+        "room": "WHSE",
+        "zone": "R1",
+        "atmosphere": "air",
+        "dp_Pa": 0.0,
+        "class": "AHU supply/return",
+        "m3h": 2940,
+        "cfm": 1730,
+        "driver": "6 ACH x 490 m3"
+      },
+      {
+        "room": "LOBBY",
+        "zone": "R1",
+        "atmosphere": "air",
+        "dp_Pa": 0.0,
+        "class": "AHU supply/return",
+        "m3h": 528,
+        "cfm": 311,
+        "driver": "6 ACH x 88 m3"
+      }
+    ],
+    "exhaust_m3h": 18144,
+    "exhaust_cfm": 10680,
+    "purge_to_offgas_m3h": 4004,
+    "supply_m3h": 16330,
+    "hepa_stages": 2,
+    "hepa_banks": 3,
+    "exhaust_fan_kw": 19.4,
+    "fans": "2x50% vane-axial exhaust + N+1 offgas blowers",
+    "ahu_m3h": 12624,
+    "cascade": {
+      "R5": -125.0,
+      "R3": -62.0,
+      "R2": -25.0,
+      "R1": 0.0
+    },
+    "driver": "ASME AG-1/N509-N510 trains; cascade holds -125 Pa at R5 (intec_process_ops.CONFINE_PA)"
+  },
+  "plumbing": {
+    "fixtures": [
+      {
+        "tag": "WC-1",
+        "what": "Water closet, flush valve",
+        "n": 2,
+        "where": "TOILET-M/F",
+        "driver": "IPC 403.1: 22 occ business"
+      },
+      {
+        "tag": "LAV-1",
+        "what": "Lavatory, sensor faucet",
+        "n": 2,
+        "where": "TOILET-M/F",
+        "driver": "IPC 403.1"
+      },
+      {
+        "tag": "ACC-1",
+        "what": "TP holder + grab bars + accessories",
+        "n": 2,
+        "where": "TOILET-M/F",
+        "driver": "ADA/ANSI A117.1 per WC (see intec_equipment_specs)"
+      },
+      {
+        "tag": "SH-1",
+        "what": "Decon shower + step-off pad",
+        "n": 2,
+        "where": "DECON",
+        "driver": "10 CFR 835 contamination control"
+      },
+      {
+        "tag": "DF-1",
+        "what": "Drinking fountain, bi-level",
+        "n": 1,
+        "where": "BREAK",
+        "driver": "IPC 410"
+      },
+      {
+        "tag": "SS-1",
+        "what": "Service sink",
+        "n": 2,
+        "where": "MECH + ROBMAINT",
+        "driver": "IPC 403; decon rinse"
+      },
+      {
+        "tag": "ESW-1",
+        "what": "Safety shower + eyewash (combo)",
+        "n": 3,
+        "where": "chlor make-up, er electrolyte, waste melter aisles",
+        "driver": "ANSI Z358.1 \u2014 <=16.8 m of corrosive-chemical use points (rooms whose atmosphere/chemistry is Cl2/salt)"
+      },
+      {
+        "tag": "EW-1",
+        "what": "Eyewash, wall",
+        "n": 2,
+        "where": "BATT + blend",
+        "driver": "ANSI Z358.1 electrolyte/dust"
+      }
+    ],
+    "wsfu": 23,
+    "dfu": 20,
+    "domestic_main": "40 mm (1.5 in) Cu L",
+    "sanitary_main": "100 mm (4 in) no-hub CI",
+    "water_heater": "80 gal / 12 kW electric (2 decon showers simultaneous, 40degC rise)",
+    "drains_policy": [
+      [
+        "R5 cells",
+        "NO floor drains \u2014 curbed; spills to in-cell sump, pumped to radwaste (contamination + moderation control ANSI/ANS-8.1)"
+      ],
+      [
+        "R3 rooms",
+        "trench drains to monitored collection tank; sample-before-release"
+      ],
+      [
+        "R2/R1",
+        "sanitary to INTEC tie-in; DECON shower drains to monitored tank first"
+      ]
+    ],
+    "driver": "occupancy 22 (OPS.staffing per_shift 17 + 5 visitors)"
+  },
+  "fire": {
+    "rooms": [
+      {
+        "room": "CASK",
+        "suppression": "pre-action sprinkler",
+        "why": "air room, no fissile inventory",
+        "detection": "VESDA aspirating + heat",
+        "rating": "2 HR"
+      },
+      {
+        "room": "DECLAD",
+        "suppression": "clean agent (inert gas flood), NO auto water",
+        "why": "fissile present (ANS-8.1) \u2014 moderation control excludes water",
+        "detection": "VESDA aspirating + heat",
+        "rating": "3 HR"
+      },
+      {
+        "room": "EBEAM",
+        "suppression": "detection only (temp/pressure telemetry); atmosphere is inert/vacuum",
+        "why": "closed vac-inert \u2014 no oxidizer in cell",
+        "detection": "process telemetry",
+        "rating": "3 HR"
+      },
+      {
+        "room": "CHLOR-1",
+        "suppression": "detection only (temp/pressure telemetry); atmosphere is inert/vacuum",
+        "why": "closed Cl2 \u2014 no oxidizer in cell",
+        "detection": "process telemetry",
+        "rating": "3 HR"
+      },
+      {
+        "room": "CHLOR-2",
+        "suppression": "detection only (temp/pressure telemetry); atmosphere is inert/vacuum",
+        "why": "closed Cl2 \u2014 no oxidizer in cell",
+        "detection": "process telemetry",
+        "rating": "3 HR"
+      },
+      {
+        "room": "MAINT",
+        "suppression": "pre-action sprinkler",
+        "why": "air room, no fissile inventory",
+        "detection": "VESDA aspirating + heat",
+        "rating": "2 HR"
+      },
+      {
+        "room": "WASTE",
+        "suppression": "Class D agents + refractory face; NO water",
+        "why": "molten salt/metal \u2014 steam explosion + moderation",
+        "detection": "process telemetry",
+        "rating": "2 HR"
+      },
+      {
+        "room": "BLEND",
+        "suppression": "detection only (temp/pressure telemetry); atmosphere is inert/vacuum",
+        "why": "closed inert \u2014 no oxidizer in cell",
+        "detection": "process telemetry",
+        "rating": "2 HR"
+      },
+      {
+        "room": "ER-1",
+        "suppression": "detection only (temp/pressure telemetry); atmosphere is inert/vacuum",
+        "why": "closed Ar \u2014 no oxidizer in cell",
+        "detection": "process telemetry",
+        "rating": "3 HR"
+      },
+      {
+        "room": "SEP-1",
+        "suppression": "detection only (temp/pressure telemetry); atmosphere is inert/vacuum",
+        "why": "closed vacuum \u2014 no oxidizer in cell",
+        "detection": "process telemetry",
+        "rating": "3 HR"
+      },
+      {
+        "room": "SEP-2",
+        "suppression": "detection only (temp/pressure telemetry); atmosphere is inert/vacuum",
+        "why": "closed vacuum \u2014 no oxidizer in cell",
+        "detection": "process telemetry",
+        "rating": "3 HR"
+      },
+      {
+        "room": "ER-2",
+        "suppression": "detection only (temp/pressure telemetry); atmosphere is inert/vacuum",
+        "why": "closed Ar \u2014 no oxidizer in cell",
+        "detection": "process telemetry",
+        "rating": "3 HR"
+      },
+      {
+        "room": "ER-3",
+        "suppression": "detection only (temp/pressure telemetry); atmosphere is inert/vacuum",
+        "why": "closed Ar \u2014 no oxidizer in cell",
+        "detection": "process telemetry",
+        "rating": "3 HR"
+      },
+      {
+        "room": "ER-4",
+        "suppression": "detection only (temp/pressure telemetry); atmosphere is inert/vacuum",
+        "why": "closed Ar \u2014 no oxidizer in cell",
+        "detection": "process telemetry",
+        "rating": "3 HR"
+      },
+      {
+        "room": "ER-5",
+        "suppression": "detection only (temp/pressure telemetry); atmosphere is inert/vacuum",
+        "why": "closed Ar \u2014 no oxidizer in cell",
+        "detection": "process telemetry",
+        "rating": "3 HR"
+      },
+      {
+        "room": "RIF",
+        "suppression": "detection only (temp/pressure telemetry); atmosphere is inert/vacuum",
+        "why": "closed vac-inert \u2014 no oxidizer in cell",
+        "detection": "process telemetry",
+        "rating": "3 HR"
+      },
+      {
+        "room": "CASKING",
+        "suppression": "pre-action sprinkler",
+        "why": "air room, no fissile inventory",
+        "detection": "VESDA aspirating + heat",
+        "rating": "2 HR"
+      },
+      {
+        "room": "CONTROL",
+        "suppression": "clean agent (electronics)",
+        "why": "energized electronics / Li-ion",
+        "detection": "smoke + heat",
+        "rating": "2 HR"
+      },
+      {
+        "room": "ROBMAINT",
+        "suppression": "wet pipe NFPA 13 (light hazard)",
+        "why": "conventional occupancy",
+        "detection": "smoke + heat",
+        "rating": "2 HR"
+      },
+      {
+        "room": "DECON",
+        "suppression": "wet pipe NFPA 13 (light hazard)",
+        "why": "conventional occupancy",
+        "detection": "smoke + heat",
+        "rating": "2 HR"
+      },
+      {
+        "room": "MCA",
+        "suppression": "clean agent (electronics)",
+        "why": "energized electronics / Li-ion",
+        "detection": "smoke + heat",
+        "rating": "2 HR"
+      },
+      {
+        "room": "BREAK",
+        "suppression": "wet pipe NFPA 13 (light hazard)",
+        "why": "conventional occupancy",
+        "detection": "smoke + heat",
+        "rating": "2 HR"
+      },
+      {
+        "room": "OFFICE",
+        "suppression": "wet pipe NFPA 13 (light hazard)",
+        "why": "conventional occupancy",
+        "detection": "smoke + heat",
+        "rating": "2 HR"
+      },
+      {
+        "room": "TOILET-M",
+        "suppression": "wet pipe NFPA 13 (light hazard)",
+        "why": "conventional occupancy",
+        "detection": "smoke + heat",
+        "rating": "2 HR"
+      },
+      {
+        "room": "TOILET-F",
+        "suppression": "wet pipe NFPA 13 (light hazard)",
+        "why": "conventional occupancy",
+        "detection": "smoke + heat",
+        "rating": "2 HR"
+      },
+      {
+        "room": "MECH",
+        "suppression": "wet pipe NFPA 13 (light hazard)",
+        "why": "conventional occupancy",
+        "detection": "smoke + heat",
+        "rating": "2 HR"
+      },
+      {
+        "room": "ELEC",
+        "suppression": "clean agent (electronics)",
+        "why": "energized electronics / Li-ion",
+        "detection": "smoke + heat",
+        "rating": "2 HR"
+      },
+      {
+        "room": "BATT",
+        "suppression": "clean agent (electronics)",
+        "why": "energized electronics / Li-ion",
+        "detection": "smoke + heat",
+        "rating": "2 HR"
+      },
+      {
+        "room": "WHSE",
+        "suppression": "wet pipe NFPA 13 (light hazard)",
+        "why": "conventional occupancy",
+        "detection": "smoke + heat",
+        "rating": "2 HR"
+      },
+      {
+        "room": "LOBBY",
+        "suppression": "wet pipe NFPA 13 (light hazard)",
+        "why": "conventional occupancy",
+        "detection": "smoke + heat",
+        "rating": "2 HR"
+      }
+    ],
+    "water_demand_gpm": 250,
+    "water_supply": "INTEC fire main tie-in (interface OPEN) + 227 m3 (60k gal) tank + 500 gpm diesel pump (NFPA 22/20) in yard as the bounding case",
+    "extinguishers": "ABC every 15 m travel (NFPA 10) + Class D at blend/waste/RIF melt faces",
+    "facp": "addressable FACP in CONTROL, NFPA 72, monitored to INTEC fire station",
+    "support_area_m2": 775,
+    "driver": "NFPA 801 graded; suppression class from room atmosphere + fissile standards (room_requirements)"
+  },
+  "rad_monitoring": {
+    "cam": {
+      "n": 6,
+      "where": "air-atmosphere R5 exhausts, every R3 room, spine, ROBMAINT",
+      "driver": "10 CFR 835.403 airborne monitoring where airborne potential exists (air rooms only \u2014 closed cells monitor via offgas line)"
+    },
+    "arm": {
+      "n": 21,
+      "where": "every cell face + corridor nodes",
+      "driver": "10 CFR 835 area monitoring, R2+ zones"
+    },
+    "caas": {
+      "n": 3,
+      "voting": "2-of-3",
+      "driver": "ANSI/ANS-8.3 criticality alarm coverage of the fissile block; detectors sited so any credible accident is seen by >=2"
+    },
+    "portal": {
+      "n": 2,
+      "where": "PA exit (LOBBY) + WHSE truck door",
+      "driver": "MC&A + contamination egress control"
+    },
+    "hand_foot": {
+      "n": 2,
+      "where": "DECON step-off",
+      "driver": "10 CFR 835 exit monitoring"
+    },
+    "stack": {
+      "n": 1,
+      "where": "offgas/exhaust stack CEMS",
+      "driver": "40 CFR 61 subpart H (NESHAP) Rn/particulate"
+    },
+    "offgas_line": {
+      "n": 13,
+      "driver": "closed-atmosphere cells monitored at their purge lines instead of room CAM"
+    }
+  },
+  "controls": {
+    "io_process": 685,
+    "io_hvac": 220,
+    "io_rad": 70,
+    "io_elec": 60,
+    "io_total": 1035,
+    "spare_frac": 0.25,
+    "remote_racks": 6,
+    "architecture": "redundant process controllers (control room) + 6 remote I/O racks (rows A/B, MECH, ELEC); SEPARATE hardwired SIL-2 safety chain: confinement dP interlocks + CAAS + seismic trip \u2014 never through the process network",
+    "network": "dual ring fiber, IEC 62443 zones; CCTV rad-tolerant cameras in-cell (remote ops per OPS.REMOTE_ROLES)",
+    "driver": "station census x class I/O + HVAC/rad/elec points"
+  },
+  "doors_windows": {
+    "doors": [
+      {
+        "mark": "D1",
+        "what": "Shielded access door, motorized",
+        "n": 12,
+        "rating": "matches wall (WT-S1xx)",
+        "hw": "motor operator + interlock to cell status + captive key",
+        "driver": "one maintenance access per R5 cell (shutdown entry only; OPS remote doctrine)"
+      },
+      {
+        "mark": "D2",
+        "what": "Personnel airlock pair (interlocked)",
+        "n": 4,
+        "rating": "2 HR, gasketed",
+        "hw": "interlocked pair + dP gauge + badge reader both sides",
+        "driver": "every R3 personnel entry + ROBMAINT (cascade integrity: -62 Pa held during entry)"
+      },
+      {
+        "mark": "D3",
+        "what": "Hollow-metal personnel door, 3 HR",
+        "n": 8,
+        "rating": "3 HR",
+        "hw": "panic + closer + badge reader",
+        "driver": "egress() exits + zone-boundary doors"
+      },
+      {
+        "mark": "D4",
+        "what": "Insulated roll-up, motorized",
+        "n": 3,
+        "rating": "FM wind-rated",
+        "hw": "motor + safety edge + interlock to portal monitor",
+        "driver": "CASKBAY apron + product shipping + WHSE dock (logistics())"
+      },
+      {
+        "mark": "D5",
+        "what": "Interior HM door, office grade",
+        "n": 12,
+        "rating": "20 min",
+        "hw": "lever + closer",
+        "driver": "support-stack rooms (support_rooms())"
+      }
+    ],
+    "windows": [
+      {
+        "mark": "W1",
+        "what": "Shielded viewing window (lead glass)",
+        "n": 1,
+        "where": "CONTROL -> cask bay (R2)",
+        "driver": "only DIRECT view retained; all R5 viewing is CCTV (OPS.REMOTE_ROLES \u2014 no personnel exposure)"
+      },
+      {
+        "mark": "W2",
+        "what": "Exterior window, security film, non-opening",
+        "n": 6,
+        "where": "OFFICE/BREAK (support stack, LA side)",
+        "driver": "daylight for occupied support only; none in PA process walls (security + confinement)"
+      }
+    ],
+    "material_ports": 22,
+    "ports_note": "in-wall MATERIAL openings are the transfer-basis ports (intec_transfer_basis: 22 legs) \u2014 scheduled there, not as doors",
+    "access_control": "badge (HID) at every D2/D3; PA portal turnstile at LOBBY; 2-person rule at MCA + VA boundaries (SECURITY_ZONES)"
+  },
+  "door_instances": [
+    {
+      "mark": "D1-01",
+      "room": "DECLAD",
+      "size": "2440 x 2900 (leaf = wall thk + 200)",
+      "rating": "shield, matches 120 cm wall",
+      "hw": "HW-1",
+      "acs": "captive key + permit"
+    },
+    {
+      "mark": "D1-02",
+      "room": "EBEAM",
+      "size": "2440 x 2900 (leaf = wall thk + 200)",
+      "rating": "shield, matches 120 cm wall",
+      "hw": "HW-1",
+      "acs": "captive key + permit"
+    },
+    {
+      "mark": "D1-03",
+      "room": "CHLOR-1",
+      "size": "2440 x 2900 (leaf = wall thk + 200)",
+      "rating": "shield, matches 120 cm wall",
+      "hw": "HW-1",
+      "acs": "captive key + permit"
+    },
+    {
+      "mark": "D1-04",
+      "room": "CHLOR-2",
+      "size": "2440 x 2900 (leaf = wall thk + 200)",
+      "rating": "shield, matches 120 cm wall",
+      "hw": "HW-1",
+      "acs": "captive key + permit"
+    },
+    {
+      "mark": "D1-05",
+      "room": "ER-1",
+      "size": "2440 x 2900 (leaf = wall thk + 200)",
+      "rating": "shield, matches 100 cm wall",
+      "hw": "HW-1",
+      "acs": "captive key + permit"
+    },
+    {
+      "mark": "D1-06",
+      "room": "SEP-1",
+      "size": "2440 x 2900 (leaf = wall thk + 200)",
+      "rating": "shield, matches 100 cm wall",
+      "hw": "HW-1",
+      "acs": "captive key + permit"
+    },
+    {
+      "mark": "D1-07",
+      "room": "SEP-2",
+      "size": "2440 x 2900 (leaf = wall thk + 200)",
+      "rating": "shield, matches 100 cm wall",
+      "hw": "HW-1",
+      "acs": "captive key + permit"
+    },
+    {
+      "mark": "D1-08",
+      "room": "ER-2",
+      "size": "2440 x 2900 (leaf = wall thk + 200)",
+      "rating": "shield, matches 100 cm wall",
+      "hw": "HW-1",
+      "acs": "captive key + permit"
+    },
+    {
+      "mark": "D1-09",
+      "room": "ER-3",
+      "size": "2440 x 2900 (leaf = wall thk + 200)",
+      "rating": "shield, matches 100 cm wall",
+      "hw": "HW-1",
+      "acs": "captive key + permit"
+    },
+    {
+      "mark": "D1-10",
+      "room": "ER-4",
+      "size": "2440 x 2900 (leaf = wall thk + 200)",
+      "rating": "shield, matches 100 cm wall",
+      "hw": "HW-1",
+      "acs": "captive key + permit"
+    },
+    {
+      "mark": "D1-11",
+      "room": "ER-5",
+      "size": "2440 x 2900 (leaf = wall thk + 200)",
+      "rating": "shield, matches 100 cm wall",
+      "hw": "HW-1",
+      "acs": "captive key + permit"
+    },
+    {
+      "mark": "D1-12",
+      "room": "RIF",
+      "size": "2440 x 2900 (leaf = wall thk + 200)",
+      "rating": "shield, matches 100 cm wall",
+      "hw": "HW-1",
+      "acs": "captive key + permit"
+    },
+    {
+      "mark": "D2-01",
+      "room": "WASTE",
+      "size": "915 x 2134 pair",
+      "rating": "2 HR gasketed",
+      "hw": "HW-2",
+      "acs": "badge both sides"
+    },
+    {
+      "mark": "D2-02",
+      "room": "BLEND",
+      "size": "915 x 2134 pair",
+      "rating": "2 HR gasketed",
+      "hw": "HW-2",
+      "acs": "badge both sides"
+    },
+    {
+      "mark": "D2-03",
+      "room": "CASKING",
+      "size": "915 x 2134 pair",
+      "rating": "2 HR gasketed",
+      "hw": "HW-2",
+      "acs": "badge both sides"
+    },
+    {
+      "mark": "D2-04",
+      "room": "ROBMAINT",
+      "size": "915 x 2134 pair",
+      "rating": "2 HR gasketed",
+      "hw": "HW-2",
+      "acs": "badge both sides"
+    },
+    {
+      "mark": "D3-01",
+      "room": "egress / zone boundary",
+      "size": "915 x 2134",
+      "rating": "3 HR",
+      "hw": "HW-3",
+      "acs": "badge (secure side)"
+    },
+    {
+      "mark": "D3-02",
+      "room": "egress / zone boundary",
+      "size": "915 x 2134",
+      "rating": "3 HR",
+      "hw": "HW-3",
+      "acs": "badge (secure side)"
+    },
+    {
+      "mark": "D3-03",
+      "room": "egress / zone boundary",
+      "size": "915 x 2134",
+      "rating": "3 HR",
+      "hw": "HW-3",
+      "acs": "badge (secure side)"
+    },
+    {
+      "mark": "D3-04",
+      "room": "egress / zone boundary",
+      "size": "915 x 2134",
+      "rating": "3 HR",
+      "hw": "HW-3",
+      "acs": "badge (secure side)"
+    },
+    {
+      "mark": "D3-05",
+      "room": "egress / zone boundary",
+      "size": "915 x 2134",
+      "rating": "3 HR",
+      "hw": "HW-3",
+      "acs": "badge (secure side)"
+    },
+    {
+      "mark": "D3-06",
+      "room": "egress / zone boundary",
+      "size": "915 x 2134",
+      "rating": "3 HR",
+      "hw": "HW-3",
+      "acs": "badge (secure side)"
+    },
+    {
+      "mark": "D3-07",
+      "room": "egress / zone boundary",
+      "size": "915 x 2134",
+      "rating": "3 HR",
+      "hw": "HW-3",
+      "acs": "badge (secure side)"
+    },
+    {
+      "mark": "D3-08",
+      "room": "egress / zone boundary",
+      "size": "915 x 2134",
+      "rating": "3 HR",
+      "hw": "HW-3",
+      "acs": "badge (secure side)"
+    },
+    {
+      "mark": "D4-01",
+      "room": "CASKBAY apron",
+      "size": "4270 x 4880",
+      "rating": "FM wind-rated insulated",
+      "hw": "HW-4",
+      "acs": "portal-monitor interlock"
+    },
+    {
+      "mark": "D4-02",
+      "room": "product shipping",
+      "size": "4270 x 4880",
+      "rating": "FM wind-rated insulated",
+      "hw": "HW-4",
+      "acs": "portal-monitor interlock"
+    },
+    {
+      "mark": "D4-03",
+      "room": "WHSE dock",
+      "size": "2740 x 3050",
+      "rating": "FM wind-rated insulated",
+      "hw": "HW-4",
+      "acs": "portal-monitor interlock"
+    },
+    {
+      "mark": "D5-01",
+      "room": "CONTROL",
+      "size": "915 x 2134",
+      "rating": "20 min",
+      "hw": "HW-5",
+      "acs": "none"
+    },
+    {
+      "mark": "D5-02",
+      "room": "ROBMAINT",
+      "size": "915 x 2134",
+      "rating": "20 min",
+      "hw": "HW-5",
+      "acs": "none"
+    },
+    {
+      "mark": "D5-03",
+      "room": "DECON",
+      "size": "915 x 2134",
+      "rating": "20 min",
+      "hw": "HW-5",
+      "acs": "none"
+    },
+    {
+      "mark": "D5-04",
+      "room": "MCA",
+      "size": "915 x 2134",
+      "rating": "20 min",
+      "hw": "HW-5",
+      "acs": "none"
+    },
+    {
+      "mark": "D5-05",
+      "room": "BREAK",
+      "size": "915 x 2134",
+      "rating": "20 min",
+      "hw": "HW-5",
+      "acs": "none"
+    },
+    {
+      "mark": "D5-06",
+      "room": "OFFICE",
+      "size": "915 x 2134",
+      "rating": "20 min",
+      "hw": "HW-5",
+      "acs": "none"
+    },
+    {
+      "mark": "D5-07",
+      "room": "TOILET-M",
+      "size": "915 x 2134",
+      "rating": "20 min",
+      "hw": "HW-5",
+      "acs": "none"
+    },
+    {
+      "mark": "D5-08",
+      "room": "TOILET-F",
+      "size": "915 x 2134",
+      "rating": "20 min",
+      "hw": "HW-5",
+      "acs": "none"
+    },
+    {
+      "mark": "D5-09",
+      "room": "MECH",
+      "size": "915 x 2134",
+      "rating": "20 min",
+      "hw": "HW-5",
+      "acs": "none"
+    },
+    {
+      "mark": "D5-10",
+      "room": "ELEC",
+      "size": "915 x 2134",
+      "rating": "20 min",
+      "hw": "HW-5",
+      "acs": "none"
+    },
+    {
+      "mark": "D5-11",
+      "room": "BATT",
+      "size": "915 x 2134",
+      "rating": "20 min",
+      "hw": "HW-5",
+      "acs": "none"
+    },
+    {
+      "mark": "D5-12",
+      "room": "WHSE",
+      "size": "915 x 2134",
+      "rating": "20 min",
+      "hw": "HW-5",
+      "acs": "none"
+    }
+  ],
+  "hvac_equipment": [
+    {
+      "tag": "AHU-1",
+      "service": "support stack supply/return",
+      "capacity": "12624 m3/h",
+      "power": "30 kW",
+      "spec": "AHU-1 (23 73 13)",
+      "driver": "hvac() R1 rooms"
+    },
+    {
+      "tag": "EF-1",
+      "service": "confinement exhaust (lead)",
+      "capacity": "9072 m3/h @ 2.5 kPa",
+      "power": "9.7 kW",
+      "spec": "EF-1/2 (23 34 13)",
+      "driver": "hvac() 2x50%"
+    },
+    {
+      "tag": "EF-2",
+      "service": "confinement exhaust (standby)",
+      "capacity": "9072 m3/h @ 2.5 kPa",
+      "power": "9.7 kW",
+      "spec": "EF-1/2 (23 34 13)",
+      "driver": "hvac() 2x50%, EP-1 fed"
+    },
+    {
+      "tag": "HEPA-1",
+      "service": "exhaust filtration, 2-stage BIBO",
+      "capacity": "1.7 m3/s nominal",
+      "power": "- (dP to controls)",
+      "spec": "HEPA-1 (23 41 33)",
+      "driver": "hvac() hepa_banks"
+    },
+    {
+      "tag": "HEPA-2",
+      "service": "exhaust filtration, 2-stage BIBO",
+      "capacity": "1.7 m3/s nominal",
+      "power": "- (dP to controls)",
+      "spec": "HEPA-1 (23 41 33)",
+      "driver": "hvac() hepa_banks"
+    },
+    {
+      "tag": "HEPA-3",
+      "service": "exhaust filtration, 2-stage BIBO",
+      "capacity": "1.7 m3/s nominal",
+      "power": "- (dP to controls)",
+      "spec": "HEPA-1 (23 41 33)",
+      "driver": "hvac() hepa_banks"
+    },
+    {
+      "tag": "OGB-1/2",
+      "service": "offgas purge blowers (N+1)",
+      "capacity": "4004 m3/h total",
+      "power": "2x 3 kW [EST]",
+      "spec": "(process offgas train)",
+      "driver": "hvac() purge class"
+    },
+    {
+      "tag": "DMP x20",
+      "service": "bubble-tight isolation",
+      "capacity": "duct-matched",
+      "power": "instrument air",
+      "spec": "DMP-1 (23 33 13)",
+      "driver": "one per confinement crossing (hvac() rooms)"
+    },
+    {
+      "tag": "CH-1",
+      "service": "process heat rejection",
+      "capacity": "5.9 MW",
+      "power": "see CALC-M-2",
+      "spec": "CH-1 (23 64 16)",
+      "driver": "EN.cooling(N_SEP)"
+    }
+  ],
+  "panel_circuits": [
+    {
+      "panel": "LP-1",
+      "v": "480Y/277 V, 3ph 4W",
+      "fed_from": "T3",
+      "main": "100 A MLO",
+      "mounting": "ELEC room, surface",
+      "ckts": [
+        {
+          "desc": "Lighting CASK",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "2x LF-1"
+        },
+        {
+          "desc": "Lighting DECLAD",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "2x LF-1"
+        },
+        {
+          "desc": "Lighting EBEAM",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "2x LF-1"
+        },
+        {
+          "desc": "Lighting CHLOR-1",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "2x LF-1"
+        },
+        {
+          "desc": "Lighting CHLOR-2",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "2x LF-1"
+        },
+        {
+          "desc": "Lighting MAINT",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "2x LF-1"
+        },
+        {
+          "desc": "Lighting WASTE",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "2x LF-1"
+        },
+        {
+          "desc": "Lighting BLEND",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "2x LF-1"
+        },
+        {
+          "desc": "Lighting ER-1",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "2x LF-1"
+        },
+        {
+          "desc": "Lighting SEP-1",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "2x LF-1"
+        },
+        {
+          "desc": "Lighting SEP-2",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "2x LF-1"
+        },
+        {
+          "desc": "Lighting ER-2",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "2x LF-1"
+        },
+        {
+          "desc": "Lighting ER-3",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "2x LF-1"
+        },
+        {
+          "desc": "Lighting ER-4",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "2x LF-1"
+        },
+        {
+          "desc": "Lighting ER-5",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "2x LF-1"
+        },
+        {
+          "desc": "Lighting RIF",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "2x LF-1"
+        },
+        {
+          "desc": "Lighting CASKING",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "2x LF-1"
+        },
+        {
+          "desc": "Lighting CONTROL (1)",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "10x LF-2"
+        },
+        {
+          "desc": "Lighting CONTROL (2)",
+          "va": 330,
+          "brk": "20 A / 1P",
+          "note": "10x LF-2"
+        },
+        {
+          "desc": "Lighting ROBMAINT (1)",
+          "va": 395,
+          "brk": "20 A / 1P",
+          "note": "12x LF-2"
+        },
+        {
+          "desc": "Lighting ROBMAINT (2)",
+          "va": 395,
+          "brk": "20 A / 1P",
+          "note": "12x LF-2"
+        },
+        {
+          "desc": "Lighting DECON",
+          "va": 170,
+          "brk": "20 A / 1P",
+          "note": "5x LF-2"
+        },
+        {
+          "desc": "Lighting MCA",
+          "va": 260,
+          "brk": "20 A / 1P",
+          "note": "8x LF-2"
+        },
+        {
+          "desc": "Lighting BREAK",
+          "va": 200,
+          "brk": "20 A / 1P",
+          "note": "6x LF-2"
+        },
+        {
+          "desc": "Lighting OFFICE",
+          "va": 360,
+          "brk": "20 A / 1P",
+          "note": "11x LF-2"
+        },
+        {
+          "desc": "Lighting TOILET-M",
+          "va": 100,
+          "brk": "20 A / 1P",
+          "note": "3x LF-2"
+        },
+        {
+          "desc": "Lighting TOILET-F",
+          "va": 100,
+          "brk": "20 A / 1P",
+          "note": "3x LF-2"
+        },
+        {
+          "desc": "Lighting MECH",
+          "va": 360,
+          "brk": "20 A / 1P",
+          "note": "11x LF-2"
+        },
+        {
+          "desc": "Lighting ELEC",
+          "va": 360,
+          "brk": "20 A / 1P",
+          "note": "11x LF-2"
+        },
+        {
+          "desc": "Lighting BATT",
+          "va": 170,
+          "brk": "20 A / 1P",
+          "note": "5x LF-2"
+        },
+        {
+          "desc": "Lighting WHSE (1)",
+          "va": 295,
+          "brk": "20 A / 1P",
+          "note": "9x LF-2"
+        },
+        {
+          "desc": "Lighting WHSE (2)",
+          "va": 295,
+          "brk": "20 A / 1P",
+          "note": "9x LF-2"
+        },
+        {
+          "desc": "Lighting LOBBY",
+          "va": 130,
+          "brk": "20 A / 1P",
+          "note": "4x LF-2"
+        }
+      ],
+      "conn_kw": 9.9,
+      "driver": "lighting() lumen-method circuits"
+    },
+    {
+      "panel": "RP-1",
+      "v": "208Y/120 V, 3ph 4W",
+      "fed_from": "T3 (via 480-208 xfmr)",
+      "main": "225 A MCB",
+      "mounting": "ELEC room, surface",
+      "ckts": [
+        {
+          "desc": "Receptacles zone Row A 1/2",
+          "va": 3000,
+          "brk": "20 A / 1P",
+          "note": "NEC 220 alloc"
+        },
+        {
+          "desc": "Receptacles zone Row A 2/2",
+          "va": 3000,
+          "brk": "20 A / 1P",
+          "note": "NEC 220 alloc"
+        },
+        {
+          "desc": "Receptacles zone Row B 1/2",
+          "va": 3000,
+          "brk": "20 A / 1P",
+          "note": "NEC 220 alloc"
+        },
+        {
+          "desc": "Receptacles zone Row B 2/2",
+          "va": 3000,
+          "brk": "20 A / 1P",
+          "note": "NEC 220 alloc"
+        },
+        {
+          "desc": "Receptacles zone spine",
+          "va": 3000,
+          "brk": "20 A / 1P",
+          "note": "NEC 220 alloc"
+        },
+        {
+          "desc": "Receptacles zone CONTROL",
+          "va": 3000,
+          "brk": "20 A / 1P",
+          "note": "NEC 220 alloc"
+        },
+        {
+          "desc": "Receptacles zone OFFICE/BREAK",
+          "va": 3000,
+          "brk": "20 A / 1P",
+          "note": "NEC 220 alloc"
+        },
+        {
+          "desc": "Receptacles zone WHSE",
+          "va": 3000,
+          "brk": "20 A / 1P",
+          "note": "NEC 220 alloc"
+        },
+        {
+          "desc": "Receptacles zone MECH",
+          "va": 3000,
+          "brk": "20 A / 1P",
+          "note": "NEC 220 alloc"
+        },
+        {
+          "desc": "Receptacles zone ELEC",
+          "va": 3000,
+          "brk": "20 A / 1P",
+          "note": "NEC 220 alloc"
+        },
+        {
+          "desc": "Receptacles zone DECON/TOILET",
+          "va": 3000,
+          "brk": "20 A / 1P",
+          "note": "NEC 220 alloc"
+        },
+        {
+          "desc": "Receptacles zone LOBBY/MCA",
+          "va": 3000,
+          "brk": "20 A / 1P",
+          "note": "NEC 220 alloc"
+        },
+        {
+          "desc": "Drinking fountain DF-1",
+          "va": 500,
+          "brk": "20 A / 1P",
+          "note": "chiller"
+        },
+        {
+          "desc": "Hand dryers HD-1 (2)",
+          "va": 3000,
+          "brk": "20 A / 2P",
+          "note": "208 V"
+        },
+        {
+          "desc": "CAM/ARM monitor receptacles",
+          "va": 2400,
+          "brk": "20 A / 1P",
+          "note": "rad_monitoring()"
+        }
+      ],
+      "conn_kw": 41.9,
+      "driver": "NEC 220 receptacle allocation + device list"
+    },
+    {
+      "panel": "CP-1",
+      "v": "480 V, 3ph",
+      "fed_from": "T3",
+      "main": "100 A MCB",
+      "mounting": "BATT bay",
+      "ckts": [
+        {
+          "desc": "Forklift charger EVC-1 #1",
+          "va": 15000,
+          "brk": "30 A / 3P",
+          "note": "BATT bay"
+        },
+        {
+          "desc": "Forklift charger EVC-1 #2",
+          "va": 15000,
+          "brk": "30 A / 3P",
+          "note": "BATT bay"
+        },
+        {
+          "desc": "AGV charger EVC-2 #1",
+          "va": 5000,
+          "brk": "20 A / 2P",
+          "note": "corridor dock"
+        },
+        {
+          "desc": "AGV charger EVC-2 #2",
+          "va": 5000,
+          "brk": "20 A / 2P",
+          "note": "corridor dock"
+        },
+        {
+          "desc": "AGV charger EVC-2 #3",
+          "va": 5000,
+          "brk": "20 A / 2P",
+          "note": "corridor dock"
+        },
+        {
+          "desc": "AGV charger EVC-2 #4",
+          "va": 5000,
+          "brk": "20 A / 2P",
+          "note": "corridor dock"
+        }
+      ],
+      "conn_kw": 50.0,
+      "driver": "logistics() charging fleet"
+    },
+    {
+      "panel": "EP-1",
+      "v": "480Y/277 V standby (G-1 + ATS)",
+      "fed_from": "G-1",
+      "main": "200 A MCB",
+      "mounting": "ELEC room",
+      "ckts": [
+        {
+          "desc": "confinement exhaust fans (2x50%)",
+          "va": 19400,
+          "brk": "3P",
+          "note": "hvac() cascade must surviv"
+        },
+        {
+          "desc": "CAM/ARM/CAAS + stack monitor",
+          "va": 15000,
+          "brk": "3P",
+          "note": "rad_monitoring() loads"
+        },
+        {
+          "desc": "safety PLC + network + consoles",
+          "va": 20000,
+          "brk": "3P",
+          "note": "controls() UPS-fed"
+        },
+        {
+          "desc": "egress + exit lighting",
+          "va": 5000,
+          "brk": "20 A / 1P",
+          "note": "egress() unit loads"
+        },
+        {
+          "desc": "freeze protection + sump",
+          "va": 12000,
+          "brk": "3P",
+          "note": "site() winter design [EST]"
+        }
+      ],
+      "conn_kw": 71.4,
+      "driver": "electrical() emergency loads"
+    }
+  ],
+  "plumbing_connections": [
+    {
+      "tag": "WC-1",
+      "n": 2,
+      "what": "Water closet, flush valve",
+      "cw_mm": 25,
+      "hw_mm": 0,
+      "waste_mm": 100,
+      "vent_mm": 50,
+      "where": "TOILET-M/F"
+    },
+    {
+      "tag": "LAV-1",
+      "n": 2,
+      "what": "Lavatory, sensor faucet",
+      "cw_mm": 12,
+      "hw_mm": 12,
+      "waste_mm": 32,
+      "vent_mm": 32,
+      "where": "TOILET-M/F"
+    },
+    {
+      "tag": "SH-1",
+      "n": 2,
+      "what": "Decon shower + step-off pad",
+      "cw_mm": 19,
+      "hw_mm": 19,
+      "waste_mm": 50,
+      "vent_mm": 40,
+      "where": "DECON"
+    },
+    {
+      "tag": "DF-1",
+      "n": 1,
+      "what": "Drinking fountain, bi-level",
+      "cw_mm": 12,
+      "hw_mm": 0,
+      "waste_mm": 32,
+      "vent_mm": 32,
+      "where": "BREAK"
+    },
+    {
+      "tag": "SS-1",
+      "n": 2,
+      "what": "Service sink",
+      "cw_mm": 19,
+      "hw_mm": 19,
+      "waste_mm": 75,
+      "vent_mm": 50,
+      "where": "MECH + ROBMAINT"
+    },
+    {
+      "tag": "ESW-1",
+      "n": 3,
+      "what": "Safety shower + eyewash (combo)",
+      "cw_mm": 32,
+      "hw_mm": 0,
+      "waste_mm": 75,
+      "vent_mm": 50,
+      "where": "chlor make-up, er electrolyte, waste melter aisles"
+    },
+    {
+      "tag": "EW-1",
+      "n": 2,
+      "what": "Eyewash, wall",
+      "cw_mm": 12,
+      "hw_mm": 0,
+      "waste_mm": 40,
+      "vent_mm": 32,
+      "where": "BATT + blend"
+    }
+  ],
+  "logistics": {
+    "receiving": {
+      "apron": "18 x 6 m \u2014 Cask receipt apron (<=2 Type B, DL-JIT)",
+      "cask_cranes": "CC-101 receipt / CC-501 product (OPS.LINE); fleet second-lift path = W12 board thread (OPEN)",
+      "dock": "WHSE: 1 dock leveler 11.3 t (25k lb) + shelter \u2014 consumables/PPE/spares only, cold side",
+      "driver": "OPS.LINE RECEIPT/CASKING stations + DL-JIT <=2 casks"
+    },
+    "shipping": {
+      "what": "product casks (HALEU ingots, FP canisters RH-72B per intec_transfer_basis.PACKAGING) + LLW to WIPP/NNSS",
+      "route": "CASKING -> apron; survey + MC&A seal at D4 portal",
+      "driver": "XF PACKAGING lock + OPS CASKING step"
+    },
+    "storage": {
+      "vault": "below-grade interim vault (SB.PADS storage) \u2014 product casks, criticality-spaced racks (ANS-8.1 600 mm)",
+      "warehouse": "WHSE 140 m2: 4 rack bays consumables/PPE + spares cage",
+      "chem": "Cl2 cylinders OUTDOOR ventilated store (yard, NFPA 55) \u2014 never inside the block",
+      "driver": "SB.PADS + room chemistry"
+    },
+    "moving": {
+      "hot_side": "spine bogies + in-cell manipulators (OPS.ROBOTIC) + bridge cranes \u2014 no personnel",
+      "cold_side": "1x electric forklift 2.5 t (WHSE/yard) + 4x AGV carts (support corridors)",
+      "driver": "OPS handling classes per LINE step"
+    },
+    "charging": {
+      "forklift_kw": 30.0,
+      "agv_kw": 20.0,
+      "total_kw": 50.0,
+      "where": "BATT bay (support) \u2014 Li-ion; thermal-event detection + clean agent (fire()); NO H2 ventilation needed (no flooded lead-acid)",
+      "driver": "fleet count x charger nameplate; load carried in electrical() T3 panel"
+    }
+  },
+  "egress": {
+    "occupant_load": 22,
+    "process_block": "NORMALLY UNOCCUPIED (robotic \u2014 OPS.REMOTE_ROLES); entry is a planned work permit, 2-person, <=2 simultaneous",
+    "exits_support": 2,
+    "exit_width_mm": 1630,
+    "travel_limit_m": 60,
+    "travel_ok": true,
+    "muster": "BREAK room primary, apron secondary",
+    "notes": "exit signage + LHQM emergency units on EP-1 (gen)",
+    "driver": "IBC/NFPA 101 business: 22 occ -> 112 mm required < 2x 815 mm doors"
+  },
+  "site": {
+    "ops_acres_commit": 2.0,
+    "compressed_acres": 1.8,
+    "pads": [
+      {
+        "key": "block",
+        "label": "Hot-cell process block",
+        "x": 38.0,
+        "y": 88.0,
+        "w": 80.625,
+        "h": 21.0
+      },
+      {
+        "key": "yard",
+        "label": "Utility yard (CM-1 compressed)",
+        "x": 38.0,
+        "y": 54.0,
+        "w": 53.0,
+        "h": 34.0
+      },
+      {
+        "key": "support",
+        "label": "Support (3-story stack)",
+        "x": 93.0,
+        "y": 54.0,
+        "w": 26.0,
+        "h": 20.8
+      },
+      {
+        "key": "hvac",
+        "label": "HVAC / confinement pad",
+        "x": 93.0,
+        "y": 76.5,
+        "w": 26.0,
+        "h": 11.5
+      },
+      {
+        "key": "storage",
+        "label": "Interim vault (below-grade) + staging",
+        "x": 121.0,
+        "y": 54.0,
+        "w": 8.0,
+        "h": 25.0
+      },
+      {
+        "key": "offgas",
+        "label": "Off-gas residual pad (CM-3)",
+        "x": 120.0,
+        "y": 88.0,
+        "w": 4.0,
+        "h": 12.5
+      }
+    ],
+    "ops_envelope_m": [
+      91.0,
+      55.0
+    ],
+    "pa_fence_m": [
+      109.0,
+      73.0
+    ],
+    "pidas_corridor_m": 9.0,
+    "fence_perimeter_m": 364,
+    "gates": [
+      "vehicle sally port (apron side, double-interlock)",
+      "CAS personnel portal at LOBBY",
+      "LA gate: badge + vehicle inspection (ECF)"
+    ],
+    "parking_stalls": 26,
+    "parking_note": "26 stalls in LA (outside PA): 17/shift x 1.2 + 5 visitor",
+    "yard": [
+      "T1/T2/T3 transformers + SWGR pad",
+      "G-1 diesel + tank (2x wall)",
+      "chiller + cooling towers (5.9 MW heat rejection)",
+      "fire tank + pump house",
+      "Cl2 outdoor store (NFPA 55)",
+      "stack (offgas pad)"
+    ],
+    "driver": "SB.PADS geometry + SECURITY_ZONES PA (pidas_corridor_m) inside the 2.0-acre ops commit; parcel 10.0 ac inside INTEC inside INL"
+  },
+  "bid_quantities": [
+    [
+      "Mat foundation (bldg + annex)",
+      "2,160",
+      "m3",
+      "footprint x 1.0 m slab_t (S-001/ST-MAT)"
+    ],
+    [
+      "Bioshield tunnel walls",
+      "1,588",
+      "m3",
+      "1.5 m band x 9.0 m bore (S-009)"
+    ],
+    [
+      "Roof slab",
+      "504",
+      "m3",
+      "0.30 m (S-011 plugs incl.)"
+    ],
+    [
+      "Shell walls (envelope)",
+      "598",
+      "m3",
+      "0.30 m x 12 m (WT-EXT, S-013)"
+    ],
+    [
+      "Annex hot-cell shield walls",
+      "900",
+      "m3",
+      "ALLOWANCE AL-2 \u2014 thickness firmed at DS-2 (N-008)"
+    ],
+    [
+      "Reinforcement (allowance)",
+      "776",
+      "t",
+      "ALLOWANCE AL-3: 135 kg/m3 avg (nuclear-heavy; S-009 curtains govern locally)"
+    ],
+    [
+      "SS316L liner, 6 mm seal-welded",
+      "2,413",
+      "m2",
+      "tunnel bore surfaces (S-009/S-013); annex R5 in AL-2"
+    ],
+    [
+      "Structural + station steel (total)",
+      "94.8",
+      "t",
+      "160 members, model takeoff (S-007 w/ lengths)"
+    ],
+    [
+      "CMU partitions (support rooms)",
+      "393",
+      "m2",
+      "200 mm fully grouted (S-016 T2 rows)"
+    ],
+    [
+      "Excavation + backfill",
+      "3,456",
+      "m3",
+      "footprint x (slab + 0.6 m) [EST]; geotech = ASSUMPTION A-1"
+    ],
+    [
+      "Doors \u2014 as-modeled leaves",
+      "25",
+      "ea",
+      "A-008 (geometry); program wing leaves in AL-1"
+    ],
+    [
+      "HEPA banks (2-stage, BIBO)",
+      "4",
+      "banks",
+      "H-003/H-004 hvac() derivation"
+    ],
+    [
+      "Light fixtures",
+      "163",
+      "ea",
+      "E-007 schedule (9.9 kW)"
+    ],
+    [
+      "Owner process modules (rigging only)",
+      "15",
+      "ea",
+      "S-015 roster; heaviest 10.0 t < crane 31.1 t"
+    ]
+  ],
+  "bid_scope": [
+    [
+      "Sitework / civil",
+      "GC",
+      "GC",
+      "C-series; fence+PIDAS in base bid"
+    ],
+    [
+      "Concrete (mat, bioshield, cells, roof)",
+      "GC",
+      "GC",
+      "S-001/S-009..S-012; liner embeds cast-in by GC"
+    ],
+    [
+      "SS316L liner supply + seal welding",
+      "GC",
+      "GC",
+      "nuclear-grade welding QA (NQA-1 graded); hold points App B"
+    ],
+    [
+      "Structural + misc steel, skid anchors",
+      "GC",
+      "GC",
+      "S-002/S-007; F1554 anchors cast-in per S-010/S-015 K1"
+    ],
+    [
+      "Building envelope (IMP skin, roofing, doors)",
+      "GC",
+      "GC",
+      "A-series; shield doors GC-furnished per A-013 classes"
+    ],
+    [
+      "Bridge crane (31.1 t runway basis)",
+      "OWNER",
+      "GC (rails/power)",
+      "long-lead; GC installs runways + mainline; CMAA 70"
+    ],
+    [
+      "Process modules SPM/HEM/EBM/DBM/WPM/CKM/UCM",
+      "OWNER",
+      "OWNER",
+      "GC provides pads/anchors/utility stubs TO FLANGE (S-015 K1-K10); rigging path + laydown by GC"
+    ],
+    [
+      "Process piping (vapor manifold, vacuum)",
+      "OWNER",
+      "OWNER",
+      "GC: sleeves, penetrations, supports per P-005"
+    ],
+    [
+      "Utility piping (CWS/CWR, IA, DI, drains)",
+      "GC",
+      "GC",
+      "P-series to module quick-connects (K4)"
+    ],
+    [
+      "HVAC + confinement (AHU, EF, HEPA, stack)",
+      "GC",
+      "GC",
+      "H-series; AG-1 housings; stack per K10 base"
+    ],
+    [
+      "Electrical distribution (13.8 kV -> panels)",
+      "GC",
+      "GC",
+      "E-001/E-006; process VFD/HV cabinets OWNER (K5 lands on skid)"
+    ],
+    [
+      "I&C infrastructure (raceway, JBs, racks)",
+      "GC",
+      "GC",
+      "instruments + CAAS OWNER-calibrated; GC pulls + terminates"
+    ],
+    [
+      "Rad monitoring / CAMs / NDA",
+      "OWNER",
+      "OWNER",
+      "GC: power + mounting provisions (I-003)"
+    ]
+  ],
+  "bid_assumptions": [
+    [
+      "A-1 Geotech",
+      "allowable bearing 200 kPa assumed at mat subgrade; owner geotechnical report to confirm (excavation re-priced on report)"
+    ],
+    [
+      "A-2 Utility POCs",
+      "power 13.8 kV, water, sanitary at the fence line per C-003; INTEC-side infrastructure by others"
+    ],
+    [
+      "A-3 Security",
+      "PA fence + PIDAS in base bid; badging/clearances per site host; no SCIF scope"
+    ],
+    [
+      "A-4 Evidence class",
+      "DESIGN-DEVELOPMENT pricing set \u2014 model-derived quantities [ENGINEERING ESTIMATE]; DS-2/DS-3 A-E set supersedes; NOT FOR CONSTRUCTION"
+    ],
+    [
+      "A-5 Rooms basis",
+      "AS-MODELED sheets govern pricing (plans, S-016, EQ-series); program-basis sheets (A-011..A-014, F-003, I-005) inform the support-wing ALLOWANCE AL-1 only"
+    ]
+  ],
+  "bid_allowances": [
+    [
+      "AL-1 Support wing fit-out",
+      "program rooms (offices/toilets/break/whse) beyond the modeled support stack"
+    ],
+    [
+      "AL-2 Annex cell shield walls",
+      "900 m3 concrete + liner \u2014 thickness firmed by DS-2 shielding analysis (N-008)"
+    ],
+    [
+      "AL-3 Reinforcement",
+      "135 kg/m3 average density allowance"
+    ],
+    [
+      "AL-4 Yard equipment pads",
+      "T1-T3, G-1, chiller, fire tank + pump house per C-005 listing"
+    ]
+  ],
+  "bid_exclusions": [
+    "Nuclear fuel, radioactive material, and all licensed operations",
+    "Process module fabrication (OWNER; roster S-015)",
+    "NCSE, PSHA, final shielding analysis (DS-2/DS-3 A-E scope)",
+    "Commissioning beyond construction acceptance (SO test by OWNER)"
+  ],
+  "room_crosswalk": [
+    [
+      "CASKBAY",
+      "Cask receipt bay",
+      "cask",
+      "Cask receipt"
+    ],
+    [
+      "UNCASK",
+      "Cask unloading cell",
+      "(cask)",
+      "de-cask sub-op of receipt"
+    ],
+    [
+      "DECLAD",
+      "Decladding / shear",
+      "declad",
+      "Decladding"
+    ],
+    [
+      "EBEAM",
+      "E-beam evaporation hub",
+      "ebeam",
+      "E-beam volatility"
+    ],
+    [
+      "CELL-1..8",
+      "Separator vessels (8)",
+      "sep",
+      "RMF separator (fleet)"
+    ],
+    [
+      "(hub-and-spoke plasma line)",
+      "supersedes electrorefine",
+      "chlor/er/rif",
+      "Chlorination/Electrorefine/RIF \u2014 NOT in as-modeled (plasma separation replaced the pyro line); systems load bounds the hall"
+    ],
+    [
+      "DOWNBLEND",
+      "Down-blend / cast",
+      "blend",
+      "Down-blend / cast"
+    ],
+    [
+      "CASKING",
+      "Product casking",
+      "casking",
+      "Product casking"
+    ],
+    [
+      "WASTE",
+      "FP waste handling",
+      "waste",
+      "Waste immobilization"
+    ],
+    [
+      "ROBMAINT",
+      "Robot maintenance/decon",
+      "maint",
+      "Maintenance / decon"
+    ],
+    [
+      "CONTROL",
+      "Main control room",
+      "CONTROL",
+      "Main control room"
+    ],
+    [
+      "DECON",
+      "Personnel decon",
+      "DECON",
+      "Personnel decon"
+    ],
+    [
+      "HP",
+      "Health-physics / count",
+      "(RP)",
+      "RP office / count (support)"
+    ],
+    [
+      "MCA",
+      "Material control + acct",
+      "MCA",
+      "MC&A vault / count"
+    ],
+    [
+      "(support wing \u2014 AL-1)",
+      "BREAK/OFFICE/TOILET/MECH/ELEC/BATT/WHSE/LOBBY",
+      "support_rooms",
+      "program support stack \u2014 priced as ALLOWANCE AL-1"
+    ]
+  ],
+  "module_stations": {
+    "TUNNEL": {
+      "name": "Hot-cell tunnel (bioshield)",
+      "tier": 1,
+      "constr": "CIP reinforced concrete monolith, SS316L 6 mm seal-welded liner (R5 boundary)",
+      "structure": "1.5 m bioshield \u2014 rebar/liner details S-009, criteria S-012; roof plugs S-011 (S-013 types cover room walls)",
+      "anchor": "monolithic w/ mat (ST-MAT); liner studs @300",
+      "conns": "K2 governs everything inside it; sleeved penetrations only",
+      "module": null
+    },
+    "SPINE": {
+      "name": "Robotic spine (transfer corridor)",
+      "tier": 3,
+      "constr": "floor-mounted precision rail pair on continuous grout curbs; overhead vapor manifold above",
+      "structure": "crane-rail sections on sole plates; rail splices bolted; gantry robots ride the pair",
+      "anchor": "K1 (rail sole plates: F1554 pairs @750 crs)",
+      "conns": "K2, K3 (manifold spine), K6 (robot festoon + E-stops)",
+      "module": "rail-mounted transfer robots (swap via ROBMAINT)"
+    },
+    "EBEAM": {
+      "name": "E-beam evaporation hub",
+      "tier": 3,
+      "constr": "water-cooled Cu hearth (3.0 x 2.0 x 1.0 m) on steel weldment stand; e-gun pair + cryopanel set above",
+      "structure": "stand: HSS152x152x9.5 posts + HSS152x102x6.4 ring (EBM-1 cartridge); guns/cryo on the vacuum lid",
+      "anchor": "K1 (6 pads)",
+      "conns": "K2, K3 (vapor OUT east to both banks), K4 (hearth cooling primary), K5 (HV: gun PSUs remote, cable duct), K6, K7, K9 (feed batch limits)",
+      "module": "EBM-1 hearth + gun cartridge"
+    },
+    "UNCASK": {
+      "name": "Cask unloading cell (de-cask)",
+      "tier": 1,
+      "constr": "CIP annex hot cell (S-013 shielded type, lined); equipment is the UCM-1 set",
+      "structure": "docking collar CK-201, grapple hoist GR-201 on monorail, staging rack RK-201, roof port plug PL-201 (as modeled)",
+      "anchor": "K1 (collar ring + rack pads); monorail hung from cell roof embeds",
+      "conns": "K2, K8 (cask dock S face + roof port), K6, K7; bare-fuel transfer N via shield door to spine",
+      "module": "UCM-1 grapple/collar set"
+    },
+    "DECLAD": {
+      "name": "Decladding / shear cell",
+      "tier": 1,
+      "constr": "CIP annex hot cell (S-013 shielded type, lined); equipment is the HEM-1 cartridge",
+      "structure": "shear SH-301 + ram, infeed conveyor CV-301, outfeed chute CH-301 (as modeled) on a common HSS cartridge frame (HSS152x152x9.5/HSS152x102x6.4)",
+      "anchor": "K1 (cartridge rails: 6 pads, slotted for pull)",
+      "conns": "K2, K6, K7; charge door S (2.5x4.0), discharge chute E to hub; campaign cartridges (Na-removal/crush-leach) swap on the same rails (G-008); HULL branch: SH-301 fork -> HR-302 rinse -> HM-303 monitor -> hull can OUT N via P-DECLAD-N to HB-401 bogie (N-013)",
+      "module": "HEM-1 shear cartridge (HEM-2 bay reserved)"
+    },
+    "CELL-1": {
+      "name": "Separator vessel cell (x8)",
+      "tier": 3,
+      "constr": "SPM skid: welded HSS frame carrying the ASME VIII vessel on saddles + vacuum set + collectors \u2014 craned in as ONE piece (5.5 t)",
+      "structure": "HSS152x152x9.5 posts (4) + HSS152x102x6.4 top ring + saddle beams; vessel \u00d80.66 x 1.5 m SA-240 316L",
+      "anchor": "K1 (4 pads)",
+      "conns": "K2, K3 (gate pair + bellows), K4, K5 (VFD+ICRH), K6, K7, K9 (one-pass fissile rule)",
+      "module": "SPM-1..8 (6 active + 2 reserved)"
+    },
+    "DOWNBLEND": {
+      "name": "Down-blend cell (HEU->HALEU)",
+      "tier": 1,
+      "constr": "CIP shielded cell; glovebox train + induction melt furnace on criticality-safe steel stands (DBM-1)",
+      "structure": "SS304 glovebox line on HSS stands; slab-geometry frames per K9; furnace coil cell w/ refractory face",
+      "anchor": "K1 (stand pads, slotted)",
+      "conns": "K2, K4 (furnace cooling), K5, K6, K7; ingot IN from separator U-collector via spine; product OUT to CASKING (HALEU by DOWN-BLENDING ONLY \u2014 never enrichment)",
+      "module": "DBM-1 glovebox + furnace line"
+    },
+    "ROBMAINT": {
+      "name": "Robot maintenance + decon bay",
+      "tier": 1,
+      "constr": "CIP shielded bay (occupied-adjacent); manipulator repair benches + decon washdown pit",
+      "structure": "SS benches on HSS stands; washdown sump w/ SS liner; jib crane 2 t at the shield door",
+      "anchor": "K1 (bench pads + jib base)",
+      "conns": "K2, K4 (washdown supply/drain to RLWS), K5, K6; failed robots crane-in via N shield door (2.5x4.0)",
+      "module": "bench fixtures (bolt-down, replaceable)"
+    },
+    "WASTE": {
+      "name": "FP waste handling",
+      "tier": 1,
+      "constr": "CIP shielded cell; drum/canister packaging station + staging conveyor (WPM-1)",
+      "structure": "packaging turret + drum conveyor on HSS frames; lid weld/torque head; staging rack 12-drum",
+      "anchor": "K1 (turret ring + conveyor pads)",
+      "conns": "K2, K6, K7 (packaging head is confinement-ducted), K5; FP feed IN from collectors via spine + HULL feed IN from DECLAD via HB-401 bogie (P-WASTE-S); hulls -> HC-702 compact, FP cans -> GT-703 grout; LLW drums OUT N via D-WASTE-N to ROUTE-3 apron (N-013)",
+      "module": "WPM-1 packaging turret"
+    },
+    "CASKBAY": {
+      "name": "Cask receipt bay",
+      "tier": 2,
+      "constr": "UNSHIELDED steel-framed bay within the envelope \u2014 open laydown + trolley head-end; roll-up truck door 5x6 m",
+      "structure": "steel laydown grillage pads (2) rated 35 t; cask trolley rail pair to the UNCASK dock (as modeled)",
+      "anchor": "K1 (grillage + rail sole plates to slab)",
+      "conns": "K8 (trolley delivers cask to UNCASK S dock), K5 (trolley power festoon), K6 (portal monitors \u2014 SEC)",
+      "module": "transfer trolley (rail-mounted)"
+    },
+    "CASKING": {
+      "name": "Product casking (HALEU + FP, segregated)",
+      "tier": 1,
+      "constr": "CIP shielded cell, TWO segregated bays (fissile + hot NEVER share a cask); lidding/weld station + cask stands (CKM-1)",
+      "structure": "2 cask stands rated 35 t; lid weld/bolt torque station on HSS frame; bay divider wall per S-013",
+      "anchor": "K1 (stand rings: 8 pads ea)",
+      "conns": "K2, K8 (loadout to trolley lane S), K5, K6, K7, K9 (HALEU bay geometry + MC&A seal step w/ MCA)",
+      "module": "CKM-1 lidding station"
+    },
+    "STACK": {
+      "name": "Off-gas stack",
+      "tier": 2,
+      "constr": "self-supporting steel shell stack (1.2 m sq base class), discharge 9 m above roof",
+      "structure": "rolled shell w/ base cone + anchor ring; CAM/sample ports at 2/3 height (N-007); ladder + tie-offs",
+      "anchor": "K10 (independent pad, isolation joint)",
+      "conns": "K7 (HEPA train discharge header IN), K6 (CAM loops RE/RIT-501 2oo3), lightning air terminal (E-series)",
+      "module": null
+    },
+    "CONTROL": {
+      "name": "Main control room (remote ops)",
+      "tier": 2,
+      "constr": "occupied support room: 200 mm reinforced fully-grouted CMU to 4.5 m w/ independent roof deck, 2-HR",
+      "structure": "CMU + bond beams @1.2 m; steel channel cap; acoustic ceiling; raised access floor 300 mm (consoles)",
+      "anchor": "CMU dowelled to slab @400; deck to envelope steel",
+      "conns": "K5 (UPS-fed), K6 (ALL station loops terminate here), dedicated HVAC zone (+25 Pa clean), viewing gallery NONE \u2014 cameras only (ALARA)",
+      "module": null
+    },
+    "DECON": {
+      "name": "Personnel decon / change",
+      "tier": 2,
+      "constr": "occupied support room: 200 mm reinforced CMU, 2-HR; step-off pad layout, SS wash fixtures",
+      "structure": "CMU per CONTROL; SS sink/shower set; frisker stations",
+      "anchor": "CMU dowelled to slab @400",
+      "conns": "K5, K6 (frisker + portal), drains to RLWS (P-series controlled drain \u2014 never storm)",
+      "module": null
+    },
+    "HP": {
+      "name": "Health-physics / count room",
+      "tier": 2,
+      "constr": "occupied support room: 200 mm reinforced CMU, 2-HR; count-room corner w/ 100 mm Pb-equivalent local shielding",
+      "structure": "CMU per CONTROL; Pb brick cave on load-spread plate; HEPA-filtered fume hood",
+      "anchor": "CMU dowelled; cave plate grouted (point load)",
+      "conns": "K5, K6 (count-room LLD instruments), K7 (hood exhaust to HEPA header)",
+      "module": null
+    },
+    "MCA": {
+      "name": "Material control + accountancy",
+      "tier": 2,
+      "constr": "occupied support room: 200 mm reinforced CMU, 2-HR; vault-class door + seal-application bench",
+      "structure": "CMU per CONTROL; NDA instrument bench; records vault cabinet rated 2-HR",
+      "anchor": "CMU dowelled to slab @400",
+      "conns": "K5 (UPS-fed), K6 (NDA + camera loops, tamper circuits to SEC), seal step w/ CASKING (K9 chain)",
+      "module": null
+    },
+    "CELL-2": {
+      "name": "Separator vessel cell (x8)",
+      "tier": 3,
+      "constr": "SPM skid: welded HSS frame carrying the ASME VIII vessel on saddles + vacuum set + collectors \u2014 craned in as ONE piece (5.5 t)",
+      "structure": "HSS152x152x9.5 posts (4) + HSS152x102x6.4 top ring + saddle beams; vessel \u00d80.66 x 1.5 m SA-240 316L",
+      "anchor": "K1 (4 pads)",
+      "conns": "K2, K3 (gate pair + bellows), K4, K5 (VFD+ICRH), K6, K7, K9 (one-pass fissile rule)",
+      "module": "SPM-1..8 (6 active + 2 reserved)"
+    },
+    "CELL-3": {
+      "name": "Separator vessel cell (x8)",
+      "tier": 3,
+      "constr": "SPM skid: welded HSS frame carrying the ASME VIII vessel on saddles + vacuum set + collectors \u2014 craned in as ONE piece (5.5 t)",
+      "structure": "HSS152x152x9.5 posts (4) + HSS152x102x6.4 top ring + saddle beams; vessel \u00d80.66 x 1.5 m SA-240 316L",
+      "anchor": "K1 (4 pads)",
+      "conns": "K2, K3 (gate pair + bellows), K4, K5 (VFD+ICRH), K6, K7, K9 (one-pass fissile rule)",
+      "module": "SPM-1..8 (6 active + 2 reserved)"
+    },
+    "CELL-4": {
+      "name": "Separator vessel cell (x8)",
+      "tier": 3,
+      "constr": "SPM skid: welded HSS frame carrying the ASME VIII vessel on saddles + vacuum set + collectors \u2014 craned in as ONE piece (5.5 t)",
+      "structure": "HSS152x152x9.5 posts (4) + HSS152x102x6.4 top ring + saddle beams; vessel \u00d80.66 x 1.5 m SA-240 316L",
+      "anchor": "K1 (4 pads)",
+      "conns": "K2, K3 (gate pair + bellows), K4, K5 (VFD+ICRH), K6, K7, K9 (one-pass fissile rule)",
+      "module": "SPM-1..8 (6 active + 2 reserved)"
+    },
+    "CELL-5": {
+      "name": "Separator vessel cell (x8)",
+      "tier": 3,
+      "constr": "SPM skid: welded HSS frame carrying the ASME VIII vessel on saddles + vacuum set + collectors \u2014 craned in as ONE piece (5.5 t)",
+      "structure": "HSS152x152x9.5 posts (4) + HSS152x102x6.4 top ring + saddle beams; vessel \u00d80.66 x 1.5 m SA-240 316L",
+      "anchor": "K1 (4 pads)",
+      "conns": "K2, K3 (gate pair + bellows), K4, K5 (VFD+ICRH), K6, K7, K9 (one-pass fissile rule)",
+      "module": "SPM-1..8 (6 active + 2 reserved)"
+    },
+    "CELL-6": {
+      "name": "Separator vessel cell (x8)",
+      "tier": 3,
+      "constr": "SPM skid: welded HSS frame carrying the ASME VIII vessel on saddles + vacuum set + collectors \u2014 craned in as ONE piece (5.5 t)",
+      "structure": "HSS152x152x9.5 posts (4) + HSS152x102x6.4 top ring + saddle beams; vessel \u00d80.66 x 1.5 m SA-240 316L",
+      "anchor": "K1 (4 pads)",
+      "conns": "K2, K3 (gate pair + bellows), K4, K5 (VFD+ICRH), K6, K7, K9 (one-pass fissile rule)",
+      "module": "SPM-1..8 (6 active + 2 reserved)"
+    },
+    "CELL-7": {
+      "name": "Separator vessel cell (x8)",
+      "tier": 3,
+      "constr": "SPM skid: welded HSS frame carrying the ASME VIII vessel on saddles + vacuum set + collectors \u2014 craned in as ONE piece (5.5 t)",
+      "structure": "HSS152x152x9.5 posts (4) + HSS152x102x6.4 top ring + saddle beams; vessel \u00d80.66 x 1.5 m SA-240 316L",
+      "anchor": "K1 (4 pads)",
+      "conns": "K2, K3 (gate pair + bellows), K4, K5 (VFD+ICRH), K6, K7, K9 (one-pass fissile rule)",
+      "module": "SPM-1..8 (6 active + 2 reserved)"
+    },
+    "CELL-8": {
+      "name": "Separator vessel cell (x8)",
+      "tier": 3,
+      "constr": "SPM skid: welded HSS frame carrying the ASME VIII vessel on saddles + vacuum set + collectors \u2014 craned in as ONE piece (5.5 t)",
+      "structure": "HSS152x152x9.5 posts (4) + HSS152x102x6.4 top ring + saddle beams; vessel \u00d80.66 x 1.5 m SA-240 316L",
+      "anchor": "K1 (4 pads)",
+      "conns": "K2, K3 (gate pair + bellows), K4, K5 (VFD+ICRH), K6, K7, K9 (one-pass fissile rule)",
+      "module": "SPM-1..8 (6 active + 2 reserved)"
+    }
+  },
+  "module_connections": [
+    [
+      "K1",
+      "SKID -> MAT (structural)",
+      "4+ post pads: PL 25 x 350 x 350 on 25 mm non-shrink grout (min f'c 50 MPa); (4) F1554 Gr.55 M22 cast-in per post pad; shear lug each pad; anchorage per ACI 349 App D, SDC-3 (S-012 criteria)"
+    ],
+    [
+      "K2",
+      "SKID -> BIOSHIELD (none, by design)",
+      "50 mm isolation gap all around \u2014 NO structural tie; only sleeved leak-tight penetrations cross the shield (S-011); vibration + differential-settlement isolation"
+    ],
+    [
+      "K3",
+      "SKID -> VAPOR MANIFOLD (process)",
+      "DN160 CF gate-valve PAIR (V-1xx A/B) + formed bellows at the overhead manifold stub \u2014 the ONLY module-to-module process path (P-002/P-006 line list)"
+    ],
+    [
+      "K4",
+      "SKID -> COOLING (utility)",
+      "DN50 supply/return dry-break quick-connects to the chilled DI loop (CWS/CWR); local isolation ball valves"
+    ],
+    [
+      "K5",
+      "SKID -> POWER (electrical)",
+      "480 V lockable disconnect per module fed from the MCC (E-001); process feeds (VFD/ICRH/HV) land on the skid junction panel"
+    ],
+    [
+      "K6",
+      "SKID -> I&C (instrumentation)",
+      "JB-1xx on-skid junction box -> remote rack (I-001/I-002 loops); ~24 IO pts per separator module"
+    ],
+    [
+      "K7",
+      "SKID -> OFF-GAS (confinement)",
+      "DN80 branch w/ isolation valve to the HEPA train header (H-001); module exhaust is confinement-routed, never room"
+    ],
+    [
+      "K8",
+      "CASK DOCKING (transfer)",
+      "floor docking collar CK-201 + roof cask-port plug PL-201 \u2014 cask mates to the cell boundary; bare fuel never leaves confinement (10 CFR 71 interface, DOE-STD-1090 rigging)"
+    ],
+    [
+      "K9",
+      "FISSILE GEOMETRY (criticality)",
+      "criticality-safe slab/cylinder geometry FIXED BY THE FRAME \u2014 spacing is welded, not procedural (ANSI/ANS-8.1; NCSE is DS-2/3 A-E scope)"
+    ],
+    [
+      "K10",
+      "STACK BASE (structural)",
+      "anchor-ring base w/ (12) F1554 Gr.55 M30 on independent octagonal pad; isolation joint to bldg slab; guyless self-supporting shell"
+    ]
+  ],
+  "module_modules": [
+    [
+      "SPM-1",
+      "separator skid (CELL-1)",
+      "active",
+      5.5
+    ],
+    [
+      "SPM-2",
+      "separator skid (CELL-2)",
+      "active",
+      5.5
+    ],
+    [
+      "SPM-3",
+      "separator skid (CELL-3)",
+      "active",
+      5.5
+    ],
+    [
+      "SPM-4",
+      "separator skid (CELL-4)",
+      "active",
+      5.5
+    ],
+    [
+      "SPM-5",
+      "separator skid (CELL-5)",
+      "active",
+      5.5
+    ],
+    [
+      "SPM-6",
+      "separator skid (CELL-6)",
+      "active",
+      5.5
+    ],
+    [
+      "SPM-7",
+      "separator skid (CELL-7)",
+      "reserved",
+      5.5
+    ],
+    [
+      "SPM-8",
+      "separator skid (CELL-8)",
+      "reserved",
+      5.5
+    ],
+    [
+      "UCM-1",
+      "uncask grapple/collar set (UNCASK)",
+      "installed",
+      6.5
+    ],
+    [
+      "HEM-1",
+      "shear cartridge (DECLAD)",
+      "installed",
+      8.0
+    ],
+    [
+      "HEM-2",
+      "campaign cartridge \u2014 Na-removal/crush-leach (G-008)",
+      "reserved",
+      10.0
+    ],
+    [
+      "EBM-1",
+      "e-beam hearth + gun cartridge (EBEAM)",
+      "installed",
+      9.5
+    ],
+    [
+      "DBM-1",
+      "glovebox + furnace line (DOWNBLEND)",
+      "installed",
+      7.0
+    ],
+    [
+      "WPM-1",
+      "waste packaging turret (WASTE)",
+      "installed",
+      5.5
+    ],
+    [
+      "CKM-1",
+      "cask lidding station (CASKING)",
+      "installed",
+      4.5
+    ]
+  ],
+  "module_equipment": {
+    "TUNNEL": [
+      {
+        "tag": "CR-001",
+        "name": "hall bridge crane, CMAA 70 (runway design basis 31.1 t per S-012/G-008; 20 T transfer-basis residual OPEN)",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 18.0,
+        "kw": 55.0,
+        "svc": "K5",
+        "modeled": "build_crane"
+      },
+      {
+        "tag": "VM-401",
+        "name": "balanced vapor manifold DN160 (hub -> both banks)",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 1.8,
+        "kw": 0.0,
+        "svc": "K3",
+        "modeled": "build_solids manifold"
+      }
+    ],
+    "SPINE": [
+      {
+        "tag": "TC-401",
+        "name": "shielded transfer cask bogie (sealed FP cans)",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 6.0,
+        "kw": 4.0,
+        "svc": "K5/K6",
+        "modeled": "build_solids bogie"
+      },
+      {
+        "tag": "RB-451",
+        "name": "gantry transfer robot 1 (rail-mounted)",
+        "w": 1.2,
+        "d": 1.0,
+        "h": 2.2,
+        "rx": 12.0,
+        "ry": 0.5,
+        "z": 0.0,
+        "mass_t": 1.4,
+        "kw": 9.0,
+        "svc": "K5/K6",
+        "modeled": null
+      },
+      {
+        "tag": "RB-452",
+        "name": "gantry transfer robot 2 (rail-mounted)",
+        "w": 1.2,
+        "d": 1.0,
+        "h": 2.2,
+        "rx": 24.0,
+        "ry": 0.5,
+        "z": 0.0,
+        "mass_t": 1.4,
+        "kw": 9.0,
+        "svc": "K5/K6",
+        "modeled": null
+      }
+    ],
+    "EBEAM": [
+      {
+        "tag": "HR-151",
+        "name": "water-cooled Cu hearth 3.0 x 2.0 (feed pool)",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 6.5,
+        "kw": 0.0,
+        "svc": "K4/K9",
+        "modeled": "Fusion builder (scalars hearth_*)"
+      },
+      {
+        "tag": "EG-151",
+        "name": "e-gun 1 (of 4) w/ HV feedthrough",
+        "w": 0.6,
+        "d": 0.6,
+        "h": 2.5,
+        "rx": 1.4,
+        "ry": 2.2,
+        "z": 1.0,
+        "mass_t": 0.4,
+        "kw": 150.0,
+        "svc": "K5/K6",
+        "modeled": null
+      },
+      {
+        "tag": "EG-152",
+        "name": "e-gun 2",
+        "w": 0.6,
+        "d": 0.6,
+        "h": 2.5,
+        "rx": 4.9,
+        "ry": 2.2,
+        "z": 1.0,
+        "mass_t": 0.4,
+        "kw": 150.0,
+        "svc": "K5/K6",
+        "modeled": null
+      },
+      {
+        "tag": "EG-153",
+        "name": "e-gun 3",
+        "w": 0.6,
+        "d": 0.6,
+        "h": 2.5,
+        "rx": 1.4,
+        "ry": 9.0,
+        "z": 1.0,
+        "mass_t": 0.4,
+        "kw": 150.0,
+        "svc": "K5/K6",
+        "modeled": null
+      },
+      {
+        "tag": "EG-154",
+        "name": "e-gun 4",
+        "w": 0.6,
+        "d": 0.6,
+        "h": 2.5,
+        "rx": 4.9,
+        "ry": 9.0,
+        "z": 1.0,
+        "mass_t": 0.4,
+        "kw": 150.0,
+        "svc": "K5/K6",
+        "modeled": null
+      },
+      {
+        "tag": "CP-151",
+        "name": "cryopanel bank W",
+        "w": 2.0,
+        "d": 0.4,
+        "h": 2.0,
+        "rx": 0.6,
+        "ry": 4.6,
+        "z": 0.5,
+        "mass_t": 0.9,
+        "kw": 12.0,
+        "svc": "K4/K5",
+        "modeled": null
+      },
+      {
+        "tag": "CP-152",
+        "name": "cryopanel bank E",
+        "w": 2.0,
+        "d": 0.4,
+        "h": 2.0,
+        "rx": 4.4,
+        "ry": 4.6,
+        "z": 0.5,
+        "mass_t": 0.9,
+        "kw": 12.0,
+        "svc": "K4/K5",
+        "modeled": null
+      },
+      {
+        "tag": "AL-151",
+        "name": "feed airlock + batch turntable (K9 limits)",
+        "w": 1.2,
+        "d": 1.2,
+        "h": 1.6,
+        "rx": 0.5,
+        "ry": 6.6,
+        "z": 0.0,
+        "mass_t": 1.1,
+        "kw": 3.0,
+        "svc": "K3/K6/K9",
+        "modeled": null
+      },
+      {
+        "tag": "HV-151",
+        "name": "HV cabinet (gun PSUs REMOTE; local xfmr/duct)",
+        "w": 0.8,
+        "d": 0.6,
+        "h": 1.8,
+        "rx": 5.6,
+        "ry": 6.8,
+        "z": 0.0,
+        "mass_t": 0.7,
+        "kw": 0.0,
+        "svc": "K5",
+        "modeled": null
+      }
+    ],
+    "UNCASK": [
+      {
+        "tag": "CK-201",
+        "name": "cask docking collar (floor port)",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 3.2,
+        "kw": 0.0,
+        "svc": "K8",
+        "modeled": "build_uncask_internals"
+      },
+      {
+        "tag": "GR-201",
+        "name": "fuel grapple hoist on monorail",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 1.6,
+        "kw": 11.0,
+        "svc": "K5/K6",
+        "modeled": "build_uncask_internals"
+      },
+      {
+        "tag": "RK-201",
+        "name": "assembly staging rack",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 2.4,
+        "kw": 0.0,
+        "svc": "K1/K9",
+        "modeled": "build_uncask_internals"
+      },
+      {
+        "tag": "PL-201",
+        "name": "roof cask-port plug",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 8.5,
+        "kw": 0.0,
+        "svc": "K8",
+        "modeled": "build_uncask_internals"
+      },
+      {
+        "tag": "LD-201",
+        "name": "cask lid tooling stand (unbolt/lift set)",
+        "w": 1.2,
+        "d": 1.2,
+        "h": 1.0,
+        "rx": 1.0,
+        "ry": 4.5,
+        "z": 0.0,
+        "mass_t": 0.8,
+        "kw": 0.0,
+        "svc": "K1/K8",
+        "modeled": null
+      },
+      {
+        "tag": "SW-201",
+        "name": "swipe/survey station (release to DECLAD)",
+        "w": 0.9,
+        "d": 0.9,
+        "h": 1.2,
+        "rx": 6.0,
+        "ry": 7.5,
+        "z": 0.0,
+        "mass_t": 0.3,
+        "kw": 0.5,
+        "svc": "K6",
+        "modeled": null
+      }
+    ],
+    "DECLAD": [
+      {
+        "tag": "SH-301",
+        "name": "clad shear + ram (HEM-1 cartridge)",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 5.5,
+        "kw": 22.0,
+        "svc": "K1/K5/K6",
+        "modeled": "build_declad_internals"
+      },
+      {
+        "tag": "CV-301",
+        "name": "fuel-piece infeed conveyor",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 0.9,
+        "kw": 2.2,
+        "svc": "K5",
+        "modeled": "build_declad_internals"
+      },
+      {
+        "tag": "CH-301",
+        "name": "hull/clad outfeed chute (to hull bin)",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 0.5,
+        "kw": 0.0,
+        "svc": "K7",
+        "modeled": "build_declad_internals"
+      },
+      {
+        "tag": "MG-301",
+        "name": "infeed magazine (charge-door side)",
+        "w": 1.5,
+        "d": 1.0,
+        "h": 1.5,
+        "rx": 1.0,
+        "ry": 1.0,
+        "z": 0.0,
+        "mass_t": 1.2,
+        "kw": 0.0,
+        "svc": "K1/K9",
+        "modeled": null
+      },
+      {
+        "tag": "HB-301",
+        "name": "hull bin (shielded, to WASTE lane)",
+        "w": 1.2,
+        "d": 1.2,
+        "h": 1.2,
+        "rx": 6.5,
+        "ry": 4.5,
+        "z": 0.0,
+        "mass_t": 1.0,
+        "kw": 0.0,
+        "svc": "K7/K9",
+        "modeled": null
+      },
+      {
+        "tag": "HR-302",
+        "name": "hull rinse/leach (fines -> RLWS / e-beam recovery)",
+        "w": 1.2,
+        "d": 1.2,
+        "h": 1.5,
+        "rx": 6.5,
+        "ry": 7.0,
+        "z": 0.0,
+        "mass_t": 1.1,
+        "kw": 4.0,
+        "svc": "K2/K7",
+        "modeled": null
+      },
+      {
+        "tag": "HM-303",
+        "name": "hull clearance monitor (gamma/n free-release + MC&A discard NDA)",
+        "w": 1.0,
+        "d": 1.0,
+        "h": 1.8,
+        "rx": 4.5,
+        "ry": 8.5,
+        "z": 0.0,
+        "mass_t": 0.9,
+        "kw": 1.0,
+        "svc": "K6",
+        "modeled": null
+      }
+    ],
+    "CELL": [
+      {
+        "tag": "VS-101",
+        "name": "separator vessel \u00d80.66 x 1.5 ASME VIII (SPM skid)",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 2.36,
+        "kw": 0.0,
+        "svc": "K1/K2/K3",
+        "modeled": "build_solids vessel"
+      },
+      {
+        "tag": "VP-101",
+        "name": "vacuum set (turbo + backing, on-skid)",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 0.8,
+        "kw": 5.5,
+        "svc": "K5/K7",
+        "modeled": "build_solids vacuum set"
+      },
+      {
+        "tag": "CL-101",
+        "name": "product collector set (U + FP draws)",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 0.6,
+        "kw": 0.0,
+        "svc": "K3/K9",
+        "modeled": "build_solids product collector"
+      },
+      {
+        "tag": "RMF-101",
+        "name": "RMF drive stator ring (VFD-fed, mid-barrel)",
+        "w": 1.0,
+        "d": 1.0,
+        "h": 1.0,
+        "rx": 1.0,
+        "ry": 1.0,
+        "z": 0.7,
+        "mass_t": 1.2,
+        "kw": 45.0,
+        "svc": "K5",
+        "modeled": null
+      },
+      {
+        "tag": "ICR-101",
+        "name": "ICRH antenna + match box (west head)",
+        "w": 0.5,
+        "d": 0.5,
+        "h": 0.6,
+        "rx": 0.35,
+        "ry": 1.9,
+        "z": 0.9,
+        "mass_t": 0.3,
+        "kw": 25.0,
+        "svc": "K5",
+        "modeled": null
+      },
+      {
+        "tag": "GV-101",
+        "name": "DN160 gate-valve PAIR at manifold stub (A/B)",
+        "w": 0.4,
+        "d": 0.4,
+        "h": 0.5,
+        "rx": 1.3,
+        "ry": 2.55,
+        "z": 1.6,
+        "mass_t": 0.15,
+        "kw": 0.0,
+        "svc": "K3",
+        "modeled": null
+      }
+    ],
+    "DOWNBLEND": [
+      {
+        "tag": "GB-601",
+        "name": "glovebox line 1 (criticality-safe slab)",
+        "w": 6.0,
+        "d": 1.5,
+        "h": 1.5,
+        "rx": 2.0,
+        "ry": 0.75,
+        "z": 0.9,
+        "mass_t": 2.2,
+        "kw": 6.0,
+        "svc": "K5/K7/K9",
+        "modeled": null
+      },
+      {
+        "tag": "GB-602",
+        "name": "glovebox line 2",
+        "w": 6.0,
+        "d": 1.5,
+        "h": 1.5,
+        "rx": 2.0,
+        "ry": 4.25,
+        "z": 0.9,
+        "mass_t": 2.2,
+        "kw": 6.0,
+        "svc": "K5/K7/K9",
+        "modeled": null
+      },
+      {
+        "tag": "FN-601",
+        "name": "induction melt furnace (down-blend)",
+        "w": 1.5,
+        "d": 1.5,
+        "h": 2.0,
+        "rx": 9.5,
+        "ry": 3.25,
+        "z": 0.0,
+        "mass_t": 2.8,
+        "kw": 180.0,
+        "svc": "K4/K5/K7/K9",
+        "modeled": null
+      },
+      {
+        "tag": "DU-601",
+        "name": "DU diluent feeder hopper (K9 batch limits)",
+        "w": 1.0,
+        "d": 1.0,
+        "h": 1.8,
+        "rx": 8.2,
+        "ry": 1.2,
+        "z": 0.0,
+        "mass_t": 0.9,
+        "kw": 1.5,
+        "svc": "K6/K9",
+        "modeled": null
+      },
+      {
+        "tag": "SC-601",
+        "name": "ingot scale + MC&A check-weigh",
+        "w": 1.0,
+        "d": 1.0,
+        "h": 0.3,
+        "rx": 11.3,
+        "ry": 1.5,
+        "z": 0.0,
+        "mass_t": 0.3,
+        "kw": 0.5,
+        "svc": "K6",
+        "modeled": null
+      }
+    ],
+    "ROBMAINT": [
+      {
+        "tag": "WB-801",
+        "name": "manipulator repair bench 1",
+        "w": 2.4,
+        "d": 0.9,
+        "h": 0.9,
+        "rx": 1.5,
+        "ry": 5.5,
+        "z": 0.0,
+        "mass_t": 0.5,
+        "kw": 2.0,
+        "svc": "K5/K6",
+        "modeled": null
+      },
+      {
+        "tag": "WB-802",
+        "name": "manipulator repair bench 2",
+        "w": 2.4,
+        "d": 0.9,
+        "h": 0.9,
+        "rx": 5.5,
+        "ry": 5.5,
+        "z": 0.0,
+        "mass_t": 0.5,
+        "kw": 2.0,
+        "svc": "K5/K6",
+        "modeled": null
+      },
+      {
+        "tag": "DP-801",
+        "name": "decon washdown pit (SS liner, to RLWS)",
+        "w": 2.5,
+        "d": 2.5,
+        "h": 0.15,
+        "rx": 8.5,
+        "ry": 1.0,
+        "z": 0.0,
+        "mass_t": 0.6,
+        "kw": 0.0,
+        "svc": "K4",
+        "modeled": null
+      },
+      {
+        "tag": "TL-801",
+        "name": "tool crib cabinet (contaminated tools)",
+        "w": 2.0,
+        "d": 0.6,
+        "h": 2.0,
+        "rx": 9.5,
+        "ry": 6.8,
+        "z": 0.0,
+        "mass_t": 0.4,
+        "kw": 0.0,
+        "svc": "K6",
+        "modeled": null
+      }
+    ],
+    "WASTE": [
+      {
+        "tag": "PK-701",
+        "name": "drum packaging turret (WPM-1)",
+        "w": 1.4,
+        "d": 1.4,
+        "h": 2.2,
+        "rx": 3.0,
+        "ry": 3.3,
+        "z": 0.25,
+        "mass_t": 2.6,
+        "kw": 7.5,
+        "svc": "K1/K5/K7",
+        "modeled": null
+      },
+      {
+        "tag": "CV-701",
+        "name": "drum conveyor",
+        "w": 5.0,
+        "d": 0.8,
+        "h": 0.6,
+        "rx": 5.0,
+        "ry": 3.6,
+        "z": 0.0,
+        "mass_t": 1.1,
+        "kw": 2.2,
+        "svc": "K5",
+        "modeled": null
+      },
+      {
+        "tag": "RK-701",
+        "name": "drum staging rack (12-drum)",
+        "w": 2.0,
+        "d": 6.0,
+        "h": 1.5,
+        "rx": 10.5,
+        "ry": 1.0,
+        "z": 0.0,
+        "mass_t": 1.6,
+        "kw": 0.0,
+        "svc": "K1",
+        "modeled": null
+      },
+      {
+        "tag": "LW-701",
+        "name": "drum lid weld/torque head",
+        "w": 0.8,
+        "d": 0.8,
+        "h": 1.5,
+        "rx": 3.2,
+        "ry": 5.8,
+        "z": 0.0,
+        "mass_t": 0.5,
+        "kw": 8.0,
+        "svc": "K5/K7",
+        "modeled": null
+      },
+      {
+        "tag": "AS-701",
+        "name": "drum assay (gamma) + MC&A record",
+        "w": 1.2,
+        "d": 1.2,
+        "h": 1.8,
+        "rx": 9.0,
+        "ry": 5.5,
+        "z": 0.0,
+        "mass_t": 1.3,
+        "kw": 1.0,
+        "svc": "K6",
+        "modeled": null
+      },
+      {
+        "tag": "HC-702",
+        "name": "hull supercompactor (Al -> LLW pucks)",
+        "w": 2.0,
+        "d": 1.5,
+        "h": 2.5,
+        "rx": 0.8,
+        "ry": 6.5,
+        "z": 0.0,
+        "mass_t": 6.5,
+        "kw": 30.0,
+        "svc": "K1/K5/K7",
+        "modeled": null
+      },
+      {
+        "tag": "GT-703",
+        "name": "grout/immobilization (FP-can overpack)",
+        "w": 2.0,
+        "d": 2.0,
+        "h": 2.5,
+        "rx": 7.0,
+        "ry": 6.0,
+        "z": 0.0,
+        "mass_t": 4.2,
+        "kw": 11.0,
+        "svc": "K2/K5/K7",
+        "modeled": null
+      }
+    ],
+    "CASKBAY": [
+      {
+        "tag": "TR-251",
+        "name": "cask transfer trolley (rail, to UNCASK dock)",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 4.5,
+        "kw": 6.0,
+        "svc": "K5/K8",
+        "modeled": "build_transfer"
+      },
+      {
+        "tag": "PM-251",
+        "name": "portal monitor (truck door W jamb)",
+        "w": 0.5,
+        "d": 0.5,
+        "h": 2.2,
+        "rx": 2.5,
+        "ry": 0.4,
+        "z": 0.0,
+        "mass_t": 0.25,
+        "kw": 0.4,
+        "svc": "K6",
+        "modeled": null
+      },
+      {
+        "tag": "PM-252",
+        "name": "portal monitor (truck door E jamb)",
+        "w": 0.5,
+        "d": 0.5,
+        "h": 2.2,
+        "rx": 6.0,
+        "ry": 0.4,
+        "z": 0.0,
+        "mass_t": 0.25,
+        "kw": 0.4,
+        "svc": "K6",
+        "modeled": null
+      }
+    ],
+    "CASKING": [
+      {
+        "tag": "ST-271",
+        "name": "cask stand \u2014 HALEU bay (35 t)",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 2.0,
+        "kw": 0.0,
+        "svc": "K1",
+        "modeled": "build_station_frames cask_stand"
+      },
+      {
+        "tag": "ST-272",
+        "name": "cask stand \u2014 FP bay (35 t)",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 2.0,
+        "kw": 0.0,
+        "svc": "K1",
+        "modeled": "build_station_frames cask_stand"
+      },
+      {
+        "tag": "LW-271",
+        "name": "lid weld / bolt-torque station (CKM-1)",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 1.4,
+        "kw": 9.0,
+        "svc": "K5/K7",
+        "modeled": "build_station_frames ckm skid"
+      },
+      {
+        "tag": "LT-271",
+        "name": "cask leak-test station (He sniff)",
+        "w": 1.5,
+        "d": 1.2,
+        "h": 1.8,
+        "rx": 11.5,
+        "ry": 6.5,
+        "z": 0.0,
+        "mass_t": 0.7,
+        "kw": 2.5,
+        "svc": "K5/K6",
+        "modeled": null
+      },
+      {
+        "tag": "SC-271",
+        "name": "cask floor scale + MC&A weigh",
+        "w": 1.5,
+        "d": 1.5,
+        "h": 0.15,
+        "rx": 11.5,
+        "ry": 2.0,
+        "z": 0.0,
+        "mass_t": 0.5,
+        "kw": 0.5,
+        "svc": "K6",
+        "modeled": null
+      },
+      {
+        "tag": "DR-271",
+        "name": "cask decon spray ring (loadout lane)",
+        "w": 1.0,
+        "d": 1.0,
+        "h": 2.0,
+        "rx": 6.3,
+        "ry": 7.5,
+        "z": 0.0,
+        "mass_t": 0.4,
+        "kw": 0.0,
+        "svc": "K4",
+        "modeled": null
+      }
+    ],
+    "STACK": [
+      {
+        "tag": "RE-501",
+        "name": "stack CAM (2oo3 w/ RIT-501, at 2/3 height)",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 0.1,
+        "kw": 0.6,
+        "svc": "K6",
+        "modeled": "N-007 stack ports"
+      },
+      {
+        "tag": "SP-501",
+        "name": "isokinetic sample probe set + ports",
+        "w": 0.0,
+        "d": 0.0,
+        "h": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "z": 0.0,
+        "mass_t": 0.05,
+        "kw": 0.0,
+        "svc": "K7",
+        "modeled": "N-007 stack ports"
+      }
+    ],
+    "CONTROL": [
+      {
+        "tag": "CON-901",
+        "name": "operator console row (remote ops)",
+        "w": 2.4,
+        "d": 0.8,
+        "h": 1.2,
+        "rx": 0.5,
+        "ry": 0.5,
+        "z": 0.0,
+        "mass_t": 0.4,
+        "kw": 3.0,
+        "svc": "K5/K6",
+        "modeled": null
+      },
+      {
+        "tag": "WS-901",
+        "name": "engineering workstation row + video wall",
+        "w": 2.4,
+        "d": 0.8,
+        "h": 1.2,
+        "rx": 0.5,
+        "ry": 5.5,
+        "z": 0.0,
+        "mass_t": 0.4,
+        "kw": 2.5,
+        "svc": "K5/K6",
+        "modeled": null
+      }
+    ],
+    "DECON": [
+      {
+        "tag": "DX-902",
+        "name": "SS shower / sink set (drains to RLWS)",
+        "w": 1.2,
+        "d": 0.6,
+        "h": 2.0,
+        "rx": 0.5,
+        "ry": 0.5,
+        "z": 0.0,
+        "mass_t": 0.3,
+        "kw": 0.0,
+        "svc": "K4",
+        "modeled": null
+      },
+      {
+        "tag": "FR-902",
+        "name": "frisker portal at step-off pad",
+        "w": 0.8,
+        "d": 0.8,
+        "h": 2.2,
+        "rx": 2.2,
+        "ry": 4.5,
+        "z": 0.0,
+        "mass_t": 0.25,
+        "kw": 0.3,
+        "svc": "K6",
+        "modeled": null
+      }
+    ],
+    "HP": [
+      {
+        "tag": "CAVE-903",
+        "name": "Pb count cave (100 mm Pb-equiv, on spread plate)",
+        "w": 1.2,
+        "d": 1.2,
+        "h": 1.5,
+        "rx": 0.5,
+        "ry": 0.5,
+        "z": 0.0,
+        "mass_t": 3.8,
+        "kw": 0.0,
+        "svc": "K1/K6",
+        "modeled": null
+      },
+      {
+        "tag": "FH-903",
+        "name": "HEPA-filtered fume hood",
+        "w": 1.5,
+        "d": 0.8,
+        "h": 2.4,
+        "rx": 0.5,
+        "ry": 4.2,
+        "z": 0.0,
+        "mass_t": 0.6,
+        "kw": 1.2,
+        "svc": "K5/K7",
+        "modeled": null
+      }
+    ],
+    "MCA": [
+      {
+        "tag": "NDA-904",
+        "name": "NDA instrument bench (gamma spec + neutron)",
+        "w": 1.8,
+        "d": 0.8,
+        "h": 0.9,
+        "rx": 0.5,
+        "ry": 0.5,
+        "z": 0.0,
+        "mass_t": 0.5,
+        "kw": 1.5,
+        "svc": "K5/K6",
+        "modeled": null
+      },
+      {
+        "tag": "VLT-904",
+        "name": "records vault cabinet (2-HR) + seal bench",
+        "w": 1.2,
+        "d": 0.6,
+        "h": 2.0,
+        "rx": 2.4,
+        "ry": 5.8,
+        "z": 0.0,
+        "mass_t": 0.8,
+        "kw": 0.0,
+        "svc": "K6",
+        "modeled": null
+      }
+    ]
+  },
+  "module_materials": [
+    [
+      "Skid posts",
+      "HSS152x152x9.5 \u2014 ASTM A500-C"
+    ],
+    [
+      "Skid rails / saddle beams",
+      "HSS152x102x6.4 \u2014 ASTM A500-C"
+    ],
+    [
+      "Base plates",
+      "ASTM A572-50; PL 25 x 350 x 350"
+    ],
+    [
+      "Anchors",
+      "(4) F1554 Gr.55 M22 cast-in per post pad (ACI 349 App D)"
+    ],
+    [
+      "Vessel",
+      "ASME VIII Div 1 \u2014 SA-240 316L (\u00d80.66 x 1.5 m, 2.36 t)"
+    ],
+    [
+      "Saddles",
+      "A572-50 plate, PTFE slide pad one end (thermal)"
+    ],
+    [
+      "Gloveboxes (DBM-1)",
+      "SS304 10 ga, safety glass + Hypalon gloves; slab geometry per K9"
+    ],
+    [
+      "Hearth (EBM-1)",
+      "OFHC Cu water-cooled, SS jacket"
+    ],
+    [
+      "Support-room walls",
+      "CMU 200 mm fully grouted, Gr.60 vert @400 (CONTROL/DECON/HP/MCA)"
+    ],
+    [
+      "Stack shell",
+      "A572-50 rolled shell, HDG ladder/appurtenances"
+    ],
+    [
+      "Coating",
+      "shop SSPC-SP6 + inorganic zinc + epoxy (decon-cleanable); NO field painting in-cell"
+    ],
+    [
+      "Fasteners",
+      "A325 shop; field connections BOLTED ONLY (no cell welding after liner acceptance)"
+    ]
+  ]
+}
