@@ -106,11 +106,17 @@ _MATERIAL_RGBA: dict[str, list[float]] = {k: list(v[0]) for k, v in _MATERIAL_PB
 
 # Genuinely light-EMITTING material keys → (emissiveFactor RGB, emissive strength).
 # Adds emissiveFactor + KHR_materials_emissive_strength so a self-lit surface
-# glows in HDR-capable viewers. Inspecting _MATERIAL_PBR: every key is a passive
-# architectural / equipment / MEP surface (gauges, sensors, controls reflect but
-# do not emit). None are true luminaires, so this stays EMPTY rather than
-# fabricating glow. Populate only when a real emitter (e.g. an LED/lamp) is added.
-_EMISSIVE_FOR: dict[str, tuple[list[float], float]] = {}
+# glows in HDR-capable viewers. Inspecting _MATERIAL_PBR: walls, slabs, pipes,
+# ducts, structure and machined parts are passive — none get glow. The only
+# defensible emitters are the instrument-faced kinds: gauge/RGA/probe heads
+# (equip_sensor) and rack terminals/status panels (equip_controls) carry lit
+# readouts and indicator LEDs in reality, so they get a FAINT hue-matched
+# emissive at low strength — visible as a dim glow in dark scenes, never a
+# light source. No other key emits; do not add walls/pipes/luminaire fakes.
+_EMISSIVE_FOR: dict[str, tuple[list[float], float]] = {
+    "equip_sensor": ([0.12, 0.07, 0.12], 1.5),  # magenta gauge/RGA readouts
+    "equip_controls": ([0.15, 0.15, 0.08], 1.5),  # amber rack/terminal panels
+}
 
 # FROZEN equipment kind → glTF material key map (SSOT:
 # docs/EQUIPMENT_3D_AND_DEVICE_SSOT.md §5.3D). Viewer layer styling depends on
@@ -2051,8 +2057,9 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
             mat_keys.append(key)
     from llmbim_geometry.gltf_textures import build_gltf_textures
 
-    # Procedural tiling detail textures (concrete/drywall/metal/wood) multiply the
-    # palette colour so flat pastels gain grain in every glTF viewer.
+    # Procedural tiling detail textures (concrete/drywall/metal/wood plus
+    # brushed/painted metal for the MEP + equipment trades) multiply the palette
+    # colour so flat pastels gain grain in every glTF viewer.
     tex_images, tex_textures, tex_samplers, tex_key, tex_norm_key = build_gltf_textures(
         mat_keys
     )
