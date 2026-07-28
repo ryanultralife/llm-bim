@@ -6,6 +6,9 @@ generates small, deterministic, seamlessly-tiling grayscale *detail* textures
 (embedded as PNG data URIs) that multiply the existing palette colour — so the
 material hues are preserved but surfaces gain real grain/relief in any glTF
 viewer (the in-app viewer and Blender / model-viewer / Windows 3D Viewer).
+The same treatment covers the trade materials: pipe/duct/conduit/tray runs get
+a fine brushed-mill finish, PVC and equipment enclosures a smooth painted
+finish with slight orange-peel.
 
 Pure standard-library (struct/zlib/base64) — no PIL/numpy — so the kernel stays
 pip-free. Deterministic (hash noise, no RNG) so golden glTF stays byte-stable.
@@ -76,6 +79,25 @@ def _pattern_pixel(pattern: str, x: int, y: int) -> tuple[int, int, int]:
         val = 236.0 + (row - 0.5) * 10.0 + streak + jit
         g = _clampb(val)
         return g, g, g
+    if pattern == "brushed_metal":
+        # fine anisotropic brushing for pipe/duct/tray runs: denser per-row
+        # streak bias than "metal" (integer rows, so the tile wraps exactly in
+        # both axes), a tight harmonic band (10 whole cycles per tile) and very
+        # fine per-pixel jitter. Reads as drawn/galvanized mill finish.
+        row = _hash01(0, y, 51)
+        band = math.sin(y * (math.tau / _TILE) * 10.0) * 2.5
+        jit = (_hash01(x, y, 52) - 0.5) * 5.0
+        val = 238.0 + (row - 0.5) * 13.0 + band + jit
+        g = _clampb(val)
+        return g, g, g
+    if pattern == "painted_metal":
+        # smooth enamel / powder-coat with slight orange-peel: one gentle
+        # low-frequency mottle, no directional streaks, near-white average so
+        # the equipment palette hue stays dominant.
+        n = _value_noise(x / 5.0, y / 5.0, 61) - 0.5
+        val = 247.0 + n * 7.0
+        g = _clampb(val)
+        return g, g, g
     if pattern == "wood":
         # horizontal grain bands + warm tint
         band = math.sin((y + _value_noise(x / 20.0, y / 6.0, 41) * 6.0) * 0.7)
@@ -138,6 +160,8 @@ _NORMAL_STRENGTH: dict[str, float] = {
     "drywall": 0.8,
     "metal": 1.2,
     "wood": 1.6,
+    "brushed_metal": 0.9,  # shallow brushing grooves
+    "painted_metal": 0.5,  # barely-there orange peel
 }
 
 
@@ -154,6 +178,17 @@ def _pattern_height(pattern: str, x: int, y: int) -> float:
     if pattern == "metal":
         # brushed: shallow horizontal streaks along the rows + fine jitter
         return 0.5 + math.sin(y * 0.9) * 0.15 + (_hash01(x, y, 32) - 0.5) * 0.1
+    if pattern == "brushed_metal":
+        # dense shallow brushing grooves (per-row) + very fine jitter
+        return (
+            0.5
+            + (_hash01(0, y, 51) - 0.5) * 0.3
+            + math.sin(y * (math.tau / _TILE) * 10.0) * 0.06
+            + (_hash01(x, y, 52) - 0.5) * 0.05
+        )
+    if pattern == "painted_metal":
+        # orange-peel: the same soft mottle as the base colour, nothing else
+        return _value_noise(x / 5.0, y / 5.0, 61)
     if pattern == "wood":
         band = math.sin((y + _value_noise(x / 20.0, y / 6.0, 41) * 6.0) * 0.7)
         return 0.5 + band * 0.5
@@ -188,8 +223,12 @@ def normal_data_uri(pattern: str) -> str:
     return "data:image/png;base64," + base64.b64encode(normal_png(pattern)).decode("ascii")
 
 
-# Material key (from _MATERIAL_PBR) → detail pattern. Only surfaces that read as
-# flat pastels get a detail texture; metals/glass/equipment keep their factor.
+# Material key (from _MATERIAL_PBR) → detail pattern. Architectural surfaces
+# AND the trade (MEP / equipment) families get a bright multiplicative detail
+# texture — each material's baseColorFactor hue is preserved, exactly like the
+# concrete/drywall treatment. Deliberately untextured: window (glass keeps its
+# transmission look), the tiny-geometry wire*/coil/bolt detail layers (texels
+# would just shimmer), and "default".
 _PATTERN_FOR: dict[str, str] = {
     "wall": "drywall",
     "wall_structure": "drywall",
@@ -202,6 +241,31 @@ _PATTERN_FOR: dict[str, str] = {
     "column": "metal",
     "beam": "metal",
     "door": "wood",
+    # Trade runs — drawn/galvanized mill finish (fine anisotropic brushing)
+    "pipe_copper": "brushed_metal",
+    "pipe_fire": "brushed_metal",
+    "pipe_process": "brushed_metal",
+    "duct": "brushed_metal",
+    "conduit": "brushed_metal",
+    "cable_tray": "brushed_metal",
+    "fitting": "brushed_metal",
+    # Smooth extruded PVC reads like enamel — no brushing streaks
+    "pipe_pvc": "painted_metal",
+    # Equipment enclosures / bodies — powder-coat with slight orange-peel.
+    # Small detail kinds (flange/port/spacer/tie_rod/collector/step_ref/
+    # header/rail/cartridge) keep their factor: their texels are too small
+    # to read and the machined/Ultem parts are not painted surfaces.
+    "equipment": "painted_metal",
+    "equip_shell": "painted_metal",
+    "equip_yoke": "painted_metal",
+    "equip_magnet": "painted_metal",
+    "equip_pedestal": "painted_metal",
+    "equip_vacuum": "painted_metal",
+    "equip_sensor": "painted_metal",
+    "equip_gas": "painted_metal",
+    "equip_collection": "painted_metal",
+    "equip_chiller": "painted_metal",
+    "equip_controls": "painted_metal",
 }
 
 
