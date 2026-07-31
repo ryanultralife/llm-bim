@@ -6,6 +6,65 @@ import json
 from pathlib import Path
 
 
+def _sheet_title_from_name(stem: str) -> str:
+    """Human sheet label from file stem (no path)."""
+    # A-101_plan → A-101 · Plan
+    if "_" in stem:
+        no, rest = stem.split("_", 1)
+        return f"{no} · {rest.replace('_', ' ').title()}"
+    return stem.replace("_", " ")
+
+
+def _construction_sheet_cards(out: Path) -> str:
+    """Construction sheets as preview cards (sheet no + title), not path lists."""
+    index_path = out / "construction" / "SHEET_INDEX.json"
+    cards: list[str] = []
+    if index_path.is_file():
+        try:
+            data = json.loads(index_path.read_text(encoding="utf-8"))
+            for s in data.get("sheets") or []:
+                f = s.get("file") or ""
+                no = s.get("no") or Path(f).stem
+                title = s.get("title") or _sheet_title_from_name(Path(f).stem)
+                rel = f"construction/{f}"
+                if not (out / "construction" / f).is_file():
+                    continue
+                disc = s.get("discipline") or ""
+                tag = (
+                    f'<span style="display:inline-block;background:#1a3a55;'
+                    f'color:#9ec9ef;font-size:0.68rem;padding:1px 5px;'
+                    f'border-radius:3px;margin-right:4px">{disc}</span>'
+                    if disc
+                    else ""
+                )
+                cards.append(
+                    f'<a class="sheet-card" href="{rel}" target="_blank">'
+                    f'<div class="thumb"><img src="{rel}" alt="{no} · {title}" loading="lazy"/></div>'
+                    f'<div class="cap">{tag}<strong>{no}</strong> · {title}</div></a>'
+                )
+        except Exception:  # noqa: BLE001
+            cards = []
+    if not cards:
+        # fallback: construction/*.svg only (not entire pack path dump)
+        for s in sorted((out / "construction").glob("*.svg")) if (out / "construction").is_dir() else []:
+            rel = f"construction/{s.name}"
+            label = _sheet_title_from_name(s.stem)
+            cards.append(
+                f'<a class="sheet-card" href="{rel}" target="_blank">'
+                f'<div class="thumb"><img src="{rel}" alt="{label}" loading="lazy"/></div>'
+                f'<div class="cap">{label}</div></a>'
+            )
+    if not cards:
+        return ""
+    return (
+        f"<h2>Construction sheets <span style=\"color:#8b949e;font-weight:400\">"
+        f"({len(cards)})</span></h2>"
+        "<p style=\"color:#8b949e;font-size:0.9rem\">Sheet previews — click to open. "
+        "Not a path list.</p>"
+        f'<div class="sheet-grid">{"".join(cards)}</div>'
+    )
+
+
 def write_pack_index(out_dir: str | Path) -> Path:
     out = Path(out_dir)
     manifest_path = out / "MANIFEST.json"
@@ -13,11 +72,14 @@ def write_pack_index(out_dir: str | Path) -> Path:
     if manifest_path.exists():
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
-    svgs = sorted(out.rglob("*.svg"))
-    links = []
-    for s in svgs:
+    # Other SVGs (views, parts) — collapsible; labels without path spam
+    other_links: list[str] = []
+    for s in sorted(out.rglob("*.svg")):
         rel = s.relative_to(out).as_posix()
-        links.append(f'<li><a href="{rel}" target="_blank">{rel}</a></li>')
+        if rel.startswith("construction/") or rel == "hero.svg":
+            continue
+        label = _sheet_title_from_name(s.stem)
+        other_links.append(f'<li><a href="{rel}" target="_blank">{label}</a></li>')
 
     threes = []
     if (out / "viewer3d.html").exists():
@@ -168,9 +230,19 @@ def write_pack_index(out_dir: str | Path) -> Path:
         except Exception:  # noqa: BLE001
             zone_preview = ""
 
-    # drawing / sheet index sample
+    # drawing / sheet index — sheet no + title (linked), never raw path column
     draw_preview = ""
     draw_path = out / "schedules" / "drawing_list.csv"
+    sheet_idx = out / "construction" / "SHEET_INDEX.json"
+    title_by_file: dict[str, tuple[str, str]] = {}
+    if sheet_idx.is_file():
+        try:
+            for s in (json.loads(sheet_idx.read_text(encoding="utf-8")).get("sheets") or []):
+                f = s.get("file") or ""
+                title_by_file[f] = (s.get("no") or Path(f).stem, s.get("title") or "")
+                title_by_file[Path(f).stem] = title_by_file[f]
+        except Exception:  # noqa: BLE001
+            pass
     if draw_path.is_file():
         try:
             import csv
@@ -178,28 +250,43 @@ def write_pack_index(out_dir: str | Path) -> Path:
 
             rows = list(csv.DictReader(StringIO(draw_path.read_text(encoding="utf-8"))))
             lines = []
-            for r in rows[:20]:
+            for r in rows[:40]:
+                path = (r.get("path") or "").replace("\\", "/")
+                name = r.get("name") or Path(path).stem
+                no, title = title_by_file.get(Path(path).name, ("", ""))
+                if not no:
+                    no, title = title_by_file.get(name, (r.get("sheet_no") or "", ""))
+                if not no:
+                    no = r.get("sheet_no") or name
+                if not title:
+                    title = _sheet_title_from_name(name).split(" · ", 1)[-1] if " · " in _sheet_title_from_name(name) else name.replace("_", " ")
+                href = path if path else "#"
+                kind = r.get("kind") or ""
+                fmt = r.get("format") or ""
                 lines.append(
                     "<tr>"
-                    f"<td>{r.get('sheet_no') or ''}</td>"
-                    f"<td>{r.get('name') or ''}</td>"
-                    f"<td>{r.get('kind') or ''}</td>"
-                    f"<td><a href=\"{r.get('path') or '#'}\">{r.get('path') or ''}</a></td>"
-                    f"<td>{r.get('format') or ''}</td>"
+                    f"<td><strong>{no}</strong></td>"
+                    f"<td><a href=\"{href}\" target=\"_blank\">{title}</a></td>"
+                    f"<td>{kind}</td>"
+                    f"<td>{fmt}</td>"
                     "</tr>"
                 )
             if lines:
                 draw_preview = (
-                    "<h2>Drawing list (sample)</h2>"
-                    "<p>Sheet inventory. Full: "
+                    "<h2>Sheet index</h2>"
+                    "<p style=\"color:#8b949e;font-size:0.9rem\">"
+                    "Sheet number + title (click opens the drawing). "
+                    "Full CSV: "
                     "<a href=\"schedules/drawing_list.csv\">drawing_list.csv</a></p>"
-                    "<table><tr><th>#</th><th>Name</th><th>Kind</th>"
-                    "<th>Path</th><th>Fmt</th></tr>"
+                    "<table><tr><th>Sheet</th><th>Title</th><th>Kind</th>"
+                    "<th>Fmt</th></tr>"
                     + "".join(lines)
                     + "</table>"
                 )
         except Exception:  # noqa: BLE001
             draw_preview = ""
+
+    construction_gallery = _construction_sheet_cards(out)
 
     # door schedule sample (type + fire rating) — doors.csv preferred, door.csv legacy
     door_preview = ""
@@ -338,33 +425,52 @@ def write_pack_index(out_dir: str | Path) -> Path:
         )
 
     ok = manifest.get("ok", manifest.get("verification", {}).get("ok"))
+    other_block = ""
+    if other_links:
+        other_block = (
+            f"<details style=\"margin:1rem 0\"><summary style=\"cursor:pointer;"
+            f"color:#8b949e\">Other drawings / parts "
+            f"({len(other_links)}) — expand</summary>"
+            f"<ul style=\"font-size:0.88rem\">{''.join(other_links)}</ul></details>"
+        )
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{manifest.get("project", "LLM-BIM pack")}</title>
 <style>
-body{{font-family:system-ui,sans-serif;max-width:960px;margin:2rem auto;padding:0 1rem;
+body{{font-family:system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;
 background:#0b0f14;color:#e6edf3}}
 a{{color:#58a6ff}} .ok{{color:#3fb950}} .bad{{color:#f85149}}
 code{{background:#21262d;padding:2px 6px;border-radius:4px}}
 table{{border-collapse:collapse;width:100%;font-size:0.9rem}}
 td,th{{border:1px solid #30363d;padding:6px 8px;text-align:left}}
 th{{background:#161b22}}
+.sheet-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+gap:0.65rem;margin:0.75rem 0 1.25rem}}
+.sheet-card{{display:flex;flex-direction:column;background:#121821;border:1px solid #30363d;
+border-radius:8px;overflow:hidden;text-decoration:none;color:inherit}}
+.sheet-card:hover{{border-color:#58a6ff}}
+.sheet-card .thumb{{background:#f4f5f7;aspect-ratio:4/3;display:flex;align-items:center;
+justify-content:center;overflow:hidden}}
+.sheet-card .thumb img{{width:100%;height:100%;object-fit:contain;background:#fff}}
+.sheet-card .cap{{padding:0.45rem 0.55rem;font-size:0.78rem;color:#8b949e;line-height:1.3}}
+.sheet-card .cap strong{{color:#e6edf3}}
 </style></head><body>
 <h1>{manifest.get("project", "Deliverables pack")}</h1>
 <p>Status: <span class="{"ok" if ok else "bad"}">{"OK" if ok else "CHECK VERIFY.json"}</span></p>
 <p>{manifest.get("honesty", "")}</p>
 {hero_html}
 {"<p><a href='viewer3d.html' style='font-size:1.05rem'>Open 3D Studio</a> — section cut · cinematic bloom · Imagine env · layer opacity</p>" if (out / "viewer3d.html").exists() else ""}
+{construction_gallery}
+{draw_preview}
 <h2>3D / BIM</h2><ul>{"".join(threes)}</ul>
 <h2>Materials / takeoff / CSI</h2><ul>{"".join(data_links) or "<li>none — place fittings/parts then re-export</li>"}</ul>
 {csi_preview}
 {zone_preview}
 {conn_preview}
-{draw_preview}
 {door_preview}
 {window_preview}
 {rules_preview}
 {legend}
-<h2>Drawings (SVG)</h2><ul>{"".join(links) or "<li>none</li>"}</ul>
+{other_block}
 <h2>Manifest</h2><pre>{json.dumps(manifest.get("verification", {}), indent=2)}</pre>
 </body></html>
 """
