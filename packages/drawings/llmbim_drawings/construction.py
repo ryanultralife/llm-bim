@@ -830,7 +830,9 @@ def export_construction_set(
         n_pages = max(1, math.ceil(len(rows) / SCHEDULE_ROWS_PER_SHEET))
         for pi in range(n_pages):
             page = rows[pi * SCHEDULE_ROWS_PER_SHEET : (pi + 1) * SCHEDULE_ROWS_PER_SHEET]
-            sn = base_no if pi == 0 else f"{base_no}{chr(ord('A') + pi)}"
+            # Numeric page suffixes (A-501, A-501-02, …) — letter suffixes
+            # overflow past Z into '[', '\', etc. and break Windows paths.
+            sn = base_no if pi == 0 else f"{base_no}-{pi + 1:02d}"
             page_title = title if n_pages == 1 else f"{title} ({pi + 1}/{n_pages})"
             view = table_view(headers, page, title=page_title)
             sh = _sheet_from_view(
@@ -841,7 +843,9 @@ def export_construction_set(
                 scale_note="NTS",
                 date=date,
             )
-            fname = f"{sn}_{slug}.svg"
+            # sanitize slug/filename for filesystem
+            safe_slug = "".join(c if c.isalnum() or c in "-_" else "_" for c in slug)
+            fname = f"{sn}_{safe_slug}.svg"
             (out / fname).write_text(sh, encoding="utf-8")
             sheets.append(
                 {"no": sn, "title": page_title, "file": fname, "discipline": discipline}
@@ -1851,7 +1855,7 @@ def _export_custom_register(
                             cols.append(k)
                 cols = [c for c in cols if c not in {"id", "level_id"}][:8]
                 for pi in range(n_pages):
-                    page_no = no if pi == 0 else f"{no}{chr(ord('A') + pi)}"
+                    page_no = no if pi == 0 else f"{no}-{pi + 1:02d}"
                     page_title = title if n_pages == 1 else f"{title} ({pi + 1}/{n_pages})"
                     page_rows = rows[
                         pi * SCHEDULE_ROWS_PER_SHEET : (pi + 1) * SCHEDULE_ROWS_PER_SHEET

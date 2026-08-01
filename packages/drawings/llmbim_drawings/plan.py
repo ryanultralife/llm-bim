@@ -992,6 +992,12 @@ def render_plan_view(
                 f'    <line x1="{fmt(a[0])}" y1="{fmt(a[1])}" '
                 f'x2="{fmt(b[0])}" y2="{fmt(b[1])}" stroke="#546e7a"/>'
             )
+            # section callouts only on longer beams (short pieces clutter A-101)
+            blen = math.hypot(
+                float(e[0]) - float(s[0]), float(e[1]) - float(s[1])
+            )
+            if blen < 3000:
+                continue
             mx, my = project(
                 (float(s[0]) + float(e[0])) / 2,
                 (float(s[1]) + float(e[1])) / 2,
@@ -1071,7 +1077,8 @@ def render_plan_view(
                 f'    <line x1="{fmt(pa[0])}" y1="{fmt(pa[1])}" '
                 f'x2="{fmt(pb[0])}" y2="{fmt(pb[1])}" stroke="{stroke}"/>'
             )
-            if nps:
+            # Cap NPS text density: only label longer runs (reduces blue soup)
+            if nps and math.hypot(x1 - x0, y1 - y0) >= 2500:
                 mx, my = (pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2
                 parts.append(
                     f'    <text x="{fmt(mx)}" y="{fmt(my - 3)}" text-anchor="middle" '
@@ -1295,6 +1302,23 @@ def render_plan_view(
         f'  <g class="labels" fill="#333" font-size="{fmt(font)}" '
         f'font-family="sans-serif" text-anchor="middle">'
     )
+    def _clean_room_name(raw: str) -> str:
+        """Drop doubled id prefix: 'DOWNBLEND Down-blend …' → 'Down-blend …'."""
+        s = (raw or "Room").strip()
+        toks = s.split(None, 1)
+        if len(toks) == 2:
+            a, b = toks[0], toks[1]
+            # CODE Human-name… where CODE is ALLCAPS/token and human starts similar
+            if a.isupper() and len(a) <= 12 and (
+                b.upper().startswith(a) or b.upper().replace("-", "").startswith(a)
+            ):
+                return b
+            if a.isupper() and len(a) <= 12 and "-" not in a and len(b) > len(a):
+                # 'EBEAM E-beam…' — keep human name; CELL-n keeps full string
+                if not a.startswith("CELL") and b[0:1].isupper():
+                    return b
+        return s
+
     for room in rooms if (_on("rooms") and not room_tags) else []:
         boundary = room.params.get("boundary_mm") or []
         if len(boundary) < 3:
@@ -1302,7 +1326,7 @@ def render_plan_view(
         cx = sum(float(p[0]) for p in boundary) / len(boundary)
         cy = sum(float(p[1]) for p in boundary) / len(boundary)
         px, py = project(cx, cy)
-        name = room.name or "Room"
+        name = _clean_room_name(room.name or "Room")
         area_mm2 = room.params.get("area_mm2")
         if area_mm2 is None and len(boundary) >= 3:
             # shoelace fallback
@@ -1330,22 +1354,84 @@ def render_plan_view(
         parts.append(
             f'    <text class="room-label" x="{fmt(px)}" y="{fmt(py)}">{esc(label)}</text>'
         )
-    for eq in equipment if not tags else []:
-        if not _eq_on(eq):
-            continue
+    def _short_eq_name(raw: str) -> str:
+        """Strip layer tags and micro-part noise for plan labels."""
+        s = (raw or "").strip()
+        # [PROC_plasma] skid_post (cell-1) → skid_post
+        if s.startswith("["):
+            br = s.find("]")
+            if br >= 0:
+                s = s[br + 1 :].strip()
+        # drop trailing (cell-n) / station paren
+        if "(" in s and s.endswith(")"):
+            s = s[: s.rfind("(")].strip()
+        return s[:28]
+
+    # Micro structural / skid detail never gets a plan text label (the blue
+    # soup on A-101 was ~1.5k un-nudged equipment names).
+    _EQ_LABEL_SKIP = (
+        "skid_post", "skid_rail", "frame_post", "rail_wheel", "wheel",
+        "sensor_rail", "JB_enclosure", "utility_stub", "access_panel",
+        "ftg", "footing", "bolt", "grout", "liner", "rebar",
+    )
+
+    def _eq_worth_label(eq: Element) -> bool:
+        nm = _short_eq_name(str(eq.name or "")).lower()
+        if not nm:
+            return False
+        if any(tok in nm for tok in _EQ_LABEL_SKIP):
+            return False
         poly = eq.params.get("polygon_mm") or []
-        if not eq.name:
-            continue
-        if poly:
+        if len(poly) >= 3:
+            xs = [float(p[0]) for p in poly]
+            ys = [float(p[1]) for p in poly]
+            area = abs(
+                sum(
+                    xs[i] * ys[(i + 1) % len(xs)] - xs[(i + 1) % len(xs)] * ys[i]
+                    for i in range(len(xs))
+                )
+            ) / 2.0
+            # skip tiny footprints (< ~0.25 m²)
+            if area < 250_000:
+                return False
+        return True
+
+    # Un-tagged mode: label only major equipment, collision-nudged (cap 48)
+    if not tags:
+        eq_candidates = [
+            eq for eq in equipment if _eq_on(eq) and eq.name and _eq_worth_label(eq)
+        ]
+        # largest first so primary machines win the label budget
+        def _eq_area(eq: Element) -> float:
+            poly = eq.params.get("polygon_mm") or []
+            if len(poly) < 3:
+                return 0.0
+            xs = [float(p[0]) for p in poly]
+            ys = [float(p[1]) for p in poly]
+            return abs(
+                sum(
+                    xs[i] * ys[(i + 1) % len(xs)] - xs[(i + 1) % len(xs)] * ys[i]
+                    for i in range(len(xs))
+                )
+            ) / 2.0
+
+        eq_candidates.sort(key=_eq_area, reverse=True)
+        eq_label_font = max(6.5, min(11.0, font * 0.65))
+        for eq in eq_candidates[:48]:
+            poly = eq.params.get("polygon_mm") or []
+            if not poly:
+                continue
             cx = sum(float(p[0]) for p in poly) / len(poly)
             cy = sum(float(p[1]) for p in poly) / len(poly)
-        else:
-            continue
-        px, py = project(cx, cy)
-        parts.append(
-            f'    <text x="{fmt(px)}" y="{fmt(py)}" fill="#0b5cab" font-size="{fmt(font * 0.75)}">'
-            f"{esc(eq.name)}</text>"
-        )
+            px, py = project(cx, cy)
+            name = _short_eq_name(str(eq.name))
+            hw = max(14.0, len(name) * eq_label_font * 0.32)
+            hh = eq_label_font * 0.7
+            lx, ly = label_nudge.place(px, py, hw, hh)
+            parts.append(
+                f'    <text x="{fmt(lx)}" y="{fmt(ly)}" fill="#0b5cab" '
+                f'font-size="{fmt(eq_label_font)}">{esc(name)}</text>'
+            )
     parts.append("  </g>")
 
     # Equipment leader tags (tags=True): underlined name on a leader, keyed to
@@ -1356,9 +1442,14 @@ def render_plan_view(
             f'  <g class="equipment-tags" font-family="sans-serif" '
             f'font-size="{fmt(eq_tag_font)}" fill="#0b3d6e">'
         )
-        for eq in equipment:
-            if not _eq_on(eq) or not eq.name:
-                continue
+        eq_tag_list = [
+            eq for eq in equipment
+            if _eq_on(eq) and eq.name and _eq_worth_label(eq)
+        ]
+        eq_tag_list.sort(
+            key=lambda e: len(e.params.get("polygon_mm") or []), reverse=True
+        )
+        for eq in eq_tag_list[:60]:
             poly = eq.params.get("polygon_mm") or []
             if poly:
                 cx = sum(float(p[0]) for p in poly) / len(poly)
@@ -1372,9 +1463,10 @@ def render_plan_view(
                 except (TypeError, ValueError, IndexError):
                     continue
             px, py = project(cx, cy)
-            lx, ly = px + 28.0, py - 20.0
-            name = str(eq.name)
-            text_w = len(name) * eq_tag_font * 0.6
+            name = _short_eq_name(str(eq.name))
+            hw = max(16.0, len(name) * eq_tag_font * 0.35)
+            lx, ly = label_nudge.place(px + 28.0, py - 20.0, hw, eq_tag_font * 0.7)
+            text_w = len(name) * eq_tag_font * 0.55
             parts.append(
                 f'    <line class="equipment-leader" x1="{fmt(px)}" y1="{fmt(py)}" '
                 f'x2="{fmt(lx - 2)}" y2="{fmt(ly + 2)}" stroke="#0b3d6e" '
@@ -1384,7 +1476,6 @@ def render_plan_view(
                 f'    <text class="equipment-tag" x="{fmt(lx)}" y="{fmt(ly)}">'
                 f"{esc(name)}</text>"
             )
-            # underline: the schedule-key convention (underlined w/ leader)
             parts.append(
                 f'    <line class="equipment-tag-underline" x1="{fmt(lx)}" '
                 f'y1="{fmt(ly + 2.5)}" x2="{fmt(lx + text_w)}" y2="{fmt(ly + 2.5)}" '
@@ -1405,7 +1496,7 @@ def render_plan_view(
                 continue
             cx, cy, area_mm2 = ca
             px, py = project(cx, cy)
-            name = (room.name or "ROOM").upper()
+            name = _clean_room_name(room.name or "ROOM").upper()
             if imperial:
                 area_txt = f"{area_mm2 / _MM2_PER_SF:.0f} SF"
             else:
