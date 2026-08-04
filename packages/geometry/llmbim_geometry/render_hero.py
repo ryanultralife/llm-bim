@@ -85,7 +85,8 @@ def load_gltf_triangles(gltf_path: str | Path) -> tuple[list[_Tri], str]:
 _GHOST_WALL_KEYS = frozenset({
     "wall", "wall_structure", "wall_insulation", "wall_finish", "wall_membrane",
     "door", "window", "glass", "curtain", "cladding",
-    # massing shells: light ghost + neutral color (not cyan cut planes)
+    "panel_seam",
+    # massing shells ghost so machines read through
     "equip_shell",
 })
 _GHOST_NEUTRAL_KEYS = frozenset({"equip_shell"})
@@ -95,13 +96,17 @@ _GHOST_SHELL_KEYS = frozenset({
 })
 _GHOST_NEUTRAL_RGB = (0.70, 0.72, 0.74)
 
-# Interior MEP / process volume dropped on exterior product stills so the
-# camera does not angle into the building (hero/3-D match).
+# Fine MEP clutter only — keep machine solids + structure so ghost walls
+# read wireframe/equipment inside the shell.
 _INTERIOR_DROP_KEYS = frozenset({
     "pipe_process", "pipe_copper", "pipe_fire", "pipe_pvc", "conduit",
-    "cable_tray", "duct", "equipment", "equip_port", "equip_sensor",
-    "equip_pedestal", "equip_yoke", "equip_chiller", "equip_gas",
-    "equip_cartridge", "equip_vacuum", "equip_controls",
+    "cable_tray", "duct", "equip_port", "equip_sensor", "equip_controls",
+})
+# Machine / frame keys kept under ghost walls (solid, not ghosted)
+_MACHINE_KEEP_KEYS = frozenset({
+    "equipment", "equip_pedestal", "equip_yoke", "equip_chiller",
+    "equip_cartridge", "equip_vacuum", "equip_gas", "beam", "column",
+    "equip_shell",
 })
 
 
@@ -297,31 +302,52 @@ def _inject_closed_envelope(tris: list[_Tri]) -> list[_Tri]:
     ra, rb = (x0, y_roof, z0), (x1, y_roof, z0)
     rc, rd = (x1, y_roof, z1), (x0, y_roof, z1)
     shell: list[_Tri] = _quad(ra, rb, rc, rd, "roof")
-    # Four perimeter walls floor→roof (ghost as wall)
-    # S (min z), N (max z), W (min x), E (max x)
-    shell += _quad(
-        (x0, y_slab, z0), (x1, y_slab, z0), (x1, y_roof, z0), (x0, y_roof, z0), "wall"
+    # Four perimeter walls floor→roof as white panel faces + vertical seams
+    faces_w = (
+        ((x0, y_slab, z0), (x1, y_slab, z0), (x1, y_roof, z0), (x0, y_roof, z0), "x"),  # S
+        ((x1, y_slab, z1), (x0, y_slab, z1), (x0, y_roof, z1), (x1, y_roof, z1), "x"),  # N
+        ((x0, y_slab, z1), (x0, y_slab, z0), (x0, y_roof, z0), (x0, y_roof, z1), "z"),  # W
+        ((x1, y_slab, z0), (x1, y_slab, z1), (x1, y_roof, z1), (x1, y_roof, z0), "z"),  # E
     )
-    shell += _quad(
-        (x1, y_slab, z1), (x0, y_slab, z1), (x0, y_roof, z1), (x1, y_roof, z1), "wall"
-    )
-    shell += _quad(
-        (x0, y_slab, z1), (x0, y_slab, z0), (x0, y_roof, z0), (x0, y_roof, z1), "wall"
-    )
-    shell += _quad(
-        (x1, y_slab, z0), (x1, y_slab, z1), (x1, y_roof, z1), (x1, y_roof, z0), "wall"
-    )
-    # Drop high beam/column faces that read as roof-exposed steel
-    y_cut = y_roof - 0.05
+    for a, b, c, d, axis in faces_w:
+        shell += _quad(a, b, c, d, "wall_finish")  # white panel face
+        # vertical panel seams every ~3 m
+        if axis == "x":
+            lo, hi = min(a[0], b[0]), max(a[0], b[0])
+            z = a[2]
+            t = 0.04
+            s = lo + 1.5
+            while s < hi - 0.5:
+                shell += _quad(
+                    (s - t, y_slab, z), (s + t, y_slab, z),
+                    (s + t, y_roof, z), (s - t, y_roof, z),
+                    "panel_seam",
+                )
+                s += 3.0
+        else:
+            lo, hi = min(a[2], b[2]), max(a[2], b[2])
+            x = a[0]
+            t = 0.04
+            s = lo + 1.5
+            while s < hi - 0.5:
+                shell += _quad(
+                    (x, y_slab, s - t), (x, y_slab, s + t),
+                    (x, y_roof, s + t), (x, y_roof, s - t),
+                    "panel_seam",
+                )
+                s += 3.0
+    # Keep interior structure/machines; strip anything that pokes above roof
+    # (stack/tower, roof steel bleed — hero has no tower / no roof AC).
+    y_cut = y_roof - 0.02
     keep: list[_Tri] = []
     for v0, v1, v2, key in tris:
         k = (key or "").lower()
-        if k in ("beam", "column"):
-            cy = (v0[1] + v1[1] + v2[1]) / 3.0
-            if cy >= y_cut - 1.5:
-                if k == "column" and min(v0[1], v1[1], v2[1]) < y_cut - 2.5 and cy < y_cut - 0.5:
-                    keep.append((v0, v1, v2, key))
-                continue
+        cy = (v0[1] + v1[1] + v2[1]) / 3.0
+        ymax = max(v0[1], v1[1], v2[1])
+        if ymax > y_cut + 0.3 and cy > y_cut - 0.5:
+            continue  # stack / tower / roof-top solids
+        if k in ("beam", "column") and cy >= y_cut - 0.4:
+            continue  # no exposed roof steel
         keep.append((v0, v1, v2, key))
     return keep + shell
 
@@ -347,24 +373,25 @@ def _inject_yellow_canopy(tris: list[_Tri], shell_tris: list[_Tri]) -> list[_Tri
 
 
 def _exterior_product_tris(tris: list[_Tri]) -> list[_Tri]:
-    """Closed exterior product mesh: roof + walls, no deep look into the hall.
+    """Closed exterior product mesh: white panel shell + machines under ghost walls.
 
-    Drops interior MEP/process solids and most interior frame so primary isos
-    are exterior 3/4s with ghosted walls — not section cuts into process.
-    No stack/tower, no rooftop AC (those are not in shell envelope).
+    Keeps machine solids + frame so ghost walls show wireframe/equipment
+    inside. Drops only fine MEP clutter. Roof solid (no exposed steel).
     """
     closed = _inject_closed_envelope(tris)
     out: list[_Tri] = []
     for v0, v1, v2, key in closed:
         k = (key or "").lower()
-        if k in _INTERIOR_DROP_KEYS or k.startswith("pipe_") or k.startswith("equip_"):
-            # keep equip_shell as solid exterior massing only
-            if k == "equip_shell":
-                out.append((v0, v1, v2, key))
+        if k in _INTERIOR_DROP_KEYS or k.startswith("pipe_"):
             continue
-        # hide interior frame under the closed shell (columns/beams inside)
-        if k in ("beam", "column"):
-            continue
+        # keep machines, frame, shell, walls, doors, canopy keys
+        if k.startswith("equip_") and k not in _MACHINE_KEEP_KEYS and k != "equip_shell":
+            # keep major equipment kinds; skip unknown fine parts
+            if k not in (
+                "equip_chiller", "equip_pedestal", "equip_yoke",
+                "equip_vacuum", "equip_cartridge", "equip_gas",
+            ):
+                continue
         out.append((v0, v1, v2, key))
     return _inject_yellow_canopy(tris, out)
 
@@ -402,13 +429,13 @@ def export_mesh_product_views(
     out.mkdir(parents=True, exist_ok=True)
     prefix = title_prefix or gname
     # (fname, az, el, title, use_open, ghost_walls)
-    # Lower elev (~16°) = exterior 3/4, not bird's-eye / section into hall
+    # Exterior 3/4 with strong wall ghost so machines read through white panels
     views: list[tuple[str, float, float, str, bool, bool]] = [
         (
             "R1_iso.png",
-            220.0,
-            16.0,
-            f"{prefix} — exterior · closed shell · ghost walls",
+            218.0,
+            22.0,
+            f"{prefix} — white panels · ghost walls · machines inside",
             False,
             True,
         ),
@@ -420,24 +447,24 @@ def export_mesh_product_views(
             True,
             False,
         ),
-        ("R2_plan.png", 0.0, 89.0, f"{prefix} — plan · closed shell", False, True),
+        ("R2_plan.png", 0.0, 89.0, f"{prefix} — plan · ghost walls", False, True),
         ("R3_elev.png", 180.0, 0.0, f"{prefix} — elev S · ghost walls", False, True),
         ("R3_elev_S.png", 180.0, 0.0, f"{prefix} — elev S · ghost walls", False, True),
         ("R4_elev_E.png", 90.0, 0.0, f"{prefix} — elev E · ghost walls", False, True),
         (
             "model_match_iso.png",
-            220.0,
-            16.0,
-            f"{prefix} — model-match · closed shell · ghost walls",
+            218.0,
+            22.0,
+            f"{prefix} — white panels · ghost walls · machines inside",
             False,
             True,
         ),
-        ("model_match_plan.png", 0.0, 89.0, f"{prefix} — model-match plan · closed shell", False, True),
+        ("model_match_plan.png", 0.0, 89.0, f"{prefix} — model-match plan · ghost walls", False, True),
         (
             "model_match_iso_full.png",
-            220.0,
-            16.0,
-            f"{prefix} — model-match · closed shell · ghost walls",
+            218.0,
+            22.0,
+            f"{prefix} — white panels · ghost walls · machines inside",
             False,
             True,
         ),
@@ -454,8 +481,8 @@ def export_mesh_product_views(
             elevation_deg=el,
             size=(1600, 1000) if "iso" in fname else (1600, 900),
             ghost_walls=ghost,
-            # Light ghost on true walls only — shell reads closed
-            wall_alpha=0.52,
+            # Strong ghost — white panels translucent, machines/frame read through
+            wall_alpha=0.22,
             ghost_roof=False,
             presentation_tint=not use_open,
         )
@@ -582,11 +609,13 @@ def _apply(rows: tuple[_Vec3, _Vec3, _Vec3], v: _Vec3) -> _Vec3:
 _Face = tuple[float, tuple[_Vec2, _Vec2, _Vec2], str, float]
 
 
-# Hero-match presentation palette (blue-gray industrial shell)
-_PRESENT_WALL_RGB = (0.42, 0.52, 0.62)
-_PRESENT_ROOF_RGB = (0.38, 0.40, 0.43)
+# Hero-match presentation palette — white metal wall panels + dark roof
+_PRESENT_WALL_RGB = (0.93, 0.94, 0.95)       # white insulated metal panels
+_PRESENT_PANEL_SEAM_RGB = (0.78, 0.80, 0.82)  # panel joint lines
+_PRESENT_ROOF_RGB = (0.36, 0.38, 0.41)
 _PRESENT_CANOPY_RGB = (0.90, 0.78, 0.18)
 _PRESENT_SLAB_RGB = (0.58, 0.58, 0.60)
+_PRESENT_MACHINE_RGB = (0.32, 0.48, 0.72)     # equipment read-through
 
 
 def _project_and_shade(
@@ -632,7 +661,9 @@ def _project_and_shade(
         alpha = 1.0
         rgb0, rgb1, rgb2 = float(base[0]), float(base[1]), float(base[2])
         if presentation_tint:
-            if k in _GHOST_WALL_KEYS or k.startswith("wall") or k == "equip_shell":
+            if k in ("wall_insulation",) or k.endswith("_seam") or k == "panel_seam":
+                rgb0, rgb1, rgb2 = _PRESENT_PANEL_SEAM_RGB
+            elif k in _GHOST_WALL_KEYS or k.startswith("wall") or k == "equip_shell":
                 rgb0, rgb1, rgb2 = _PRESENT_WALL_RGB
             elif k == "roof":
                 rgb0, rgb1, rgb2 = _PRESENT_ROOF_RGB
@@ -640,10 +671,16 @@ def _project_and_shade(
                 rgb0, rgb1, rgb2 = _PRESENT_CANOPY_RGB
             elif k in ("slab", "concrete"):
                 rgb0, rgb1, rgb2 = _PRESENT_SLAB_RGB
+            elif k in _MACHINE_KEEP_KEYS or k.startswith("equip_"):
+                # keep catalog color, slight boost for read-through
+                pass
         if ghost_walls and (k in _GHOST_WALL_KEYS or k.startswith("wall")):
             alpha = float(wall_alpha)
             if k in _GHOST_NEUTRAL_KEYS and not presentation_tint:
                 rgb0, rgb1, rgb2 = _GHOST_NEUTRAL_RGB
+            # panel seams stay slightly more opaque so joints read
+            if k in ("wall_insulation", "panel_seam") or k.endswith("_seam"):
+                alpha = min(1.0, float(wall_alpha) + 0.25)
         elif (ghost_walls and ghost_roof) and (
             k in _GHOST_SHELL_KEYS or k.startswith("roof") or k.startswith("slab")
         ):
