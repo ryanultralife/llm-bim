@@ -997,6 +997,54 @@ def render_section_svg(
                 f"T/STACK {esc(_height_label(z_top - z_hi_lvl, imperial))}</text>"
             )
         parts.append("  </g>")
+
+    # CR-012: plan-grid bubbles where grids cross the cut (A-301)
+    if getattr(model, "grids", None):
+        dx = float(p1[0]) - float(p0[0])
+        dy = float(p1[1]) - float(p0[1])
+        clen = math.hypot(dx, dy) or 1.0
+        z_b0 = float(levels[0].elevation_mm) if levels else min_z
+        z_b1 = float(levels[-1].elevation_mm) if levels else (max_z - margin_mm * 0.2)
+        parts.append(
+            '  <g class="grids-sect" stroke="#666" stroke-width="0.55" fill="none">'
+        )
+        br = max(7.0, 100 * scale)
+        for g in model.grids:
+            axis = str(g.params.get("axis") or "")
+            labels = g.params.get("labels") or []
+            for i, pos in enumerate(g.params.get("positions_mm") or []):
+                pos = float(pos)
+                t: float | None = None
+                if axis == "U" and abs(dx) > 1e-6:
+                    t = (pos - float(p0[0])) / dx
+                elif axis == "V" and abs(dy) > 1e-6:
+                    t = (pos - float(p0[1])) / dy
+                if t is None or t < -0.02 or t > 1.02:
+                    continue
+                s_along = t * clen
+                if s_along < min_s - 1.0 or s_along > max_s + 1.0:
+                    continue
+                lab = str(labels[i]) if i < len(labels) else (
+                    str(i + 1) if axis == "U" else chr(ord("A") + (i % 26))
+                )
+                pa, pb = project(s_along, z_b0), project(s_along, z_b1)
+                parts.append(
+                    f'    <line x1="{fmt(pa[0])}" y1="{fmt(pa[1])}" '
+                    f'x2="{fmt(pb[0])}" y2="{fmt(pb[1])}" stroke-dasharray="3 3" '
+                    f'opacity="0.55"/>'
+                )
+                bx, by = pb[0], pb[1] - br - 2
+                parts.append(
+                    f'    <circle cx="{fmt(bx)}" cy="{fmt(by)}" r="{fmt(br)}" '
+                    f'fill="#fff" stroke="#444" stroke-width="0.9"/>'
+                )
+                parts.append(
+                    f'    <text x="{fmt(bx)}" y="{fmt(by + br * 0.35)}" '
+                    f'text-anchor="middle" font-size="{fmt(max(6, br * 0.85))}" '
+                    f'fill="#333" font-family="sans-serif">{esc(lab)}</text>'
+                )
+        parts.append("  </g>")
+
     if weights:
         # Bottom gutter (below grade), not top-left — top-left overpainted the
         # roof / storey dims when multi-sheet cells were composed (residual #9).
