@@ -67,6 +67,276 @@ def render_hero_svg(
     return out
 
 
+def load_gltf_triangles(gltf_path: str | Path) -> tuple[list[_Tri], str]:
+    """Load triangles + material keys from an on-disk glTF (exact viewer mesh)."""
+    p = Path(gltf_path)
+    gltf: dict[str, Any] = json.loads(p.read_text(encoding="utf-8"))
+    name = str((gltf.get("asset") or {}).get("extras", {}).get("name") or p.stem)
+    # Prefer pack project name from extras if present
+    extras = gltf.get("extras") or {}
+    if extras.get("name"):
+        name = str(extras["name"])
+    return _gltf_triangles(gltf), name
+
+
+# Vertical enclosure ghosted so structure/MEP reads through (roof stays solid
+# so primary stills are full-shell, not cutaway iso).
+# equip_shell = facility massing envelopes (often mis-tagged as cyan equipment);
+# ghost them as walls so they don't read as blue iso cut planes.
+_GHOST_WALL_KEYS = frozenset({
+    "wall", "wall_structure", "wall_insulation", "wall_finish", "wall_membrane",
+    "door", "window", "glass", "curtain", "cladding",
+    "equip_shell",
+})
+# Optional light shell ghost (off by default when ghost_walls=True — roof solid)
+_GHOST_SHELL_KEYS = frozenset({
+    "slab", "roof", "concrete", "floor",
+})
+# When ghosting, recolor these keys to neutral wall so cyan massing doesn't
+# look like section-cut hatching.
+_GHOST_NEUTRAL_KEYS = frozenset({"equip_shell"})
+_GHOST_NEUTRAL_RGB = (0.72, 0.74, 0.76)
+
+
+def render_mesh_png(
+    tris: list[_Tri],
+    path: str | Path,
+    *,
+    title: str = "model match",
+    size: tuple[int, int] = (1600, 1000),
+    azimuth_deg: float = 225.0,
+    elevation_deg: float = 30.0,
+    dpi: int = 140,
+    footer: str | None = None,
+    ghost_walls: bool = False,
+    wall_alpha: float = 0.22,
+    ghost_roof: bool = False,
+    roof_alpha: float = 0.45,
+) -> Path:
+    """Painter-algorithm PNG of glTF triangles — same mesh the 3D viewer shows.
+
+    Includes pipes, tubes, wire_paths, fittings — whatever is in the glTF.
+
+    ``ghost_walls``: draw wall/door/window materials translucent so structure
+    reads through — full shell stays closed (no process-open iso cut).
+    ``ghost_roof``: also light-ghost roof/slab (default off so roof reads solid).
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.collections import PolyCollection
+    from matplotlib.colors import to_rgba
+
+    rows = _rotation_rows(azimuth_deg, elevation_deg)
+    faces = _project_and_shade(
+        tris,
+        rows,
+        ghost_walls=ghost_walls,
+        wall_alpha=wall_alpha,
+        ghost_roof=ghost_roof,
+        roof_alpha=roof_alpha,
+    )
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if not faces:
+        fig = plt.figure(figsize=(size[0] / dpi, size[1] / dpi), dpi=dpi)
+        fig.text(0.5, 0.5, "no mesh", ha="center")
+        fig.savefig(out, facecolor="#d8dee6")
+        plt.close(fig)
+        return out
+
+    xs = [x for _d, pts, _c, _a in faces for x, _y in pts]
+    ys = [y for _d, pts, _c, _a in faces for _x, y in pts]
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(ys), max(ys)
+    span_x = max(max_x - min_x, 1e-9)
+    span_y = max(max_y - min_y, 1e-9)
+
+    fig_w = size[0] / dpi
+    fig_h = size[1] / dpi
+    fig = plt.figure(figsize=(fig_w, fig_h), dpi=dpi)
+    # sky-ish background like hero.svg
+    fig.patch.set_facecolor("#c7d3e0")
+    ax = fig.add_axes([0.02, 0.06, 0.96, 0.88])
+    ax.set_facecolor("#c7d3e0")
+
+    # soft ground shadow under mass
+    cx = 0.5 * (min_x + max_x)
+    cy = min_y + 0.06 * span_y
+    from matplotlib.patches import Ellipse
+
+    ax.add_patch(
+        Ellipse(
+            (cx, cy),
+            width=span_x * 0.95,
+            height=span_y * 0.08,
+            facecolor="black",
+            alpha=0.18,
+            zorder=1,
+            edgecolor="none",
+        )
+    )
+
+    # Draw ghost shell first (low zorder), then opaque content on top
+    ghost_faces = [(d, pts, c, a) for d, pts, c, a in faces if a < 0.99]
+    solid_faces = [(d, pts, c, a) for d, pts, c, a in faces if a >= 0.99]
+    for batch, z0 in ((ghost_faces, 2), (solid_faces, 3)):
+        if not batch:
+            continue
+        polys = [list(pts) for _d, pts, _c, _a in batch]
+        colors = [to_rgba(c, alpha=a) for _d, _pts, c, a in batch]
+        coll = PolyCollection(
+            polys,
+            facecolors=colors,
+            edgecolors="none",
+            linewidths=0,
+            antialiased=True,
+            zorder=z0,
+        )
+        ax.add_collection(coll)
+
+    pad = 0.05 * max(span_x, span_y)
+    ax.set_xlim(min_x - pad, max_x + pad)
+    ax.set_ylim(min_y - pad, max_y + pad)
+    ax.set_aspect("equal")
+    ax.axis("off")
+    ax.set_title(title, fontsize=12, fontweight="bold", color="#1c2530", pad=8)
+    foot = footer or (
+        "mesh match · exact glTF triangles"
+        + (" · ghost walls" if ghost_walls else "")
+        + " · [ENGINEERING ESTIMATE — presentation, not PE stamp]"
+    )
+    fig.text(0.02, 0.012, foot, fontsize=7.5, color="#33404e")
+    fig.savefig(out, facecolor=fig.get_facecolor())
+    plt.close(fig)
+    return out
+
+
+def _filter_open_process(tris: list[_Tri]) -> list[_Tri]:
+    """Drop high canopy roof faces so process train / piping stays readable.
+
+    glTF Y-up: elevation is Y. Keep faces whose centroid is below ~78% of the
+    pack height (removes weather canopy panels + roof, keeps deck equipment).
+    """
+    if not tris:
+        return tris
+    ys = [v[1] for t in tris for v in t[:3]]
+    y0, y1 = min(ys), max(ys)
+    cut = y0 + 0.78 * max(y1 - y0, 1e-6)
+    keep: list[_Tri] = []
+    for v0, v1, v2, key in tris:
+        cy = (v0[1] + v1[1] + v2[1]) / 3.0
+        if cy > cut:
+            continue
+        # Drop tall thin south curtain sheets (high vertical span, low thickness)
+        span_y = max(v0[1], v1[1], v2[1]) - min(v0[1], v1[1], v2[1])
+        span_x = max(v0[0], v1[0], v2[0]) - min(v0[0], v1[0], v2[0])
+        span_z = max(v0[2], v1[2], v2[2]) - min(v0[2], v1[2], v2[2])
+        if span_y > 0.4 * (y1 - y0) and min(span_x, span_z) < 0.04:
+            continue
+        keep.append((v0, v1, v2, key))
+    return keep or tris
+
+
+def export_mesh_product_views(
+    pack_dir: str | Path,
+    *,
+    out_subdir: str = "renders",
+    title_prefix: str = "llm-bim",
+    gltf_name: str = "model.gltf",
+) -> list[Path]:
+    """Write multi-view PNGs from pack ``model.gltf`` — matches viewer 3D.
+
+    Primary product stills use **full shell + ghost walls** (no process-open
+    cutaway; roof solid, walls translucent). Process-open is MEP-only.
+
+    Files:
+      R1_iso.png / model_match_iso_full.png  full iso, ghost walls (hero 3-D side)
+      model_match_iso.png                    same (no process cut)
+      R1_iso_process.png                     process-open (MEP only)
+      R2_plan / R3_elev / R4_elev            elev/plan with ghost walls
+    """
+    pack = Path(pack_dir)
+    gltf_path = pack / gltf_name
+    if not gltf_path.is_file():
+        return []
+    tris, gname = load_gltf_triangles(gltf_path)
+    if not tris:
+        return []
+    open_tris = _filter_open_process(tris)
+    out = pack / out_subdir
+    out.mkdir(parents=True, exist_ok=True)
+    prefix = title_prefix or gname
+    # (fname, az, el, title, use_open, ghost_walls)
+    views: list[tuple[str, float, float, str, bool, bool]] = [
+        (
+            "R1_iso.png",
+            225.0,
+            28.0,
+            f"{prefix} — isometric · full shell · ghost walls",
+            False,
+            True,
+        ),
+        (
+            "R1_iso_process.png",
+            210.0,
+            22.0,
+            f"{prefix} — process train open (MEP review)",
+            True,
+            False,
+        ),
+        ("R2_plan.png", 0.0, 89.0, f"{prefix} — plan · ghost walls", False, True),
+        ("R3_elev.png", 180.0, 0.0, f"{prefix} — elev S · ghost walls", False, True),
+        ("R3_elev_S.png", 180.0, 0.0, f"{prefix} — elev S · ghost walls", False, True),
+        ("R4_elev_E.png", 90.0, 0.0, f"{prefix} — elev E · ghost walls", False, True),
+        (
+            "model_match_iso.png",
+            225.0,
+            28.0,
+            f"{prefix} — model-match iso · full shell · ghost walls",
+            False,
+            True,
+        ),
+        ("model_match_plan.png", 0.0, 89.0, f"{prefix} — model-match plan · ghost walls", False, True),
+        (
+            "model_match_iso_full.png",
+            225.0,
+            28.0,
+            f"{prefix} — model-match iso · full shell · ghost walls",
+            False,
+            True,
+        ),
+    ]
+    paths: list[Path] = []
+    for fname, az, el, title, use_open, ghost in views:
+        p = out / fname
+        render_mesh_png(
+            open_tris if use_open else tris,
+            p,
+            title=title,
+            azimuth_deg=az,
+            elevation_deg=el,
+            size=(1600, 1000) if "iso" in fname else (1600, 900),
+            ghost_walls=ghost,
+            wall_alpha=0.20,
+            ghost_roof=False,  # closed shell — no translucent roof cut look
+        )
+        paths.append(p)
+    man = {
+        "rule": "mesh match — exact pack glTF; primary stills = full shell + ghost walls (no iso cut; roof solid)",
+        "source": gltf_name,
+        "triangle_count": len(tris),
+        "triangle_count_process_open": len(open_tris),
+        "ghost_walls_primary": True,
+        "ghost_roof_primary": False,
+        "files": [p.name for p in paths],
+        "honesty": "presentation stills from live model mesh — not PE stamp",
+    }
+    (out / "MESH_VIEWS.json").write_text(json.dumps(man, indent=2) + "\n", encoding="utf-8")
+    return paths
+
+
 # --------------------------------------------------------------------------- #
 # Triangle gathering (reuse the glTF tessellation the viewer shows)
 # --------------------------------------------------------------------------- #
@@ -164,12 +434,18 @@ def _apply(rows: tuple[_Vec3, _Vec3, _Vec3], v: _Vec3) -> _Vec3:
     )
 
 
-# (depth, (p0, p1, p2), "#rrggbb")
-_Face = tuple[float, tuple[_Vec2, _Vec2, _Vec2], str]
+# (depth, (p0, p1, p2), "#rrggbb", alpha)
+_Face = tuple[float, tuple[_Vec2, _Vec2, _Vec2], str, float]
 
 
 def _project_and_shade(
-    tris: list[_Tri], rows: tuple[_Vec3, _Vec3, _Vec3]
+    tris: list[_Tri],
+    rows: tuple[_Vec3, _Vec3, _Vec3],
+    *,
+    ghost_walls: bool = False,
+    wall_alpha: float = 0.22,
+    ghost_roof: bool = False,
+    roof_alpha: float = 0.45,
 ) -> list[_Face]:
     faces: list[_Face] = []
     for v0, v1, v2, key in tris:
@@ -199,10 +475,25 @@ def _project_and_shade(
         facing = 0.55 + 0.45 * nz
         shade = min(1.15, lambert * facing)
         base = _MATERIAL_RGBA.get(key) or _FALLBACK_RGBA
-        color = _hex(base[0] * shade, base[1] * shade, base[2] * shade)
+        k = (key or "").lower()
+        # Ghost walls (vertical enclosure + facility massing shells)
+        alpha = 1.0
+        rgb0, rgb1, rgb2 = float(base[0]), float(base[1]), float(base[2])
+        if ghost_walls and (k in _GHOST_WALL_KEYS or k.startswith("wall")):
+            alpha = float(wall_alpha)
+            if k in _GHOST_NEUTRAL_KEYS:
+                rgb0, rgb1, rgb2 = _GHOST_NEUTRAL_RGB
+        elif (ghost_walls and ghost_roof) and (
+            k in _GHOST_SHELL_KEYS or k.startswith("roof") or k.startswith("slab")
+        ):
+            alpha = float(roof_alpha)
+        color = _hex(rgb0 * shade, rgb1 * shade, rgb2 * shade)
+        # base RGBA may already carry window glass alpha
+        if len(base) >= 4 and base[3] < 0.99:
+            alpha = min(alpha, float(base[3]))
         depth = (c0[2] + c1[2] + c2[2]) / 3.0
         pts = ((c0[0], c0[1]), (c1[0], c1[1]), (c2[0], c2[1]))
-        faces.append((depth, pts, color))
+        faces.append((depth, pts, color, alpha))
     # Painter's algorithm: far (smaller camera z) first, near last. Stable sort
     # keeps input order on ties, so the result is deterministic.
     faces.sort(key=lambda f: f[0])
@@ -287,9 +578,16 @@ def _emit_svg(faces: list[_Face], name: str, width: int, height: int) -> str:
     )
 
     parts.append('<g shape-rendering="geometricPrecision">')
-    for _d, pts, color in faces:
+    for face in faces:
+        # Support legacy 3-tuple faces and new 4-tuple (with alpha)
+        if len(face) == 4:
+            _d, pts, color, alpha = face  # type: ignore[misc]
+        else:
+            _d, pts, color = face  # type: ignore[misc]
+            alpha = 1.0
         coords = " ".join(f"{px:.1f},{py:.1f}" for px, py in (to_px(x, y) for x, y in pts))
-        parts.append(f'<polygon points="{coords}" fill="{color}"/>')
+        op = f' fill-opacity="{alpha:.3f}"' if alpha < 0.999 else ""
+        parts.append(f'<polygon points="{coords}" fill="{color}"{op}/>')
     parts.append("</g>")
 
     title = _xml_escape(name)
