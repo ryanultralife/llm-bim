@@ -77,9 +77,20 @@ so `index.html` features `product_hero` when the library stages successfully.
 
 1. Open `renders/HERO_BRIEF.json`.
 2. Use `prompt` (and envelope / equipment tags) with an image model.
-3. Prefer **image_edit** from an existing layout still or STEP silhouette when available — preserve massing.
+3. Prefer **image_edit** from pack **3-D / mesh-match views first** (honest massing):
+   - `renders/model_match_iso_full.png` or `model_match_iso.png`
+   - `renders/L1_layout_iso.png` / `R1_iso.png`
+   - elev sheets (`R3_elev*.png`) or construction elev thumbs
+   - List via `preferred_img2img_refs(pack)` — do **not** invent a generic plant.
 4. Save the result and run `stage_hero_render(pack, path)`.
 5. Re-open `index.html` — product hero is the cover.
+
+Quick stage from an existing pack view (no Imagine):
+
+```python
+from llmbim_drawings.hero_product import stage_hero_from_pack_views
+stage_hero_from_pack_views(pack, prefer="model_match_iso_full")
+```
 
 Prompt language should match brand stills: cream/copper industrial, full-frame subject, no logos/text, no people.
 

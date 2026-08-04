@@ -357,15 +357,41 @@ def _list_related(out: Path) -> dict[str, bool]:
 
 
 def _reference_images(out: Path) -> list[str]:
-    """Pack-local images agents should prefer for image-to-image massing."""
+    """Pack-local images agents should prefer for image-to-image massing.
+
+    Prefer live 3-D / mesh-match views first (honest massing), then layout
+    product_views, then axonometric hero.svg. Construction sheet thumbs are
+    optional extras when present under construction/.
+    """
     cands = [
+        # 3-D / mesh (best massing for photoreal img2img)
+        out / "renders" / "model_match_iso_full.png",
+        out / "renders" / "model_match_iso.png",
+        out / "renders" / "L1_layout_iso.png",
         out / "renders" / "R1_iso.png",
-        out / "renders" / "R2_plan.png",
+        out / "renders" / "R1_iso_process.png",
         out / "renders" / "R3_elev.png",
+        out / "renders" / "R3_elev_S.png",
+        out / "renders" / "R4_elev_E.png",
+        out / "renders" / "R2_plan.png",
         out / "hero.svg",
         out / "renders" / "product_hero.jpg",
     ]
-    return [str(p.relative_to(out)).replace("\\", "/") for p in cands if p.is_file()]
+    # optional construction elev/iso sheets if kernel exported them here
+    cons = out / "construction"
+    if cons.is_dir():
+        for pat in ("*elev*.png", "*Elev*.png", "*iso*.png", "A-201*.png"):
+            cands.extend(sorted(cons.glob(pat))[:3])
+    seen: set[str] = set()
+    out_list: list[str] = []
+    for p in cands:
+        if not p.is_file():
+            continue
+        rel = str(p.relative_to(out)).replace("\\", "/")
+        if rel not in seen:
+            seen.add(rel)
+            out_list.append(rel)
+    return out_list
 
 
 def stage_hero_render(
@@ -395,6 +421,45 @@ def stage_hero_render(
             except OSError:
                 pass
     return dest
+
+
+def preferred_img2img_refs(pack_dir: str | Path, *, limit: int = 4) -> list[Path]:
+    """Absolute paths of the best pack-local refs for photoreal img2img.
+
+    Order: model-match / mesh iso → layout iso → elev → plan → hero.svg.
+    Use these (not a generic campus library still) when regenerating
+    product_hero so the cover matches the delivered 3-D massing.
+    """
+    out = Path(pack_dir)
+    rels = _reference_images(out)
+    paths = [out / r for r in rels if not r.endswith("product_hero.jpg")]
+    return paths[:limit]
+
+
+def stage_hero_from_pack_views(
+    pack_dir: str | Path,
+    *,
+    prefer: str | None = None,
+) -> Path | None:
+    """Stage product_hero from an existing pack 3-D/layout view (no external art).
+
+    Prefer ``prefer`` stem if present (e.g. ``model_match_iso_full``), else the
+    first preferred_img2img_refs entry that is a raster. Returns staged path or
+    None if no suitable view exists (caller should run Imagine img2img).
+    """
+    out = Path(pack_dir)
+    renders = out / "renders"
+    order: list[Path] = []
+    if prefer:
+        for ext in (".png", ".jpg", ".jpeg", ".webp"):
+            p = renders / f"{prefer}{ext}"
+            if p.is_file():
+                order.append(p)
+    order.extend(preferred_img2img_refs(out, limit=8))
+    for src in order:
+        if src.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"} and src.is_file():
+            return stage_hero_render(out, src)
+    return None
 
 
 def _normalize_product_id(product_id: str) -> str:
