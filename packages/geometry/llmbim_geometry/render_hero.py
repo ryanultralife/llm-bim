@@ -79,23 +79,30 @@ def load_gltf_triangles(gltf_path: str | Path) -> tuple[list[_Tri], str]:
     return _gltf_triangles(gltf), name
 
 
-# Vertical enclosure ghosted so structure/MEP reads through (roof stays solid
-# so primary stills are full-shell, not cutaway iso).
-# equip_shell = facility massing envelopes (often mis-tagged as cyan equipment);
-# ghost them as walls so they don't read as blue iso cut planes.
+# Vertical enclosure lightly ghosted (not a cutaway into the hall).
+# equip_shell stays SOLID — it is exterior massing; ghosting it opens the
+# annex like an iso section.
 _GHOST_WALL_KEYS = frozenset({
     "wall", "wall_structure", "wall_insulation", "wall_finish", "wall_membrane",
     "door", "window", "glass", "curtain", "cladding",
+    # massing shells: light ghost + neutral color (not cyan cut planes)
     "equip_shell",
 })
+_GHOST_NEUTRAL_KEYS = frozenset({"equip_shell"})
 # Optional light shell ghost (off by default when ghost_walls=True — roof solid)
 _GHOST_SHELL_KEYS = frozenset({
     "slab", "roof", "concrete", "floor",
 })
-# When ghosting, recolor these keys to neutral wall so cyan massing doesn't
-# look like section-cut hatching.
-_GHOST_NEUTRAL_KEYS = frozenset({"equip_shell"})
-_GHOST_NEUTRAL_RGB = (0.72, 0.74, 0.76)
+_GHOST_NEUTRAL_RGB = (0.70, 0.72, 0.74)
+
+# Interior MEP / process volume dropped on exterior product stills so the
+# camera does not angle into the building (hero/3-D match).
+_INTERIOR_DROP_KEYS = frozenset({
+    "pipe_process", "pipe_copper", "pipe_fire", "pipe_pvc", "conduit",
+    "cable_tray", "duct", "equipment", "equip_port", "equip_sensor",
+    "equip_pedestal", "equip_yoke", "equip_chiller", "equip_gas",
+    "equip_cartridge", "equip_vacuum", "equip_controls",
+})
 
 
 def render_mesh_png(
@@ -239,6 +246,105 @@ def _filter_open_process(tris: list[_Tri]) -> list[_Tri]:
     return keep or tris
 
 
+def _shell_bounds(tris: list[_Tri]) -> tuple[float, float, float, float, float, float]:
+    """Return (x0,x1,y0,y1,z0,z1) of enclosure + frame footprint."""
+    shell_keys = {
+        "wall", "wall_structure", "wall_insulation", "wall_finish",
+        "slab", "roof", "column", "beam", "door", "window", "equip_shell",
+    }
+    pts: list[_Vec3] = []
+    for v0, v1, v2, key in tris:
+        k = (key or "").lower()
+        if k in shell_keys or k.startswith("wall"):
+            pts.extend((v0, v1, v2))
+    if len(pts) < 3:
+        pts = [v for t in tris for v in t[:3]]
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    zs = [p[2] for p in pts]
+    return min(xs), max(xs), min(ys), max(ys), min(zs), max(zs)
+
+
+def _quad(a: _Vec3, b: _Vec3, c: _Vec3, d: _Vec3, key: str) -> list[_Tri]:
+    return [(a, b, c, key), (a, c, d, key)]
+
+
+def _inject_closed_envelope(tris: list[_Tri]) -> list[_Tri]:
+    """Solid roof deck + perimeter walls so product stills are closed exterior.
+
+    Pack glTF often lacks continuous roof/facade faces — beams read as open
+    steel and isos look into the hall. Cap + four wall planes seal the shell;
+    walls use material ``wall`` (lightly ghosted); roof stays solid.
+    """
+    if not tris:
+        return tris
+    x0, x1, y0, y1, z0, z1 = _shell_bounds(tris)
+    beam_ys = [v[1] for t in tris if t[3] == "beam" for v in t[:3]]
+    wall_ys = [v[1] for t in tris if (t[3] or "").startswith("wall") for v in t[:3]]
+    y_roof = y1
+    if beam_ys:
+        y_roof = max(max(beam_ys) + 0.12, y_roof * 0.99)
+    if wall_ys:
+        y_roof = max(y_roof, max(wall_ys))
+    y_slab = min(0.0, y0)
+    pad = 0.20
+    x0, x1 = x0 - pad, x1 + pad
+    z0, z1 = z0 - pad, z1 + pad
+    # Roof (solid)
+    ra, rb = (x0, y_roof, z0), (x1, y_roof, z0)
+    rc, rd = (x1, y_roof, z1), (x0, y_roof, z1)
+    shell: list[_Tri] = _quad(ra, rb, rc, rd, "roof")
+    # Four perimeter walls floor→roof (ghost as wall)
+    # S (min z), N (max z), W (min x), E (max x)
+    shell += _quad(
+        (x0, y_slab, z0), (x1, y_slab, z0), (x1, y_roof, z0), (x0, y_roof, z0), "wall"
+    )
+    shell += _quad(
+        (x1, y_slab, z1), (x0, y_slab, z1), (x0, y_roof, z1), (x1, y_roof, z1), "wall"
+    )
+    shell += _quad(
+        (x0, y_slab, z1), (x0, y_slab, z0), (x0, y_roof, z0), (x0, y_roof, z1), "wall"
+    )
+    shell += _quad(
+        (x1, y_slab, z0), (x1, y_slab, z1), (x1, y_roof, z1), (x1, y_roof, z0), "wall"
+    )
+    # Drop high beam/column faces that read as roof-exposed steel
+    y_cut = y_roof - 0.05
+    keep: list[_Tri] = []
+    for v0, v1, v2, key in tris:
+        k = (key or "").lower()
+        if k in ("beam", "column"):
+            cy = (v0[1] + v1[1] + v2[1]) / 3.0
+            if cy >= y_cut - 1.5:
+                if k == "column" and min(v0[1], v1[1], v2[1]) < y_cut - 2.5 and cy < y_cut - 0.5:
+                    keep.append((v0, v1, v2, key))
+                continue
+        keep.append((v0, v1, v2, key))
+    return keep + shell
+
+
+def _exterior_product_tris(tris: list[_Tri]) -> list[_Tri]:
+    """Closed exterior product mesh: roof + walls, no deep look into the hall.
+
+    Drops interior MEP/process solids and most interior frame so primary isos
+    are exterior 3/4s with ghosted walls — not section cuts into process.
+    """
+    closed = _inject_closed_envelope(tris)
+    out: list[_Tri] = []
+    for v0, v1, v2, key in closed:
+        k = (key or "").lower()
+        if k in _INTERIOR_DROP_KEYS or k.startswith("pipe_") or k.startswith("equip_"):
+            # keep equip_shell as solid exterior massing only
+            if k == "equip_shell":
+                out.append((v0, v1, v2, key))
+            continue
+        # hide interior frame under the closed shell (columns/beams inside)
+        if k in ("beam", "column"):
+            continue
+        out.append((v0, v1, v2, key))
+    return out
+
+
 def export_mesh_product_views(
     pack_dir: str | Path,
     *,
@@ -248,12 +354,13 @@ def export_mesh_product_views(
 ) -> list[Path]:
     """Write multi-view PNGs from pack ``model.gltf`` — matches viewer 3D.
 
-    Primary product stills use **full shell + ghost walls** (no process-open
-    cutaway; roof solid, walls translucent). Process-open is MEP-only.
+    Primary product stills: **closed roof deck + ghost walls** (no process-open
+    cutaway, no exposed roof steel, no iso angling into the hall). Process-open
+    remains MEP-only.
 
     Files:
-      R1_iso.png / model_match_iso_full.png  full iso, ghost walls (hero 3-D side)
-      model_match_iso.png                    same (no process cut)
+      R1_iso.png / model_match_iso_full.png  closed shell + ghost walls (hero 3-D)
+      model_match_iso.png                    same
       R1_iso_process.png                     process-open (MEP only)
       R2_plan / R3_elev / R4_elev            elev/plan with ghost walls
     """
@@ -265,16 +372,19 @@ def export_mesh_product_views(
     if not tris:
         return []
     open_tris = _filter_open_process(tris)
+    # Exterior product: closed roof, no interior MEP, light wall ghost only
+    exterior_tris = _exterior_product_tris(tris)
     out = pack / out_subdir
     out.mkdir(parents=True, exist_ok=True)
     prefix = title_prefix or gname
     # (fname, az, el, title, use_open, ghost_walls)
+    # Lower elev (~16°) = exterior 3/4, not bird's-eye / section into hall
     views: list[tuple[str, float, float, str, bool, bool]] = [
         (
             "R1_iso.png",
-            225.0,
-            28.0,
-            f"{prefix} — isometric · full shell · ghost walls",
+            220.0,
+            16.0,
+            f"{prefix} — exterior · closed shell · ghost walls",
             False,
             True,
         ),
@@ -286,24 +396,24 @@ def export_mesh_product_views(
             True,
             False,
         ),
-        ("R2_plan.png", 0.0, 89.0, f"{prefix} — plan · ghost walls", False, True),
+        ("R2_plan.png", 0.0, 89.0, f"{prefix} — plan · closed shell", False, True),
         ("R3_elev.png", 180.0, 0.0, f"{prefix} — elev S · ghost walls", False, True),
         ("R3_elev_S.png", 180.0, 0.0, f"{prefix} — elev S · ghost walls", False, True),
         ("R4_elev_E.png", 90.0, 0.0, f"{prefix} — elev E · ghost walls", False, True),
         (
             "model_match_iso.png",
-            225.0,
-            28.0,
-            f"{prefix} — model-match iso · full shell · ghost walls",
+            220.0,
+            16.0,
+            f"{prefix} — model-match · closed shell · ghost walls",
             False,
             True,
         ),
-        ("model_match_plan.png", 0.0, 89.0, f"{prefix} — model-match plan · ghost walls", False, True),
+        ("model_match_plan.png", 0.0, 89.0, f"{prefix} — model-match plan · closed shell", False, True),
         (
             "model_match_iso_full.png",
-            225.0,
-            28.0,
-            f"{prefix} — model-match iso · full shell · ghost walls",
+            220.0,
+            16.0,
+            f"{prefix} — model-match · closed shell · ghost walls",
             False,
             True,
         ),
@@ -311,25 +421,34 @@ def export_mesh_product_views(
     paths: list[Path] = []
     for fname, az, el, title, use_open, ghost in views:
         p = out / fname
+        mesh = open_tris if use_open else exterior_tris
         render_mesh_png(
-            open_tris if use_open else tris,
+            mesh,
             p,
             title=title,
             azimuth_deg=az,
             elevation_deg=el,
             size=(1600, 1000) if "iso" in fname else (1600, 900),
             ghost_walls=ghost,
-            wall_alpha=0.20,
-            ghost_roof=False,  # closed shell — no translucent roof cut look
+            # Light ghost on true walls only — shell reads closed
+            wall_alpha=0.55,
+            ghost_roof=False,
         )
         paths.append(p)
     man = {
-        "rule": "mesh match — exact pack glTF; primary stills = full shell + ghost walls (no iso cut; roof solid)",
+        "rule": (
+            "mesh match — primary stills = closed roof + light ghost walls + "
+            "no interior MEP (exterior 3/4, not iso into hall)"
+        ),
         "source": gltf_name,
         "triangle_count": len(tris),
+        "triangle_count_exterior_product": len(exterior_tris),
         "triangle_count_process_open": len(open_tris),
         "ghost_walls_primary": True,
         "ghost_roof_primary": False,
+        "closed_roof_deck": True,
+        "hide_interior_mep_primary": True,
+        "iso_elevation_deg_primary": 16.0,
         "files": [p.name for p in paths],
         "honesty": "presentation stills from live model mesh — not PE stamp",
     }
