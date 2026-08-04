@@ -50,6 +50,17 @@ _GLTF_TYPE_COUNT = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4, "MAT2": 4, "MA
 _GLTF_INDEX_FMT = {5121: "<B", 5123: "<H", 5125: "<I"}
 
 
+def _looks_absolute_path(s: str) -> bool:
+    """True for machine-local absolute paths (Windows drive or Unix root)."""
+    t = (s or "").strip().replace("\\", "/")
+    if len(t) >= 2 and t[1] == ":" and t[0].isalpha():
+        return True
+    if t.startswith("/") and not t.startswith("./") and not t.startswith("../"):
+        # pack-relative never starts with /
+        return True
+    return False
+
+
 def _verify_gltf_strict(gltf_path: Path) -> dict[str, Any]:
     """Strict structural validation of an exported glTF (hand-parsed, no deps).
 
@@ -412,6 +423,39 @@ def verify_pack(
                 for k, v in (e.get("params") or {}).items()
                 if k.endswith("_assumed") and v
             )
+            # Portable STEP refs (EQUIPMENT_3D / MineClean lesson): no machine-local absolutes
+            abs_step = 0
+            missing_step = 0
+            step_n = 0
+            for e in elements:
+                if e.get("category") != "equipment":
+                    continue
+                raw = str((e.get("params") or {}).get("step_ref_path") or "").strip()
+                if not raw:
+                    continue
+                step_n += 1
+                if _looks_absolute_path(raw):
+                    abs_step += 1
+                cand = Path(raw)
+                if not cand.is_file():
+                    cand = out / raw.replace("\\", "/")
+                if not cand.is_file():
+                    # also try step_refs/basename
+                    cand = out / "step_refs" / Path(raw.replace("\\", "/")).name
+                if not cand.is_file():
+                    missing_step += 1
+            checks["step_ref_count"] = step_n
+            checks["step_ref_absolute_paths"] = abs_step
+            checks["step_ref_missing"] = missing_step
+            if abs_step:
+                failures.append(
+                    f"step_ref_path has {abs_step} absolute machine-local path(s); "
+                    "use pack-relative step_refs/… (portable packs)"
+                )
+            if missing_step:
+                failures.append(
+                    f"step_ref_path missing file for {missing_step} equipment element(s)"
+                )
         except Exception:
             checks["model_json_parse_ok"] = False
 
@@ -423,6 +467,8 @@ def verify_pack(
     # SSOT §2.4: a green VERIFY with a black viewer is worse than a loud export
     # error — strict glTF failure must fail the whole pack verification.
     if (out / "model.gltf").is_file() and not checks.get("gltf_valid"):
+        checks["ok"] = False
+    if failures:
         checks["ok"] = False
     if require_materials and not checks.get("has_materials_package"):
         checks["ok"] = False
@@ -438,6 +484,7 @@ def export_deliverables(
     plan_scale: float | None = None,
     phases: str | list[str] | None = None,
     set_type: str = "construction",
+    units: str = "metric",
 ) -> dict[str, Any]:
     """Write a full output pack with per-step error isolation.
 
@@ -447,6 +494,10 @@ def export_deliverables(
 
     ``set_type``: ``\"plan\"`` (permit sheets only) or ``\"construction\"``
     (default — plan sheets plus content-driven S/M/P/E discipline sheets).
+
+    ``units``: ``\"metric\"`` (default) or ``\"imperial\"`` — plumbs into the
+    construction set (ft-in dimension strings, imperial scale notes). Model
+    store remains millimetres SSOT either way.
     """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -517,12 +568,16 @@ def export_deliverables(
     _try(
         "elev_S",
         errors,
-        lambda: write_elevation_svg(work, "S", views / "elev_S.svg", scale=plan_scale),
+        lambda: write_elevation_svg(
+            work, "S", views / "elev_S.svg", scale=plan_scale, exterior=True
+        ),
     )
     _try(
         "elev_E",
         errors,
-        lambda: write_elevation_svg(work, "E", views / "elev_E.svg", scale=plan_scale),
+        lambda: write_elevation_svg(
+            work, "E", views / "elev_E.svg", scale=plan_scale, exterior=True
+        ),
     )
     # section mid
     def _section() -> None:
@@ -716,6 +771,7 @@ def export_deliverables(
                 plan_level=level,
                 plan_scale=plan_scale,
                 set_type=set_type,
+                units=units,
             ),
         )
         if cd:
@@ -836,6 +892,32 @@ def export_deliverables(
         result["index_html"] = "index.html"
     except Exception as exc:  # noqa: BLE001
         errors.append({"step": "html_index", "error": str(exc)})
+
+    # Product layout PNGs (equipment AABB only — never hybrid STEP+bay)
+    try:
+        from llmbim_drawings.product_views import export_product_views
+
+        name = (work.meta or {}).get("name") or work.name or "llm-bim"
+        pviews = export_product_views(out, title_prefix=str(name)[:48])
+        if pviews:
+            result["product_views"] = [p.name for p in pviews]
+    except Exception as exc:  # noqa: BLE001
+        errors.append({"step": "product_views", "error": str(exc)})
+
+    # Hero product still pipeline (photoreal communication render alongside 3D/sheets)
+    try:
+        from llmbim_drawings.hero_product import export_hero_pipeline
+
+        name = (work.meta or {}).get("name") or work.name or "llm-bim"
+        hero_man = export_hero_pipeline(
+            out,
+            product_id=str(name).lower().replace(" ", "_")[:48],
+            title=str(name)[:80],
+            use_library=True,
+        )
+        result["hero_product"] = hero_man
+    except Exception as exc:  # noqa: BLE001
+        errors.append({"step": "hero_product", "error": str(exc)})
 
     try:
         from llmbim_drawings.zip_pack import zip_pack

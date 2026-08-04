@@ -103,6 +103,7 @@ If your output passes these, nobody second-guesses how you got there.
 | Full CD / multi-sheet set | `recipes/design_program.md` |
 | Schad residential CD | `recipes/schad_cd.md` |
 | Always produce pack | `recipes/produce_pack.md` |
+| Product hero still (pitch render) | `recipes/hero_product_render.md` · `docs/HERO_PRODUCT_RENDER.md` |
 | Peer CAD skills analysis | `docs/REFERENCE_TEXT_TO_CAD.md` |
 
 ## Authoring contract (what the LLM must know)
@@ -231,11 +232,18 @@ export_construction_set(p.model, out, units="imperial", sheets=[   # custom regi
 
 - `units="imperial"` → feet-inches dims (`24'-0"`), `EL. +0'-0"` datums, SF areas,
   architectural scale notes; per-sheet or export-wide. Metric is the default.
+  **Also on the full pack API:** `p.export_deliverables(out, units="imperial")`
+  plumbs into the construction set (model store stays millimetres).
 - `tags: True` on plan sheets → door/window tag bubbles from element `mark` params,
   wall-type diamonds, equipment leader tags (marks keyed to the equipment schedule).
 - Detail `ops` DSL (`llmbim_drawings.detail_ops`): `l`/`d` lines, `r` rect, `c` circle,
   `h` hatch, `t` text, `dim` — data in, drafted SVG out. Never freehand SVG.
 - CLI: `llmbim pack ... --set plan|construction`.
+
+**Industrial / INTEC facility packs** — multi-part machines, imperial Walsh review,
+plan label budget, Proto10 machine import: read **`docs/INTEC_METHODOLOGY.md`**
+and `docs/EQUIPMENT_3D_AND_DEVICE_SSOT.md`. Do not collapse densified separators
+to single boxes when a multi-part pack exists.
 
 **Full CD anatomy** (per `docs/CD_COMPLETENESS_STANDARD.md` — all opt-in, export-level
 kwargs AND per-sheet register opts; defaults byte-stable when off):
@@ -528,6 +536,9 @@ llmbim script build.py --pack out/gen
 - `materials/` — assignments, exploded BOM, **fitting/pipe/duct/conduit/steel/csi** takeoffs  
 - `schedules/` — doors.csv · windows.csv · levels · drawing_list · duct · column · CSI · zone_areas  
 - **`index.html`** — the ONE file to open; links the 3D studio (`viewer3d.html`: self-contained/offline, inspect · measure · filters · section cut · bloom), PDF, sheets, schedules  
+- **`hero.svg`** — deterministic shaded axonometric from the glTF mesh  
+- **`renders/product_hero.*`** — pitch-grade **product hero still** (photoreal communication render) via `export_hero_pipeline` / `recipes/hero_product_render.md` — sits **alongside** sheets, specs, and 3D; see `docs/HERO_PRODUCT_RENDER.md`  
+- `renders/HERO_BRIEF.json` · `HERO_MANIFEST.json` — brief + status for agent/Imagine fill  
 - `deliverables.zip` · `MANIFEST.json` · `VERIFY.json`  
 - `verify_pack`: has_doors_schedule · has_windows_schedule · elev/section DXF · materials package  
 
@@ -576,6 +587,9 @@ Window: `WIN-CASE-48x48`. Headers: `HDR-1`, `HDR-2` (LVL). Shear panels:
   plan/CD-set workflow, **`schad_cd.md`** = worked residential CD instance  
 - `docs/REFERENCE_TEXT_TO_CAD.md` — CAD Skills (text-to-cad) comparison + adoption  
 - `docs/CAPABILITY.md` · `docs/HONESTY.md` · `docs/LOCAL.md` · `docs/RETIRING_REVIT_SCHAD.md`  
+- `docs/INTEC_METHODOLOGY.md` — industrial multi-part machines, imperial pack
+  export, plan label budget, Proto10→facility import  
+
 
 - `docs/DIGITAL_TWIN_TRL.md` — twin fidelity levels (F0–F3), TRL→artifact
   mapping for device development, `trl`/`trl_evidence`/`verification` param

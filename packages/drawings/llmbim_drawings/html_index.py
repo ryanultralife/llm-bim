@@ -411,9 +411,28 @@ def write_pack_index(out_dir: str | Path) -> Path:
 </ul>
 """
 
-    # Baked presentation still (shaded axonometric) — embed prominently when present
+    # Hero stills: prefer photoreal product_hero (pitch-grade), then axonometric hero.svg
     hero_html = ""
-    if (out / "hero.svg").is_file():
+    product_hero = None
+    for ext in (".jpg", ".jpeg", ".png", ".webp"):
+        cand = out / "renders" / f"product_hero{ext}"
+        if cand.is_file():
+            product_hero = cand
+            break
+    if product_hero is not None:
+        rel = product_hero.relative_to(out).as_posix()
+        hero_html = (
+            '<figure style="margin:1.2rem 0">'
+            f'<a href="{rel}" target="_blank">'
+            f'<img src="{rel}" alt="Product hero still" '
+            'style="width:100%;height:auto;display:block;'
+            'border:1px solid #30363d;border-radius:8px"></a>'
+            '<figcaption style="color:#8b949e;font-size:0.85rem;margin-top:4px">'
+            "Product hero still — communication render [ENGINEERING ESTIMATE] · "
+            "alongside sheets / 3D / specs · <a href=\"renders/HERO_BRIEF.json\">HERO_BRIEF</a>"
+            "</figcaption></figure>"
+        )
+    elif (out / "hero.svg").is_file():
         hero_html = (
             '<figure style="margin:1.2rem 0">'
             '<a href="hero.svg" target="_blank">'
@@ -421,7 +440,18 @@ def write_pack_index(out_dir: str | Path) -> Path:
             'style="width:100%;height:auto;display:block;'
             'border:1px solid #30363d;border-radius:8px"></a>'
             '<figcaption style="color:#8b949e;font-size:0.85rem;margin-top:4px">'
-            "Presentation view — [NOT FOR CONSTRUCTION]</figcaption></figure>"
+            "Presentation axonometric (hero.svg) — [NOT FOR CONSTRUCTION] · "
+            "for photoreal product stills see <code>export_hero_pipeline</code> / "
+            "<a href=\"renders/HERO_BRIEF.json\">HERO_BRIEF.json</a> when present"
+            "</figcaption></figure>"
+        )
+    # secondary strip: axonometric next to product hero when both exist
+    if product_hero is not None and (out / "hero.svg").is_file():
+        hero_html += (
+            '<p style="color:#8b949e;font-size:0.85rem;margin:0.4rem 0 1rem">'
+            'Also: <a href="hero.svg" target="_blank">hero.svg</a> (deterministic 3D axonometric) · '
+            '<a href="viewer3d.html">viewer3d.html</a> · '
+            '<a href="renders/">renders/</a></p>'
         )
 
     ok = manifest.get("ok", manifest.get("verification", {}).get("ok"))
