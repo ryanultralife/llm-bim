@@ -1171,6 +1171,66 @@ def export_construction_set(
                         continue
                 if contained:
                     eq_rooms.append((lname, room, contained))
+        # CR-029: force arrangement sheets for stations often missed by
+        # point-in-poly (spine/tunnel/MCA robots & vaults on schedule).
+        _have_room = {str(r.name or "").upper() for _, r, _ in eq_rooms}
+        _force = ("TUNNEL", "SPINE", "MCA", "ROBMAINT", "CONTROL")
+        for lname in plan_levels:
+            lid = level_ids.get(lname)
+            lvl_rooms = [
+                el for el in model.elements
+                if el.category == "room" and el.level_id == lid
+            ]
+            lvl_eq = [
+                el for el in model.elements
+                if el.category == "equipment" and el.level_id == lid
+            ]
+            for room in lvl_rooms:
+                rname = str(room.name or "").upper()
+                if rname not in _force or rname in _have_room:
+                    continue
+                boundary = room.params.get("boundary_mm") or []
+                if len(boundary) < 3:
+                    continue
+                # expand crop match: all eq whose tag/name hints station or in poly
+                contained = []
+                for eq in lvl_eq:
+                    o = eq.params.get("origin_mm")
+                    try:
+                        if o is not None and _point_in_poly(
+                            float(o[0]), float(o[1]), boundary
+                        ):
+                            contained.append(eq)
+                            continue
+                    except (TypeError, ValueError, IndexError):
+                        pass
+                    blob = " ".join(
+                        str(eq.params.get(k) or "")
+                        for k in ("equipment_tag", "equipment", "tag", "station")
+                    ) + " " + str(eq.name or "")
+                    if rname in blob.upper() or any(
+                        t in blob.upper()
+                        for t in (
+                            "RB-45", "CC-101", "NDA-", "VLT-", "TC-401", "CR-001"
+                        )
+                    ):
+                        # only attach if near room AABB
+                        try:
+                            if o is None:
+                                continue
+                            bxs = [float(p[0]) for p in boundary]
+                            bys = [float(p[1]) for p in boundary]
+                            ox, oy = float(o[0]), float(o[1])
+                            if (
+                                min(bxs) - 3000 <= ox <= max(bxs) + 3000
+                                and min(bys) - 3000 <= oy <= max(bys) + 3000
+                            ):
+                                contained.append(eq)
+                        except (TypeError, ValueError, IndexError):
+                            continue
+                if contained:
+                    eq_rooms.append((lname, room, contained))
+                    _have_room.add(rname)
         for eq_i, (lname, room, contained) in enumerate(
             eq_rooms[:MAX_EQ_SHEETS], start=1
         ):
