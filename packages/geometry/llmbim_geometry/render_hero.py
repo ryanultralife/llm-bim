@@ -119,6 +119,7 @@ def render_mesh_png(
     wall_alpha: float = 0.22,
     ghost_roof: bool = False,
     roof_alpha: float = 0.45,
+    presentation_tint: bool = False,
 ) -> Path:
     """Painter-algorithm PNG of glTF triangles — same mesh the 3D viewer shows.
 
@@ -127,6 +128,7 @@ def render_mesh_png(
     ``ghost_walls``: draw wall/door/window materials translucent so structure
     reads through — full shell stays closed (no process-open iso cut).
     ``ghost_roof``: also light-ghost roof/slab (default off so roof reads solid).
+    ``presentation_tint``: blue-gray walls + metal roof for hero match stills.
     """
     import matplotlib
 
@@ -143,6 +145,7 @@ def render_mesh_png(
         wall_alpha=wall_alpha,
         ghost_roof=ghost_roof,
         roof_alpha=roof_alpha,
+        presentation_tint=presentation_tint,
     )
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -323,11 +326,32 @@ def _inject_closed_envelope(tris: list[_Tri]) -> list[_Tri]:
     return keep + shell
 
 
+def _inject_yellow_canopy(tris: list[_Tri], shell_tris: list[_Tri]) -> list[_Tri]:
+    """South/east eave canopy strip (hero match — yellow apron on photo)."""
+    x0, x1, y0, y1, z0, z1 = _shell_bounds(tris)
+    strip_h = 0.50
+    yb = y1 - strip_h - 0.08
+    yt = y1 - 0.06
+    xs = x0 + 0.32 * (x1 - x0)
+    xe = x1 - 0.04
+    zo = z0 - 1.15
+    zi = z0 + 0.04
+    # equip_gas keyed yellow; presentation_tint maps to canopy gold
+    return (
+        _quad((xs, yb, zo), (xe, yb, zo), (xe, yt, zo), (xs, yt, zo), "equip_gas")
+        + _quad((xs, yb, zi), (xs, yb, zo), (xs, yt, zo), (xs, yt, zi), "equip_gas")
+        + _quad((xe, yb, zo), (xe, yb, zi), (xe, yt, zi), (xe, yt, zo), "equip_gas")
+        + _quad((xs, yt, zo), (xe, yt, zo), (xe, yt, zi), (xs, yt, zi), "equip_gas")
+        + shell_tris
+    )
+
+
 def _exterior_product_tris(tris: list[_Tri]) -> list[_Tri]:
     """Closed exterior product mesh: roof + walls, no deep look into the hall.
 
     Drops interior MEP/process solids and most interior frame so primary isos
     are exterior 3/4s with ghosted walls — not section cuts into process.
+    No stack/tower, no rooftop AC (those are not in shell envelope).
     """
     closed = _inject_closed_envelope(tris)
     out: list[_Tri] = []
@@ -342,7 +366,7 @@ def _exterior_product_tris(tris: list[_Tri]) -> list[_Tri]:
         if k in ("beam", "column"):
             continue
         out.append((v0, v1, v2, key))
-    return out
+    return _inject_yellow_canopy(tris, out)
 
 
 def export_mesh_product_views(
@@ -431,8 +455,9 @@ def export_mesh_product_views(
             size=(1600, 1000) if "iso" in fname else (1600, 900),
             ghost_walls=ghost,
             # Light ghost on true walls only — shell reads closed
-            wall_alpha=0.55,
+            wall_alpha=0.52,
             ghost_roof=False,
+            presentation_tint=not use_open,
         )
         paths.append(p)
     man = {
@@ -557,6 +582,13 @@ def _apply(rows: tuple[_Vec3, _Vec3, _Vec3], v: _Vec3) -> _Vec3:
 _Face = tuple[float, tuple[_Vec2, _Vec2, _Vec2], str, float]
 
 
+# Hero-match presentation palette (blue-gray industrial shell)
+_PRESENT_WALL_RGB = (0.42, 0.52, 0.62)
+_PRESENT_ROOF_RGB = (0.38, 0.40, 0.43)
+_PRESENT_CANOPY_RGB = (0.90, 0.78, 0.18)
+_PRESENT_SLAB_RGB = (0.58, 0.58, 0.60)
+
+
 def _project_and_shade(
     tris: list[_Tri],
     rows: tuple[_Vec3, _Vec3, _Vec3],
@@ -565,6 +597,7 @@ def _project_and_shade(
     wall_alpha: float = 0.22,
     ghost_roof: bool = False,
     roof_alpha: float = 0.45,
+    presentation_tint: bool = False,
 ) -> list[_Face]:
     faces: list[_Face] = []
     for v0, v1, v2, key in tris:
@@ -598,9 +631,18 @@ def _project_and_shade(
         # Ghost walls (vertical enclosure + facility massing shells)
         alpha = 1.0
         rgb0, rgb1, rgb2 = float(base[0]), float(base[1]), float(base[2])
+        if presentation_tint:
+            if k in _GHOST_WALL_KEYS or k.startswith("wall") or k == "equip_shell":
+                rgb0, rgb1, rgb2 = _PRESENT_WALL_RGB
+            elif k == "roof":
+                rgb0, rgb1, rgb2 = _PRESENT_ROOF_RGB
+            elif k in ("equip_gas", "equip_label"):  # canopy / accent
+                rgb0, rgb1, rgb2 = _PRESENT_CANOPY_RGB
+            elif k in ("slab", "concrete"):
+                rgb0, rgb1, rgb2 = _PRESENT_SLAB_RGB
         if ghost_walls and (k in _GHOST_WALL_KEYS or k.startswith("wall")):
             alpha = float(wall_alpha)
-            if k in _GHOST_NEUTRAL_KEYS:
+            if k in _GHOST_NEUTRAL_KEYS and not presentation_tint:
                 rgb0, rgb1, rgb2 = _GHOST_NEUTRAL_RGB
         elif (ghost_walls and ghost_roof) and (
             k in _GHOST_SHELL_KEYS or k.startswith("roof") or k.startswith("slab")
