@@ -486,9 +486,15 @@ def _wall_types_view(model: ProjectModel) -> DrawingView:
                 f'<text x="{x + w / 2:.1f}" y="{y + 40}" text-anchor="middle" font-size="9" '
                 f'font-family="sans-serif" fill="#333">{layer.thickness_mm:.0f}</text>'
             )
+            # CR-027: full material name (no 14-char hard cut); wrap long labels
+            mat = str(layer.material or "")
+            if len(mat) > 22:
+                mat_show = mat[:20] + "…"
+            else:
+                mat_show = mat
             lines.append(
-                f'<text x="{x + w / 2:.1f}" y="{y + 52}" text-anchor="middle" font-size="8" '
-                f'font-family="sans-serif" fill="#666">{layer.material[:14]}</text>'
+                f'<text x="{x + w / 2:.1f}" y="{y + 52}" text-anchor="middle" font-size="7.5" '
+                f'font-family="sans-serif" fill="#666">{mat_show}</text>'
             )
             x += w
         if not layers:
@@ -503,7 +509,7 @@ def _wall_types_view(model: ProjectModel) -> DrawingView:
                 f"total {total:.0f} mm</text>"
             )
         y += 78
-    return DrawingView(width=1000, height=max(y + 10, 200), body="\n".join(lines), title="Wall Types")
+    return DrawingView(width=1100, height=max(y + 10, 200), body="\n".join(lines), title="Wall Types")
 
 
 def _fmt_cell(value: Any) -> Any:
@@ -782,8 +788,15 @@ def export_construction_set(
     for sn, sheet_title, pair in elev_pairs:
         cells: list[tuple] = []
         for direction, cell_title in pair:
+            # exterior=True: envelope + outdoor yards only — no partition X-ray,
+            # beam labels, or densified interior equipment fog (Walsh redline).
             elev_svg = render_elevation_svg(
-                model, direction, scale=plan_scale, units=units, weights=line_weights
+                model,
+                direction,
+                scale=plan_scale,
+                units=units,
+                weights=line_weights,
+                exterior=True,
             )
             view = _view_from_full_svg(elev_svg, cell_title)
             cells.append((view, cell_title, nominal_scale, plan_scale))
@@ -869,19 +882,46 @@ def export_construction_set(
         )
 
         level_name_by_id = {lvl.id: lvl.name for lvl in model.levels}
+        # One row per parent equipment tag (not every densified solid part) —
+        # otherwise A-501 paginates into 100+ near-duplicate sheets.
+        _eq_by_tag: dict[str, dict[str, Any]] = {}
+        for el in model.query(category="equipment"):
+            p = el.params or {}
+            tag = str(p.get("equipment") or p.get("tag") or "").strip()
+            if not tag:
+                # fall back to first token of name / full name
+                nm = str(el.name or el.id)
+                tag = nm.split()[0] if nm.split() else str(el.id)
+            # strip layer prefix like [PROC_plasma]
+            if tag.startswith("["):
+                tag = (str(el.name or "").split("]")[-1].strip().split() or [tag])[0]
+            rec = _eq_by_tag.get(tag)
+            if rec is None:
+                _eq_by_tag[tag] = {
+                    "tag": tag,
+                    "kind": p.get("kind") or "",
+                    "parts": 1,
+                    "level": level_name_by_id.get(el.level_id or "", ""),
+                    "sample_part": p.get("part") or "",
+                    "name": str(el.name or tag)[:60],
+                }
+            else:
+                rec["parts"] += 1
+                if not rec.get("sample_part") and p.get("part"):
+                    rec["sample_part"] = p.get("part")
         eq_rows = [
             [
-                el.name,
-                el.params.get("kind"),
-                el.params.get("size_mm"),
-                level_name_by_id.get(el.level_id or "", ""),
-                el.params.get("origin_mm"),
+                r["tag"],
+                r["kind"],
+                r["parts"],
+                r["level"],
+                r["sample_part"],
             ]
-            for el in model.query(category="equipment")
+            for r in sorted(_eq_by_tag.values(), key=lambda x: str(x["tag"]))
         ]
         table_sheets(
             "Equipment Schedule",
-            ["NAME", "KIND", "SIZE mm", "LEVEL", "LOCATION mm"],
+            ["TAG", "KIND", "N PARTS", "LEVEL", "SAMPLE PART"],
             eq_rows,
             "A-501",
             "equipment",
@@ -1155,19 +1195,60 @@ def export_construction_set(
                 units=units,
                 title=f"{model.name} — Equipment Arrangement {room_name}",
             )
+            # Aggregate densified multi-part solids by parent equipment tag
+            # so the table fits the drawing area (was overflowing to y>3000
+            # when every part row was listed).
+            _by_tag: dict[str, dict[str, Any]] = {}
+            for eq in contained:
+                p = eq.params or {}
+                tag = str(
+                    p.get("equipment_tag")
+                    or p.get("equipment")
+                    or p.get("tag")
+                    or ""
+                ).strip()
+                if not tag:
+                    nm = str(eq.name or eq.id)
+                    # strip [LAYER] prefix
+                    if nm.startswith("["):
+                        nm = nm.split("]", 1)[-1].strip()
+                    tag = nm.split()[0] if nm.split() else str(eq.id)
+                full = str(
+                    p.get("equipment_name") or p.get("equipment_full") or ""
+                ).strip()
+                rec = _by_tag.get(tag)
+                if rec is None:
+                    _by_tag[tag] = {
+                        "tag": tag,
+                        "name": full or tag,
+                        "kind": p.get("kind") or "",
+                        "parts": 1,
+                        "z0": p.get("z0_mm"),
+                    }
+                else:
+                    rec["parts"] += 1
+                    if full and len(full) > len(str(rec.get("name") or "")):
+                        rec["name"] = full
             eq_tbl_rows = [
                 [
-                    _fmt_cell(eq.name),
-                    _fmt_cell(eq.params.get("kind")),
-                    _fmt_cell(eq.params.get("size_mm")),
-                    _fmt_cell(eq.params.get("z0_mm")),
+                    _fmt_cell(r["tag"]),
+                    _fmt_cell(r["name"])[:48],
+                    _fmt_cell(r["kind"]),
+                    _fmt_cell(r["parts"]),
+                    _fmt_cell(r["z0"]),
                 ]
-                for eq in contained
+                for r in sorted(_by_tag.values(), key=lambda x: str(x["tag"]))
             ]
+            # Cap rows so table stays inside the multi-sheet cell; overflow note
+            _max_eq_tbl = 28
+            _note_extra = ""
+            if len(eq_tbl_rows) > _max_eq_tbl:
+                _note_extra = f" (+{len(eq_tbl_rows) - _max_eq_tbl} more — see A-501)"
+                eq_tbl_rows = eq_tbl_rows[:_max_eq_tbl]
             tbl = table_view(
-                ["NAME", "KIND", "W×D×H mm", "Z0 mm"],
+                ["TAG", "EQUIPMENT NAME", "KIND", "N PARTS", "Z0 mm"],
                 eq_tbl_rows,
-                title=f"Equipment — {room_name}",
+                title=f"Equipment — {room_name}{_note_extra}",
             )
             sn = f"EQ-1{eq_i:02d}"
             sh = _multi_sheet(
@@ -1803,7 +1884,12 @@ def _export_custom_register(
             for direction in pair:
                 cell_title = _ELEV_NAMES[direction]
                 elev_svg = render_elevation_svg(
-                    model, direction, scale=sc, units=sheet_units, weights=sheet_lw
+                    model,
+                    direction,
+                    scale=sc,
+                    units=sheet_units,
+                    weights=sheet_lw,
+                    exterior=bool(spec.get("exterior", True)),
                 )
                 cells.append((_view_from_full_svg(elev_svg, cell_title), cell_title,
                               str(spec.get("scale_note") or nominal), sc))
