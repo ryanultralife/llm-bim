@@ -1,0 +1,13 @@
+item,name,kind,qty,material,mass_kg,source,honesty
+FAB-001,Bottom end cap,machined,1,Al 6061-T651,,MB-OTD-FAB-001,ENGINEERING_ESTIMATE
+FAB-002,Top end cap,machined,1,Al 6061-T651,,MB-OTD-FAB-002,ENGINEERING_ESTIMATE
+FAB-003,Central column,machined,1,17-4 PH [EST],,MB-OTD-FAB-003,ENGINEERING_ESTIMATE
+FAB-004,Outer rotor hub ring,machined,1,Al 7075-T6,,MB-OTD-FAB-004,ENGINEERING_ESTIMATE
+FAB-005,CVT housing ring,machined,1,Al 6061-T651,,MB-OTD-FAB-005,ENGINEERING_ESTIMATE
+FAB-006,Modulator carrier stage B,machined,1,Ti-6Al-4V/PEEK [EST],,MB-OTD-FAB-006,ENGINEERING_ESTIMATE
+FAB-007,Coil-vessel segment flange,machined,12,GFRP + machined faces,,MB-OTD-FAB-007,ENGINEERING_ESTIMATE
+FAB-008,Touchdown land ring,machined,6,hybrid ceramic land [EST],,MB-OTD-FAB-008,ENGINEERING_ESTIMATE
+ROTOR-1,Outer CF Halbach rotor,composite,1,T800S CF + NdFeB,134.0,PROC + DET-001,ENGINEERING_ESTIMATE
+ROTOR-2,Middle CF Halbach rotor,composite,1,T800S CF + NdFeB,275.0,PROC + DET-001,ENGINEERING_ESTIMATE
+ROTOR-3,Inner CF Halbach rotor,composite,1,T800S CF + NdFeB,130.0,PROC + DET-001,ENGINEERING_ESTIMATE
+ASM,Cascade module assembly,assembly,1,,,MB-OTD-GA-001,ENGINEERING_ESTIMATE

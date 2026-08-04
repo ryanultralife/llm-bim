@@ -1,0 +1,26 @@
+{
+  "project": "MB-OTD RMM-OTD Rev C cascade",
+  "honesty": "ENGINEERING ESTIMATE",
+  "rules": [
+    {
+      "id": "DL-STATOR-OUTER",
+      "statement": "Drive stator faces outermost rotor only"
+    },
+    {
+      "id": "DL-GEAR-PASSIVE",
+      "statement": "Inter-rotor transfer is passive magnetic gearing"
+    },
+    {
+      "id": "DL-MASTER-DIMS",
+      "statement": "All dims from rmm_otd_geometry_master"
+    },
+    {
+      "id": "DL-NO-STEEL-DISC",
+      "statement": "cylindrical_battery_basis is not RMM-OTD"
+    },
+    {
+      "id": "DL-HOOP-MMS",
+      "statement": "machine_rmm_otd_cf_hoop is operator-MMS not hoop FEM"
+    }
+  ]
+}

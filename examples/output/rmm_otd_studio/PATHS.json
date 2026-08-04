@@ -1,0 +1,8 @@
+{
+  "note": "Studio pack uses relative paths; absolute paths for local agent convenience",
+  "eigen_repo": "C:\\Users\\ryanv\\Eigen",
+  "studio_pack": "C:\\Users\\ryanv\\llm-bim\\examples\\output\\rmm_otd_studio",
+  "geometry_master": "C:\\Users\\ryanv\\Eigen\\cad\\rmm_otd_dims.json",
+  "drawings": "C:\\Users\\ryanv\\Eigen\\docs\\rmm_otd_drawings",
+  "openscad_cascade": "C:\\Users\\ryanv\\Eigen\\cad\\openscad\\rmm_otd_cascade_module.scad"
+}

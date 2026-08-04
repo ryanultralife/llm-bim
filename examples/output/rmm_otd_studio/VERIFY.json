@@ -1,0 +1,18 @@
+{
+  "status": "SCAFFOLD_OK",
+  "checks": {
+    "dims_present": true,
+    "drawings_dir": true,
+    "fab_count_ge_1": true,
+    "boq_rows": 12,
+    "parts": 12,
+    "manifest": true
+  },
+  "gaps_vs_mineclean_full": [
+    "Native model.llmbim.json / model.ifc / model.gltf full BIM solid",
+    "Per-part STEP exports from cascade (OpenSCAD STL\u2192STEP pipeline)",
+    "Clash report from multi-body assembly",
+    "PLOT_SET.pdf auto-bind of all sheets"
+  ],
+  "honesty": "ENGINEERING_ESTIMATE"
+}

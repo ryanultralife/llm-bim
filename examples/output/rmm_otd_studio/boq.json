@@ -1,0 +1,122 @@
+[
+  {
+    "item": "FAB-001",
+    "name": "Bottom end cap",
+    "kind": "machined",
+    "qty": 1,
+    "material": "Al 6061-T651",
+    "mass_kg": "",
+    "source": "MB-OTD-FAB-001",
+    "honesty": "ENGINEERING_ESTIMATE"
+  },
+  {
+    "item": "FAB-002",
+    "name": "Top end cap",
+    "kind": "machined",
+    "qty": 1,
+    "material": "Al 6061-T651",
+    "mass_kg": "",
+    "source": "MB-OTD-FAB-002",
+    "honesty": "ENGINEERING_ESTIMATE"
+  },
+  {
+    "item": "FAB-003",
+    "name": "Central column",
+    "kind": "machined",
+    "qty": 1,
+    "material": "17-4 PH [EST]",
+    "mass_kg": "",
+    "source": "MB-OTD-FAB-003",
+    "honesty": "ENGINEERING_ESTIMATE"
+  },
+  {
+    "item": "FAB-004",
+    "name": "Outer rotor hub ring",
+    "kind": "machined",
+    "qty": 1,
+    "material": "Al 7075-T6",
+    "mass_kg": "",
+    "source": "MB-OTD-FAB-004",
+    "honesty": "ENGINEERING_ESTIMATE"
+  },
+  {
+    "item": "FAB-005",
+    "name": "CVT housing ring",
+    "kind": "machined",
+    "qty": 1,
+    "material": "Al 6061-T651",
+    "mass_kg": "",
+    "source": "MB-OTD-FAB-005",
+    "honesty": "ENGINEERING_ESTIMATE"
+  },
+  {
+    "item": "FAB-006",
+    "name": "Modulator carrier stage B",
+    "kind": "machined",
+    "qty": 1,
+    "material": "Ti-6Al-4V/PEEK [EST]",
+    "mass_kg": "",
+    "source": "MB-OTD-FAB-006",
+    "honesty": "ENGINEERING_ESTIMATE"
+  },
+  {
+    "item": "FAB-007",
+    "name": "Coil-vessel segment flange",
+    "kind": "machined",
+    "qty": 12,
+    "material": "GFRP + machined faces",
+    "mass_kg": "",
+    "source": "MB-OTD-FAB-007",
+    "honesty": "ENGINEERING_ESTIMATE"
+  },
+  {
+    "item": "FAB-008",
+    "name": "Touchdown land ring",
+    "kind": "machined",
+    "qty": 6,
+    "material": "hybrid ceramic land [EST]",
+    "mass_kg": "",
+    "source": "MB-OTD-FAB-008",
+    "honesty": "ENGINEERING_ESTIMATE"
+  },
+  {
+    "item": "ROTOR-1",
+    "name": "Outer CF Halbach rotor",
+    "kind": "composite",
+    "qty": 1,
+    "material": "T800S CF + NdFeB",
+    "mass_kg": 134.0,
+    "source": "PROC + DET-001",
+    "honesty": "ENGINEERING_ESTIMATE"
+  },
+  {
+    "item": "ROTOR-2",
+    "name": "Middle CF Halbach rotor",
+    "kind": "composite",
+    "qty": 1,
+    "material": "T800S CF + NdFeB",
+    "mass_kg": 275.0,
+    "source": "PROC + DET-001",
+    "honesty": "ENGINEERING_ESTIMATE"
+  },
+  {
+    "item": "ROTOR-3",
+    "name": "Inner CF Halbach rotor",
+    "kind": "composite",
+    "qty": 1,
+    "material": "T800S CF + NdFeB",
+    "mass_kg": 130.0,
+    "source": "PROC + DET-001",
+    "honesty": "ENGINEERING_ESTIMATE"
+  },
+  {
+    "item": "ASM",
+    "name": "Cascade module assembly",
+    "kind": "assembly",
+    "qty": 1,
+    "material": "",
+    "mass_kg": "",
+    "source": "MB-OTD-GA-001",
+    "honesty": "ENGINEERING_ESTIMATE"
+  }
+]

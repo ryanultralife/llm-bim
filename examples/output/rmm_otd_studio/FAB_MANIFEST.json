@@ -1,0 +1,25 @@
+{
+  "doc": "RMM-OTD FAB series",
+  "honesty": "ENGINEERING ESTIMATE \u2014 fab-class templates; not shop-released set",
+  "architecture_lock": "docs/RMM_OTD_ARCHITECTURE_LOCK.md",
+  "geometry_master": "cad/rmm_otd_dims.json",
+  "sheets": [
+    "MB-OTD-FAB-001_Bottom_End_Cap.dxf",
+    "MB-OTD-FAB-002_Top_End_Cap.dxf",
+    "MB-OTD-FAB-003_Central_Column.dxf",
+    "MB-OTD-FAB-004_Outer_Rotor_Hub.dxf",
+    "MB-OTD-FAB-005_CVT_Housing_Ring.dxf",
+    "MB-OTD-FAB-006_Modulator_Carrier_B.dxf",
+    "MB-OTD-FAB-007_Coil_Vessel_Flange.dxf",
+    "MB-OTD-FAB-008_Touchdown_Land_Ring.dxf"
+  ],
+  "count": 8,
+  "template": "MB-OTD-FAB-001",
+  "remaining_process_specs": [
+    "CF rotor winding/layup",
+    "Halbach magnet bonding",
+    "Amorphous modulator stack",
+    "GFRP vessel laminate",
+    "Coil potting"
+  ]
+}

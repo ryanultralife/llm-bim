@@ -1,0 +1,9 @@
+{
+  "format": "llmbim-stub",
+  "project": "MB-OTD",
+  "honesty": "ENGINEERING_ESTIMATE",
+  "note": "Scaffold only \u2014 not a full element model",
+  "geometry_master": "docs/rmm_otd_dims.json",
+  "openscad": "rmm_otd_cascade_module.scad",
+  "parts": 12
+}
