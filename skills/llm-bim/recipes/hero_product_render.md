@@ -60,4 +60,15 @@ Pack `index.html` shows a full-width **product_hero** still.
 
 ## Library
 
-Committed stills: `docs/renders/<product>/` (e.g. MineClean `field_skid_hero.jpg`).
+Committed stills: `docs/renders/<product>/` (e.g. MineClean `field_skid_hero.jpg`,
+INTEC `intec/hero.jpg`). Also searches sibling Eigen `docs/renders/`.
+
+## Facility packs (INTEC)
+
+```python
+export_hero_pipeline(
+    pack, product_id="intec", kind="facility",
+    title="INTEC FP Separation Facility", use_library=True,
+)
+# index cover = renders/product_hero.jpg; hero.svg remains secondary axonometric
+```

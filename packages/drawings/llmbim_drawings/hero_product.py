@@ -41,14 +41,33 @@ HERO_BASENAME = "product_hero"
 BRIEF_NAME = "HERO_BRIEF.json"
 MANIFEST_NAME = "HERO_MANIFEST.json"
 
-# Product library under repo docs/renders/<id>/
+# Product library under docs/renders/<id>/ (llm-bim and/or sibling Eigen)
 LIBRARY_HERO_NAMES = (
     "field_skid_hero.jpg",
     "skid_hero.jpg",
     "hero.jpg",
     "product_hero.jpg",
     "line_hero.jpg",
+    "campus_hero.jpg",
+    "ctx_cold_campus.jpg",
 )
+
+# Soft product_id → library folder
+PRODUCT_ALIASES = {
+    "mb-mclean": "mineclean",
+    "mb_mclean": "mineclean",
+    "mclean": "mineclean",
+    "ti": "mb_ti_melt",
+    "ti_melt": "mb_ti_melt",
+    "mb-ti-melt": "mb_ti_melt",
+    "rmm": "rmm_otd",
+    "rmm-otd": "rmm_otd",
+    "intec": "intec",
+    "intec_fp": "intec",
+    "intec_facility": "intec",
+    "intec_fp_separation_facility": "intec",
+    "fp_separation": "intec",
+}
 
 
 def _utc_now() -> str:
@@ -58,6 +77,42 @@ def _utc_now() -> str:
 def _repo_root() -> Path:
     # packages/drawings/llmbim_drawings/hero_product.py → repo root
     return Path(__file__).resolve().parents[3]
+
+
+def _library_roots(repo_root: Path | None = None) -> list[Path]:
+    """Search roots for docs/renders libraries.
+
+    Order: explicit env → llm-bim repo → sibling Eigen (common monorepo layout).
+    """
+    import os
+
+    roots: list[Path] = []
+    for key in ("LLMBIM_RENDER_LIBRARY", "EIGEN_ROOT", "EIGEN_REPO"):
+        raw = os.environ.get(key)
+        if raw:
+            p = Path(raw)
+            # env may point at repo root or directly at docs/renders
+            if (p / "docs" / "renders").is_dir():
+                roots.append(p)
+            elif p.name == "renders" or (p / "mineclean").is_dir() or (p / "intec").is_dir():
+                roots.append(p.parent.parent if p.name == "renders" else p)
+            else:
+                roots.append(p)
+    root = repo_root or _repo_root()
+    roots.append(root)
+    # sibling Eigen next to llm-bim (…/ryanv/Eigen)
+    sibling = root.parent / "Eigen"
+    if sibling.is_dir():
+        roots.append(sibling)
+    # de-dupe while preserving order
+    seen: set[str] = set()
+    out: list[Path] = []
+    for r in roots:
+        key = str(r.resolve()) if r.exists() else str(r)
+        if key not in seen:
+            seen.add(key)
+            out.append(r)
+    return out
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -172,7 +227,8 @@ def build_hero_brief(
         or model.get("name")
         or out.name
     )
-    pid = product_id or str(basis.get("product_family") or basis.get("name") or proj).lower().replace(" ", "_")
+    raw_pid = product_id or str(basis.get("product_family") or basis.get("name") or proj)
+    pid = _normalize_product_id(str(raw_pid).lower().replace(" ", "_"))
     hkind = classify_kind(product_id=pid, name=str(proj), hint=kind)
     env = _envelope_mm(model)
     equip = _equipment_summary(model)
@@ -196,9 +252,10 @@ def build_hero_brief(
             "no people, no logos, no readable text."
         ),
         "facility": (
-            "Photoreal wide view of an industrial process facility or cold campus exterior "
-            "at golden hour, concrete and steel, restrained and serious, "
-            "no people, no logos, no readable signs."
+            "Photoreal wide aerial-oblique of a secure industrial process facility on a "
+            "cold high-desert campus at golden hour: multi-bay concrete process hall, "
+            "east utility / tank yard, steel catwalks, restrained Idaho National Lab tone, "
+            "no people, no logos, no readable signs, no cooling-tower cliché unless present."
         ),
     }
 
@@ -247,6 +304,7 @@ def build_hero_brief(
             "5. index.html features product hero alongside 3D axonometric hero.svg",
         ],
         "related_pack_artifacts": _list_related(out),
+        "reference_images": _reference_images(out),
         "extra": extra or {},
     }
     return brief
@@ -298,6 +356,18 @@ def _list_related(out: Path) -> dict[str, bool]:
     }
 
 
+def _reference_images(out: Path) -> list[str]:
+    """Pack-local images agents should prefer for image-to-image massing."""
+    cands = [
+        out / "renders" / "R1_iso.png",
+        out / "renders" / "R2_plan.png",
+        out / "renders" / "R3_elev.png",
+        out / "hero.svg",
+        out / "renders" / "product_hero.jpg",
+    ]
+    return [str(p.relative_to(out)).replace("\\", "/") for p in cands if p.is_file()]
+
+
 def stage_hero_render(
     pack_dir: str | Path,
     image: str | Path,
@@ -327,32 +397,42 @@ def stage_hero_render(
     return dest
 
 
+def _normalize_product_id(product_id: str) -> str:
+    raw = product_id.lower().replace(" ", "_").replace("-", "_")
+    # collapse long project names containing intec
+    if "intec" in raw:
+        return PRODUCT_ALIASES.get(raw, "intec")
+    return PRODUCT_ALIASES.get(product_id.lower(), PRODUCT_ALIASES.get(raw, raw))
+
+
 def find_library_hero(product_id: str, repo_root: Path | None = None) -> Path | None:
-    """Locate a committed hero still under docs/renders/<product_id>/."""
-    root = repo_root or _repo_root()
-    lib = root / "docs" / "renders" / product_id.lower().replace(" ", "_")
-    if not lib.is_dir():
-        # soft aliases
-        aliases = {
-            "mb-mclean": "mineclean",
-            "mb_mclean": "mineclean",
-            "mclean": "mineclean",
-            "ti": "mb_ti_melt",
-            "ti_melt": "mb_ti_melt",
-            "mb-ti-melt": "mb_ti_melt",
-            "rmm": "rmm_otd",
-            "rmm-otd": "rmm_otd",
-        }
-        lib = root / "docs" / "renders" / aliases.get(product_id.lower(), product_id)
-    if not lib.is_dir():
-        return None
-    for name in LIBRARY_HERO_NAMES:
-        p = lib / name
-        if p.is_file():
+    """Locate a committed hero still under docs/renders/<product_id>/.
+
+    Searches llm-bim and sibling Eigen (and env roots) so facility packs in
+    Eigen can stage stills from either repo's library.
+    """
+    pid = _normalize_product_id(product_id)
+    for root in _library_roots(repo_root):
+        lib = root / "docs" / "renders" / pid
+        if not lib.is_dir():
+            # also allow flat docs/renders/<file> for campus context stills
+            flat = root / "docs" / "renders"
+            if pid in ("intec", "facility") and flat.is_dir():
+                for name in LIBRARY_HERO_NAMES:
+                    p = flat / name
+                    if p.is_file() and "campus" in name:
+                        return p
+            continue
+        for name in LIBRARY_HERO_NAMES:
+            p = lib / name
+            if p.is_file():
+                return p
+        for p in sorted(lib.glob("*.jpg")) + sorted(lib.glob("*.png")):
+            # prefer names with hero over context-only
+            if "hero" in p.name.lower():
+                return p
+        for p in sorted(lib.glob("*.jpg")) + sorted(lib.glob("*.png")):
             return p
-    # any jpg/png
-    for p in sorted(lib.glob("*.jpg")) + sorted(lib.glob("*.png")):
-        return p
     return None
 
 
@@ -418,8 +498,10 @@ def export_hero_pipeline(
         "related": brief["related_pack_artifacts"],
         "note": (
             "If status=needs_render: use prompt in HERO_BRIEF.json with an image model "
-            "(agent Imagine or external), then stage_hero_render(pack, path)."
+            "(agent Imagine or external), prefer image-to-image from reference_images "
+            "(R1_iso / hero.svg), then stage_hero_render(pack, path)."
         ),
+        "reference_images": brief.get("reference_images") or [],
     }
     (renders / MANIFEST_NAME).write_text(json.dumps(man, indent=2) + "\n", encoding="utf-8")
     return man

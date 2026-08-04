@@ -885,15 +885,8 @@ def export_deliverables(
                 encoding="utf-8",
             )
 
-    try:
-        from llmbim_drawings.html_index import write_pack_index
-
-        write_pack_index(out)
-        result["index_html"] = "index.html"
-    except Exception as exc:  # noqa: BLE001
-        errors.append({"step": "html_index", "error": str(exc)})
-
     # Product layout PNGs (equipment AABB only — never hybrid STEP+bay)
+    # Run BEFORE index so hero can reference R1_iso and index can feature product_hero.
     try:
         from llmbim_drawings.product_views import export_product_views
 
@@ -905,19 +898,30 @@ def export_deliverables(
         errors.append({"step": "product_views", "error": str(exc)})
 
     # Hero product still pipeline (photoreal communication render alongside 3D/sheets)
+    # Must run BEFORE write_pack_index so index.html features product_hero when ready.
     try:
-        from llmbim_drawings.hero_product import export_hero_pipeline
+        from llmbim_drawings.hero_product import classify_kind, export_hero_pipeline
 
         name = (work.meta or {}).get("name") or work.name or "llm-bim"
+        pid = str(name).lower().replace(" ", "_")[:48]
         hero_man = export_hero_pipeline(
             out,
-            product_id=str(name).lower().replace(" ", "_")[:48],
+            product_id=pid,
+            kind=classify_kind(product_id=pid, name=str(name)),
             title=str(name)[:80],
             use_library=True,
         )
         result["hero_product"] = hero_man
     except Exception as exc:  # noqa: BLE001
         errors.append({"step": "hero_product", "error": str(exc)})
+
+    try:
+        from llmbim_drawings.html_index import write_pack_index
+
+        write_pack_index(out)
+        result["index_html"] = "index.html"
+    except Exception as exc:  # noqa: BLE001
+        errors.append({"step": "html_index", "error": str(exc)})
 
     try:
         from llmbim_drawings.zip_pack import zip_pack

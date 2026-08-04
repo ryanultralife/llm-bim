@@ -100,3 +100,22 @@ def test_find_library_mineclean_if_present():
     if p is not None:
         assert p.is_file()
         assert "mineclean" in p.as_posix().lower()
+
+
+def test_normalize_intec_product_id_and_facility_kind():
+    from llmbim_drawings.hero_product import _normalize_product_id
+
+    assert _normalize_product_id("INTEC FP Separation Facility") == "intec"
+    assert _normalize_product_id("intec_fp_separation_facility") == "intec"
+    assert classify_kind(product_id="intec", name="INTEC FP Separation Facility") == "facility"
+
+
+def test_reference_images_listed(tmp_path: Path):
+    (tmp_path / "model.llmbim.json").write_text(
+        json.dumps({"name": "X", "elements": []}), encoding="utf-8"
+    )
+    renders = tmp_path / "renders"
+    renders.mkdir()
+    (renders / "R1_iso.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 8)
+    brief = build_hero_brief(tmp_path, product_id="demo", kind="skid")
+    assert "renders/R1_iso.png" in brief["reference_images"]

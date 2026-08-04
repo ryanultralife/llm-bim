@@ -63,9 +63,15 @@ Also wired into **`export_deliverables`** automatically (best-effort; never fail
 | Product | Path |
 |---------|------|
 | MineClean | `docs/renders/mineclean/field_skid_hero.jpg` |
-| (Eigen mirror) | `Eigen/docs/renders/{mineclean,mb_ti_melt,rmm_otd}/` |
+| INTEC facility | `docs/renders/intec/hero.jpg` (also Eigen `docs/renders/intec/`) |
+| (Eigen mirror) | `Eigen/docs/renders/{mineclean,mb_ti_melt,rmm_otd,intec}/` |
 
-`export_hero_pipeline(..., use_library=True)` copies the library hero into the pack when found.
+`export_hero_pipeline(..., use_library=True)` searches **llm-bim** and sibling
+**Eigen** `docs/renders/` (plus `EIGEN_ROOT` / `LLMBIM_RENDER_LIBRARY`). Product
+ids like `intec_fp_separation_facility` normalize to `intec`.
+
+**Export order (fixed):** product_views → hero pipeline → `write_pack_index`,
+so `index.html` features `product_hero` when the library stages successfully.
 
 ## Agent / Imagine step (when status = needs_render)
 
