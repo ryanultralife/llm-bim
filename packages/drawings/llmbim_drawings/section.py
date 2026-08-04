@@ -952,11 +952,13 @@ def render_section_svg(
                 f'    <text x="{fmt(p0[0] - 6)}" y="{fmt(mid_y)}" text-anchor="end" '
                 f'font-size="{fmt(max(7, 9))}" class="storey-height">{esc(lab)}</text>'
             )
-        # overall height dimension (lowest level → top) further left
+        # overall height = lowest level → highest LEVEL (CR-013). Do NOT
+        # silently dim to max geometry (stack) — that misreads as bldg height.
         z_lo = float(levels[0].elevation_mm)
-        if z_top - z_lo >= 100:
+        z_hi_lvl = float(levels[-1].elevation_mm)
+        if z_hi_lvl - z_lo >= 100:
             dim_s2 = min_s - margin_mm * 0.7
-            p0o, p1o = project(dim_s2, z_lo), project(dim_s2, z_top)
+            p0o, p1o = project(dim_s2, z_lo), project(dim_s2, z_hi_lvl)
             parts.append(
                 f'    <line x1="{fmt(p0o[0])}" y1="{fmt(p0o[1])}" '
                 f'x2="{fmt(p1o[0])}" y2="{fmt(p1o[1])}" stroke-width="1.2"/>'
@@ -971,7 +973,28 @@ def render_section_svg(
                 f'    <text x="{fmt(p0o[0] - 4)}" y="{fmt(mid_y)}" text-anchor="middle" '
                 f'class="overall-height" font-size="{fmt(max(7, 9))}" '
                 f'transform="rotate(-90 {fmt(p0o[0] - 4)} {fmt(mid_y)})">'
-                f"{esc(_height_label(z_top - z_lo, imperial))}</text>"
+                f"{esc(_height_label(z_hi_lvl - z_lo, imperial))}</text>"
+            )
+        # Geometry above roof (e.g. off-gas stack): separate labeled dim
+        if z_top - z_hi_lvl >= 500:
+            dim_s3 = min_s - margin_mm * 1.05
+            p0s, p1s = project(dim_s3, z_hi_lvl), project(dim_s3, z_top)
+            parts.append(
+                f'    <line x1="{fmt(p0s[0])}" y1="{fmt(p0s[1])}" '
+                f'x2="{fmt(p1s[0])}" y2="{fmt(p1s[1])}" stroke-width="1" '
+                f'stroke-dasharray="3 2"/>'
+            )
+            for pt in (p0s, p1s):
+                parts.append(
+                    f'    <line x1="{fmt(pt[0] - 3)}" y1="{fmt(pt[1])}" '
+                    f'x2="{fmt(pt[0] + 3)}" y2="{fmt(pt[1])}" stroke-width="1"/>'
+                )
+            mid_y = (p0s[1] + p1s[1]) / 2
+            parts.append(
+                f'    <text x="{fmt(p0s[0] - 3)}" y="{fmt(mid_y)}" text-anchor="middle" '
+                f'class="stack-height" font-size="{fmt(max(6, 8))}" '
+                f'transform="rotate(-90 {fmt(p0s[0] - 3)} {fmt(mid_y)})">'
+                f"T/STACK {esc(_height_label(z_top - z_hi_lvl, imperial))}</text>"
             )
         parts.append("  </g>")
     if weights:
@@ -1018,6 +1041,36 @@ def _project_point_to_cut(
     return s, z
 
 
+def _is_exterior_wall(el: Element) -> bool:
+    """True for envelope / bioshield walls (not interior partitions)."""
+    tid = str(el.type_id or "").upper()
+    name = str(el.name or "").upper()
+    kind = str((el.params or {}).get("kind") or "").lower()
+    if kind in {"exterior", "bioshield", "shell", "curtain"}:
+        return True
+    if any(k in tid for k in ("EXT", "SHIELD", "BIOSHIELD", "SHELL", "METAL-WHITE")):
+        return True
+    if any(k in name for k in ("EXTERIOR", "BIOSHIELD", "SHELL", "CURTAIN")):
+        return True
+    # thick concrete/bioshield often lacks type tags on agent models
+    try:
+        t = float((el.params or {}).get("thickness_mm") or 0)
+        if t >= 400.0:  # ≥ ~16" → shield / heavy exterior
+            return True
+    except (TypeError, ValueError):
+        pass
+    return False
+
+
+def _equip_parent_tag(el: Element) -> str:
+    p = el.params or {}
+    for k in ("equipment_tag", "equipment", "tag"):
+        v = str(p.get(k) or "").strip()
+        if v:
+            return v
+    return str(el.name or el.id or "EQ")[:40]
+
+
 def render_elevation_svg(
     model: ProjectModel,
     direction: str,
@@ -1027,6 +1080,7 @@ def render_elevation_svg(
     title: str | None = None,
     units: str = "metric",
     weights: bool = False,
+    exterior: bool = False,
 ) -> str:
     """Orthographic elevation. N looks toward +Y (from south), etc.
 
@@ -1037,6 +1091,10 @@ def render_elevation_svg(
     projected building fabric = medium, below-grade foundations = hidden
     (dashed), level datums = light reference; a line legend is emitted.
     Default ``False`` → output byte-identical to the legacy renderer.
+
+    ``exterior=True`` (architectural elev sheets): draw envelope walls only,
+    omit interior partitions / beams / MEP / densified interiors, show outdoor
+    yard equipment as parent-tag silhouettes. Use for A-201/A-202 Walsh redline.
     """
     imperial = _check_units(units)
     d = direction.upper()
@@ -1054,19 +1112,68 @@ def render_elevation_svg(
     # decide which face an opening is on so opposite elevations differ.
     _wxs: list[float] = []
     _wys: list[float] = []
+    _ext_xs: list[float] = []
+    _ext_ys: list[float] = []
+    # metal shell only — excludes bioshield cells + apron stubs that inflate AABB
+    _shell_xs: list[float] = []
+    _shell_ys: list[float] = []
     for _w in wall_by_id.values():
         _ep = _wall_endpoints(_w)
-        if _ep:
-            _wxs += [_ep[0], _ep[2]]
-            _wys += [_ep[1], _ep[3]]
-    depth_vals = _wys if d in {"N", "S"} else _wxs
+        if not _ep:
+            continue
+        _wxs += [_ep[0], _ep[2]]
+        _wys += [_ep[1], _ep[3]]
+        if _is_exterior_wall(_w):
+            _ext_xs += [_ep[0], _ep[2]]
+            _ext_ys += [_ep[1], _ep[3]]
+            tid = str(_w.type_id or "").upper()
+            name = str(_w.name or "").upper()
+            if "EXT" in tid or "EXTERIOR" in name or "METAL" in tid:
+                # main shell panels are long (≥ 20 m); skip short apron stubs
+                _len = math.hypot(_ep[2] - _ep[0], _ep[3] - _ep[1])
+                if _len >= 20000.0:
+                    _shell_xs += [_ep[0], _ep[2]]
+                    _shell_ys += [_ep[1], _ep[3]]
+    # plan AABB of main metal shell (for outdoor equip + near-face mid)
+    if _shell_xs and _shell_ys:
+        bldg_xmin, bldg_xmax = min(_shell_xs), max(_shell_xs)
+        bldg_ymin, bldg_ymax = min(_shell_ys), max(_shell_ys)
+    elif _ext_xs and _ext_ys:
+        bldg_xmin, bldg_xmax = min(_ext_xs), max(_ext_xs)
+        bldg_ymin, bldg_ymax = min(_ext_ys), max(_ext_ys)
+    elif _wxs and _wys:
+        bldg_xmin, bldg_xmax = min(_wxs), max(_wxs)
+        bldg_ymin, bldg_ymax = min(_wys), max(_wys)
+    else:
+        bldg_xmin = bldg_xmax = bldg_ymin = bldg_ymax = 0.0
+    # Depth mid for near-face culling: use main shell only in exterior mode.
+    # Outdoor yard walls (y << 0) otherwise pull depth_mid south and drop the
+    # real north facade (INTEC A-201 regression).
+    if exterior and _shell_ys and _shell_xs:
+        depth_vals = _shell_ys if d in {"N", "S"} else _shell_xs
+    elif exterior and _ext_ys and _ext_xs:
+        depth_vals = _ext_ys if d in {"N", "S"} else _ext_xs
+    else:
+        depth_vals = _wys if d in {"N", "S"} else _wxs
     depth_mid = (min(depth_vals) + max(depth_vals)) / 2.0 if depth_vals else 0.0
+    # pad slightly so wall-mounted equip isn't treated as outdoor
+    _pad_out = 500.0  # mm
+
+    def _is_outdoor_xy(cx: float, cy: float) -> bool:
+        return (
+            cx < bldg_xmin - _pad_out
+            or cx > bldg_xmax + _pad_out
+            or cy < bldg_ymin - _pad_out
+            or cy > bldg_ymax + _pad_out
+        )
 
     # wall faces parallel to the view plane, with their depth — used to hide
     # equipment standing behind a nearer facade (hidden-line treatment)
     wall_faces: list[tuple[float, float, float, float, float]] = []  # h0,h1,z0,z1,depth
     # equipment rendered in its own group (was drawn opaque inside the walls group)
     equip_rects: list[tuple[float, float, float, float, float]] = []  # h0,h1,z0,z1,depth
+    # exterior mode: aggregate densified parts → one bbox per parent tag
+    equip_agg: dict[str, list[float]] = {}  # tag -> [h0,h1,z0,z1,depth_sum,n]
     # roof plane silhouettes: projected polygons [(h, z), ...] per stored plane
     roof_polys: list[list[tuple[float, float]]] = []
     # WP-SCHAD-S3: below-grade foundation outlines, drawn dashed
@@ -1074,6 +1181,8 @@ def render_elevation_svg(
 
     for el in model.elements:
         if el.category == "wall":
+            if exterior and not _is_exterior_wall(el):
+                continue  # skip partitions — they X-ray the facade
             ep = _wall_endpoints(el)
             if not ep:
                 continue
@@ -1088,6 +1197,24 @@ def render_elevation_svg(
                 h0, h1 = y0, y1
                 parallel = abs(y1 - y0) >= abs(x1 - x0)
                 depth_c = (x0 + x1) / 2.0
+            # exterior mode: skip walls strictly *inside* the main metal shell
+            # (interior bioshield cells). Keep shell faces + outdoor apron wings.
+            if exterior:
+                inset = 1000.0  # mm
+                if d in {"N", "S"}:
+                    inside = (bldg_ymin + inset) < depth_c < (bldg_ymax - inset)
+                else:
+                    inside = (bldg_xmin + inset) < depth_c < (bldg_xmax - inset)
+                if inside:
+                    continue
+                # also drop the FAR shell face (opposite elev shows it)
+                near_low = d in {"S", "W"}
+                if d in {"N", "S"}:
+                    far = bldg_ymax if near_low else bldg_ymin
+                else:
+                    far = bldg_xmax if near_low else bldg_xmin
+                if abs(depth_c - far) < 1500.0:
+                    continue
             segs.append((min(h0, h1), max(h0, h1), z0, z1))
             if parallel:
                 wall_faces.append((min(h0, h1), max(h0, h1), z0, z1, depth_c))
@@ -1107,6 +1234,29 @@ def render_elevation_svg(
                     if max(p[0] for p in pts) - min(p[0] for p in pts) < 1.0:
                         continue  # edge-on sliver
                     roof_polys.append(pts)
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
+        elif exterior and el.category == "slab":
+            # Roof / grade mat silhouettes for clean architectural elev
+            try:
+                name = str(el.name or "").lower()
+                kind = str(el.params.get("kind") or "").lower()
+                poly = el.params.get("polygon_mm") or []
+                if len(poly) < 3:
+                    continue
+                hs = [float(q[0]) if d in {"N", "S"} else float(q[1]) for q in poly]
+                h0, h1 = min(hs), max(hs)
+                if h1 - h0 < 5000.0:
+                    continue  # tiny admin pads only — skip
+                zlv = _level_elev(model, el.level_id)
+                th = float(el.params.get("thickness_mm") or 300)
+                if "roof" in name or "roof" in kind:
+                    z1 = zlv + th
+                    z0 = zlv
+                    segs.append((h0, h1, z0, z1))
+                elif "grade" in name or "mat" in name or kind in {"mat", "slab_on_grade"}:
+                    # thin grade pad for ground reference (drawn dashed later via found)
+                    found_rects.append((h0, h1, zlv - 200.0, zlv))
             except (KeyError, TypeError, ValueError, IndexError):
                 continue
         elif el.category in {"footing", "stem_wall"} or (
@@ -1149,6 +1299,8 @@ def render_elevation_svg(
             host = wall_by_id.get(el.host_id or "")
             if not host:
                 continue
+            if exterior and not _is_exterior_wall(host):
+                continue  # only openings on envelope walls
             ep = _wall_endpoints(host)
             if not ep:
                 continue
@@ -1210,6 +1362,17 @@ def render_elevation_svg(
                 continue
             x0, y0 = float(o[0]), float(o[1])
             lx, ly, hz = float(s[0]), float(s[1]), float(s[2])
+            # skip micro densify noise on elev (sensors, ports, fixtures)
+            if exterior:
+                kind = str(el.params.get("kind") or "").lower()
+                if kind in {
+                    "sensor", "port", "controls", "fixture", "radmon",
+                    "console", "panel",
+                }:
+                    continue
+                # skip tiny parts (< 400 mm in plan) — densify clutter
+                if max(lx, ly) < 400.0 and hz < 800.0:
+                    continue
             z0 = _level_elev(model, el.level_id) + z0_off
             if shape == "cylinder":
                 z1 = z0 + ly
@@ -1228,10 +1391,35 @@ def render_elevation_svg(
                 else:
                     h0, h1 = y0, y0 + ly
                     eq_depth = x0 + lx / 2
-            # extents only — rendering happens in the equipment group below with
-            # hidden-line treatment, not as an opaque rect in the walls group
-            equip_rects.append((min(h0, h1), max(h0, h1), z0, z1, eq_depth))
+            h0, h1 = min(h0, h1), max(h0, h1)
+            if exterior:
+                # outdoor yards + tall roof stack only (no interior densify fog)
+                cx, cy = x0 + lx / 2.0, y0 + ly / 2.0
+                tag = _equip_parent_tag(el)
+                tall_roof = z1 > 8000.0 and hz >= 1500.0  # stack / roof plant
+                outdoor = _is_outdoor_xy(cx, cy)
+                if not outdoor and not tall_roof:
+                    continue
+                # min plan footprint ~0.8 m so densify pieces don't litter
+                if (h1 - h0) < 800.0 and (z1 - z0) < 1500.0:
+                    continue
+                if tag not in equip_agg:
+                    equip_agg[tag] = [h0, h1, z0, z1, eq_depth, 1.0]
+                else:
+                    a = equip_agg[tag]
+                    a[0] = min(a[0], h0)
+                    a[1] = max(a[1], h1)
+                    a[2] = min(a[2], z0)
+                    a[3] = max(a[3], z1)
+                    a[4] += eq_depth
+                    a[5] += 1.0
+            else:
+                # extents only — rendering happens in the equipment group below with
+                # hidden-line treatment, not as an opaque rect in the walls group
+                equip_rects.append((h0, h1, z0, z1, eq_depth))
         elif el.category == "column" or el.params.get("fitting_type") == "column":
+            if exterior:
+                continue  # columns read as interior frame on elev; omit
             try:
                 o = el.params.get("origin_mm")
                 if not o:
@@ -1254,6 +1442,9 @@ def render_elevation_svg(
             or el.params.get("fitting_type")
             in {"pipe", "conduit", "duct", "cable_tray", "beam"}
         ):
+            if exterior:
+                # architectural elev: no steel/MEP wireframe over the facade
+                continue
             try:
                 mid = str(el.params.get("material_id") or "")
                 stroke = "#c45c26"
@@ -1306,6 +1497,8 @@ def render_elevation_svg(
             except (KeyError, TypeError, ValueError, IndexError):
                 continue
         elif el.category in {"fitting", "fittings", "fixture"} and el.params.get("origin_mm"):
+            if exterior:
+                continue
             try:
                 o = el.params["origin_mm"]
                 ox, oy = float(o[0]), float(o[1])
@@ -1316,19 +1509,26 @@ def render_elevation_svg(
             except (KeyError, TypeError, ValueError, IndexError):
                 continue
 
-    # collect column labels for elev annotation
+    # exterior: collapse densified parent tags into single elev silhouettes
+    if exterior and equip_agg:
+        for tag, a in equip_agg.items():
+            n = max(a[5], 1.0)
+            equip_rects.append((a[0], a[1], a[2], a[3], a[4] / n))
+
+    # collect column labels for elev annotation (skipped in exterior mode)
     col_labels: list[tuple[float, float, str]] = []  # h, z_top, section
-    for el in model.elements:
-        if el.category != "column" and el.params.get("fitting_type") != "column":
-            continue
-        o = el.params.get("origin_mm")
-        if not o:
-            continue
-        sz = el.params.get("size_mm") or [250, 250, 3000]
-        ht = float(el.params.get("height_mm") or (sz[2] if len(sz) > 2 else 3000))
-        z0 = _level_elev(model, el.level_id) + float(el.params.get("z0_mm") or 0)
-        h = float(o[0]) if d in {"N", "S"} else float(o[1])
-        col_labels.append((h, z0 + ht, str(el.params.get("section") or "COL")))
+    if not exterior:
+        for el in model.elements:
+            if el.category != "column" and el.params.get("fitting_type") != "column":
+                continue
+            o = el.params.get("origin_mm")
+            if not o:
+                continue
+            sz = el.params.get("size_mm") or [250, 250, 3000]
+            ht = float(el.params.get("height_mm") or (sz[2] if len(sz) > 2 else 3000))
+            z0 = _level_elev(model, el.level_id) + float(el.params.get("z0_mm") or 0)
+            h = float(o[0]) if d in {"N", "S"} else float(o[1])
+            col_labels.append((h, z0 + ht, str(el.params.get("section") or "COL")))
 
     # N and W are viewed from the opposite side of S and E, so their horizontal
     # axis is mirrored. Flip every collected h so opposite elevations are proper
@@ -1382,7 +1582,11 @@ def render_elevation_svg(
         parts.append(_WEIGHT_STYLE)
     w_cls = "walls lw-medium" if weights else "walls"
     w_sw = "1.1" if weights else "1"
-    parts.append(f'  <g class="{w_cls}" fill="#d0d0d0" stroke="#222" stroke-width="{w_sw}">')
+    # exterior elev: white-metal panel look; legacy: mid gray
+    wall_fill = "#e8eaed" if exterior else "#d0d0d0"
+    parts.append(
+        f'  <g class="{w_cls}" fill="{wall_fill}" stroke="#222" stroke-width="{w_sw}">'
+    )
     for h0, h1, z0, z1 in segs:
         if (z1 - z0) <= 60 and (h1 - h0) < 500:
             continue  # skip tiny pipe bbox placeholders
@@ -1461,19 +1665,21 @@ def render_elevation_svg(
         # is drawn dashed/unfilled (ghost); only equipment actually visible from
         # this side gets a solid rect. Previously interior equipment was painted
         # opaque on top of the exterior facade.
+        # exterior=True already filtered to outdoor/roof, so skip ghosts.
         near_low = d in {"S", "W"}
         parts.append('  <g class="equipment-elev" stroke="#555" stroke-width="1">')
         for h0, h1, z0, z1, eq_depth in equip_rects:
             hidden = False
-            for wh0, wh1, wz0, wz1, w_depth in wall_faces:
-                nearer = w_depth < eq_depth - 1.0 if near_low else w_depth > eq_depth + 1.0
-                if not nearer:
-                    continue
-                h_overlap = min(h1, wh1) - max(h0, wh0)
-                z_overlap = min(z1, wz1) - max(z0, wz0)
-                if h_overlap >= 0.5 * (h1 - h0) and z_overlap >= 0.5 * (z1 - z0):
-                    hidden = True
-                    break
+            if not exterior:
+                for wh0, wh1, wz0, wz1, w_depth in wall_faces:
+                    nearer = w_depth < eq_depth - 1.0 if near_low else w_depth > eq_depth + 1.0
+                    if not nearer:
+                        continue
+                    h_overlap = min(h1, wh1) - max(h0, wh0)
+                    z_overlap = min(z1, wz1) - max(z0, wz0)
+                    if h_overlap >= 0.5 * (h1 - h0) and z_overlap >= 0.5 * (z1 - z0):
+                        hidden = True
+                        break
             x, y = project(h0, z1)
             w = (h1 - h0) * scale
             h = (z1 - z0) * scale
@@ -1485,9 +1691,10 @@ def render_elevation_svg(
                     f'fill="none" stroke-dasharray="3 3" opacity="0.55"/>'
                 )
             else:
+                fill_eq = "#9aa7b2" if exterior else "#b9c2c9"
                 parts.append(
                     f'    <rect x="{fmt(x)}" y="{fmt(y)}" width="{fmt(w)}" height="{fmt(h)}" '
-                    f'fill="#b9c2c9"/>'
+                    f'fill="{fill_eq}"/>'
                 )
         parts.append("  </g>")
     pe_cls = "pipes-elev lw-medium" if weights else "pipes-elev"
@@ -1576,11 +1783,12 @@ def render_elevation_svg(
                 f'    <text x="{fmt(p0[0] - 6)}" y="{fmt(mid_y)}" text-anchor="end" '
                 f'font-size="{fmt(max(7, 9))}" class="storey-height">{esc(lab)}</text>'
             )
-        # overall height dimension (lowest level → top) further left
+        # overall height = lowest → highest LEVEL (CR-013), not max geometry
         z_lo = float(levels[0].elevation_mm)
-        if z_top - z_lo >= 100:
+        z_hi_lvl = float(levels[-1].elevation_mm)
+        if z_hi_lvl - z_lo >= 100:
             dim_x2 = min_h - margin_mm * 0.7
-            p0o, p1o = project(dim_x2, z_lo), project(dim_x2, z_top)
+            p0o, p1o = project(dim_x2, z_lo), project(dim_x2, z_hi_lvl)
             parts.append(
                 f'    <line x1="{fmt(p0o[0])}" y1="{fmt(p0o[1])}" '
                 f'x2="{fmt(p1o[0])}" y2="{fmt(p1o[1])}" stroke-width="1.2"/>'
@@ -1595,8 +1803,67 @@ def render_elevation_svg(
                 f'    <text x="{fmt(p0o[0] - 4)}" y="{fmt(mid_y)}" text-anchor="middle" '
                 f'class="overall-height" font-size="{fmt(max(7, 9))}" '
                 f'transform="rotate(-90 {fmt(p0o[0] - 4)} {fmt(mid_y)})">'
-                f"{esc(_height_label(z_top - z_lo, imperial))}</text>"
+                f"{esc(_height_label(z_hi_lvl - z_lo, imperial))}</text>"
             )
+        if z_top - z_hi_lvl >= 500:
+            dim_x3 = min_h - margin_mm * 1.05
+            p0s, p1s = project(dim_x3, z_hi_lvl), project(dim_x3, z_top)
+            parts.append(
+                f'    <line x1="{fmt(p0s[0])}" y1="{fmt(p0s[1])}" '
+                f'x2="{fmt(p1s[0])}" y2="{fmt(p1s[1])}" stroke-width="1" '
+                f'stroke-dasharray="3 2"/>'
+            )
+            for pt in (p0s, p1s):
+                parts.append(
+                    f'    <line x1="{fmt(pt[0] - 3)}" y1="{fmt(pt[1])}" '
+                    f'x2="{fmt(pt[0] + 3)}" y2="{fmt(pt[1])}" stroke-width="1"/>'
+                )
+            mid_y = (p0s[1] + p1s[1]) / 2
+            parts.append(
+                f'    <text x="{fmt(p0s[0] - 3)}" y="{fmt(mid_y)}" text-anchor="middle" '
+                f'class="stack-height" font-size="{fmt(max(6, 8))}" '
+                f'transform="rotate(-90 {fmt(p0s[0] - 3)} {fmt(mid_y)})">'
+                f"T/STACK {esc(_height_label(z_top - z_hi_lvl, imperial))}</text>"
+            )
+        parts.append("  </g>")
+
+    # CR-012: plan-grid bubbles on elevation (U for N/S, V for E/W)
+    if getattr(model, "grids", None):
+        want_axis = "U" if d in {"N", "S"} else "V"
+        z_b0 = float(levels[0].elevation_mm) if levels else min_z
+        z_b1 = float(levels[-1].elevation_mm) if levels else (max_z - margin_mm * 0.1)
+        parts.append(
+            '  <g class="grids-elev" stroke="#666" stroke-width="0.55" fill="none">'
+        )
+        br = max(7.0, 100 * scale)
+        for g in model.grids:
+            if str(g.params.get("axis") or "") != want_axis:
+                continue
+            labels = g.params.get("labels") or []
+            for i, pos in enumerate(g.params.get("positions_mm") or []):
+                h = float(pos)
+                if h < min_h - 1.0 or h > max_h + 1.0:
+                    continue
+                lab = str(labels[i]) if i < len(labels) else (
+                    str(i + 1) if want_axis == "U" else chr(ord("A") + (i % 26))
+                )
+                p0, p1 = project(h, z_b0), project(h, z_b1)
+                parts.append(
+                    f'    <line x1="{fmt(p0[0])}" y1="{fmt(p0[1])}" '
+                    f'x2="{fmt(p1[0])}" y2="{fmt(p1[1])}" stroke-dasharray="3 3" '
+                    f'opacity="0.55"/>'
+                )
+                # bubble above roof line
+                bx, by = p1[0], p1[1] - br - 2
+                parts.append(
+                    f'    <circle cx="{fmt(bx)}" cy="{fmt(by)}" r="{fmt(br)}" '
+                    f'fill="#fff" stroke="#444" stroke-width="0.9"/>'
+                )
+                parts.append(
+                    f'    <text x="{fmt(bx)}" y="{fmt(by + br * 0.35)}" '
+                    f'text-anchor="middle" font-size="{fmt(max(6, br * 0.85))}" '
+                    f'fill="#333" font-family="sans-serif">{esc(lab)}</text>'
+                )
         parts.append("  </g>")
 
     if weights:
