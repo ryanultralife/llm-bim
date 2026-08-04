@@ -1054,23 +1054,43 @@ def export_construction_set(
                     emitted_p = True
 
             if disc == "P" and emitted_p:
-                # P-601: pipe + fitting takeoff table
-                from llmbim_core.material_lists import fitting_takeoff, pipe_takeoff
+                # P-601: pipe + fitting + duct takeoff (CR-028: NPS + true units)
+                from llmbim_core.material_lists import (
+                    duct_takeoff, fitting_takeoff, pipe_takeoff,
+                )
 
                 to_rows: list[list[Any]] = []
                 for r in pipe_takeoff(model):
                     to_rows.append(
-                        ["pipe", r.get("nps"), r.get("material_id"), r.get("length_m"),
-                         "m", r.get("est_cost")]
+                        ["pipe", r.get("nps") or "—", r.get("material_id"),
+                         r.get("length_m"), "m", r.get("est_cost")]
                     )
                 for r in fitting_takeoff(model):
+                    ft = str(r.get("fitting_type") or "")
+                    if ft in ("duct", "pipe", "wide_flange", "column", "beam"):
+                        continue  # structural/mep categories belong elsewhere
                     to_rows.append(
-                        [r.get("fitting_type"), r.get("nps"), r.get("material_id"),
-                         r.get("qty"), r.get("unit"), r.get("est_cost")]
+                        [ft, r.get("nps") or "—", r.get("material_id"),
+                         r.get("qty"), r.get("unit") or "ea", r.get("est_cost")]
+                    )
+                # aggregate duct by size + material (summary rows, unit m2)
+                _duct_agg: dict[tuple[str, str], dict[str, Any]] = {}
+                for r in duct_takeoff(model):
+                    key = (str(r.get("size") or "—"), str(r.get("material_id") or "galv_steel"))
+                    b = _duct_agg.setdefault(
+                        key,
+                        {"area": 0.0, "cost": 0.0, "size": key[0], "mat": key[1]},
+                    )
+                    b["area"] += float(r.get("area_m2") or 0)
+                    b["cost"] += float(r.get("est_cost") or 0)
+                for b in sorted(_duct_agg.values(), key=lambda x: x["size"]):
+                    to_rows.append(
+                        ["duct", b["size"], b["mat"], round(b["area"], 2), "m2",
+                         round(b["cost"], 2) if b["cost"] else None]
                     )
                 table_sheets(
                     "Pipe & Fitting Takeoff",
-                    ["ITEM", "NPS", "MATERIAL", "QTY", "UNIT", "EST COST"],
+                    ["ITEM", "NPS/SIZE", "MATERIAL", "QTY", "UNIT", "EST COST"],
                     to_rows,
                     "P-601",
                     "takeoff",
