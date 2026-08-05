@@ -69,7 +69,7 @@ code { color:#9ecbff; } a { color:var(--accent); }
 <li>Outer rotor driven <em>and</em> harvested by shell stator coils</li>
 <li>Exterior shell = vacuum barrier = stator host</li>
 </ul>
-<h3>Design locks</h3><ul class="locks"><li><code>DL-RMM-001</code> — Coaxial nested CF Halbach rotors (n≥3); NOT solid steel disc</li><li><code>DL-RMM-002</code> — Stator drives AND harvests outermost rotor; stator housing = vacuum vessel</li><li><code>DL-RMM-003</code> — Inner rotors magnetically coupled only (no contact bearings between shells)</li><li><code>DL-RMM-004</code> — Taylor phase-lock (helicity conservation) — no electronic sync required</li><li><code>DL-RMM-005</code> — RIF (P3) reuses same rotor nest + crucible; do not fork geometry</li><li><code>DL-RMM-006</code> — NO inter-rotor magnetic gears / flux-modulator gear path (user 2026-08-05)</li><li><code>DL-RMM-007</code> — Halbach magnets glued or encapsulated in CF rotors as set geometry (designed pole pattern)</li></ul>
+<h3>Design locks</h3><ul class="locks"><li><code>DL-RMM-001</code> — Coaxial nested CF Halbach rotors (n≥3); NOT solid steel disc</li><li><code>DL-RMM-002</code> — Stator drives AND harvests outermost rotor; stator housing = vacuum vessel</li><li><code>DL-RMM-003</code> — Inner rotors magnetically coupled only (no contact bearings between shells)</li><li><code>DL-RMM-004</code> — Taylor phase-lock (helicity conservation) — no electronic sync required</li><li><code>DL-RMM-005</code> — RIF (P3) reuses same rotor nest + crucible; do not fork geometry</li><li><code>DL-RMM-006</code> — NO inter-rotor magnetic gears / flux-modulator gear path (user 2026-08-05)</li><li><code>DL-RMM-007</code> — Magnets glued or encapsulated in CF rotors as set geometry</li><li><code>DL-RMM-008</code> — Helical array of discrete magnets in each rotor wall (engineering-dictated pitch/starts)</li><li><code>DL-RMM-009</code> — Magnet shape round or eye — selected by residual model</li></ul>
 <h3>Shells (mm)</h3>
 <table><tr><th>#</th><th>Role</th><th>r_i</th><th>r_o</th><th>mass kg</th></tr>
 <tr><td>0</td><td>inner_coupled</td><td>290</td><td>350</td><td>280.5</td></tr><tr><td>1</td><td>inner_coupled</td><td>390</td><td>450</td><td>368.1</td></tr><tr><td>2</td><td>outer_stator_driven</td><td>520</td><td>580</td><td>482.1</td></tr></table>
@@ -91,23 +91,41 @@ code { color:#9ecbff; } a { color:var(--accent); }
 <iframe class='viewer' src='viewer3d.html' title='3D'></iframe>
 <p class="meta">Empty radial gaps = magnetic coupling. No gear solids. Stator band is in the vacuum shell wall around the outer rotor only.</p>
 </section>
-<section id="poles"><h2>24 Halbach poles per rotor (set geometry)</h2>
-<p class="meta">Magnets glued/encapsulated — pole angles fixed. Colors = Halbach cycle +r / +θ / −r / −θ. Basis: segments_per_shell=24 (6 pole-pairs × 4).</p>
-<div class="grid"><figure class="card"><a href="renders/poles_end_view.png" target="_blank"><img src="renders/poles_end_view.png" alt="poles_end_view" loading="lazy"/></a><figcaption>poles_end_view</figcaption></figure>
-<figure class="card"><a href="renders/poles_section.png" target="_blank"><img src="renders/poles_section.png" alt="poles_section" loading="lazy"/></a><figcaption>poles_section</figcaption></figure>
-<figure class="card"><a href="renders/poles_unrolled_outer.png" target="_blank"><img src="renders/poles_unrolled_outer.png" alt="poles_unrolled_outer" loading="lazy"/></a><figcaption>poles_unrolled_outer</figcaption></figure></div>
-<div class="grid" style="margin-top:1rem"><figure class="card"><a href="sheets/MB-RMM-OTD-POLE-001_End_View_24poles.png" target="_blank"><img src="sheets/MB-RMM-OTD-POLE-001_End_View_24poles.png" alt="MB-RMM-OTD-POLE-001_End_View_24poles" loading="lazy"/></a><figcaption>MB-RMM-OTD-POLE-001_End_View_24poles</figcaption></figure>
+<section id="poles"><h2>Helical magnet array (adhered in rotors)</h2>
+<p class="meta">
+Round or eye magnets on a multi-start helix in each CF rotor wall — glued/encapsulated set geometry.
+Shape and pitch are <strong>engineering-dictated</strong> (see helical_magnets.json). Colors = magnetization step along helix.
+</p>
+<div class="grid"><figure class="card"><a href="renders/helical_array_3d.png" target="_blank"><img src="renders/helical_array_3d.png" alt="helical_array_3d" loading="lazy"/></a><figcaption>helical_array_3d</figcaption></figure>
+<figure class="card"><a href="renders/helical_end_view.png" target="_blank"><img src="renders/helical_end_view.png" alt="helical_end_view" loading="lazy"/></a><figcaption>helical_end_view</figcaption></figure>
+<figure class="card"><a href="renders/helical_outer_unwrapped.png" target="_blank"><img src="renders/helical_outer_unwrapped.png" alt="helical_outer_unwrapped" loading="lazy"/></a><figcaption>helical_outer_unwrapped</figcaption></figure>
+<figure class="card"><a href="renders/helical_outer_unwrapped_alternate.png" target="_blank"><img src="renders/helical_outer_unwrapped_alternate.png" alt="helical_outer_unwrapped_alternate" loading="lazy"/></a><figcaption>helical_outer_unwrapped_alternate</figcaption></figure>
+<figure class="card"><a href="renders/helical_round_vs_eye.png" target="_blank"><img src="renders/helical_round_vs_eye.png" alt="helical_round_vs_eye" loading="lazy"/></a><figcaption>helical_round_vs_eye</figcaption></figure></div>
+<div class="grid" style="margin-top:1rem"><figure class="card"><a href="sheets/MB-RMM-OTD-HELIX-001_Outer_Unwrapped.png" target="_blank"><img src="sheets/MB-RMM-OTD-HELIX-001_Outer_Unwrapped.png" alt="MB-RMM-OTD-HELIX-001_Outer_Unwrapped" loading="lazy"/></a><figcaption>MB-RMM-OTD-HELIX-001_Outer_Unwrapped</figcaption></figure>
+<figure class="card"><a href="sheets/MB-RMM-OTD-HELIX-002_End_View.png" target="_blank"><img src="sheets/MB-RMM-OTD-HELIX-002_End_View.png" alt="MB-RMM-OTD-HELIX-002_End_View" loading="lazy"/></a><figcaption>MB-RMM-OTD-HELIX-002_End_View</figcaption></figure>
+<figure class="card"><a href="sheets/MB-RMM-OTD-HELIX-003_3D.png" target="_blank"><img src="sheets/MB-RMM-OTD-HELIX-003_3D.png" alt="MB-RMM-OTD-HELIX-003_3D" loading="lazy"/></a><figcaption>MB-RMM-OTD-HELIX-003_3D</figcaption></figure>
+<figure class="card"><a href="sheets/MB-RMM-OTD-HELIX-004_Round_vs_Eye.png" target="_blank"><img src="sheets/MB-RMM-OTD-HELIX-004_Round_vs_Eye.png" alt="MB-RMM-OTD-HELIX-004_Round_vs_Eye" loading="lazy"/></a><figcaption>MB-RMM-OTD-HELIX-004_Round_vs_Eye</figcaption></figure>
+<figure class="card"><a href="sheets/MB-RMM-OTD-POLE-001_End_View_24poles.png" target="_blank"><img src="sheets/MB-RMM-OTD-POLE-001_End_View_24poles.png" alt="MB-RMM-OTD-POLE-001_End_View_24poles" loading="lazy"/></a><figcaption>MB-RMM-OTD-POLE-001_End_View_24poles</figcaption></figure>
 <figure class="card"><a href="sheets/MB-RMM-OTD-POLE-002_Section.png" target="_blank"><img src="sheets/MB-RMM-OTD-POLE-002_Section.png" alt="MB-RMM-OTD-POLE-002_Section" loading="lazy"/></a><figcaption>MB-RMM-OTD-POLE-002_Section</figcaption></figure>
 <figure class="card"><a href="sheets/MB-RMM-OTD-POLE-003_Unrolled_Outer.png" target="_blank"><img src="sheets/MB-RMM-OTD-POLE-003_Unrolled_Outer.png" alt="MB-RMM-OTD-POLE-003_Unrolled_Outer" loading="lazy"/></a><figcaption>MB-RMM-OTD-POLE-003_Unrolled_Outer</figcaption></figure></div>
 </section>
-<section id="sheets"><h2>2D nest drawings (4)</h2>
+<section id="sheets"><h2>2D nest drawings (8)</h2>
 <div class="grid"><figure class="card"><a href="sheets/MB-RMM-OTD-GA-001.png" target="_blank"><img src="sheets/MB-RMM-OTD-GA-001.png" alt="MB-RMM-OTD-GA-001" loading="lazy"/></a><figcaption>MB-RMM-OTD-GA-001</figcaption></figure>
+<figure class="card"><a href="sheets/MB-RMM-OTD-HELIX-001_Outer_Unwrapped.png" target="_blank"><img src="sheets/MB-RMM-OTD-HELIX-001_Outer_Unwrapped.png" alt="MB-RMM-OTD-HELIX-001_Outer_Unwrapped" loading="lazy"/></a><figcaption>MB-RMM-OTD-HELIX-001_Outer_Unwrapped</figcaption></figure>
+<figure class="card"><a href="sheets/MB-RMM-OTD-HELIX-002_End_View.png" target="_blank"><img src="sheets/MB-RMM-OTD-HELIX-002_End_View.png" alt="MB-RMM-OTD-HELIX-002_End_View" loading="lazy"/></a><figcaption>MB-RMM-OTD-HELIX-002_End_View</figcaption></figure>
+<figure class="card"><a href="sheets/MB-RMM-OTD-HELIX-003_3D.png" target="_blank"><img src="sheets/MB-RMM-OTD-HELIX-003_3D.png" alt="MB-RMM-OTD-HELIX-003_3D" loading="lazy"/></a><figcaption>MB-RMM-OTD-HELIX-003_3D</figcaption></figure>
+<figure class="card"><a href="sheets/MB-RMM-OTD-HELIX-004_Round_vs_Eye.png" target="_blank"><img src="sheets/MB-RMM-OTD-HELIX-004_Round_vs_Eye.png" alt="MB-RMM-OTD-HELIX-004_Round_vs_Eye" loading="lazy"/></a><figcaption>MB-RMM-OTD-HELIX-004_Round_vs_Eye</figcaption></figure>
 <figure class="card"><a href="sheets/MB-RMM-OTD-POLE-001_End_View_24poles.png" target="_blank"><img src="sheets/MB-RMM-OTD-POLE-001_End_View_24poles.png" alt="MB-RMM-OTD-POLE-001_End_View_24poles" loading="lazy"/></a><figcaption>MB-RMM-OTD-POLE-001_End_View_24poles</figcaption></figure>
 <figure class="card"><a href="sheets/MB-RMM-OTD-POLE-002_Section.png" target="_blank"><img src="sheets/MB-RMM-OTD-POLE-002_Section.png" alt="MB-RMM-OTD-POLE-002_Section" loading="lazy"/></a><figcaption>MB-RMM-OTD-POLE-002_Section</figcaption></figure>
 <figure class="card"><a href="sheets/MB-RMM-OTD-POLE-003_Unrolled_Outer.png" target="_blank"><img src="sheets/MB-RMM-OTD-POLE-003_Unrolled_Outer.png" alt="MB-RMM-OTD-POLE-003_Unrolled_Outer" loading="lazy"/></a><figcaption>MB-RMM-OTD-POLE-003_Unrolled_Outer</figcaption></figure></div></section>
-<section id="renders"><h2>Renders (22)</h2>
+<section id="renders"><h2>Renders (27)</h2>
 <div class="grid"><figure class="card"><a href="renders/cutaway.jpg" target="_blank"><img src="renders/cutaway.jpg" alt="cutaway" loading="lazy"/></a><figcaption>cutaway</figcaption></figure>
 <figure class="card"><a href="renders/GA-001.png" target="_blank"><img src="renders/GA-001.png" alt="GA-001" loading="lazy"/></a><figcaption>GA-001</figcaption></figure>
+<figure class="card"><a href="renders/helical_array_3d.png" target="_blank"><img src="renders/helical_array_3d.png" alt="helical_array_3d" loading="lazy"/></a><figcaption>helical_array_3d</figcaption></figure>
+<figure class="card"><a href="renders/helical_end_view.png" target="_blank"><img src="renders/helical_end_view.png" alt="helical_end_view" loading="lazy"/></a><figcaption>helical_end_view</figcaption></figure>
+<figure class="card"><a href="renders/helical_outer_unwrapped.png" target="_blank"><img src="renders/helical_outer_unwrapped.png" alt="helical_outer_unwrapped" loading="lazy"/></a><figcaption>helical_outer_unwrapped</figcaption></figure>
+<figure class="card"><a href="renders/helical_outer_unwrapped_alternate.png" target="_blank"><img src="renders/helical_outer_unwrapped_alternate.png" alt="helical_outer_unwrapped_alternate" loading="lazy"/></a><figcaption>helical_outer_unwrapped_alternate</figcaption></figure>
+<figure class="card"><a href="renders/helical_round_vs_eye.png" target="_blank"><img src="renders/helical_round_vs_eye.png" alt="helical_round_vs_eye" loading="lazy"/></a><figcaption>helical_round_vs_eye</figcaption></figure>
 <figure class="card"><a href="renders/hero.jpg" target="_blank"><img src="renders/hero.jpg" alt="hero" loading="lazy"/></a><figcaption>hero</figcaption></figure>
 <figure class="card"><a href="renders/L1_layout_iso.png" target="_blank"><img src="renders/L1_layout_iso.png" alt="L1_layout_iso" loading="lazy"/></a><figcaption>L1_layout_iso</figcaption></figure>
 <figure class="card"><a href="renders/L2_layout_plan.png" target="_blank"><img src="renders/L2_layout_plan.png" alt="L2_layout_plan" loading="lazy"/></a><figcaption>L2_layout_plan</figcaption></figure>

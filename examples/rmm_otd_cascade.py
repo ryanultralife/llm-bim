@@ -145,23 +145,21 @@ def build(out_dir: Path | None = None) -> tuple[Project, Path]:
         part="stand",
     )
 
-    # --- Three nested CF rotors + discrete Halbach poles (set geometry) ---
-    # Basis: segments_per_shell=24 = 4 per pole-pair × 6 pole pairs (Halbach cycle)
-    n_poles = int(det.get("magnet_rim", {}).get("segments_per_shell", 24))
+    # --- Three nested CF rotors + helical magnet array (adhered set geometry) ---
+    # Engineering-dictated helix: see Eigen rmm_otd_helical_magnets.json
+    helix_path = EIGEN / "cad" / "design_basis" / "rmm_otd_helical_magnets.json"
+    helix = json.loads(helix_path.read_text(encoding="utf-8")) if helix_path.is_file() else None
     f_v = float(det.get("magnet_rim", {}).get("f_v_nominal", 0.1))
     overwrap = float(det.get("magnet_rim", {}).get("overwrap_mm", 5.0))
     roles = {
-        0: ("Inner CF Halbach rotor", "rotor_inner", "inner_coupled"),
-        1: ("Middle CF Halbach rotor", "rotor_middle", "middle_coupled"),
-        2: ("Outer CF Halbach rotor (driven/harvested)", "rotor_outer", "outer_stator"),
+        0: ("Inner CF rotor", "rotor_inner", "inner_coupled"),
+        1: ("Middle CF rotor", "rotor_middle", "middle_coupled"),
+        2: ("Outer CF rotor (driven/harvested)", "rotor_outer", "outer_stator"),
     }
-    # Halbach magnetization cycle for labeling (EST visualization)
-    cycle = ("+r", "+θ", "−r", "−θ")
     for i, s in enumerate(shells):
         ri = float(s["r_inner_m"]) * MM
         ro = float(s["r_outer_m"]) * MM
         name, part, _ = roles.get(i, (f"Rotor {i}", f"rotor_{i}", "rotor"))
-        # CF structural tube (full length)
         _tube(
             p,
             name=name,
@@ -172,45 +170,68 @@ def build(out_dir: Path | None = None) -> tuple[Project, Path]:
             height=L,
             part=part,
         )
-        # Discrete glued/encapsulated magnet segments — visible poles
-        t_wall = ro - ri
-        r_mag_outer = ro - overwrap
-        r_mag_inner = max(ri + 2.0, r_mag_outer - max(t_wall * (0.25 + f_v), 8.0))
-        if r_mag_outer <= r_mag_inner + 1.0:
-            continue
-        r_mean = 0.5 * (r_mag_inner + r_mag_outer)
-        t_mag = r_mag_outer - r_mag_inner
-        # Chord length of one segment with small glue gap
-        arc = 2.0 * math.pi * r_mean / n_poles
-        gap_frac = 0.12  # visible seams between poles
-        chord = arc * (1.0 - gap_frac)
-        mag_h = L - 40.0
-        mag_z0 = z_rotor + 20.0
-        for k in range(n_poles):
-            ang = 2.0 * math.pi * k / n_poles
-            # Place axis-aligned box at ring position (readable pole count in plan/3D)
-            cx = r_mean * math.cos(ang)
-            cy = r_mean * math.sin(ang)
-            mag_label = cycle[k % 4]
-            p.create_equipment_box(
-                level="Module",
-                origin=(cx, cy),
-                size=(chord, t_mag, mag_h),
-                name=f"Shell{i} pole {k+1}/{n_poles} ({mag_label})",
-                kind="magnet",
-                shape="box",
-                centered=True,
-                z0_mm=mag_z0,
-                equipment="MB-RMM-OTD",
-                part=f"halbach_{part}_p{k+1:02d}",
-            )
-        # Thin CF overwrap shell outside magnets (retainment)
+        # Helical discrete magnets (primary shape from engineering residual)
+        if helix:
+            sites = [
+                site
+                for site in helix.get("sites", [])
+                if site.get("shell") == i and site.get("variant") == "primary"
+            ]
+            for site in sites:
+                r_m = float(site["r_mm"])
+                th = float(site["theta_rad"])
+                z_mm = float(site["z_mm"])
+                d = float(site["d_mm"])
+                shape = site.get("shape", "round")
+                # round ≈ cylinder vertical; eye ≈ elongated box
+                cx = r_m * math.cos(th)
+                cy = r_m * math.sin(th)
+                if shape == "eye":
+                    size = (d * 1.35, d * 0.7, d * 0.7)
+                else:
+                    size = (d, d, d)
+                p.create_equipment_box(
+                    level="Module",
+                    origin=(cx, cy),
+                    size=size,
+                    name=f"Shell{i} helix mag {site['index']+1} ({site.get('mag_step','')})",
+                    kind="magnet",
+                    shape="cylinder" if shape == "round" else "box",
+                    orientation="z" if shape == "round" else None,
+                    centered=True,
+                    z0_mm=z_rotor + z_mm - d / 2,
+                    equipment="MB-RMM-OTD",
+                    part=f"helix_{part}_m{site['index']+1:02d}",
+                )
+        else:
+            # Fallback: circumferential 24 poles if helix JSON missing
+            n_poles = int(det.get("magnet_rim", {}).get("segments_per_shell", 24))
+            t_wall = ro - ri
+            r_mag_outer = ro - overwrap
+            r_mag_inner = max(ri + 2.0, r_mag_outer - max(t_wall * (0.25 + f_v), 8.0))
+            r_mean = 0.5 * (r_mag_inner + r_mag_outer)
+            d = max(8.0, min(0.85 * (r_mag_outer - r_mag_inner), 30.0))
+            for k in range(n_poles):
+                ang = 2.0 * math.pi * k / n_poles
+                p.create_equipment_box(
+                    level="Module",
+                    origin=(r_mean * math.cos(ang), r_mean * math.sin(ang)),
+                    size=(d, d, d),
+                    name=f"Shell{i} pole {k+1}/{n_poles}",
+                    kind="magnet",
+                    shape="cylinder",
+                    orientation="z",
+                    centered=True,
+                    z0_mm=z_rotor + L * 0.5 - d / 2,
+                    equipment="MB-RMM-OTD",
+                    part=f"mag_{part}_{k+1:02d}",
+                )
         _tube(
             p,
             name=f"CF retainment overwrap — shell {i}",
             kind="rotor",
             od=ro * 2,
-            id_mm=r_mag_outer * 2,
+            id_mm=(ro - overwrap) * 2,
             z0=z_rotor,
             height=L,
             part=f"overwrap_{part}",
@@ -375,7 +396,9 @@ def build(out_dir: Path | None = None) -> tuple[Project, Path]:
             "magnetic_coupling_only": True,
             "no_gears": True,
             "no_cvt_gears": True,
-            "halbach_glued_or_encapsulated_set_geometry": True,
+            "helical_array_adhered_in_rotors": True,
+            "magnet_shapes": ["round", "eye"],
+            "shape_engineering_dictated": True,
             "outer_driven_and_harvested_by_shell_stator": True,
             "shell_is_vacuum_barrier": True,
         },
@@ -464,12 +487,13 @@ def _hero(out: Path) -> None:
             use_library=True,
         )
         for cand in (
+            out / "renders" / "helical_round_vs_eye.png",
+            out / "renders" / "helical_outer_unwrapped.png",
+            out / "renders" / "helical_end_view.png",
+            out / "renders" / "helical_array_3d.png",
             out / "renders" / "poles_end_view.png",
-            out / "sheets" / "MB-RMM-OTD-POLE-001_End_View_24poles.png",
             out / "renders" / "hero.jpg",
             out / "renders" / "cutaway.jpg",
-            out / "renders" / "section.jpg",
-            out / "renders" / "MB-RMM-OTD-GA-001.png",
             out / "sheets" / "MB-RMM-OTD-GA-001.png",
         ):
             if cand.is_file():
@@ -594,10 +618,13 @@ code {{ color:#9ecbff; }} a {{ color:var(--accent); }}
 {iframe}
 <p class="meta">Empty radial gaps = magnetic coupling. No gear solids. Stator band is in the vacuum shell wall around the outer rotor only.</p>
 </section>
-<section id="poles"><h2>24 Halbach poles per rotor (set geometry)</h2>
-<p class="meta">Magnets glued/encapsulated — pole angles fixed. Colors = Halbach cycle +r / +θ / −r / −θ. Basis: segments_per_shell=24 (6 pole-pairs × 4).</p>
-<div class="grid">{cards_fn([p for p in render_pngs if "pole" in p.name.lower()] or render_pngs[:3], "renders")}</div>
-<div class="grid" style="margin-top:1rem">{cards_fn([p for p in sheet_pngs if "POLE" in p.name.upper()], "sheets")}</div>
+<section id="poles"><h2>Helical magnet array (adhered in rotors)</h2>
+<p class="meta">
+Round or eye magnets on a multi-start helix in each CF rotor wall — glued/encapsulated set geometry.
+Shape and pitch are <strong>engineering-dictated</strong> (see helical_magnets.json). Colors = magnetization step along helix.
+</p>
+<div class="grid">{cards_fn([p for p in render_pngs if "helical" in p.name.lower()] or [p for p in render_pngs if "pole" in p.name.lower()], "renders")}</div>
+<div class="grid" style="margin-top:1rem">{cards_fn([p for p in sheet_pngs if "HELIX" in p.name.upper() or "POLE" in p.name.upper()], "sheets")}</div>
 </section>
 <section id="sheets"><h2>2D nest drawings ({len(sheet_pngs)})</h2>
 <div class="grid">{cards_fn(sheet_pngs, "sheets")}</div></section>
