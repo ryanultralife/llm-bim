@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""RMM-OTD nested Halbach nest — full llm-bim pack (STEP + 2D + 3D + HTML).
+"""RMM-OTD nested CF kinetic store — full llm-bim pack (STEP + 2D + 3D + HTML).
 
-USER LOCK (2026-08-05):
+USER LOCK:
+  · ENERGY is kinetic in the spinning CF rotors (E=Σ½Iω²) — NOT magnetic storage
+  · Magnet arrays (helical, adhered) are for COUPLING only + outer drive/harvest
   · Nested CF rotors (inner / middle / outer) — NO magnetic gears, NO CVT gear train
   · Magnetic coupling ONLY between outer↔middle and middle↔inner
-  · Halbach magnets glued or encapsulated in CF rotors as set geometry (designed poles)
-  · Outer rotor driven AND harvested by stator coils
-  · Stator coils live in the exterior shell = vacuum barrier
+  · Magnets glued or encapsulated in CF as set geometry (round|eye by residual)
+  · Outer rotor driven AND harvested by stator coils in vacuum shell
 
 Source SSOT (Eigen):
   cad/design_basis/rmm_otd_basis.json
@@ -399,6 +400,8 @@ def build(out_dir: Path | None = None) -> tuple[Project, Path]:
             "helical_array_adhered_in_rotors": True,
             "magnet_shapes": ["round", "eye"],
             "shape_engineering_dictated": True,
+            "energy_in_rotors_kinetic": True,
+            "arrays_for_coupling_only": True,
             "outer_driven_and_harvested_by_shell_stator": True,
             "shell_is_vacuum_barrier": True,
         },
@@ -573,16 +576,16 @@ code {{ color:#9ecbff; }} a {{ color:var(--accent); }}
   <span class="badge no">NO GEARS</span>
   <span class="badge ok">STATOR = VACUUM SHELL</span>
   <p class="meta">
-    Three coaxial CF rotors with <strong>Halbach magnets glued or encapsulated</strong>
-    in the CF as <strong>set geometry</strong> (pockets/fixtures fix the pole pattern).
-    <strong>Magnetic coupling only</strong> between outer↔middle↔inner (no contact, no gears).
-    <strong>Outer rotor</strong> is driven and harvested by <strong>stator coils in the exterior shell</strong>,
-    which is also the <strong>vacuum barrier</strong>.
+    <strong>Stored energy is kinetic in the CF rotors</strong> (E=Σ½Iω²) —
+    the spinning mass is the battery. Magnet arrays are <strong>for coupling only</strong>
+    (outer↔middle↔inner) and to let the shell stator charge/discharge the outer rotor.
+    Nested CF rotors; helical magnets glued/encapsulated as set geometry; no gears.
+    Outer rotor driven and harvested by stator coils in the vacuum shell.
   </p>
 </header>
 <nav>
-  <a href="#hero">Hero / 24 poles</a><a href="#arch">Architecture</a><a href="#stats">Numbers</a>
-  <a href="#3d">3D</a><a href="#poles">Pole detail</a><a href="#sheets">2D</a><a href="#renders">Renders</a>
+  <a href="#hero">Hero</a><a href="#arch">Architecture</a><a href="#stats">Numbers</a>
+  <a href="#3d">3D</a><a href="#poles">Coupling magnets</a><a href="#sheets">2D</a><a href="#renders">Renders</a>
   <a href="viewer3d.html" target="_blank">viewer3d</a>
   <a href="model.step">STEP</a><a href="index.html">index</a>
 </nav>
@@ -590,9 +593,11 @@ code {{ color:#9ecbff; }} a {{ color:var(--accent); }}
 <img class="hero" src="{hero_src}" alt="RMM-OTD hero"/></section>
 <section id="arch"><h2>Architecture (user lock)</h2>
 <ul class="locks">
+<li><strong>Energy store = rotors</strong> (kinetic) — not the magnet arrays</li>
+<li>Magnet arrays = <strong>coupling</strong> (+ outer stator drive/harvest interface) only</li>
 <li>Nested rotors only (inner / middle / outer)</li>
-<li>Magnetic coupling only between shells — <strong>no gears, no CVT gear train</strong></li>
-<li>Halbach magnets <strong>glued or encapsulated</strong> in CF as <strong>set geometry</strong> (designed poles)</li>
+<li>Magnetic coupling only between shells — <strong>no gears</strong></li>
+<li>Helical magnets <strong>glued or encapsulated</strong> as set geometry (round|eye by residual)</li>
 <li>Outer rotor driven <em>and</em> harvested by shell stator coils</li>
 <li>Exterior shell = vacuum barrier = stator host</li>
 </ul>
@@ -618,10 +623,11 @@ code {{ color:#9ecbff; }} a {{ color:var(--accent); }}
 {iframe}
 <p class="meta">Empty radial gaps = magnetic coupling. No gear solids. Stator band is in the vacuum shell wall around the outer rotor only.</p>
 </section>
-<section id="poles"><h2>Helical magnet array (adhered in rotors)</h2>
+<section id="poles"><h2>Coupling magnet arrays (not the energy store)</h2>
 <p class="meta">
-Round or eye magnets on a multi-start helix in each CF rotor wall — glued/encapsulated set geometry.
-Shape and pitch are <strong>engineering-dictated</strong> (see helical_magnets.json). Colors = magnetization step along helix.
+Helical round/eye magnets adhered in CF walls provide <strong>inter-rotor coupling</strong> and the
+outer↔stator power path. <strong>Stored energy remains kinetic in the rotor mass/inertia.</strong>
+Shape and pitch are engineering-dictated (helical_magnets.json).
 </p>
 <div class="grid">{cards_fn([p for p in render_pngs if "helical" in p.name.lower()] or [p for p in render_pngs if "pole" in p.name.lower()], "renders")}</div>
 <div class="grid" style="margin-top:1rem">{cards_fn([p for p in sheet_pngs if "HELIX" in p.name.upper() or "POLE" in p.name.upper()], "sheets")}</div>
