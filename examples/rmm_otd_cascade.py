@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
-"""RMM-OTD Rev C cascade — full llm-bim pack (STEP + 2D + 3D + HTML).
+"""RMM-OTD nested Halbach nest — full llm-bim pack (STEP + 2D + 3D + HTML).
+
+USER LOCK (2026-08-05):
+  · Nested CF rotors (inner / middle / outer) — NO magnetic gears, NO CVT gear train
+  · Magnetic coupling ONLY between outer↔middle and middle↔inner
+  · Halbach arrays sintered / embedded in the carbon-fiber rotors
+  · Outer rotor driven AND harvested by stator coils
+  · Stator coils live in the exterior shell = vacuum barrier
 
 Source SSOT (Eigen):
-  cad/rmm_otd_dims.json  (geometry master)
-  docs/rmm_otd_drawings/  (2D MB-OTD sheets)
-  docs/renders/rmm_otd/   (product heroes)
-  cad/openscad/renders/  (cascade OpenSCAD stills)
-  docs/rmm_otd_studio/step_refs/*.stl  (optional high-fidelity meshes)
+  cad/design_basis/rmm_otd_basis.json
+  docs/tier4_drawings/rmm_otd/  (nest GA)
+  docs/renders/rmm_otd/
+  cad/fusion/ step + params
 
 Build:
+  set EIGEN_ROOT=...\\Eigen
   python examples/rmm_otd_cascade.py
-  python examples/open_packs.py rmm_otd   # open HTML
 
 Outputs:
   examples/output/rmm_otd/
-    model.step · model.gltf · model.ifc · model.llmbim.json
-    index.html · gallery.html · viewer3d.html
-    views/ · sheets/ · fab/ · renders/ · parts/
+    model.step · model.gltf · model.ifc · gallery.html · viewer3d.html
 """
 from __future__ import annotations
 
@@ -29,7 +33,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "examples" / "output" / "rmm_otd"
 
-# Eigen SSOT discovery
 _sib = ROOT.parent / "Eigen"
 EIGEN = Path(__import__("os").environ["EIGEN_ROOT"]) if __import__("os").environ.get("EIGEN_ROOT") else (
     _sib if _sib.is_dir() else Path.home() / "Eigen"
@@ -37,17 +40,18 @@ EIGEN = Path(__import__("os").environ["EIGEN_ROOT"]) if __import__("os").environ
 
 from llmbim import Project  # noqa: E402
 
+MM = 1000.0
 
-def _load_dims() -> dict:
+
+def _load_basis() -> dict:
     candidates = [
-        EIGEN / "cad" / "rmm_otd_dims.json",
-        EIGEN / "docs" / "rmm_otd_studio" / "docs" / "rmm_otd_dims.json",
-        ROOT / "examples" / "output" / "rmm_otd_studio" / "docs" / "rmm_otd_dims.json",
+        EIGEN / "cad" / "design_basis" / "rmm_otd_basis.json",
+        EIGEN / "cad" / "fusion" / "rmm_otd_fusion_params.json",
     ]
     for p in candidates:
-        if p.is_file():
+        if p.is_file() and p.name.endswith("basis.json"):
             return json.loads(p.read_text(encoding="utf-8"))
-    raise FileNotFoundError("cad/rmm_otd_dims.json not found — set EIGEN_ROOT or open Eigen sibling")
+    raise FileNotFoundError(f"rmm_otd_basis.json not under {EIGEN}")
 
 
 def _circle(cx: float, cy: float, r: float, n: int = 48) -> list[tuple[float, float]]:
@@ -64,25 +68,24 @@ def _tube(
     kind: str,
     od: float,
     id_mm: float | None,
-    z_bot: float,
-    z_top: float,
-    equipment: str = "MB-OTD",
-    part: str = "",
+    z0: float,
+    height: float,
+    part: str,
+    equipment: str = "MB-RMM-OTD",
 ) -> str:
-    h = abs(z_top - z_bot)
     return p.create_equipment_box(
         level="Module",
         origin=(0.0, 0.0),
-        size=(od, od, h),
+        size=(od, od, height),
         name=name,
         kind=kind,
         shape="cylinder",
         orientation="z",
         centered=True,
-        z0_mm=min(z_bot, z_top),
+        z0_mm=z0,
         id_mm=id_mm,
         equipment=equipment,
-        part=part or name,
+        part=part,
     )
 
 
@@ -92,164 +95,174 @@ def build(out_dir: Path | None = None) -> tuple[Project, Path]:
         shutil.rmtree(out)
     out.mkdir(parents=True, exist_ok=True)
 
-    d = _load_dims()
-    # Shift master Z so stand sits near z=0
-    z_floor = float(d["col_z0"]) - 80.0  # pad under column
+    B = _load_basis()
+    des = B["design"]
+    shells = sorted(B["shells"], key=lambda s: s["r_outer_m"])  # inner → outer
+    perf = B.get("performance_est", {})
+    det = B.get("cad_detail", {})
+    locks = B.get("locks", {})
 
-    def Z(z: float) -> float:
-        return float(z) - z_floor
+    L = float(des["length_m"]) * MM
+    wall = float(des.get("wall_m", 0.06)) * MM
+    # Stand pad under module
+    stand_h = 100.0
+    z_rotor = stand_h + 40.0  # air gap above pad
 
-    p = Project.create("MB-OTD RMM-OTD Cascade Module", vcs=False)
+    # Housing = vacuum vessel = stator shell (outside outer rotor)
+    r_out_max = max(s["r_outer_m"] for s in shells) * MM
+    # Prefer fusion params if present
+    fp = EIGEN / "cad" / "fusion" / "rmm_otd_fusion_params.json"
+    housing_ri = r_out_max + 0.5 * wall
+    housing_ro = housing_ri + wall
+    if fp.is_file():
+        try:
+            P = json.loads(fp.read_text(encoding="utf-8")).get("params", {})
+            if "housing_ri" in P:
+                housing_ri = float(P["housing_ri"])
+                housing_ro = float(P["housing_ro"])
+                L = float(P.get("rotor_len", L))
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            pass
+
+    overhang = 40.0
+    vessel_h = L + 2 * overhang
+    z_vessel = z_rotor - overhang
+
+    p = Project.create("MB-RMM-OTD Nested Halbach Nest", vcs=False)
     p.add_level("Module", 0)
 
-    # --- Stand / containment pad ---
-    cont_od = float(d["cont_ri"] + d["cont_sand"] + d["cont_t"]) * 2
+    # --- Stand ---
+    pad = max(housing_ro * 2 + 200, 1400.0)
     p.create_equipment_box(
         level="Module",
         origin=(0.0, 0.0),
-        size=(cont_od + 200, cont_od + 200, 80.0),
+        size=(pad, pad, stand_h),
         name="Stand pad",
         kind="pedestal",
         centered=True,
         z0_mm=0.0,
-        equipment="MB-OTD",
+        equipment="MB-RMM-OTD",
         part="stand",
     )
 
-    # --- Central column ---
-    _tube(
-        p,
-        name="Central column",
-        kind="shaft",
-        od=float(d["col_r"]) * 2,
-        id_mm=None,
-        z_bot=Z(d["col_z0"]),
-        z_top=Z(d["col_z1"]),
-        part="column",
-    )
-
-    # --- Three CF rotors (hollow) ---
-    for label, ro, ri, za, zb, part in (
-        ("Outer CF rotor", d["Ro1"], d["Ri1"], d["z1a"], d["z1b"], "rotor_outer"),
-        ("Middle CF rotor", d["Ro2"], d["Ri2"], d["z2a"], d["z2b"], "rotor_middle"),
-        ("Inner CF rotor", d["Ro3"], d["Ri3"], d["z3a"], d["z3b"], "rotor_inner"),
-    ):
+    # --- Three nested CF rotors (Halbach integral — shown as CF wall tubes) ---
+    roles = {
+        0: ("Inner CF Halbach rotor", "rotor_inner", "inner_coupled"),
+        1: ("Middle CF Halbach rotor", "rotor_middle", "middle_coupled"),
+        2: ("Outer CF Halbach rotor (driven/harvested)", "rotor_outer", "outer_stator"),
+    }
+    for i, s in enumerate(shells):
+        ri = float(s["r_inner_m"]) * MM
+        ro = float(s["r_outer_m"]) * MM
+        name, part, _ = roles.get(i, (f"Rotor {i}", f"rotor_{i}", "rotor"))
+        # Full length nest (equal L)
         _tube(
             p,
-            name=label,
+            name=name,
             kind="rotor",
-            od=float(ro) * 2,
-            id_mm=float(ri) * 2,
-            z_bot=Z(za),
-            z_top=Z(zb),
+            od=ro * 2,
+            id_mm=ri * 2,
+            z0=z_rotor,
+            height=L,
             part=part,
         )
+        # Halbach rim band (outer portion of wall) — visual of sintered array
+        # rim occupies outer ~f_v of wall radial span
+        f_v = float(det.get("magnet_rim", {}).get("f_v_nominal", 0.1))
+        t_wall = ro - ri
+        r_mag_outer = ro - 5.0  # overwrap class
+        r_mag_inner = max(ri + 2.0, r_mag_outer - max(t_wall * (0.25 + f_v), 8.0))
+        if r_mag_outer > r_mag_inner + 1.0:
+            _tube(
+                p,
+                name=f"Halbach rim (sintered) — shell {i}",
+                kind="magnet",
+                od=r_mag_outer * 2,
+                id_mm=r_mag_inner * 2,
+                z0=z_rotor + 20.0,
+                height=L - 40.0,
+                part=f"halbach_{part}",
+            )
 
-    # --- Drive stator band (outermost) ---
+    # --- Vacuum vessel / exterior shell = stator host ---
     _tube(
         p,
-        name="Drive stator band",
-        kind="stator",
-        od=float(d["drive_r2"]) * 2,
-        id_mm=float(d["drive_r1"]) * 2,
-        z_bot=Z(d["drive_z0"]),
-        z_top=Z(d["drive_z1"]),
-        part="drive_stator",
-    )
-
-    # --- Main vessel wall ---
-    _tube(
-        p,
-        name="Main vessel wall",
+        name="Exterior shell (vacuum barrier + stator host)",
         kind="vessel",
-        od=float(d["vM_ro"]) * 2,
-        id_mm=float(d["vM_ri"]) * 2,
-        z_bot=Z(d["zM0"]),
-        z_top=Z(d["zM1"]),
-        part="vessel_main",
+        od=housing_ro * 2,
+        id_mm=housing_ri * 2,
+        z0=z_vessel,
+        height=vessel_h,
+        part="vacuum_vessel_stator_shell",
     )
 
-    # --- End caps ---
-    for name, r, zc, part in (
-        ("Bottom end cap", d["capB_r"], d["zCapB"], "cap_bottom"),
-        ("Top end cap", d["capT_r"], d["zSp1"], "cap_top"),
+    # --- Stator coils in the shell wall (drive + harvest outer rotor only) ---
+    coil_h = L * 0.85
+    coil_z0 = z_rotor + (L - coil_h) / 2
+    n_seg = int(det.get("stator", {}).get("n_segments", 6))
+    _tube(
+        p,
+        name=f"Stator coils in vacuum shell ({n_seg} seg) — drive & harvest outer",
+        kind="stator",
+        od=housing_ro * 2 - 4.0,
+        id_mm=housing_ri * 2 + 8.0,
+        z0=coil_z0,
+        height=coil_h,
+        part="stator_coils_shell",
+    )
+
+    # --- End caps / vacuum heads ---
+    cap_thk = 40.0
+    cap_od = housing_ro * 2 + 20.0
+    for name, z0, part in (
+        ("Bottom vacuum head", z_vessel - cap_thk, "head_bottom"),
+        ("Top vacuum head", z_vessel + vessel_h, "head_top"),
     ):
         _tube(
             p,
             name=name,
             kind="cap",
-            od=float(r) * 2,
-            id_mm=float(d["col_r"]) * 2 + 10,
-            z_bot=Z(zc),
-            z_top=Z(zc) + float(d["cap_t"]),
+            od=cap_od,
+            id_mm=None,
+            z0=z0,
+            height=cap_thk,
             part=part,
         )
 
-    # --- Gear stage A modulators (annulus) ---
-    _tube(
-        p,
-        name="Gear A modulator",
-        kind="modulator",
-        od=float(d["gA_mod_r2"]) * 2,
-        id_mm=float(d["gA_mod_r1"]) * 2,
-        z_bot=Z(d["zA0"]),
-        z_top=Z(d["zA1"]),
-        part="gearA_mod",
-    )
-    _tube(
-        p,
-        name="Gear B modulator",
-        kind="modulator",
-        od=float(d["gB_mod_r2"]) * 2,
-        id_mm=float(d["gB_mod_r1"]) * 2,
-        z_bot=Z(d["zB0"]),
-        z_top=Z(d["zB1"]),
-        part="gearB_mod",
-    )
+    # --- Magnetic coupling air-gap annotations as thin free-span (visual only) ---
+    # Gaps between shells — empty space, no gear bodies
+    for i in range(len(shells) - 1):
+        r_out_inner = float(shells[i]["r_outer_m"]) * MM
+        r_in_outer = float(shells[i + 1]["r_inner_m"]) * MM
+        gap = r_in_outer - r_out_inner
+        # label slab ring at mid height for plan readability only
+        if gap > 1.0:
+            mid_r = 0.5 * (r_out_inner + r_in_outer)
+            p.create_slab(
+                level="Module",
+                polygon=_circle(0, 0, mid_r, n=32),
+                thickness_mm=1.0,
+                name=f"Magnetic coupling gap {i}↔{i+1} (~{gap:.0f} mm radial)",
+            )
 
-    # --- CVT stack ---
-    for name, r1, r2, part in (
-        ("CVT flywheel rim", d["cvt_fly_r1"], d["cvt_fly_r2"], "cvt_fly"),
-        ("CVT isolation can", d["cvt_can_r1"], d["cvt_can_r2"], "cvt_can"),
-        ("CVT follower", d["cvt_out_r1"], d["cvt_out_r2"], "cvt_out"),
-        ("CVT control ring", d["cvt_ctrl_r1"], d["cvt_ctrl_r2"], "cvt_ctrl"),
-        ("CVT stator", d["cvt_stat_r1"], d["cvt_stat_r2"], "cvt_stat"),
-        ("CVT housing", d["cvt_house_r1"], d["cvt_house_r2"], "cvt_house"),
-    ):
-        _tube(
-            p,
-            name=name,
-            kind="cvt",
-            od=float(r2) * 2,
-            id_mm=float(r1) * 2,
-            z_bot=Z(d["zC0"]),
-            z_top=Z(d["zC1"]),
-            part=part,
-        )
-
-    # --- Containment sleeve (ghost) ---
-    _tube(
-        p,
-        name="Containment sleeve",
-        kind="containment",
-        od=float(d["cont_ri"] + d["cont_sand"] + d["cont_t"]) * 2,
-        id_mm=float(d["cont_ri"]) * 2,
-        z_bot=Z(d["zCapB"]) - 20,
-        z_top=Z(d["zSp1"]) + float(d["cap_t"]) + 40,
-        part="containment",
-    )
-
-    # Plan silhouette
+    # Outer rotor OD silhouette
     p.create_slab(
         level="Module",
-        polygon=_circle(0, 0, float(d["vM_ro"]), n=48),
+        polygon=_circle(0, 0, r_out_max, n=48),
         thickness_mm=2.0,
-        name="Vessel OD plan silhouette",
+        name="Outer rotor OD plan silhouette",
     )
-    clear = float(d["cont_ri"] + d["cont_sand"] + d["cont_t"]) * 2 + 400
+    p.create_slab(
+        level="Module",
+        polygon=_circle(0, 0, housing_ro, n=48),
+        thickness_mm=2.0,
+        name="Vacuum vessel OD plan silhouette",
+    )
+
+    clear = housing_ro * 2 + 500
     p.create_room(
         level="Module",
-        name="RMM-OTD module envelope",
+        name="RMM-OTD nested module envelope",
         boundary=[
             (-clear / 2, -clear / 2),
             (clear / 2, -clear / 2),
@@ -263,24 +276,151 @@ def build(out_dir: Path | None = None) -> tuple[Project, Path]:
     except Exception as exc:  # noqa: BLE001
         print(f"  [auto_assign] {exc}")
     try:
-        p.commit("RMM-OTD Rev C cascade BIM envelopes from geometry master")
+        p.commit("RMM-OTD nested Halbach nest — magnetic couple only, stator=vessel")
     except ValueError as exc:
-        # vcs may already have auto-committed; continue
         print(f"  [commit] {exc}")
 
-    # Full llm-bim pack: glTF + STEP + IFC + 2D views + parts
     manifest = p.export_deliverables(
         out,
         mode="part",
         plan_level="Module",
-        plan_scale=0.15,
+        plan_scale=0.18,
         set_type="construction",
     )
 
-    # --- Stage Eigen 2D sheets + fab + OpenSCAD stills + product hero ---
-    _stage_eigen_assets(out, d)
+    _stage_assets(out)
+    _hero(out)
+    def _cards(paths: list[Path], prefix: str) -> str:
+        bits = []
+        for pth in paths:
+            rel = f"{prefix}/{pth.name}"
+            bits.append(
+                f'<figure class="card"><a href="{rel}" target="_blank">'
+                f'<img src="{rel}" alt="{pth.stem}" loading="lazy"/></a>'
+                f"<figcaption>{pth.stem}</figcaption></figure>"
+            )
+        return "\n".join(bits) or "<p class='meta'>None</p>"
 
-    # Hero pipeline (library rmm_otd)
+    def _imgs(folder: Path) -> list[Path]:
+        if not folder.is_dir():
+            return []
+        files: list[Path] = []
+        for pat in ("*.png", "*.jpg", "*.jpeg"):
+            files.extend(folder.glob(pat))
+        return sorted(files, key=lambda x: x.name.lower())
+
+    hero = out / "renders" / "product_hero.jpg"
+    if not hero.is_file():
+        for c in ("hero.jpg", "cutaway.jpg", "section.jpg", "MB-RMM-OTD-GA-001.png"):
+            if (out / "renders" / c).is_file():
+                hero = out / "renders" / c
+                break
+            if (out / "sheets" / c).is_file():
+                hero = out / "sheets" / c
+                break
+    sheet_pngs = [x for x in _imgs(out / "sheets") if x.suffix.lower() == ".png"]
+    render_pngs = _imgs(out / "renders")
+    gallery = out / "gallery.html"
+    gallery.write_text(
+        _gallery_html_clean(
+            out, hero, sheet_pngs, render_pngs, shells, housing_ri, housing_ro, L,
+            locks, perf,
+            (out / "model.step").is_file(),
+            (out / "model.gltf").is_file(),
+            (out / "viewer3d.html").is_file(),
+            _cards,
+        ),
+        encoding="utf-8",
+    )
+    _enhance_index(out, perf)
+
+    meta = {
+        "project": "MB-RMM-OTD Nested Halbach Nest",
+        "honesty": "ENGINEERING ESTIMATE",
+        "architecture_lock": "docs/RMM_OTD_ARCHITECTURE_LOCK.md",
+        "locks_user": {
+            "nested_rotors": True,
+            "magnetic_coupling_only": True,
+            "no_gears": True,
+            "no_cvt_gears": True,
+            "halbach_in_cf_rotors": True,
+            "outer_driven_and_harvested_by_shell_stator": True,
+            "shell_is_vacuum_barrier": True,
+        },
+        "basis": str(EIGEN / "cad" / "design_basis" / "rmm_otd_basis.json"),
+        "shells_mm": [
+            {
+                "index": i,
+                "ri": float(s["r_inner_m"]) * MM,
+                "ro": float(s["r_outer_m"]) * MM,
+                "L": L,
+                "role": s.get("role"),
+                "mass_kg": s.get("mass_kg"),
+            }
+            for i, s in enumerate(shells)
+        ],
+        "vessel_mm": {"ri": housing_ri, "ro": housing_ro, "L": vessel_h},
+        "performance_est": perf,
+        "stats": p.stats(),
+        "deliverables": manifest,
+        "gallery": str(gallery),
+    }
+    (out / "rmm_otd_meta.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+    (out / "docs").mkdir(exist_ok=True)
+    shutil.copy2(
+        EIGEN / "cad" / "design_basis" / "rmm_otd_basis.json",
+        out / "docs" / "rmm_otd_basis.json",
+    )
+    lock = EIGEN / "docs" / "RMM_OTD_ARCHITECTURE_LOCK.md"
+    if lock.is_file():
+        shutil.copy2(lock, out / "docs" / lock.name)
+
+    return p, out
+
+
+def _stage_assets(out: Path) -> None:
+    sheets = out / "sheets"
+    renders = out / "renders"
+    for d in (sheets, renders):
+        d.mkdir(exist_ok=True)
+
+    # Nest GA (tier4) — correct architecture drawings
+    nest_ga = EIGEN / "docs" / "tier4_drawings" / "rmm_otd"
+    if nest_ga.is_dir():
+        for f in nest_ga.iterdir():
+            if f.is_file() and f.suffix.lower() in {".png", ".dxf", ".pdf"}:
+                shutil.copy2(f, sheets / f.name)
+
+    # Product renders (nest heroes — not geared cascade stills as authority)
+    for src in (
+        EIGEN / "docs" / "renders" / "rmm_otd",
+    ):
+        if src.is_dir():
+            for f in src.iterdir():
+                if f.suffix.lower() in {".png", ".jpg", ".jpeg"}:
+                    shutil.copy2(f, renders / f.name)
+
+    # Optional: only nest-relevant OpenSCAD stills if named nested_*
+    osc = EIGEN / "cad" / "openscad" / "renders"
+    if osc.is_dir():
+        for f in osc.iterdir():
+            if f.suffix.lower() not in {".png", ".jpg"}:
+                continue
+            n = f.name.lower()
+            # Prefer nested / exclude cascade gear marketing as primary
+            if n.startswith("nested") or "section" in n or "m60" in n:
+                shutil.copy2(f, renders / f.name)
+
+    for name in (
+        "rmm_otd_fusion_params.json",
+        "rmm_otd_fusion_massprops.json",
+    ):
+        s = EIGEN / "cad" / "fusion" / name
+        if s.is_file():
+            shutil.copy2(s, out / name)
+
+
+def _hero(out: Path) -> None:
     try:
         from llmbim_drawings.hero_product import export_hero_pipeline, stage_hero_render
 
@@ -288,15 +428,15 @@ def build(out_dir: Path | None = None) -> tuple[Project, Path]:
             out,
             product_id="rmm_otd",
             kind="device",
-            title="RMM-OTD mechanical battery cascade",
+            title="RMM-OTD nested Halbach mechanical battery",
             use_library=True,
         )
-        # Prefer cascade section as product hero if library thin
         for cand in (
-            EIGEN / "cad" / "openscad" / "renders" / "cascade_section.png",
-            EIGEN / "docs" / "renders" / "rmm_otd" / "hero.jpg",
-            EIGEN / "docs" / "renders" / "rmm_otd" / "cutaway.jpg",
-            out / "renders" / "cascade_section.png",
+            out / "renders" / "hero.jpg",
+            out / "renders" / "cutaway.jpg",
+            out / "renders" / "section.jpg",
+            out / "renders" / "MB-RMM-OTD-GA-001.png",
+            out / "sheets" / "MB-RMM-OTD-GA-001.png",
         ):
             if cand.is_file():
                 stage_hero_render(out, cand)
@@ -304,308 +444,144 @@ def build(out_dir: Path | None = None) -> tuple[Project, Path]:
     except Exception as exc:  # noqa: BLE001
         print(f"  [hero] {exc}")
 
-    # Rich gallery HTML (user-facing)
-    gallery = _write_gallery_html(out, d, manifest)
-    _enhance_index(out, d)
 
-    meta = {
-        "project": "MB-OTD RMM-OTD Cascade",
-        "honesty": "ENGINEERING ESTIMATE — llm-bim envelopes + Eigen master dims",
-        "architecture": "Rev C cascade (staged lock)",
-        "eigen_master": str(EIGEN / "cad" / "rmm_otd_dims.json"),
-        "performance_est": {
-            "E_kWh": d.get("E_kwh"),
-            "E_use_kWh": d.get("E_use"),
-            "m_rotors_kg": d.get("m_rotors"),
-            "wh_kg": d.get("wh_kg"),
-            "v_tip_m_s": d.get("v_tip"),
-            "SF": d.get("SF"),
-        },
-        "stats": p.stats(),
-        "validation": p.validate(),
-        "deliverables": manifest,
-        "gallery": str(gallery),
-        "viewer3d": str(out / "viewer3d.html"),
-        "index": str(out / "index.html"),
-    }
-    (out / "rmm_otd_meta.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
-    (out / "docs").mkdir(exist_ok=True)
-    shutil.copy2(EIGEN / "cad" / "rmm_otd_dims.json", out / "docs" / "rmm_otd_dims.json")
-    for name in ("RMM_OTD_ARCHITECTURE_LOCK.md", "RMM_OTD_Design_Maturity_Report.md"):
-        src = EIGEN / "docs" / name
-        if src.is_file():
-            shutil.copy2(src, out / "docs" / name)
+def _gallery_html_clean(
+    out, hero, sheet_pngs, render_pngs, shells, housing_ri, housing_ro, L,
+    locks, perf, has_step, has_gltf, has_viewer, cards_fn,
+) -> str:
+    def fv(key, nd=2):
+        v = perf.get(key)
+        if isinstance(v, (int, float)):
+            return f"{v:.{nd}f}"
+        return "—"
 
-    return p, out
-
-
-def _stage_eigen_assets(out: Path, d: dict) -> None:
-    sheets = out / "sheets"
-    fab = out / "fab"
-    renders = out / "renders"
-    mesh = out / "meshes"
-    for d_ in (sheets, fab, renders, mesh):
-        d_.mkdir(exist_ok=True)
-
-    # 2D drawing package
-    src_dwg = EIGEN / "docs" / "rmm_otd_drawings"
-    if src_dwg.is_dir():
-        for f in src_dwg.iterdir():
-            if not f.is_file():
-                continue
-            if f.name.startswith("MB-OTD-FAB"):
-                shutil.copy2(f, fab / f.name)
-            elif f.suffix.lower() in {".png", ".dxf", ".pdf", ".md"}:
-                shutil.copy2(f, sheets / f.name)
-
-    # Product + OpenSCAD renders
-    for src in (
-        EIGEN / "docs" / "renders" / "rmm_otd",
-        EIGEN / "cad" / "openscad" / "renders",
-    ):
-        if src.is_dir():
-            for f in src.iterdir():
-                if f.suffix.lower() in {".png", ".jpg", ".jpeg"}:
-                    shutil.copy2(f, renders / f.name)
-
-    # High-fidelity STLs (cascade components)
-    stl_src = EIGEN / "docs" / "rmm_otd_studio" / "step_refs"
-    if stl_src.is_dir():
-        for f in stl_src.glob("*.stl"):
-            shutil.copy2(f, mesh / f.name)
-
-    # Cascade fusion params for traceability
-    params = EIGEN / "cad" / "fusion" / "rmm_otd_cascade_fusion_params.json"
-    if params.is_file():
-        shutil.copy2(params, out / "rmm_otd_cascade_fusion_params.json")
-    basis = EIGEN / "cad" / "design_basis" / "rmm_otd_cascade_basis.json"
-    if basis.is_file():
-        shutil.copy2(basis, out / "rmm_otd_cascade_basis.json")
-
-
-def _write_gallery_html(out: Path, d: dict, manifest: dict) -> Path:
-    """Single-page gallery: hero + 2D sheets + 3D links + performance."""
-    def imgs(folder: Path, glob: str = "*") -> list[Path]:
-        if not folder.is_dir():
-            return []
-        files = []
-        for pat in ("*.png", "*.jpg", "*.jpeg"):
-            files.extend(folder.glob(pat))
-        return sorted(files, key=lambda p: p.name.lower())
-
-    hero = out / "renders" / "product_hero.jpg"
-    if not hero.is_file():
-        for c in ("cascade_section.png", "hero.jpg", "cutaway.jpg", "section.jpg"):
-            if (out / "renders" / c).is_file():
-                hero = out / "renders" / c
-                break
-
-    sheet_pngs = [p for p in imgs(out / "sheets") if p.suffix.lower() == ".png"]
-    fab_pngs = [p for p in imgs(out / "fab") if p.suffix.lower() == ".png"]
-    render_pngs = imgs(out / "renders")
-
-    def cards(paths: list[Path], rel_prefix: str) -> str:
-        bits = []
-        for p in paths:
-            rel = f"{rel_prefix}/{p.name}".replace("\\", "/")
-            bits.append(
-                f'<figure class="card"><a href="{rel}" target="_blank">'
-                f'<img src="{rel}" alt="{p.stem}" loading="lazy"/>'
-                f"</a><figcaption>{p.stem}</figcaption></figure>"
-            )
-        return "\n".join(bits) if bits else "<p class='muted'>No images found.</p>"
-
-    has_step = (out / "model.step").is_file()
-    has_gltf = (out / "model.gltf").is_file()
-    has_viewer = (out / "viewer3d.html").is_file()
-    mesh_list = sorted((out / "meshes").glob("*.stl")) if (out / "meshes").is_dir() else []
-
-    html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
+    shell_rows = "".join(
+        f"<tr><td>{i}</td><td>{s.get('role','')}</td>"
+        f"<td>{s['r_inner_m']*1000:.0f}</td><td>{s['r_outer_m']*1000:.0f}</td>"
+        f"<td>{float(s.get('mass_kg',0)):.1f}</td></tr>"
+        for i, s in enumerate(shells)
+    )
+    lock_lis = "".join(f"<li><code>{k}</code> — {v}</li>" for k, v in locks.items())
+    hero_src = hero.relative_to(out).as_posix() if hero.is_file() else ""
+    iframe = (
+        "<iframe class='viewer' src='viewer3d.html' title='3D'></iframe>"
+        if has_viewer else ""
+    )
+    return f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>MB-OTD RMM-OTD — Gallery</title>
+<title>MB-RMM-OTD Nested Halbach Nest</title>
 <style>
-  :root {{
-    --bg: #0b0d10; --panel: #141a22; --text: #e8eef6; --muted: #8b9bb0;
-    --accent: #3d9cf0; --warn: #e0a84a; --ok: #5dce8a; --border: #243041;
-  }}
-  * {{ box-sizing: border-box; }}
-  body {{
-    margin: 0; font-family: "Segoe UI", system-ui, sans-serif;
-    background: var(--bg); color: var(--text); line-height: 1.45;
-  }}
-  header {{
-    padding: 1.5rem 2rem; border-bottom: 1px solid var(--border);
-    background: linear-gradient(180deg, #121820, var(--bg));
-  }}
-  h1 {{ margin: 0 0 0.35rem; font-size: 1.6rem; }}
-  .badge {{
-    display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px;
-    background: #3a2a12; color: var(--warn); font-size: 0.8rem; font-weight: 600;
-  }}
-  .meta {{ color: var(--muted); font-size: 0.95rem; max-width: 70ch; }}
-  nav {{
-    display: flex; flex-wrap: wrap; gap: 0.6rem; padding: 1rem 2rem;
-    border-bottom: 1px solid var(--border); position: sticky; top: 0;
-    background: rgba(11,13,16,0.92); backdrop-filter: blur(8px); z-index: 5;
-  }}
-  nav a {{
-    color: var(--accent); text-decoration: none; padding: 0.35rem 0.7rem;
-    border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem;
-  }}
-  nav a:hover {{ background: var(--panel); }}
-  section {{ padding: 1.5rem 2rem; border-bottom: 1px solid var(--border); }}
-  h2 {{ margin: 0 0 1rem; font-size: 1.2rem; color: #c5d4e8; }}
-  .hero {{
-    width: 100%; max-height: 70vh; object-fit: contain; background: #000;
-    border: 1px solid var(--border); border-radius: 12px;
-  }}
-  .grid {{
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 1rem;
-  }}
-  .card {{
-    margin: 0; background: var(--panel); border: 1px solid var(--border);
-    border-radius: 10px; overflow: hidden;
-  }}
-  .card img {{ width: 100%; height: 180px; object-fit: contain; background: #0a0a0a; display: block; }}
-  .card figcaption {{
-    padding: 0.45rem 0.6rem; font-size: 0.78rem; color: var(--muted);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }}
-  .stats {{
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 0.75rem;
-  }}
-  .stat {{
-    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-    padding: 0.8rem 1rem;
-  }}
-  .stat b {{ display: block; font-size: 1.25rem; color: var(--ok); }}
-  .stat span {{ color: var(--muted); font-size: 0.8rem; }}
-  .files {{ columns: 2; font-size: 0.9rem; }}
-  .files a {{ color: var(--accent); }}
-  .muted {{ color: var(--muted); }}
-  iframe.viewer {{
-    width: 100%; height: 70vh; border: 1px solid var(--border); border-radius: 12px;
-    background: #000;
-  }}
-</style>
-</head>
-<body>
+:root {{ --bg:#0b0d10; --panel:#141a22; --text:#e8eef6; --muted:#8b9bb0;
+  --accent:#3d9cf0; --warn:#e0a84a; --ok:#5dce8a; --border:#243041; --bad:#e07070; }}
+* {{ box-sizing:border-box; }}
+body {{ margin:0; font-family:Segoe UI,system-ui,sans-serif; background:var(--bg); color:var(--text); }}
+header {{ padding:1.5rem 2rem; border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,#121820,var(--bg)); }}
+h1 {{ margin:0 0 .4rem; font-size:1.55rem; }}
+.badge {{ display:inline-block; padding:.15rem .55rem; border-radius:999px;
+  background:#3a2a12; color:var(--warn); font-size:.8rem; font-weight:600; margin:.15rem .25rem .15rem 0; }}
+.badge.ok {{ background:#14301f; color:var(--ok); }}
+.badge.no {{ background:#3a1515; color:var(--bad); }}
+.meta {{ color:var(--muted); max-width:75ch; }}
+nav {{ display:flex; flex-wrap:wrap; gap:.55rem; padding:1rem 2rem; position:sticky; top:0;
+  background:rgba(11,13,16,.94); border-bottom:1px solid var(--border); z-index:5; }}
+nav a {{ color:var(--accent); text-decoration:none; padding:.35rem .7rem;
+  border:1px solid var(--border); border-radius:8px; font-size:.9rem; }}
+section {{ padding:1.4rem 2rem; border-bottom:1px solid var(--border); }}
+h2 {{ margin:0 0 .9rem; font-size:1.15rem; color:#c5d4e8; }}
+.hero {{ width:100%; max-height:70vh; object-fit:contain; background:#000;
+  border:1px solid var(--border); border-radius:12px; }}
+.grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:1rem; }}
+.card {{ margin:0; background:var(--panel); border:1px solid var(--border); border-radius:10px; overflow:hidden; }}
+.card img {{ width:100%; height:180px; object-fit:contain; background:#0a0a0a; display:block; }}
+.card figcaption {{ padding:.45rem .6rem; font-size:.78rem; color:var(--muted); }}
+.stats {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:.75rem; }}
+.stat {{ background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:.8rem 1rem; }}
+.stat b {{ display:block; font-size:1.2rem; color:var(--ok); }}
+.stat span {{ color:var(--muted); font-size:.8rem; }}
+table {{ border-collapse:collapse; width:100%; max-width:720px; font-size:.92rem; }}
+th,td {{ border:1px solid var(--border); padding:.4rem .55rem; text-align:left; }}
+th {{ background:var(--panel); color:var(--muted); }}
+iframe.viewer {{ width:100%; height:70vh; border:1px solid var(--border); border-radius:12px; background:#000; }}
+ul.locks {{ color:var(--muted); }}
+code {{ color:#9ecbff; }} a {{ color:var(--accent); }}
+</style></head><body>
 <header>
-  <h1>MB-OTD — RMM-OTD Cascade Module</h1>
-  <div class="badge">ENGINEERING ESTIMATE</div>
+  <h1>MB-RMM-OTD — Nested Halbach Nest</h1>
+  <span class="badge">ENGINEERING ESTIMATE</span>
+  <span class="badge ok">NESTED ROTORS</span>
+  <span class="badge ok">MAGNETIC COUPLE ONLY</span>
+  <span class="badge no">NO GEARS</span>
+  <span class="badge ok">STATOR = VACUUM SHELL</span>
   <p class="meta">
-    Rev C production CAD master · geometry from Eigen <code>rmm_otd_dims.json</code> ·
-    llm-bim envelopes (cylinders) + Eigen 2D package + OpenSCAD stills.
-    Not fab-release; not [DEMONSTRATED].
+    Three coaxial CF rotors with <strong>Halbach arrays sintered into the rotors</strong>.
+    <strong>Magnetic coupling only</strong> between outer↔middle↔inner (no contact, no gears).
+    <strong>Outer rotor</strong> is driven and harvested by <strong>stator coils in the exterior shell</strong>,
+    which is also the <strong>vacuum barrier</strong>.
   </p>
 </header>
-
 <nav>
-  <a href="#hero">Hero</a>
-  <a href="#stats">Numbers</a>
-  <a href="#3d">3D viewer</a>
-  <a href="#sheets">2D sheets</a>
-  <a href="#fab">FAB sheets</a>
-  <a href="#renders">Renders</a>
-  <a href="#files">Files</a>
-  <a href="viewer3d.html" target="_blank">Open viewer3d</a>
-  <a href="index.html">Pack index</a>
+  <a href="#hero">Hero</a><a href="#arch">Architecture</a><a href="#stats">Numbers</a>
+  <a href="#3d">3D</a><a href="#sheets">2D</a><a href="#renders">Renders</a>
+  <a href="viewer3d.html" target="_blank">viewer3d</a>
+  <a href="model.step">STEP</a><a href="index.html">index</a>
 </nav>
-
-<section id="hero">
-  <h2>Product hero</h2>
-  <img class="hero" src="{hero.relative_to(out).as_posix() if hero.is_file() else ''}" alt="RMM-OTD hero"/>
+<section id="hero"><h2>Product hero</h2>
+<img class="hero" src="{hero_src}" alt="RMM-OTD hero"/></section>
+<section id="arch"><h2>Architecture (user lock)</h2>
+<ul class="locks">
+<li>Nested rotors only (inner / middle / outer)</li>
+<li>Magnetic coupling only between shells — <strong>no gears, no CVT gear train</strong></li>
+<li>Halbach arrays sintered into CF rotor walls</li>
+<li>Outer rotor driven <em>and</em> harvested by shell stator coils</li>
+<li>Exterior shell = vacuum barrier = stator host</li>
+</ul>
+<h3>Design locks</h3><ul class="locks">{lock_lis or "<li>See rmm_otd_basis.json</li>"}</ul>
+<h3>Shells (mm)</h3>
+<table><tr><th>#</th><th>Role</th><th>r_i</th><th>r_o</th><th>mass kg</th></tr>
+{shell_rows}</table>
+<p class="meta">Vessel/stator shell: ID {housing_ri*2:.0f} mm · OD {housing_ro*2:.0f} mm · rotor L {L:.0f} mm</p>
 </section>
-
-<section id="stats">
-  <h2>Performance (engine-pinned EST)</h2>
-  <div class="stats">
-    <div class="stat"><b>{d.get('E_kwh', '—')}</b><span>kWh stored</span></div>
-    <div class="stat"><b>{d.get('E_use', '—')}</b><span>kWh usable</span></div>
-    <div class="stat"><b>{d.get('wh_kg', '—')}</b><span>Wh/kg rotors</span></div>
-    <div class="stat"><b>{d.get('v_tip', '—')}</b><span>m/s tip</span></div>
-    <div class="stat"><b>{d.get('SF', '—')}</b><span>stress SF</span></div>
-    <div class="stat"><b>{d.get('m_rotors', '—')}</b><span>kg rotors</span></div>
-  </div>
+<section id="stats"><h2>Performance EST</h2>
+<div class="stats">
+<div class="stat"><b>{fv('E_kWh')}</b><span>kWh</span></div>
+<div class="stat"><b>{fv('mass_kg',0)}</b><span>kg rotors</span></div>
+<div class="stat"><b>{fv('tip_speed_m_s',0)}</b><span>m/s tip</span></div>
+<div class="stat"><b>{fv('stress_SF')}</b><span>hoop SF</span></div>
+<div class="stat"><b>{fv('B_combined_est_T',2)}</b><span>T combined EST</span></div>
+</div></section>
+<section id="3d"><h2>3D nest envelopes</h2>
+<p class="meta">STEP {'yes' if has_step else 'no'} · glTF {'yes' if has_gltf else 'no'} ·
+<a href="viewer3d.html" target="_blank">viewer3d.html</a>
+{' · <a href="model.step">model.step</a>' if has_step else ''}
+{' · <a href="model.gltf">model.gltf</a>' if has_gltf else ''}</p>
+{iframe}
+<p class="meta">Empty radial gaps = magnetic coupling. No gear solids. Stator band is in the vacuum shell wall around the outer rotor only.</p>
 </section>
-
-<section id="3d">
-  <h2>3D model</h2>
-  <p class="muted">
-    STEP: {'yes' if has_step else 'no'} ·
-    glTF: {'yes' if has_gltf else 'no'} ·
-    meshes: {len(mesh_list)} STL ·
-    <a href="viewer3d.html" target="_blank">viewer3d.html</a>
-    {' · <a href="model.step">model.step</a>' if has_step else ''}
-    {' · <a href="model.gltf">model.gltf</a>' if has_gltf else ''}
-  </p>
-  {"<iframe class='viewer' src='viewer3d.html' title='3D viewer'></iframe>" if has_viewer else "<p class='muted'>viewer3d.html not generated</p>"}
-</section>
-
-<section id="sheets">
-  <h2>2D design sheets ({len(sheet_pngs)})</h2>
-  <div class="grid">
-    {cards(sheet_pngs, "sheets")}
-  </div>
-</section>
-
-<section id="fab">
-  <h2>FAB sheets ({len(fab_pngs)})</h2>
-  <div class="grid">
-    {cards(fab_pngs, "fab")}
-  </div>
-</section>
-
-<section id="renders">
-  <h2>Renders / OpenSCAD stills ({len(render_pngs)})</h2>
-  <div class="grid">
-    {cards(render_pngs, "renders")}
-  </div>
-</section>
-
-<section id="files">
-  <h2>Pack files</h2>
-  <div class="files">
-    <ul>
-      <li><a href="model.step">model.step</a></li>
-      <li><a href="model.gltf">model.gltf</a></li>
-      <li><a href="model.ifc">model.ifc</a></li>
-      <li><a href="model.llmbim.json">model.llmbim.json</a></li>
-      <li><a href="MANIFEST.json">MANIFEST.json</a></li>
-      <li><a href="rmm_otd_meta.json">rmm_otd_meta.json</a></li>
-      <li><a href="boq.json">boq.json</a> (if present)</li>
-      <li><a href="docs/rmm_otd_dims.json">geometry master</a></li>
-    </ul>
-  </div>
-  <p class="muted">Built with llm-bim <code>export_deliverables</code> + Eigen SSOT.</p>
-</section>
-</body>
-</html>
+<section id="sheets"><h2>2D nest drawings ({len(sheet_pngs)})</h2>
+<div class="grid">{cards_fn(sheet_pngs, "sheets")}</div></section>
+<section id="renders"><h2>Renders ({len(render_pngs)})</h2>
+<div class="grid">{cards_fn(render_pngs, "renders")}</div></section>
+</body></html>
 """
-    path = out / "gallery.html"
-    path.write_text(html, encoding="utf-8")
-    return path
 
 
-def _enhance_index(out: Path, d: dict) -> None:
+def _enhance_index(out: Path, perf: dict) -> None:
     idx = out / "index.html"
+    e = perf.get("E_kWh", "—")
     banner = (
         f'<div style="padding:12px 16px;background:#1a2330;border-bottom:1px solid #345;'
-        f'font-family:system-ui,sans-serif">'
-        f'<strong style="color:#e8eef6">RMM-OTD gallery:</strong> '
-        f'<a style="color:#6cb6ff" href="gallery.html">Open gallery.html</a> · '
-        f'<a style="color:#6cb6ff" href="viewer3d.html">3D viewer</a> · '
-        f'E≈{d.get("E_kwh")} kWh · SF={d.get("SF")} · '
+        f'font-family:system-ui,sans-serif;color:#e8eef6">'
+        f'<strong>RMM-OTD nested nest (NO GEARS)</strong> — '
+        f'<a style="color:#6cb6ff" href="gallery.html">gallery.html</a> · '
+        f'<a style="color:#6cb6ff" href="viewer3d.html">3D</a> · '
+        f'E≈{e} kWh · outer driven/harvested by shell stator · '
         f'<span style="color:#e0a84a">ENGINEERING ESTIMATE</span></div>'
     )
     if idx.is_file():
         text = idx.read_text(encoding="utf-8", errors="replace")
-        if "gallery.html" not in text:
+        if "gallery.html" not in text or "NO GEARS" not in text:
             if "<body>" in text:
                 text = text.replace("<body>", "<body>\n" + banner, 1)
             else:
@@ -613,24 +589,23 @@ def _enhance_index(out: Path, d: dict) -> None:
             idx.write_text(text, encoding="utf-8")
     else:
         idx.write_text(
-            f"<!DOCTYPE html><html><head><meta charset='utf-8'/>"
-            f"<title>MB-OTD</title></head><body>{banner}"
+            f"<!DOCTYPE html><html><body>{banner}"
             f"<p><a href='gallery.html'>gallery</a></p></body></html>",
             encoding="utf-8",
         )
 
 
 def main() -> None:
-    print("=== RMM-OTD llm-bim cascade pack ===")
+    print("=== RMM-OTD nested Halbach nest (no gears) ===")
     print(f"  Eigen: {EIGEN}")
     p, out = build(OUT)
     print(json.dumps({"out": str(out), "stats": p.stats()}, indent=2))
-    gallery = out / "gallery.html"
-    print(f"\nOpen: {gallery}")
+    gal = out / "gallery.html"
+    print(f"\nOpen: {gal}")
     try:
-        webbrowser.open(gallery.resolve().as_uri())
+        webbrowser.open(gal.resolve().as_uri())
     except Exception as exc:  # noqa: BLE001
-        print(f"  (browser open failed: {exc})")
+        print(f"  browser: {exc}")
 
 
 if __name__ == "__main__":

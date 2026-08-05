@@ -1,218 +1,114 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
+<html lang="en"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>MB-OTD RMM-OTD — Gallery</title>
+<title>MB-RMM-OTD Nested Halbach Nest</title>
 <style>
-  :root {
-    --bg: #0b0d10; --panel: #141a22; --text: #e8eef6; --muted: #8b9bb0;
-    --accent: #3d9cf0; --warn: #e0a84a; --ok: #5dce8a; --border: #243041;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; font-family: "Segoe UI", system-ui, sans-serif;
-    background: var(--bg); color: var(--text); line-height: 1.45;
-  }
-  header {
-    padding: 1.5rem 2rem; border-bottom: 1px solid var(--border);
-    background: linear-gradient(180deg, #121820, var(--bg));
-  }
-  h1 { margin: 0 0 0.35rem; font-size: 1.6rem; }
-  .badge {
-    display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px;
-    background: #3a2a12; color: var(--warn); font-size: 0.8rem; font-weight: 600;
-  }
-  .meta { color: var(--muted); font-size: 0.95rem; max-width: 70ch; }
-  nav {
-    display: flex; flex-wrap: wrap; gap: 0.6rem; padding: 1rem 2rem;
-    border-bottom: 1px solid var(--border); position: sticky; top: 0;
-    background: rgba(11,13,16,0.92); backdrop-filter: blur(8px); z-index: 5;
-  }
-  nav a {
-    color: var(--accent); text-decoration: none; padding: 0.35rem 0.7rem;
-    border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem;
-  }
-  nav a:hover { background: var(--panel); }
-  section { padding: 1.5rem 2rem; border-bottom: 1px solid var(--border); }
-  h2 { margin: 0 0 1rem; font-size: 1.2rem; color: #c5d4e8; }
-  .hero {
-    width: 100%; max-height: 70vh; object-fit: contain; background: #000;
-    border: 1px solid var(--border); border-radius: 12px;
-  }
-  .grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 1rem;
-  }
-  .card {
-    margin: 0; background: var(--panel); border: 1px solid var(--border);
-    border-radius: 10px; overflow: hidden;
-  }
-  .card img { width: 100%; height: 180px; object-fit: contain; background: #0a0a0a; display: block; }
-  .card figcaption {
-    padding: 0.45rem 0.6rem; font-size: 0.78rem; color: var(--muted);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .stats {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 0.75rem;
-  }
-  .stat {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-    padding: 0.8rem 1rem;
-  }
-  .stat b { display: block; font-size: 1.25rem; color: var(--ok); }
-  .stat span { color: var(--muted); font-size: 0.8rem; }
-  .files { columns: 2; font-size: 0.9rem; }
-  .files a { color: var(--accent); }
-  .muted { color: var(--muted); }
-  iframe.viewer {
-    width: 100%; height: 70vh; border: 1px solid var(--border); border-radius: 12px;
-    background: #000;
-  }
-</style>
-</head>
-<body>
+:root { --bg:#0b0d10; --panel:#141a22; --text:#e8eef6; --muted:#8b9bb0;
+  --accent:#3d9cf0; --warn:#e0a84a; --ok:#5dce8a; --border:#243041; --bad:#e07070; }
+* { box-sizing:border-box; }
+body { margin:0; font-family:Segoe UI,system-ui,sans-serif; background:var(--bg); color:var(--text); }
+header { padding:1.5rem 2rem; border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,#121820,var(--bg)); }
+h1 { margin:0 0 .4rem; font-size:1.55rem; }
+.badge { display:inline-block; padding:.15rem .55rem; border-radius:999px;
+  background:#3a2a12; color:var(--warn); font-size:.8rem; font-weight:600; margin:.15rem .25rem .15rem 0; }
+.badge.ok { background:#14301f; color:var(--ok); }
+.badge.no { background:#3a1515; color:var(--bad); }
+.meta { color:var(--muted); max-width:75ch; }
+nav { display:flex; flex-wrap:wrap; gap:.55rem; padding:1rem 2rem; position:sticky; top:0;
+  background:rgba(11,13,16,.94); border-bottom:1px solid var(--border); z-index:5; }
+nav a { color:var(--accent); text-decoration:none; padding:.35rem .7rem;
+  border:1px solid var(--border); border-radius:8px; font-size:.9rem; }
+section { padding:1.4rem 2rem; border-bottom:1px solid var(--border); }
+h2 { margin:0 0 .9rem; font-size:1.15rem; color:#c5d4e8; }
+.hero { width:100%; max-height:70vh; object-fit:contain; background:#000;
+  border:1px solid var(--border); border-radius:12px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:1rem; }
+.card { margin:0; background:var(--panel); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.card img { width:100%; height:180px; object-fit:contain; background:#0a0a0a; display:block; }
+.card figcaption { padding:.45rem .6rem; font-size:.78rem; color:var(--muted); }
+.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:.75rem; }
+.stat { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:.8rem 1rem; }
+.stat b { display:block; font-size:1.2rem; color:var(--ok); }
+.stat span { color:var(--muted); font-size:.8rem; }
+table { border-collapse:collapse; width:100%; max-width:720px; font-size:.92rem; }
+th,td { border:1px solid var(--border); padding:.4rem .55rem; text-align:left; }
+th { background:var(--panel); color:var(--muted); }
+iframe.viewer { width:100%; height:70vh; border:1px solid var(--border); border-radius:12px; background:#000; }
+ul.locks { color:var(--muted); }
+code { color:#9ecbff; } a { color:var(--accent); }
+</style></head><body>
 <header>
-  <h1>MB-OTD — RMM-OTD Cascade Module</h1>
-  <div class="badge">ENGINEERING ESTIMATE</div>
+  <h1>MB-RMM-OTD — Nested Halbach Nest</h1>
+  <span class="badge">ENGINEERING ESTIMATE</span>
+  <span class="badge ok">NESTED ROTORS</span>
+  <span class="badge ok">MAGNETIC COUPLE ONLY</span>
+  <span class="badge no">NO GEARS</span>
+  <span class="badge ok">STATOR = VACUUM SHELL</span>
   <p class="meta">
-    Rev C production CAD master · geometry from Eigen <code>rmm_otd_dims.json</code> ·
-    llm-bim envelopes (cylinders) + Eigen 2D package + OpenSCAD stills.
-    Not fab-release; not [DEMONSTRATED].
+    Three coaxial CF rotors with <strong>Halbach arrays sintered into the rotors</strong>.
+    <strong>Magnetic coupling only</strong> between outer↔middle↔inner (no contact, no gears).
+    <strong>Outer rotor</strong> is driven and harvested by <strong>stator coils in the exterior shell</strong>,
+    which is also the <strong>vacuum barrier</strong>.
   </p>
 </header>
-
 <nav>
-  <a href="#hero">Hero</a>
-  <a href="#stats">Numbers</a>
-  <a href="#3d">3D viewer</a>
-  <a href="#sheets">2D sheets</a>
-  <a href="#fab">FAB sheets</a>
-  <a href="#renders">Renders</a>
-  <a href="#files">Files</a>
-  <a href="viewer3d.html" target="_blank">Open viewer3d</a>
-  <a href="index.html">Pack index</a>
+  <a href="#hero">Hero</a><a href="#arch">Architecture</a><a href="#stats">Numbers</a>
+  <a href="#3d">3D</a><a href="#sheets">2D</a><a href="#renders">Renders</a>
+  <a href="viewer3d.html" target="_blank">viewer3d</a>
+  <a href="model.step">STEP</a><a href="index.html">index</a>
 </nav>
-
-<section id="hero">
-  <h2>Product hero</h2>
-  <img class="hero" src="renders/product_hero.jpg" alt="RMM-OTD hero"/>
+<section id="hero"><h2>Product hero</h2>
+<img class="hero" src="renders/product_hero.jpg" alt="RMM-OTD hero"/></section>
+<section id="arch"><h2>Architecture (user lock)</h2>
+<ul class="locks">
+<li>Nested rotors only (inner / middle / outer)</li>
+<li>Magnetic coupling only between shells — <strong>no gears, no CVT gear train</strong></li>
+<li>Halbach arrays sintered into CF rotor walls</li>
+<li>Outer rotor driven <em>and</em> harvested by shell stator coils</li>
+<li>Exterior shell = vacuum barrier = stator host</li>
+</ul>
+<h3>Design locks</h3><ul class="locks"><li><code>DL-RMM-001</code> — Coaxial nested CF Halbach rotors (n≥3); NOT solid steel disc</li><li><code>DL-RMM-002</code> — Stator drives AND harvests outermost rotor; stator housing = vacuum vessel</li><li><code>DL-RMM-003</code> — Inner rotors magnetically coupled only (no contact bearings between shells)</li><li><code>DL-RMM-004</code> — Taylor phase-lock (helicity conservation) — no electronic sync required</li><li><code>DL-RMM-005</code> — RIF (P3) reuses same rotor nest + crucible; do not fork geometry</li><li><code>DL-RMM-006</code> — NO inter-rotor magnetic gears / flux-modulator gear path (user 2026-08-05)</li><li><code>DL-RMM-007</code> — Halbach arrays sintered/embedded in CF rotor walls (integral to rotors)</li></ul>
+<h3>Shells (mm)</h3>
+<table><tr><th>#</th><th>Role</th><th>r_i</th><th>r_o</th><th>mass kg</th></tr>
+<tr><td>0</td><td>inner_coupled</td><td>290</td><td>350</td><td>280.5</td></tr><tr><td>1</td><td>inner_coupled</td><td>390</td><td>450</td><td>368.1</td></tr><tr><td>2</td><td>outer_stator_driven</td><td>520</td><td>580</td><td>482.1</td></tr></table>
+<p class="meta">Vessel/stator shell: ID 1220 mm · OD 1340 mm · rotor L 1500 mm</p>
 </section>
-
-<section id="stats">
-  <h2>Performance (engine-pinned EST)</h2>
-  <div class="stats">
-    <div class="stat"><b>36.7</b><span>kWh stored</span></div>
-    <div class="stat"><b>27.5</b><span>kWh usable</span></div>
-    <div class="stat"><b>68.0</b><span>Wh/kg rotors</span></div>
-    <div class="stat"><b>816.0</b><span>m/s tip</span></div>
-    <div class="stat"><b>2.0</b><span>stress SF</span></div>
-    <div class="stat"><b>540.0</b><span>kg rotors</span></div>
-  </div>
+<section id="stats"><h2>Performance EST</h2>
+<div class="stats">
+<div class="stat"><b>52.75</b><span>kWh</span></div>
+<div class="stat"><b>1131</b><span>kg rotors</span></div>
+<div class="stat"><b>729</b><span>m/s tip</span></div>
+<div class="stat"><b>2.43</b><span>hoop SF</span></div>
+<div class="stat"><b>2.81</b><span>T combined EST</span></div>
+</div></section>
+<section id="3d"><h2>3D nest envelopes</h2>
+<p class="meta">STEP yes · glTF yes ·
+<a href="viewer3d.html" target="_blank">viewer3d.html</a>
+ · <a href="model.step">model.step</a>
+ · <a href="model.gltf">model.gltf</a></p>
+<iframe class='viewer' src='viewer3d.html' title='3D'></iframe>
+<p class="meta">Empty radial gaps = magnetic coupling. No gear solids. Stator band is in the vacuum shell wall around the outer rotor only.</p>
 </section>
-
-<section id="3d">
-  <h2>3D model</h2>
-  <p class="muted">
-    STEP: yes ·
-    glTF: yes ·
-    meshes: 6 STL ·
-    <a href="viewer3d.html" target="_blank">viewer3d.html</a>
-     · <a href="model.step">model.step</a>
-     · <a href="model.gltf">model.gltf</a>
-  </p>
-  <iframe class='viewer' src='viewer3d.html' title='3D viewer'></iframe>
-</section>
-
-<section id="sheets">
-  <h2>2D design sheets (12)</h2>
-  <div class="grid">
-    <figure class="card"><a href="sheets/MB-OTD-ASM-001_Assembly_Sequence.png" target="_blank"><img src="sheets/MB-OTD-ASM-001_Assembly_Sequence.png" alt="MB-OTD-ASM-001_Assembly_Sequence" loading="lazy"/></a><figcaption>MB-OTD-ASM-001_Assembly_Sequence</figcaption></figure>
-<figure class="card"><a href="sheets/MB-OTD-BOM-001_Bill_of_Materials.png" target="_blank"><img src="sheets/MB-OTD-BOM-001_Bill_of_Materials.png" alt="MB-OTD-BOM-001_Bill_of_Materials" loading="lazy"/></a><figcaption>MB-OTD-BOM-001_Bill_of_Materials</figcaption></figure>
-<figure class="card"><a href="sheets/MB-OTD-DET-001_Rotor_Set.png" target="_blank"><img src="sheets/MB-OTD-DET-001_Rotor_Set.png" alt="MB-OTD-DET-001_Rotor_Set" loading="lazy"/></a><figcaption>MB-OTD-DET-001_Rotor_Set</figcaption></figure>
-<figure class="card"><a href="sheets/MB-OTD-DET-002_Magnetic_Couplings.png" target="_blank"><img src="sheets/MB-OTD-DET-002_Magnetic_Couplings.png" alt="MB-OTD-DET-002_Magnetic_Couplings" loading="lazy"/></a><figcaption>MB-OTD-DET-002_Magnetic_Couplings</figcaption></figure>
-<figure class="card"><a href="sheets/MB-OTD-DET-003_Coil_Vessel_Segment.png" target="_blank"><img src="sheets/MB-OTD-DET-003_Coil_Vessel_Segment.png" alt="MB-OTD-DET-003_Coil_Vessel_Segment" loading="lazy"/></a><figcaption>MB-OTD-DET-003_Coil_Vessel_Segment</figcaption></figure>
-<figure class="card"><a href="sheets/MB-OTD-DET-004_Flux_Modulators.png" target="_blank"><img src="sheets/MB-OTD-DET-004_Flux_Modulators.png" alt="MB-OTD-DET-004_Flux_Modulators" loading="lazy"/></a><figcaption>MB-OTD-DET-004_Flux_Modulators</figcaption></figure>
-<figure class="card"><a href="sheets/MB-OTD-GA-001_General_Arrangement.png" target="_blank"><img src="sheets/MB-OTD-GA-001_General_Arrangement.png" alt="MB-OTD-GA-001_General_Arrangement" loading="lazy"/></a><figcaption>MB-OTD-GA-001_General_Arrangement</figcaption></figure>
-<figure class="card"><a href="sheets/MB-OTD-PLT-001_Assembled_Module.png" target="_blank"><img src="sheets/MB-OTD-PLT-001_Assembled_Module.png" alt="MB-OTD-PLT-001_Assembled_Module" loading="lazy"/></a><figcaption>MB-OTD-PLT-001_Assembled_Module</figcaption></figure>
-<figure class="card"><a href="sheets/MB-OTD-PLT-002_Longitudinal_Section.png" target="_blank"><img src="sheets/MB-OTD-PLT-002_Longitudinal_Section.png" alt="MB-OTD-PLT-002_Longitudinal_Section" loading="lazy"/></a><figcaption>MB-OTD-PLT-002_Longitudinal_Section</figcaption></figure>
-<figure class="card"><a href="sheets/MB-OTD-PLT-003_Exploded.png" target="_blank"><img src="sheets/MB-OTD-PLT-003_Exploded.png" alt="MB-OTD-PLT-003_Exploded" loading="lazy"/></a><figcaption>MB-OTD-PLT-003_Exploded</figcaption></figure>
-<figure class="card"><a href="sheets/MB-OTD-PLT-004_Component_Gallery.png" target="_blank"><img src="sheets/MB-OTD-PLT-004_Component_Gallery.png" alt="MB-OTD-PLT-004_Component_Gallery" loading="lazy"/></a><figcaption>MB-OTD-PLT-004_Component_Gallery</figcaption></figure>
-<figure class="card"><a href="sheets/MB-OTD-QA-001_Inspection_Plan.png" target="_blank"><img src="sheets/MB-OTD-QA-001_Inspection_Plan.png" alt="MB-OTD-QA-001_Inspection_Plan" loading="lazy"/></a><figcaption>MB-OTD-QA-001_Inspection_Plan</figcaption></figure>
-  </div>
-</section>
-
-<section id="fab">
-  <h2>FAB sheets (8)</h2>
-  <div class="grid">
-    <figure class="card"><a href="fab/MB-OTD-FAB-001_Bottom_End_Cap.png" target="_blank"><img src="fab/MB-OTD-FAB-001_Bottom_End_Cap.png" alt="MB-OTD-FAB-001_Bottom_End_Cap" loading="lazy"/></a><figcaption>MB-OTD-FAB-001_Bottom_End_Cap</figcaption></figure>
-<figure class="card"><a href="fab/MB-OTD-FAB-002_Top_End_Cap.png" target="_blank"><img src="fab/MB-OTD-FAB-002_Top_End_Cap.png" alt="MB-OTD-FAB-002_Top_End_Cap" loading="lazy"/></a><figcaption>MB-OTD-FAB-002_Top_End_Cap</figcaption></figure>
-<figure class="card"><a href="fab/MB-OTD-FAB-003_Central_Column.png" target="_blank"><img src="fab/MB-OTD-FAB-003_Central_Column.png" alt="MB-OTD-FAB-003_Central_Column" loading="lazy"/></a><figcaption>MB-OTD-FAB-003_Central_Column</figcaption></figure>
-<figure class="card"><a href="fab/MB-OTD-FAB-004_Outer_Rotor_Hub.png" target="_blank"><img src="fab/MB-OTD-FAB-004_Outer_Rotor_Hub.png" alt="MB-OTD-FAB-004_Outer_Rotor_Hub" loading="lazy"/></a><figcaption>MB-OTD-FAB-004_Outer_Rotor_Hub</figcaption></figure>
-<figure class="card"><a href="fab/MB-OTD-FAB-005_CVT_Housing_Ring.png" target="_blank"><img src="fab/MB-OTD-FAB-005_CVT_Housing_Ring.png" alt="MB-OTD-FAB-005_CVT_Housing_Ring" loading="lazy"/></a><figcaption>MB-OTD-FAB-005_CVT_Housing_Ring</figcaption></figure>
-<figure class="card"><a href="fab/MB-OTD-FAB-006_Modulator_Carrier_B.png" target="_blank"><img src="fab/MB-OTD-FAB-006_Modulator_Carrier_B.png" alt="MB-OTD-FAB-006_Modulator_Carrier_B" loading="lazy"/></a><figcaption>MB-OTD-FAB-006_Modulator_Carrier_B</figcaption></figure>
-<figure class="card"><a href="fab/MB-OTD-FAB-007_Coil_Vessel_Flange.png" target="_blank"><img src="fab/MB-OTD-FAB-007_Coil_Vessel_Flange.png" alt="MB-OTD-FAB-007_Coil_Vessel_Flange" loading="lazy"/></a><figcaption>MB-OTD-FAB-007_Coil_Vessel_Flange</figcaption></figure>
-<figure class="card"><a href="fab/MB-OTD-FAB-008_Touchdown_Land_Ring.png" target="_blank"><img src="fab/MB-OTD-FAB-008_Touchdown_Land_Ring.png" alt="MB-OTD-FAB-008_Touchdown_Land_Ring" loading="lazy"/></a><figcaption>MB-OTD-FAB-008_Touchdown_Land_Ring</figcaption></figure>
-  </div>
-</section>
-
-<section id="renders">
-  <h2>Renders / OpenSCAD stills (35)</h2>
-  <div class="grid">
-    <figure class="card"><a href="renders/cascade_assembled.png" target="_blank"><img src="renders/cascade_assembled.png" alt="cascade_assembled" loading="lazy"/></a><figcaption>cascade_assembled</figcaption></figure>
-<figure class="card"><a href="renders/cascade_cvt.png" target="_blank"><img src="renders/cascade_cvt.png" alt="cascade_cvt" loading="lazy"/></a><figcaption>cascade_cvt</figcaption></figure>
-<figure class="card"><a href="renders/cascade_exploded.png" target="_blank"><img src="renders/cascade_exploded.png" alt="cascade_exploded" loading="lazy"/></a><figcaption>cascade_exploded</figcaption></figure>
-<figure class="card"><a href="renders/cascade_gearB.png" target="_blank"><img src="renders/cascade_gearB.png" alt="cascade_gearB" loading="lazy"/></a><figcaption>cascade_gearB</figcaption></figure>
-<figure class="card"><a href="renders/cascade_section.png" target="_blank"><img src="renders/cascade_section.png" alt="cascade_section" loading="lazy"/></a><figcaption>cascade_section</figcaption></figure>
-<figure class="card"><a href="renders/cascade_segment.png" target="_blank"><img src="renders/cascade_segment.png" alt="cascade_segment" loading="lazy"/></a><figcaption>cascade_segment</figcaption></figure>
-<figure class="card"><a href="renders/cutaway.jpg" target="_blank"><img src="renders/cutaway.jpg" alt="cutaway" loading="lazy"/></a><figcaption>cutaway</figcaption></figure>
+<section id="sheets"><h2>2D nest drawings (1)</h2>
+<div class="grid"><figure class="card"><a href="sheets/MB-RMM-OTD-GA-001.png" target="_blank"><img src="sheets/MB-RMM-OTD-GA-001.png" alt="MB-RMM-OTD-GA-001" loading="lazy"/></a><figcaption>MB-RMM-OTD-GA-001</figcaption></figure></div></section>
+<section id="renders"><h2>Renders (18)</h2>
+<div class="grid"><figure class="card"><a href="renders/cutaway.jpg" target="_blank"><img src="renders/cutaway.jpg" alt="cutaway" loading="lazy"/></a><figcaption>cutaway</figcaption></figure>
 <figure class="card"><a href="renders/GA-001.png" target="_blank"><img src="renders/GA-001.png" alt="GA-001" loading="lazy"/></a><figcaption>GA-001</figcaption></figure>
 <figure class="card"><a href="renders/hero.jpg" target="_blank"><img src="renders/hero.jpg" alt="hero" loading="lazy"/></a><figcaption>hero</figcaption></figure>
 <figure class="card"><a href="renders/L1_layout_iso.png" target="_blank"><img src="renders/L1_layout_iso.png" alt="L1_layout_iso" loading="lazy"/></a><figcaption>L1_layout_iso</figcaption></figure>
 <figure class="card"><a href="renders/L2_layout_plan.png" target="_blank"><img src="renders/L2_layout_plan.png" alt="L2_layout_plan" loading="lazy"/></a><figcaption>L2_layout_plan</figcaption></figure>
 <figure class="card"><a href="renders/L3_layout_elev.png" target="_blank"><img src="renders/L3_layout_elev.png" alt="L3_layout_elev" loading="lazy"/></a><figcaption>L3_layout_elev</figcaption></figure>
-<figure class="card"><a href="renders/m60_amb_radial.png" target="_blank"><img src="renders/m60_amb_radial.png" alt="m60_amb_radial" loading="lazy"/></a><figcaption>m60_amb_radial</figcaption></figure>
-<figure class="card"><a href="renders/m60_coupling.png" target="_blank"><img src="renders/m60_coupling.png" alt="m60_coupling" loading="lazy"/></a><figcaption>m60_coupling</figcaption></figure>
-<figure class="card"><a href="renders/m60_exploded.png" target="_blank"><img src="renders/m60_exploded.png" alt="m60_exploded" loading="lazy"/></a><figcaption>m60_exploded</figcaption></figure>
-<figure class="card"><a href="renders/m60_mg.png" target="_blank"><img src="renders/m60_mg.png" alt="m60_mg" loading="lazy"/></a><figcaption>m60_mg</figcaption></figure>
-<figure class="card"><a href="renders/m60_section.png" target="_blank"><img src="renders/m60_section.png" alt="m60_section" loading="lazy"/></a><figcaption>m60_section</figcaption></figure>
-<figure class="card"><a href="renders/m60_twc.png" target="_blank"><img src="renders/m60_twc.png" alt="m60_twc" loading="lazy"/></a><figcaption>m60_twc</figcaption></figure>
 <figure class="card"><a href="renders/MB-RMM-OTD-GA-001.png" target="_blank"><img src="renders/MB-RMM-OTD-GA-001.png" alt="MB-RMM-OTD-GA-001" loading="lazy"/></a><figcaption>MB-RMM-OTD-GA-001</figcaption></figure>
 <figure class="card"><a href="renders/model_match_iso.png" target="_blank"><img src="renders/model_match_iso.png" alt="model_match_iso" loading="lazy"/></a><figcaption>model_match_iso</figcaption></figure>
 <figure class="card"><a href="renders/model_match_iso_full.png" target="_blank"><img src="renders/model_match_iso_full.png" alt="model_match_iso_full" loading="lazy"/></a><figcaption>model_match_iso_full</figcaption></figure>
 <figure class="card"><a href="renders/model_match_plan.png" target="_blank"><img src="renders/model_match_plan.png" alt="model_match_plan" loading="lazy"/></a><figcaption>model_match_plan</figcaption></figure>
-<figure class="card"><a href="renders/nested_exploded.png" target="_blank"><img src="renders/nested_exploded.png" alt="nested_exploded" loading="lazy"/></a><figcaption>nested_exploded</figcaption></figure>
-<figure class="card"><a href="renders/nested_gear.png" target="_blank"><img src="renders/nested_gear.png" alt="nested_gear" loading="lazy"/></a><figcaption>nested_gear</figcaption></figure>
-<figure class="card"><a href="renders/nested_section.png" target="_blank"><img src="renders/nested_section.png" alt="nested_section" loading="lazy"/></a><figcaption>nested_section</figcaption></figure>
-<figure class="card"><a href="renders/nested_segment.png" target="_blank"><img src="renders/nested_segment.png" alt="nested_segment" loading="lazy"/></a><figcaption>nested_segment</figcaption></figure>
 <figure class="card"><a href="renders/product_hero.jpg" target="_blank"><img src="renders/product_hero.jpg" alt="product_hero" loading="lazy"/></a><figcaption>product_hero</figcaption></figure>
-<figure class="card"><a href="renders/product_hero.png" target="_blank"><img src="renders/product_hero.png" alt="product_hero" loading="lazy"/></a><figcaption>product_hero</figcaption></figure>
 <figure class="card"><a href="renders/R1_iso.png" target="_blank"><img src="renders/R1_iso.png" alt="R1_iso" loading="lazy"/></a><figcaption>R1_iso</figcaption></figure>
 <figure class="card"><a href="renders/R1_iso_process.png" target="_blank"><img src="renders/R1_iso_process.png" alt="R1_iso_process" loading="lazy"/></a><figcaption>R1_iso_process</figcaption></figure>
 <figure class="card"><a href="renders/R2_plan.png" target="_blank"><img src="renders/R2_plan.png" alt="R2_plan" loading="lazy"/></a><figcaption>R2_plan</figcaption></figure>
 <figure class="card"><a href="renders/R3_elev.png" target="_blank"><img src="renders/R3_elev.png" alt="R3_elev" loading="lazy"/></a><figcaption>R3_elev</figcaption></figure>
 <figure class="card"><a href="renders/R3_elev_S.png" target="_blank"><img src="renders/R3_elev_S.png" alt="R3_elev_S" loading="lazy"/></a><figcaption>R3_elev_S</figcaption></figure>
 <figure class="card"><a href="renders/R4_elev_E.png" target="_blank"><img src="renders/R4_elev_E.png" alt="R4_elev_E" loading="lazy"/></a><figcaption>R4_elev_E</figcaption></figure>
-<figure class="card"><a href="renders/section.jpg" target="_blank"><img src="renders/section.jpg" alt="section" loading="lazy"/></a><figcaption>section</figcaption></figure>
-  </div>
-</section>
-
-<section id="files">
-  <h2>Pack files</h2>
-  <div class="files">
-    <ul>
-      <li><a href="model.step">model.step</a></li>
-      <li><a href="model.gltf">model.gltf</a></li>
-      <li><a href="model.ifc">model.ifc</a></li>
-      <li><a href="model.llmbim.json">model.llmbim.json</a></li>
-      <li><a href="MANIFEST.json">MANIFEST.json</a></li>
-      <li><a href="rmm_otd_meta.json">rmm_otd_meta.json</a></li>
-      <li><a href="boq.json">boq.json</a> (if present)</li>
-      <li><a href="docs/rmm_otd_dims.json">geometry master</a></li>
-    </ul>
-  </div>
-  <p class="muted">Built with llm-bim <code>export_deliverables</code> + Eigen SSOT.</p>
-</section>
-</body>
-</html>
+<figure class="card"><a href="renders/section.jpg" target="_blank"><img src="renders/section.jpg" alt="section" loading="lazy"/></a><figcaption>section</figcaption></figure></div></section>
+</body></html>
