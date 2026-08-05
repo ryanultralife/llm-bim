@@ -1,0 +1,154 @@
+{
+  "missing": [],
+  "failures": [],
+  "files": {
+    "model.llmbim.json": {
+      "size": 24172,
+      "ok": true
+    },
+    "model.ifc": {
+      "size": 24381,
+      "ok": true
+    },
+    "model.gltf": {
+      "size": 638211,
+      "ok": true
+    },
+    "model.step": {
+      "size": 508955,
+      "ok": true
+    },
+    "boq.json": {
+      "size": 22942,
+      "ok": true
+    },
+    "clash_report.json": {
+      "size": 42326,
+      "ok": true
+    },
+    "design_rules.json": {
+      "size": 298,
+      "ok": true
+    },
+    "materials/MATERIALS_AND_PARTS.json": {
+      "size": 14422,
+      "ok": true
+    },
+    "schedules/plumbing_takeoff.json": {
+      "size": 234,
+      "ok": true
+    },
+    "schedules/csi.csv": {
+      "size": 6417,
+      "ok": true
+    },
+    "schedules/zone_areas.csv": {
+      "size": 214,
+      "ok": true
+    },
+    "schedules/connections.csv": {
+      "size": 0,
+      "ok": true
+    },
+    "schedules/levels.csv": {
+      "size": 153,
+      "ok": true
+    },
+    "schedules/drawing_list.csv": {
+      "size": 1986,
+      "ok": true
+    },
+    "schedules/doors.csv": {
+      "size": 0,
+      "ok": true
+    },
+    "schedules/windows.csv": {
+      "size": 0,
+      "ok": true
+    },
+    "schedules/duct.csv": {
+      "size": 0,
+      "ok": true
+    },
+    "schedules/conduit.csv": {
+      "size": 0,
+      "ok": true
+    },
+    "schedules/cable_tray.csv": {
+      "size": 0,
+      "ok": true
+    },
+    "schedules/column.csv": {
+      "size": 0,
+      "ok": true
+    },
+    "schedules/beam.csv": {
+      "size": 0,
+      "ok": true
+    },
+    "index.html": {
+      "size": 15067,
+      "ok": true
+    },
+    "materials/duct_takeoff.json": {
+      "size": 4,
+      "ok": true
+    },
+    "materials/conduit_takeoff.json": {
+      "size": 4,
+      "ok": true
+    },
+    "materials/cable_tray_takeoff.json": {
+      "size": 4,
+      "ok": true
+    },
+    "materials/steel_takeoff.json": {
+      "size": 408,
+      "ok": true
+    },
+    "materials/trade_schedule.json": {
+      "size": 4976,
+      "ok": true
+    }
+  },
+  "ifc_has_project": true,
+  "step_has_brep": true,
+  "gltf_valid": true,
+  "gltf_bbox_extent_mm": 1756.0,
+  "gltf_mesh_count": 22,
+  "gltf_index_errors": 0,
+  "gltf_material_count": 3,
+  "part_steps": 18,
+  "materials_json_count": 19,
+  "materials_csv_count": 15,
+  "has_materials_package": true,
+  "materials_has_fitting_takeoff": true,
+  "materials_has_csi": true,
+  "has_drawing_list": true,
+  "has_levels_schedule": true,
+  "has_doors_schedule": true,
+  "has_windows_schedule": true,
+  "has_index_html": true,
+  "has_hero_svg": false,
+  "has_viewer3d": true,
+  "viewer_self_contained": true,
+  "view_svg_count": 4,
+  "view_dxf_count": 4,
+  "has_elev_dxf": true,
+  "has_section_dxf": true,
+  "has_plan_dxf": true,
+  "design_rules_findings": 1,
+  "design_rules_summary": {
+    "error": 0,
+    "warning": 1,
+    "info": 0,
+    "total": 1
+  },
+  "walls_total": 0,
+  "walls_untyped": 0,
+  "assumption_flags": 0,
+  "step_ref_count": 0,
+  "step_ref_absolute_paths": 0,
+  "step_ref_missing": 0,
+  "ok": true
+}

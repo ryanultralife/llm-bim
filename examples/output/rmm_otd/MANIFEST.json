@@ -1,0 +1,616 @@
+{
+  "project": "MB-OTD RMM-OTD Cascade Module",
+  "honesty": "ENGINEERING ESTIMATE \u2014 LLM-BIM agent deliverables pack",
+  "set_type": "construction",
+  "outputs": {
+    "mode": "part",
+    "model": "model.llmbim.json",
+    "ifc": "model.ifc",
+    "gltf": "model.gltf",
+    "step": "model.step",
+    "hero": null,
+    "views": "views/",
+    "schedules": "schedules/",
+    "phase_filter": null,
+    "export_element_count": 20,
+    "full_element_count": 20,
+    "materials": "materials/",
+    "plumbing_takeoff": "schedules/plumbing_takeoff.json",
+    "boq": "boq.json",
+    "clash_report": "clash_report.json",
+    "design_rules": "design_rules.json",
+    "dxf": "views/plan_Module.dxf",
+    "dxf_elev": [
+      "views/elev_S.dxf",
+      "views/elev_E.dxf"
+    ],
+    "dxf_section": "views/section.dxf",
+    "parts": {
+      "project": "MB-OTD RMM-OTD Cascade Module",
+      "parts": [
+        {
+          "sheet": "P-001",
+          "name": "Stand pad",
+          "id": "eqp_e02ce5f2c8a640b58aaeee613ffd7d63",
+          "kind": "pedestal",
+          "size_mm": [
+            1756.0,
+            1756.0,
+            80.0
+          ],
+          "svg": "drawings/P-001_Stand_pad.svg",
+          "step": "step/P-001_Stand_pad.step"
+        },
+        {
+          "sheet": "P-002",
+          "name": "Central column",
+          "id": "eqp_484ea52217f74904acc3b0aebf34a138",
+          "kind": "shaft",
+          "size_mm": [
+            90.0,
+            90.0,
+            1158.0
+          ],
+          "svg": "drawings/P-002_Central_column.svg",
+          "step": "step/P-002_Central_column.step"
+        },
+        {
+          "sheet": "P-003",
+          "name": "Outer CF rotor",
+          "id": "eqp_37108b8d95754620ad914b2aaa78aab3",
+          "kind": "rotor",
+          "size_mm": [
+            1200.0,
+            1200.0,
+            300.0
+          ],
+          "svg": "drawings/P-003_Outer_CF_rotor.svg",
+          "step": "step/P-003_Outer_CF_rotor.step"
+        },
+        {
+          "sheet": "P-004",
+          "name": "Middle CF rotor",
+          "id": "eqp_7d44a829be8e496d963f0e0969a9ee61",
+          "kind": "rotor",
+          "size_mm": [
+            960.0,
+            960.0,
+            362.0
+          ],
+          "svg": "drawings/P-004_Middle_CF_rotor.svg",
+          "step": "step/P-004_Middle_CF_rotor.step"
+        },
+        {
+          "sheet": "P-005",
+          "name": "Inner CF rotor",
+          "id": "eqp_e3c87869d2324940af703f13c8a88d33",
+          "kind": "rotor",
+          "size_mm": [
+            533.4,
+            533.4,
+            380.0
+          ],
+          "svg": "drawings/P-005_Inner_CF_rotor.svg",
+          "step": "step/P-005_Inner_CF_rotor.step"
+        },
+        {
+          "sheet": "P-006",
+          "name": "Drive stator band",
+          "id": "eqp_ab84051645ea4d75bb8452cb171c9c24",
+          "kind": "stator",
+          "size_mm": [
+            1200.0,
+            1200.0,
+            220.0
+          ],
+          "svg": "drawings/P-006_Drive_stator_band.svg",
+          "step": "step/P-006_Drive_stator_band.step"
+        },
+        {
+          "sheet": "P-007",
+          "name": "Main vessel wall",
+          "id": "eqp_f1cc14a90c40422d8b42457db3135a25",
+          "kind": "vessel",
+          "size_mm": [
+            1264.0,
+            1264.0,
+            360.0
+          ],
+          "svg": "drawings/P-007_Main_vessel_wall.svg",
+          "step": "step/P-007_Main_vessel_wall.step"
+        },
+        {
+          "sheet": "P-008",
+          "name": "Bottom end cap",
+          "id": "eqp_ff519e117166406180d9b83b2bd6a84a",
+          "kind": "cap",
+          "size_mm": [
+            800.0,
+            800.0,
+            30.0
+          ],
+          "svg": "drawings/P-008_Bottom_end_cap.svg",
+          "step": "step/P-008_Bottom_end_cap.step"
+        },
+        {
+          "sheet": "P-009",
+          "name": "Top end cap",
+          "id": "eqp_ec49534e6fed4e9fbfcb37f90d6dc940",
+          "kind": "cap",
+          "size_mm": [
+            1308.0,
+            1308.0,
+            30.0
+          ],
+          "svg": "drawings/P-009_Top_end_cap.svg",
+          "step": "step/P-009_Top_end_cap.step"
+        },
+        {
+          "sheet": "P-010",
+          "name": "Gear A modulator",
+          "id": "eqp_1f7d3c2306374e5595513f66eabdc4f6",
+          "kind": "modulator",
+          "size_mm": [
+            1056.0,
+            1056.0,
+            242.0
+          ],
+          "svg": "drawings/P-010_Gear_A_modulator.svg",
+          "step": "step/P-010_Gear_A_modulator.step"
+        },
+        {
+          "sheet": "P-011",
+          "name": "Gear B modulator",
+          "id": "eqp_04eb6bc745fb48c69a0e32c8c1c50526",
+          "kind": "modulator",
+          "size_mm": [
+            616.0,
+            616.0,
+            155.0
+          ],
+          "svg": "drawings/P-011_Gear_B_modulator.svg",
+          "step": "step/P-011_Gear_B_modulator.step"
+        },
+        {
+          "sheet": "P-012",
+          "name": "CVT flywheel rim",
+          "id": "eqp_116acf7779a647e192ea79e2cee1c2aa",
+          "kind": "cvt",
+          "size_mm": [
+            468.0,
+            468.0,
+            100.0
+          ],
+          "svg": "drawings/P-012_CVT_flywheel_rim.svg",
+          "step": "step/P-012_CVT_flywheel_rim.step"
+        },
+        {
+          "sheet": "P-013",
+          "name": "CVT isolation can",
+          "id": "eqp_7aa397fd034543f29bf6ddfd027402e1",
+          "kind": "cvt",
+          "size_mm": [
+            504.0,
+            504.0,
+            100.0
+          ],
+          "svg": "drawings/P-013_CVT_isolation_can.svg",
+          "step": "step/P-013_CVT_isolation_can.step"
+        },
+        {
+          "sheet": "P-014",
+          "name": "CVT follower",
+          "id": "eqp_978b7cb35459429dbec1d40ca6f1e6b9",
+          "kind": "cvt",
+          "size_mm": [
+            560.0,
+            560.0,
+            100.0
+          ],
+          "svg": "drawings/P-014_CVT_follower.svg",
+          "step": "step/P-014_CVT_follower.step"
+        },
+        {
+          "sheet": "P-015",
+          "name": "CVT control ring",
+          "id": "eqp_22d22242c63a424d8fb677dce4e57ea0",
+          "kind": "cvt",
+          "size_mm": [
+            612.0,
+            612.0,
+            100.0
+          ],
+          "svg": "drawings/P-015_CVT_control_ring.svg",
+          "step": "step/P-015_CVT_control_ring.step"
+        },
+        {
+          "sheet": "P-016",
+          "name": "CVT stator",
+          "id": "eqp_13a3a037756b4edebb2381677d130c32",
+          "kind": "cvt",
+          "size_mm": [
+            704.0,
+            704.0,
+            100.0
+          ],
+          "svg": "drawings/P-016_CVT_stator.svg",
+          "step": "step/P-016_CVT_stator.step"
+        },
+        {
+          "sheet": "P-017",
+          "name": "CVT housing",
+          "id": "eqp_6445baaaca4b425a833e5c8ef576aab9",
+          "kind": "cvt",
+          "size_mm": [
+            744.0,
+            744.0,
+            100.0
+          ],
+          "svg": "drawings/P-017_CVT_housing.svg",
+          "step": "step/P-017_CVT_housing.step"
+        },
+        {
+          "sheet": "P-018",
+          "name": "Containment sleeve",
+          "id": "eqp_27b594a81a23409a9ce032cdc56c97dd",
+          "kind": "containment",
+          "size_mm": [
+            1556.0,
+            1556.0,
+            1120.0
+          ],
+          "svg": "drawings/P-018_Containment_sleeve.svg",
+          "step": "step/P-018_Containment_sleeve.step"
+        }
+      ],
+      "assembly_ga": "drawings/P-000_assembly_GA.svg"
+    },
+    "plot_set_pdf": "PLOT_SET.pdf",
+    "drawing_list": "schedules/drawing_list.csv",
+    "sheet_count": 28,
+    "viewer3d": "viewer3d.html",
+    "product_views": [
+      "R1_iso.png",
+      "R1_iso_process.png",
+      "R2_plan.png",
+      "R3_elev.png",
+      "R3_elev_S.png",
+      "R4_elev_E.png",
+      "model_match_iso.png",
+      "model_match_plan.png",
+      "model_match_iso_full.png",
+      "L1_layout_iso.png",
+      "L2_layout_plan.png",
+      "L3_layout_elev.png"
+    ],
+    "hero_product": {
+      "schema": "llmbim.hero_product_manifest/v1",
+      "generated_at": "2026-08-05T17:20:56Z",
+      "product_id": "mb_otd_rmm_otd_cascade_module",
+      "kind": "skid",
+      "title": "MB-OTD RMM-OTD Cascade Module",
+      "brief": "renders/HERO_BRIEF.json",
+      "product_hero": null,
+      "source": "brief_only",
+      "status": "needs_render",
+      "honesty": "ENGINEERING ESTIMATE visualization \u2014 communication still only; geometry/performance SSOT remains design basis + pack model",
+      "prompt": "Photoreal industrial product photograph of a complete process skid package (ISO container-class or factory skid), brushed stainless and painted steel, Nevada industrial yard or clean bay, soft late-afternoon light, crane padeyes visible if present, no people, no logos, no readable text. Subject: MB-OTD RMM-OTD Cascade Module (skid). Approximate envelope ~1756\u00d71756\u00d71278 mm. Visible equipment tags (approx layout): MB-OTD, MB-OTD, MB-OTD, MB-OTD, MB-OTD, MB-OTD, MB-OTD, MB-OTD. Match mechanical-battery brand still language: cream/copper industrial, sharp product photography, full-frame subject filling the frame.",
+      "related": {
+        "hero_svg": false,
+        "viewer3d": true,
+        "model_gltf": true,
+        "model_step": true,
+        "plot_set": true,
+        "product_views": true,
+        "sheets": false
+      },
+      "note": "If status=needs_render: use prompt in HERO_BRIEF.json with an image model (agent Imagine or external), prefer image-to-image from reference_images (R1_iso / hero.svg), then stage_hero_render(pack, path).",
+      "reference_images": [
+        "renders/model_match_iso_full.png",
+        "renders/model_match_iso.png",
+        "renders/L1_layout_iso.png",
+        "renders/R1_iso.png",
+        "renders/R1_iso_process.png",
+        "renders/R3_elev.png",
+        "renders/R3_elev_S.png",
+        "renders/R4_elev_E.png",
+        "renders/R2_plan.png"
+      ]
+    },
+    "index_html": "index.html",
+    "zip": "deliverables.zip"
+  },
+  "stats": {
+    "levels": 1,
+    "elements": 20,
+    "equipment": 18,
+    "slab": 1,
+    "room": 1
+  },
+  "export_stats": {
+    "levels": 1,
+    "elements": 20,
+    "equipment": 18,
+    "slab": 1,
+    "room": 1
+  },
+  "phase_filter": null,
+  "export_element_count": 20,
+  "full_element_count": 20,
+  "errors": [
+    {
+      "step": "render_hero",
+      "error": "too many values to unpack (expected 3, got 4)",
+      "trace": "Traceback (most recent call last):\n  File \"C:\\Users\\ryanv\\llm-bim\\packages\\drawings\\llmbim_drawings\\deliverables.py\", line 35, in _try\n    return fn()\n  File \"C:\\Users\\ryanv\\llm-bim\\packages\\drawings\\llmbim_drawings\\deliverables.py\", line 559, in <lambda>\n    _try(\"render_hero\", errors, lambda: render_hero_svg(export_model, hero_path))\n                                        ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\ryanv\\llm-bim\\packages\\geometry\\llmbim_geometry\\render_hero.py\", line 63, in render_hero_svg\n    svg = _emit_svg(faces, name, int(size[0]), int(size[1]))\n  File \"C:\\Users\\ryanv\\llm-bim\\packages\\geometry\\llmbim_geometry\\render_hero.py\", line 729, in _emit_svg\n    for _d, pts, _c in faces:\n        ^^^^^^^^^^^\nValueError: too many values to unpack (expected 3, got 4)\n"
+    }
+  ],
+  "verification": {
+    "missing": [],
+    "failures": [],
+    "files": {
+      "model.llmbim.json": {
+        "size": 24172,
+        "ok": true
+      },
+      "model.ifc": {
+        "size": 24381,
+        "ok": true
+      },
+      "model.gltf": {
+        "size": 638211,
+        "ok": true
+      },
+      "model.step": {
+        "size": 508955,
+        "ok": true
+      },
+      "boq.json": {
+        "size": 22942,
+        "ok": true
+      },
+      "clash_report.json": {
+        "size": 42326,
+        "ok": true
+      },
+      "design_rules.json": {
+        "size": 298,
+        "ok": true
+      },
+      "materials/MATERIALS_AND_PARTS.json": {
+        "size": 14422,
+        "ok": true
+      },
+      "schedules/plumbing_takeoff.json": {
+        "size": 234,
+        "ok": true
+      },
+      "schedules/csi.csv": {
+        "size": 6417,
+        "ok": true
+      },
+      "schedules/zone_areas.csv": {
+        "size": 214,
+        "ok": true
+      },
+      "schedules/connections.csv": {
+        "size": 0,
+        "ok": true
+      },
+      "schedules/levels.csv": {
+        "size": 153,
+        "ok": true
+      },
+      "schedules/drawing_list.csv": {
+        "size": 1986,
+        "ok": true
+      },
+      "schedules/doors.csv": {
+        "size": 0,
+        "ok": true
+      },
+      "schedules/windows.csv": {
+        "size": 0,
+        "ok": true
+      },
+      "schedules/duct.csv": {
+        "size": 0,
+        "ok": true
+      },
+      "schedules/conduit.csv": {
+        "size": 0,
+        "ok": true
+      },
+      "schedules/cable_tray.csv": {
+        "size": 0,
+        "ok": true
+      },
+      "schedules/column.csv": {
+        "size": 0,
+        "ok": true
+      },
+      "schedules/beam.csv": {
+        "size": 0,
+        "ok": true
+      },
+      "index.html": {
+        "size": 15067,
+        "ok": true
+      },
+      "materials/duct_takeoff.json": {
+        "size": 4,
+        "ok": true
+      },
+      "materials/conduit_takeoff.json": {
+        "size": 4,
+        "ok": true
+      },
+      "materials/cable_tray_takeoff.json": {
+        "size": 4,
+        "ok": true
+      },
+      "materials/steel_takeoff.json": {
+        "size": 408,
+        "ok": true
+      },
+      "materials/trade_schedule.json": {
+        "size": 4976,
+        "ok": true
+      }
+    },
+    "ifc_has_project": true,
+    "step_has_brep": true,
+    "gltf_valid": true,
+    "gltf_bbox_extent_mm": 1756.0,
+    "gltf_mesh_count": 22,
+    "gltf_index_errors": 0,
+    "gltf_material_count": 3,
+    "part_steps": 18,
+    "materials_json_count": 19,
+    "materials_csv_count": 15,
+    "has_materials_package": true,
+    "materials_has_fitting_takeoff": true,
+    "materials_has_csi": true,
+    "has_drawing_list": true,
+    "has_levels_schedule": true,
+    "has_doors_schedule": true,
+    "has_windows_schedule": true,
+    "has_index_html": true,
+    "has_hero_svg": false,
+    "has_viewer3d": true,
+    "viewer_self_contained": true,
+    "view_svg_count": 4,
+    "view_dxf_count": 4,
+    "has_elev_dxf": true,
+    "has_section_dxf": true,
+    "has_plan_dxf": true,
+    "design_rules_findings": 1,
+    "design_rules_summary": {
+      "error": 0,
+      "warning": 1,
+      "info": 0,
+      "total": 1
+    },
+    "walls_total": 0,
+    "walls_untyped": 0,
+    "assumption_flags": 0,
+    "step_ref_count": 0,
+    "step_ref_absolute_paths": 0,
+    "step_ref_missing": 0,
+    "ok": true
+  },
+  "checksums_sha256": {
+    "boq.csv": "deb50e49a33230280786c73106d9092d2b839c0679055812b3efcfb0c78c013c",
+    "boq.json": "ba760d321545bc2cebce2a2d02fb68d06ac84297adf0550fccfe62f40bdd3aee",
+    "clash_report.json": "146d134c898e910af0e851493bab3e196f5911fc6f0d25080b8ec9b095655da7",
+    "design_rules.json": "56bd32c7d2c1a1455d075f931fbc440ae71f6e064e66ee71fb1445cacc0d9bb0",
+    "index.html": "721f53a02c496dbb91ae8ec6673afff2aac5a5631eda87ce61306cc2415445b6",
+    "model.gltf": "5e3c1a1fcbd78553ff81adf020906f88b73d9b3086f86d387d5cc50d95536fb1",
+    "model.ifc": "2888a49d353a7447940bd2cfacdacd5ec486332b3c16c7ad06a81dee31c16d2d",
+    "model.llmbim.json": "d115d7b7e6a1fb0ab125499b2f2043042652d9aa91acf9aaa67dadc1fa44c6f8",
+    "model.step": "5d64d96480e6d4bae432485a705fbfded4c44445a255aa461a479e27fe5627ff",
+    "viewer3d.html": "c7f106ee35145909dc9d8f55efdedd68b1fa722e0fa7d08122fe4894a609ec63",
+    "materials/cable_tray_takeoff.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "materials/cable_tray_takeoff.json": "a5338d955b09046ec0b16f3a9625b7955c763aae07dc722e474e6078745f932f",
+    "materials/conduit_takeoff.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "materials/conduit_takeoff.json": "a5338d955b09046ec0b16f3a9625b7955c763aae07dc722e474e6078745f932f",
+    "materials/connections.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "materials/connections.json": "a5338d955b09046ec0b16f3a9625b7955c763aae07dc722e474e6078745f932f",
+    "materials/csi_instances.csv": "45dc3a35aae45398c08032087329a3b00fa5ff7ecf93ff3cde9877d93e17e88f",
+    "materials/csi_instances.json": "d636c1fc8825875b709c7cd981f6a729056b79cdbbb9b13a2799236f0829128a",
+    "materials/csi_takeoff.csv": "0f10bb71f97a096080eae275055bf282e5eff6fb0fe341328f073f5525f930be",
+    "materials/csi_takeoff.json": "a309d94c53f1ca03daed1c338107f7b770f7451c94dd22a9ba7338473b96ad15",
+    "materials/duct_takeoff.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "materials/duct_takeoff.json": "a5338d955b09046ec0b16f3a9625b7955c763aae07dc722e474e6078745f932f",
+    "materials/fire_takeoff.json": "5a4d2365b7b80ba6ead985c3a09e3c7e121e1a74e861bf57177236d6c9137ac0",
+    "materials/fitting_takeoff.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "materials/fitting_takeoff.json": "a5338d955b09046ec0b16f3a9625b7955c763aae07dc722e474e6078745f932f",
+    "materials/MATERIALS_AND_PARTS.json": "2b659c3f03204d4028d6b8a18baa6dc6973a410bed75649670bb2101f753d659",
+    "materials/material_assignments.csv": "b4f00368a752709b83ae6d3d26b57e1f71fe8a1931ef244b571cc14da44d9870",
+    "materials/material_assignments.json": "215652708e214a31ad2df9a6d294a1bd63517497a5801293b79bb520d6a6aa9d",
+    "materials/material_bom_exploded.csv": "d6bcdefd54bee0041d702fd82e118ba25d0812535d4b648cb8f75ac744b81c13",
+    "materials/material_bom_exploded.json": "eb014fbb7763fe776b81a96f2dc3f851be52d063988a51c4f567c989364a18d7",
+    "materials/material_summary.csv": "46ed7be09b3be321372cde3a6860f98f3096311f45ea2b128ce2a51dae93ed7c",
+    "materials/material_summary.json": "0989fc05f66e7b17eb1882467a77ae32ca5da844fee0d818d53beeb5066f3844",
+    "materials/part_assignments.csv": "dd6de5962e4c35110b038b94da70df32e7ee3c0b333a9fd0319e20bc5a118767",
+    "materials/part_assignments.json": "42a5fbe676b2f3d4bceb7bc7da02ff27a4aa6e80df21914f74bcec3839bc1e8e",
+    "materials/part_summary.csv": "5f5a2e495fe8cdbce0a5e185e3177d32b37376e33085802ae197eeb08f41ff89",
+    "materials/part_summary.json": "e1838d7b29f8a580413eb7b91f5341e02266f7a5b363f3eac951c9cd65509c69",
+    "materials/pipe_takeoff.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "materials/pipe_takeoff.json": "a5338d955b09046ec0b16f3a9625b7955c763aae07dc722e474e6078745f932f",
+    "materials/plumbing_schedule.json": "c1e61b8cd541928133dee5e69dce4b658c45b94c5927a9e8d402b0ac93dff070",
+    "materials/rebar_takeoff.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "materials/rebar_takeoff.json": "a5338d955b09046ec0b16f3a9625b7955c763aae07dc722e474e6078745f932f",
+    "materials/steel_takeoff.csv": "f7f2a58159c1e503265b91fd26f8887b5d04864adbd9aaf6057cfa5960e431df",
+    "materials/steel_takeoff.json": "005e20f4aa8191b326c98e59f235fbd338e3f3ac0b4feb281cb158f0e3bdc71f",
+    "materials/trade_schedule.json": "cc7bcb46dbd53241100c5f3ff018a3bb8303b759918cccdc5185454e157bc589",
+    "parts/PARTS_INDEX.json": "e69f31bb9466fc0069fda7d400c986cd7e9aa13d543403aec8e0ce3e507c873a",
+    "renders/HERO_BRIEF.json": "f89b21617914bfd5eacb390d3a92bfea6b70d43d133214edb05eee4f9a7747d6",
+    "renders/HERO_MANIFEST.json": "2c94dc871c1c0de369b2e76867e17d797dfb33487f80f0f4e1b9e8eb49da7b90",
+    "renders/MESH_VIEWS.json": "da7972fdc55319d2d6b52742c6599b12e3ccf851d1c9a7d24842702124fb2855",
+    "renders/PRODUCT_VIEWS.json": "7c7625d4142601508077be2173d9bf10e44546da536f97cdbbdffe10eb9b1bac",
+    "schedules/beam.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "schedules/cable_tray.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "schedules/column.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "schedules/conduit.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "schedules/connections.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "schedules/csi.csv": "45dc3a35aae45398c08032087329a3b00fa5ff7ecf93ff3cde9877d93e17e88f",
+    "schedules/doors.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "schedules/drawing_list.csv": "8855ae24cd5ccda33513085e80a65da876a2b83fa1367e9c22bb3add2758f6c1",
+    "schedules/drawing_list.json": "7deb0005f753a6174bd8f22cabb682a6828b0ad0034d3087b3fc278625d602e8",
+    "schedules/duct.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "schedules/equipment.csv": "807d58baf384840660e0e0f75e4e0ae8fea1738ef45fd76be924c625c93d2ad0",
+    "schedules/fitting.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "schedules/hvac_devices.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "schedules/levels.csv": "9807bc2b98f868212a330578a85c0c30f2d6f439788cda06439be53ee1450589",
+    "schedules/material.csv": "b4f00368a752709b83ae6d3d26b57e1f71fe8a1931ef244b571cc14da44d9870",
+    "schedules/part.csv": "e3d9917f302ec1a8fd8d57cb0a80055641187883aec5fff2458774a84d2cf73b",
+    "schedules/pipe.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "schedules/plumbing_takeoff.json": "c1e61b8cd541928133dee5e69dce4b658c45b94c5927a9e8d402b0ac93dff070",
+    "schedules/room.csv": "41d27006b769e9737ee3e0b9258a0c25afbb9b3e2baa3d44ce52f3d475fa28c9",
+    "schedules/wall.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "schedules/windows.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "schedules/zone_areas.csv": "41d27006b769e9737ee3e0b9258a0c25afbb9b3e2baa3d44ce52f3d475fa28c9",
+    "views/elev_E.svg": "77db4302671b34230b8c2d12e0d860a07ef8d913c2ba17364ad22b47fe3ff07e",
+    "views/elev_S.svg": "70ce9da91ce18ec076a69ca52aaa5bfe447ad402d32640422d61e9dd3cd1f463",
+    "views/plan_Module.svg": "48f676a3881ccab4349e75c1da4792b21632e0106167ebc1a0795adb7a1a8535",
+    "views/section.svg": "9a4a13da4a71bdb05b497f90e2277ca7456fe58b2245ce88cb7028c46b99cd44",
+    "parts/drawings/P-000_assembly_GA.svg": "036b1b9b296281d9c7a595186e80db7db87ea2940e43b8409d3fab7b122a00a7",
+    "parts/drawings/P-001_Stand_pad.svg": "d9c109ff4759455e49e07d85757a2b846bec89c09a065a205d850fa5e3db5763",
+    "parts/drawings/P-002_Central_column.svg": "8661d71ef6a2c03b108719a3165c932ef1c081c363367ac0df6e9be2770add81",
+    "parts/drawings/P-003_Outer_CF_rotor.svg": "f3fd041167c394b8f20255ef5f30b631162fcfdd51205ac936ab8a5ecf090f7e",
+    "parts/drawings/P-004_Middle_CF_rotor.svg": "547dbb59f761f1e5808b8eba647cbc27b1dc1db993e0612a33ba581c402a48f7",
+    "parts/drawings/P-005_Inner_CF_rotor.svg": "faa31fa82820a2a990c2a5d818a01a80cb33b70de72032f5cf4374a8e80a2c6a",
+    "parts/drawings/P-006_Drive_stator_band.svg": "7ade1c57fabed7e9bff4b1d4ebee91453b460d1330a879718e4733108f3aa6d6",
+    "parts/drawings/P-007_Main_vessel_wall.svg": "19ec6bbdb90ba16e051271b7a2467d7a0dfdf8711a177d8feeba00835da902e7",
+    "parts/drawings/P-008_Bottom_end_cap.svg": "1bf548cd785afa00af923afda86533e6a4607a6cefdbe1c4cacfa609299857a1",
+    "parts/drawings/P-009_Top_end_cap.svg": "c2bc26faf23b3d1f6a74855670ba8f444d6c8a427107dfa84d3850e1c7010a29",
+    "parts/drawings/P-010_Gear_A_modulator.svg": "b06856617b2908e5ce99d8aef3a072e33dca545329f0870150d4a377b64e85bc",
+    "parts/drawings/P-011_Gear_B_modulator.svg": "7e113941c86421c3bd76476fb7fa5ea1ad588a4f42c2143d514b2b764bb2a020",
+    "parts/drawings/P-012_CVT_flywheel_rim.svg": "6968c3911aecc3edd6ad44f07498b7a61e0c161a733fe453dffc6dc83f96a683",
+    "parts/drawings/P-013_CVT_isolation_can.svg": "28399ca70493588e748d0840262efd5a769ff3d7050326472fdb8d53a5f0fece",
+    "parts/drawings/P-014_CVT_follower.svg": "829aec6da76a3ef8100ccb83d40374f3dd7e4fc7be48854970ea9ec06210c495",
+    "parts/drawings/P-015_CVT_control_ring.svg": "23144505a7bfc3ce6416939e2e7f5969f49dd1239d605d63828c96000d555606",
+    "parts/drawings/P-016_CVT_stator.svg": "4a5219ce9bc7cf2ab424dfbed61402fd96ff3ccc30bbe498ec326d5c687da463",
+    "parts/drawings/P-017_CVT_housing.svg": "109ea508e34cb00cf9c8e8e103aa68b3ded373a22ba027f131153d386090a3b1",
+    "parts/drawings/P-018_Containment_sleeve.svg": "6cdd5f4398aa50beb6536822a9f83a01b815fd774f7de7d92c98535193af9f33",
+    "parts/step/P-001_Stand_pad.step": "d895c12296da8db7d0ec44ec32b3fc815e57902077347b1c3212f5e862e25cc0",
+    "parts/step/P-002_Central_column.step": "fe8f5ea0a4459bd8f3c79ee37f2f02befc78512b69ee568be8880eecb1d06d0e",
+    "parts/step/P-003_Outer_CF_rotor.step": "f7290ca6f79173e95658c0918df02da1281e77247df3330805eea248fed8548a",
+    "parts/step/P-004_Middle_CF_rotor.step": "8bbb38f1c77cfcff260c9ac368d0ea80aeddd08bd580fdbb7a8a90e7d785566b",
+    "parts/step/P-005_Inner_CF_rotor.step": "15a6192a6841f166b5d0f070643791aa1395c3f7a9e1420f792fa8760e26a144",
+    "parts/step/P-006_Drive_stator_band.step": "126f97e4b63c13cdf96e8b9c4fe3511a49e66fdc7d7cdba7d2a62c5df3212ef9",
+    "parts/step/P-007_Main_vessel_wall.step": "832fd6dd7a64e60a91c965d793f14599be7bf24962e869b0602187f2ff67ec9f",
+    "parts/step/P-008_Bottom_end_cap.step": "4da53b3e1ace2b0ede2f06f60b5569d8c1483ecb974a1c1f5e0a03c008a2a6b5",
+    "parts/step/P-009_Top_end_cap.step": "7663a7bfa3102198a4eb45fd468792524783656d69ade4ef23b6b24e281fc4d2",
+    "parts/step/P-010_Gear_A_modulator.step": "877407e03f5098c46a4fcc06b5a7331d8eecc3de19547f31282ece45425a3e7b",
+    "parts/step/P-011_Gear_B_modulator.step": "1f912fdaa8f0e67af1ac9613433fc3edbc7a12147c16ef89d6e1f351056f8555",
+    "parts/step/P-012_CVT_flywheel_rim.step": "cfd8f8e82d6045f93bf57da9055c33ff06c7c211583059002ba0dc9f445e7c38",
+    "parts/step/P-013_CVT_isolation_can.step": "53d526ca1d25a97b9aa459ebca4f4263058157f4f10e8834469811135e4a3987",
+    "parts/step/P-014_CVT_follower.step": "3c568209ea33d4f5a5c212e8baef8bca2749c637e09890cb0b10080db4fd2b9f",
+    "parts/step/P-015_CVT_control_ring.step": "db8b8daf3568de9472a16d9db8545ee7dfd1b0ccf08f5ba76a177cc5dafb5642",
+    "parts/step/P-016_CVT_stator.step": "f1d7af42989e6d10d18493be34c2e996e051891b126de20eaa81d39de8156879",
+    "parts/step/P-017_CVT_housing.step": "3beee2e046b674e8a576c3b8c0edcd7fc444b357df30736b09a7b70b5c823572",
+    "parts/step/P-018_Containment_sleeve.step": "bc231b8cb1395fc0f4051a3d4cc5d8da6611c83298fbb4fce30492c479e23d4f"
+  },
+  "ok": false
+}
