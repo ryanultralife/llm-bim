@@ -54,8 +54,8 @@ code { color:#9ecbff; } a { color:var(--accent); }
   </p>
 </header>
 <nav>
-  <a href="#hero">Hero</a><a href="#arch">Architecture</a><a href="#stats">Numbers</a>
-  <a href="#3d">3D</a><a href="#sheets">2D</a><a href="#renders">Renders</a>
+  <a href="#hero">Hero / 24 poles</a><a href="#arch">Architecture</a><a href="#stats">Numbers</a>
+  <a href="#3d">3D</a><a href="#poles">Pole detail</a><a href="#sheets">2D</a><a href="#renders">Renders</a>
   <a href="viewer3d.html" target="_blank">viewer3d</a>
   <a href="model.step">STEP</a><a href="index.html">index</a>
 </nav>
@@ -91,9 +91,21 @@ code { color:#9ecbff; } a { color:var(--accent); }
 <iframe class='viewer' src='viewer3d.html' title='3D'></iframe>
 <p class="meta">Empty radial gaps = magnetic coupling. No gear solids. Stator band is in the vacuum shell wall around the outer rotor only.</p>
 </section>
-<section id="sheets"><h2>2D nest drawings (1)</h2>
-<div class="grid"><figure class="card"><a href="sheets/MB-RMM-OTD-GA-001.png" target="_blank"><img src="sheets/MB-RMM-OTD-GA-001.png" alt="MB-RMM-OTD-GA-001" loading="lazy"/></a><figcaption>MB-RMM-OTD-GA-001</figcaption></figure></div></section>
-<section id="renders"><h2>Renders (18)</h2>
+<section id="poles"><h2>24 Halbach poles per rotor (set geometry)</h2>
+<p class="meta">Magnets glued/encapsulated — pole angles fixed. Colors = Halbach cycle +r / +θ / −r / −θ. Basis: segments_per_shell=24 (6 pole-pairs × 4).</p>
+<div class="grid"><figure class="card"><a href="renders/poles_end_view.png" target="_blank"><img src="renders/poles_end_view.png" alt="poles_end_view" loading="lazy"/></a><figcaption>poles_end_view</figcaption></figure>
+<figure class="card"><a href="renders/poles_section.png" target="_blank"><img src="renders/poles_section.png" alt="poles_section" loading="lazy"/></a><figcaption>poles_section</figcaption></figure>
+<figure class="card"><a href="renders/poles_unrolled_outer.png" target="_blank"><img src="renders/poles_unrolled_outer.png" alt="poles_unrolled_outer" loading="lazy"/></a><figcaption>poles_unrolled_outer</figcaption></figure></div>
+<div class="grid" style="margin-top:1rem"><figure class="card"><a href="sheets/MB-RMM-OTD-POLE-001_End_View_24poles.png" target="_blank"><img src="sheets/MB-RMM-OTD-POLE-001_End_View_24poles.png" alt="MB-RMM-OTD-POLE-001_End_View_24poles" loading="lazy"/></a><figcaption>MB-RMM-OTD-POLE-001_End_View_24poles</figcaption></figure>
+<figure class="card"><a href="sheets/MB-RMM-OTD-POLE-002_Section.png" target="_blank"><img src="sheets/MB-RMM-OTD-POLE-002_Section.png" alt="MB-RMM-OTD-POLE-002_Section" loading="lazy"/></a><figcaption>MB-RMM-OTD-POLE-002_Section</figcaption></figure>
+<figure class="card"><a href="sheets/MB-RMM-OTD-POLE-003_Unrolled_Outer.png" target="_blank"><img src="sheets/MB-RMM-OTD-POLE-003_Unrolled_Outer.png" alt="MB-RMM-OTD-POLE-003_Unrolled_Outer" loading="lazy"/></a><figcaption>MB-RMM-OTD-POLE-003_Unrolled_Outer</figcaption></figure></div>
+</section>
+<section id="sheets"><h2>2D nest drawings (4)</h2>
+<div class="grid"><figure class="card"><a href="sheets/MB-RMM-OTD-GA-001.png" target="_blank"><img src="sheets/MB-RMM-OTD-GA-001.png" alt="MB-RMM-OTD-GA-001" loading="lazy"/></a><figcaption>MB-RMM-OTD-GA-001</figcaption></figure>
+<figure class="card"><a href="sheets/MB-RMM-OTD-POLE-001_End_View_24poles.png" target="_blank"><img src="sheets/MB-RMM-OTD-POLE-001_End_View_24poles.png" alt="MB-RMM-OTD-POLE-001_End_View_24poles" loading="lazy"/></a><figcaption>MB-RMM-OTD-POLE-001_End_View_24poles</figcaption></figure>
+<figure class="card"><a href="sheets/MB-RMM-OTD-POLE-002_Section.png" target="_blank"><img src="sheets/MB-RMM-OTD-POLE-002_Section.png" alt="MB-RMM-OTD-POLE-002_Section" loading="lazy"/></a><figcaption>MB-RMM-OTD-POLE-002_Section</figcaption></figure>
+<figure class="card"><a href="sheets/MB-RMM-OTD-POLE-003_Unrolled_Outer.png" target="_blank"><img src="sheets/MB-RMM-OTD-POLE-003_Unrolled_Outer.png" alt="MB-RMM-OTD-POLE-003_Unrolled_Outer" loading="lazy"/></a><figcaption>MB-RMM-OTD-POLE-003_Unrolled_Outer</figcaption></figure></div></section>
+<section id="renders"><h2>Renders (22)</h2>
 <div class="grid"><figure class="card"><a href="renders/cutaway.jpg" target="_blank"><img src="renders/cutaway.jpg" alt="cutaway" loading="lazy"/></a><figcaption>cutaway</figcaption></figure>
 <figure class="card"><a href="renders/GA-001.png" target="_blank"><img src="renders/GA-001.png" alt="GA-001" loading="lazy"/></a><figcaption>GA-001</figcaption></figure>
 <figure class="card"><a href="renders/hero.jpg" target="_blank"><img src="renders/hero.jpg" alt="hero" loading="lazy"/></a><figcaption>hero</figcaption></figure>
@@ -104,7 +116,11 @@ code { color:#9ecbff; } a { color:var(--accent); }
 <figure class="card"><a href="renders/model_match_iso.png" target="_blank"><img src="renders/model_match_iso.png" alt="model_match_iso" loading="lazy"/></a><figcaption>model_match_iso</figcaption></figure>
 <figure class="card"><a href="renders/model_match_iso_full.png" target="_blank"><img src="renders/model_match_iso_full.png" alt="model_match_iso_full" loading="lazy"/></a><figcaption>model_match_iso_full</figcaption></figure>
 <figure class="card"><a href="renders/model_match_plan.png" target="_blank"><img src="renders/model_match_plan.png" alt="model_match_plan" loading="lazy"/></a><figcaption>model_match_plan</figcaption></figure>
+<figure class="card"><a href="renders/poles_end_view.png" target="_blank"><img src="renders/poles_end_view.png" alt="poles_end_view" loading="lazy"/></a><figcaption>poles_end_view</figcaption></figure>
+<figure class="card"><a href="renders/poles_section.png" target="_blank"><img src="renders/poles_section.png" alt="poles_section" loading="lazy"/></a><figcaption>poles_section</figcaption></figure>
+<figure class="card"><a href="renders/poles_unrolled_outer.png" target="_blank"><img src="renders/poles_unrolled_outer.png" alt="poles_unrolled_outer" loading="lazy"/></a><figcaption>poles_unrolled_outer</figcaption></figure>
 <figure class="card"><a href="renders/product_hero.jpg" target="_blank"><img src="renders/product_hero.jpg" alt="product_hero" loading="lazy"/></a><figcaption>product_hero</figcaption></figure>
+<figure class="card"><a href="renders/product_hero.png" target="_blank"><img src="renders/product_hero.png" alt="product_hero" loading="lazy"/></a><figcaption>product_hero</figcaption></figure>
 <figure class="card"><a href="renders/R1_iso.png" target="_blank"><img src="renders/R1_iso.png" alt="R1_iso" loading="lazy"/></a><figcaption>R1_iso</figcaption></figure>
 <figure class="card"><a href="renders/R1_iso_process.png" target="_blank"><img src="renders/R1_iso_process.png" alt="R1_iso_process" loading="lazy"/></a><figcaption>R1_iso_process</figcaption></figure>
 <figure class="card"><a href="renders/R2_plan.png" target="_blank"><img src="renders/R2_plan.png" alt="R2_plan" loading="lazy"/></a><figcaption>R2_plan</figcaption></figure>
