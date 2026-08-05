@@ -7,7 +7,7 @@
     "magnetic_coupling_only": true,
     "no_gears": true,
     "no_cvt_gears": true,
-    "halbach_in_cf_rotors": true,
+    "halbach_glued_or_encapsulated_set_geometry": true,
     "outer_driven_and_harvested_by_shell_stator": true,
     "shell_is_vacuum_barrier": true
   },
@@ -92,7 +92,7 @@
           {
             "sheet": "P-001",
             "name": "Stand pad",
-            "id": "eqp_0ebfe48c33f84198a448c2166ab0d1bc",
+            "id": "eqp_7b4cc63bf4de455c80f75a59eebf08f0",
             "kind": "pedestal",
             "size_mm": [
               1540.0,
@@ -105,7 +105,7 @@
           {
             "sheet": "P-002",
             "name": "Inner CF Halbach rotor",
-            "id": "eqp_7f07e8b7c7a244a08fdb33db0d438159",
+            "id": "eqp_ee6b935523d949528e2fd6b9063de4e4",
             "kind": "rotor",
             "size_mm": [
               700.0,
@@ -117,21 +117,21 @@
           },
           {
             "sheet": "P-003",
-            "name": "Halbach rim (sintered) \u2014 shell 0",
-            "id": "eqp_3de8f9579d3f4de39dc46772d32f0cb0",
+            "name": "Halbach magnets (glued/encapsulated set geometry) \u2014 shell 0",
+            "id": "eqp_8a3066b031c44370982eebed992a7378",
             "kind": "magnet",
             "size_mm": [
               690.0,
               690.0,
               1460.0
             ],
-            "svg": "drawings/P-003_Halbach_rim_sintered_shell_0.svg",
-            "step": "step/P-003_Halbach_rim_sintered_shell_0.step"
+            "svg": "drawings/P-003_Halbach_magnets_glued_encapsulated_set_g.svg",
+            "step": "step/P-003_Halbach_magnets_glued_encapsulated_set_g.step"
           },
           {
             "sheet": "P-004",
             "name": "Middle CF Halbach rotor",
-            "id": "eqp_8f36d6b462ed4709b5f1b88382e663e9",
+            "id": "eqp_f86238bb0b9b45a48a0d468e6138c832",
             "kind": "rotor",
             "size_mm": [
               900.0,
@@ -143,21 +143,21 @@
           },
           {
             "sheet": "P-005",
-            "name": "Halbach rim (sintered) \u2014 shell 1",
-            "id": "eqp_f5c7aab1149e4c5788e7685d30447a64",
+            "name": "Halbach magnets (glued/encapsulated set geometry) \u2014 shell 1",
+            "id": "eqp_78dec3ee55934753a675d4aa7b0977da",
             "kind": "magnet",
             "size_mm": [
               890.0,
               890.0,
               1460.0
             ],
-            "svg": "drawings/P-005_Halbach_rim_sintered_shell_1.svg",
-            "step": "step/P-005_Halbach_rim_sintered_shell_1.step"
+            "svg": "drawings/P-005_Halbach_magnets_glued_encapsulated_set_g.svg",
+            "step": "step/P-005_Halbach_magnets_glued_encapsulated_set_g.step"
           },
           {
             "sheet": "P-006",
             "name": "Outer CF Halbach rotor (driven/harvested)",
-            "id": "eqp_d5a1f57815214bb2bb2917f0a208d309",
+            "id": "eqp_9e50a68f8ef846b38e1685c2eb87397b",
             "kind": "rotor",
             "size_mm": [
               1160.0,
@@ -169,21 +169,21 @@
           },
           {
             "sheet": "P-007",
-            "name": "Halbach rim (sintered) \u2014 shell 2",
-            "id": "eqp_6b3ec32bf4584744be17e49e5e4b80a9",
+            "name": "Halbach magnets (glued/encapsulated set geometry) \u2014 shell 2",
+            "id": "eqp_7dfd1ee855504b83a54e625a0f184c6d",
             "kind": "magnet",
             "size_mm": [
               1150.0,
               1150.0,
               1460.0
             ],
-            "svg": "drawings/P-007_Halbach_rim_sintered_shell_2.svg",
-            "step": "step/P-007_Halbach_rim_sintered_shell_2.step"
+            "svg": "drawings/P-007_Halbach_magnets_glued_encapsulated_set_g.svg",
+            "step": "step/P-007_Halbach_magnets_glued_encapsulated_set_g.step"
           },
           {
             "sheet": "P-008",
             "name": "Exterior shell (vacuum barrier + stator host)",
-            "id": "eqp_ff4222a205b747f99ae7336927d8e297",
+            "id": "eqp_8722e4079733433182368b3dc510e4f6",
             "kind": "vessel",
             "size_mm": [
               1340.0,
@@ -196,7 +196,7 @@
           {
             "sheet": "P-009",
             "name": "Stator coils in vacuum shell (6 seg) \u2014 drive & harvest outer",
-            "id": "eqp_fed95e172a8047cea2032781a0fdb20a",
+            "id": "eqp_6c42a2f0d56046ed90ff2998e0dc7c7c",
             "kind": "stator",
             "size_mm": [
               1336.0,
@@ -209,7 +209,7 @@
           {
             "sheet": "P-010",
             "name": "Bottom vacuum head",
-            "id": "eqp_b4a0a16e14db4f15bc40c39178020fb6",
+            "id": "eqp_5d87911772a44047bd251dc29c7c45c2",
             "kind": "cap",
             "size_mm": [
               1360.0,
@@ -222,7 +222,7 @@
           {
             "sheet": "P-011",
             "name": "Top vacuum head",
-            "id": "eqp_b910f33429624cceb7a6eba3b38484b7",
+            "id": "eqp_ce040f8f531d48c7a0dff4e14214ab85",
             "kind": "cap",
             "size_mm": [
               1360.0,
@@ -255,7 +255,7 @@
       ],
       "hero_product": {
         "schema": "llmbim.hero_product_manifest/v1",
-        "generated_at": "2026-08-05T17:27:43Z",
+        "generated_at": "2026-08-05T17:30:57Z",
         "product_id": "mb_rmm_otd_nested_halbach_nest",
         "kind": "device",
         "title": "MB-RMM-OTD Nested Halbach Nest",
@@ -319,27 +319,27 @@
       "failures": [],
       "files": {
         "model.llmbim.json": {
-          "size": 29976,
+          "size": 30057,
           "ok": true
         },
         "model.ifc": {
-          "size": 18759,
+          "size": 18840,
           "ok": true
         },
         "model.gltf": {
-          "size": 417047,
+          "size": 417290,
           "ok": true
         },
         "model.step": {
-          "size": 312059,
+          "size": 312257,
           "ok": true
         },
         "boq.json": {
-          "size": 19957,
+          "size": 20038,
           "ok": true
         },
         "clash_report.json": {
-          "size": 18616,
+          "size": 19912,
           "ok": true
         },
         "design_rules.json": {
@@ -347,7 +347,7 @@
           "ok": true
         },
         "materials/MATERIALS_AND_PARTS.json": {
-          "size": 25403,
+          "size": 25646,
           "ok": true
         },
         "schedules/plumbing_takeoff.json": {
@@ -355,7 +355,7 @@
           "ok": true
         },
         "schedules/csi.csv": {
-          "size": 5806,
+          "size": 5887,
           "ok": true
         },
         "schedules/zone_areas.csv": {
@@ -371,7 +371,7 @@
           "ok": true
         },
         "schedules/drawing_list.csv": {
-          "size": 1690,
+          "size": 1762,
           "ok": true
         },
         "schedules/doors.csv": {
@@ -403,7 +403,7 @@
           "ok": true
         },
         "index.html": {
-          "size": 14130,
+          "size": 14301,
           "ok": true
         },
         "materials/duct_takeoff.json": {
@@ -469,40 +469,40 @@
       "ok": true
     },
     "checksums_sha256": {
-      "boq.csv": "0f7aeac6387f0cf51a00582a2b4cd91eb29bd50cec065480b450758cc4336ada",
-      "boq.json": "345e95b0d3381d20133a909cd5a973aac6434048f282dfca1b4f4eb5ad404ba5",
-      "clash_report.json": "b3bed388946bab028676bf3e08be5bf162965dba0152743a757a86fe3f5353ae",
+      "boq.csv": "eed4e9f63a22875af48ad045577c22378a95766769d618643d6da5055c1413f5",
+      "boq.json": "f5f303ddd6178bc7ad8449cf63a5a0d63e3aa496d1aa278d430f68db0ae8d421",
+      "clash_report.json": "addbe10583cd6c7947664f9af6d07f4c2b2b02ec19aa336204112c9cc4d24462",
       "design_rules.json": "56bd32c7d2c1a1455d075f931fbc440ae71f6e064e66ee71fb1445cacc0d9bb0",
-      "index.html": "d4f1ffd492e008905ea52a148c177cfcb0f97198e2836ecbf6a6f7ec90fec6ee",
-      "model.gltf": "93ed7e593bc0416e0319b156bbdc710080fce331745fbd86beb0d4fcbac7cacc",
-      "model.ifc": "ced66d955dea111dc4bba1e2ed51044035d1df00c14cdce9e3c202fa1f9cfa6a",
-      "model.llmbim.json": "9ac00f839e78d095bf813efee31066e82cd64fc98a68867c4c1b3a466463d98c",
-      "model.step": "32172c84591fd4a22f605b4311cd08e7de7a743371bb219da324abd93793be2a",
-      "viewer3d.html": "f1b75cac8476e7ad1ff77161f426a26ecf20b3aeb95244abde37d5da4dcb2851",
+      "index.html": "40d32d7257140be53b9944b54b4893eea683dda0b1d72cc397cb951a7c9639d6",
+      "model.gltf": "3d6a74edeaf628d85e96e30d1cb87524fc7b6c520163b38a83896a22a92d719d",
+      "model.ifc": "7d8bda1652175b34c357e9850bb8db2aed8978cd88b8e747c7eb443c5845de4b",
+      "model.llmbim.json": "e060cca8f4376ade18659efdcbbe1ce2e6c93a66990325b70159156a0a8bbb20",
+      "model.step": "902a71022a1951077a4c19bc73f7ee3968aba561c3b0a7cb04ab7c40b0be499d",
+      "viewer3d.html": "ce89e05c66dd65edc68099d74e657f0bffe1cc664244890a74283fd0777a8b8f",
       "materials/cable_tray_takeoff.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "materials/cable_tray_takeoff.json": "a5338d955b09046ec0b16f3a9625b7955c763aae07dc722e474e6078745f932f",
       "materials/conduit_takeoff.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "materials/conduit_takeoff.json": "a5338d955b09046ec0b16f3a9625b7955c763aae07dc722e474e6078745f932f",
       "materials/connections.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "materials/connections.json": "a5338d955b09046ec0b16f3a9625b7955c763aae07dc722e474e6078745f932f",
-      "materials/csi_instances.csv": "54dd411b84a604fc5479fbe6afe08df9de51a886c5fc53215c41d60eff4819b4",
-      "materials/csi_instances.json": "e937f405ec0c483afe4b502d8f86e9f5ef3db0053ac118dab59a2a799ee3642f",
-      "materials/csi_takeoff.csv": "e4f5e04a29a66ff126b4753573d8e26c9c0ec114616b8723316a243254415365",
-      "materials/csi_takeoff.json": "0e02ffd24ac39c5ad47a24b1c9533336c9e31155cc449c7748373c58eefb8e29",
+      "materials/csi_instances.csv": "9eb264ca5e99131ef2824a1e786b66f62ce6490a761f6b0221b7f802e3a9f2cb",
+      "materials/csi_instances.json": "b94746cce2d59d327d44ab1ff8174f6051db7ca4ce493fc64c7a18f2dabc1f2a",
+      "materials/csi_takeoff.csv": "07b94dfd52846accef2040afb88b8923c7cedb1d1d8cc7b6321aa5ef9a581130",
+      "materials/csi_takeoff.json": "7fa249d33e9cf754ca78c467165db462c86f04cabeeae26ff628e1d7b5009eb4",
       "materials/duct_takeoff.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "materials/duct_takeoff.json": "a5338d955b09046ec0b16f3a9625b7955c763aae07dc722e474e6078745f932f",
       "materials/fire_takeoff.json": "5a4d2365b7b80ba6ead985c3a09e3c7e121e1a74e861bf57177236d6c9137ac0",
       "materials/fitting_takeoff.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "materials/fitting_takeoff.json": "a5338d955b09046ec0b16f3a9625b7955c763aae07dc722e474e6078745f932f",
-      "materials/MATERIALS_AND_PARTS.json": "64a2519fe874c1d083cbdd64220832893a39e67c0a88ce236514ab986bbad8ce",
-      "materials/material_assignments.csv": "97f0e94015fb0689bce59dfbac0acc9a2855beac509dd55e73c656819c3c2704",
-      "materials/material_assignments.json": "bfc0364776aa40ad7c442f52b2e53fc1f450c6b1fd51c663eed4092b8bd8b89f",
-      "materials/material_bom_exploded.csv": "f351cd2341d16ae45416a0dcf35f3535a07371a9be26ad2e387feb81e3a0057e",
-      "materials/material_bom_exploded.json": "94e7604d5889f7e7fd6d94dbfcb0275370966cf2c6937f94571679585908c441",
+      "materials/MATERIALS_AND_PARTS.json": "81cd3a3d6fdc8ae6c787c39a0ed6f593974db26f48dc97c3505ecadfedf513b0",
+      "materials/material_assignments.csv": "8b60563d7e95e7f6e859a1f0070e12084a50b84a58822a8f772a19ae3b8759fb",
+      "materials/material_assignments.json": "27ca025827a837e0700d6d347fdf77b0406acc6fa796f00d4d7328d4a4f5a519",
+      "materials/material_bom_exploded.csv": "73bcdac4238ca3c4e67c42fa3545845c3e956c7305402ae60b2957e9c05a515c",
+      "materials/material_bom_exploded.json": "4202df373394d0b43c182a49f401ccbf66382668cf23ea9e4c834b177008c102",
       "materials/material_summary.csv": "fb2d2e7096b19c103984467e50ea4aac5fe079dde9e7452f2eefb7fa511639f0",
       "materials/material_summary.json": "32b4f54a1964084c64920d8fb0e280586d2b8a65738596e49e2bb5a19798e1b1",
-      "materials/part_assignments.csv": "3b5b795a8826f9f7bb6249ecb347e3b9d8857b3f4b1e8c7af6553021742607a0",
-      "materials/part_assignments.json": "9a95714d3dbf9be7375703f1e0505e08475b84c98150f376e9e3a71e621bb0f8",
+      "materials/part_assignments.csv": "526089b30413a9043e5016ff1a185e9a943f0a15644dd2a063a7e2f2dce4e2fa",
+      "materials/part_assignments.json": "eb0b61a546043fbdc7600ff776f7c3d92a4294afe68349e6d6edb42fb85b9fbf",
       "materials/part_summary.csv": "5561c822ce26a0aeb903f9b81dea042be6c98416ab6818bf1d18160ed71fa4ad",
       "materials/part_summary.json": "e92bbffa95200428f0fa5ec70cd87c4ead47105f9ac394b6df9d0ef4977e3339",
       "materials/pipe_takeoff.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -512,10 +512,10 @@
       "materials/rebar_takeoff.json": "a5338d955b09046ec0b16f3a9625b7955c763aae07dc722e474e6078745f932f",
       "materials/steel_takeoff.csv": "f7f2a58159c1e503265b91fd26f8887b5d04864adbd9aaf6057cfa5960e431df",
       "materials/steel_takeoff.json": "005e20f4aa8191b326c98e59f235fbd338e3f3ac0b4feb281cb158f0e3bdc71f",
-      "materials/trade_schedule.json": "8ca594c535b606e1d4d135f328d3a2b2c12612a9105c1d9b7df03373d20f0045",
-      "parts/PARTS_INDEX.json": "2e2a5bb967e53c4b0dd308899614d4ecba5e6e8559f6eb6920026ddad78e9077",
-      "renders/HERO_BRIEF.json": "cc919605158a86779b5f7069096f18050d8f25a4bcbb0b35372f4ae1f2e7223e",
-      "renders/HERO_MANIFEST.json": "b2033ce88f0573b1ffeb76641c5ae274e96fadfeb5542210a62ae8882e23fdb6",
+      "materials/trade_schedule.json": "08e563d2a4a55b2c60d71a77b518a677ca16d8ef0daaad876e1727fc155371dd",
+      "parts/PARTS_INDEX.json": "692b7aef3694c265cdc7df39af458c71955b8d8bdd077cda37bdb92b2ab69f53",
+      "renders/HERO_BRIEF.json": "1a0503e965c4697e368639debe1b2cc5b8825857185195210c7a7a175e0ab3cd",
+      "renders/HERO_MANIFEST.json": "c14a6846ca514b58e40a9307160e5444867aa3b96cd47c0bd4db7f22f303199a",
       "renders/MESH_VIEWS.json": "132e9b28b3279ccdc08dfa8d8738c9ddbf16f1b41f7f6e72b8a19a5adc19b10d",
       "renders/PRODUCT_VIEWS.json": "9a767fed718d789377b1490c42982a972c7d42379ed5a9d696469d669fef6e60",
       "schedules/beam.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -523,23 +523,23 @@
       "schedules/column.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "schedules/conduit.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "schedules/connections.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "schedules/csi.csv": "54dd411b84a604fc5479fbe6afe08df9de51a886c5fc53215c41d60eff4819b4",
+      "schedules/csi.csv": "9eb264ca5e99131ef2824a1e786b66f62ce6490a761f6b0221b7f802e3a9f2cb",
       "schedules/doors.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "schedules/drawing_list.csv": "82eedfb2eacb2a323661ce18fb2fef00567e0138411b0b074b23adbfc8f400ff",
-      "schedules/drawing_list.json": "0fd499310a94c38db6cc221c792fdc75e8d84babe2cd007cbe9d023ba184ea19",
+      "schedules/drawing_list.csv": "7de74e94f4f5eeca2ab9529c663ec05c5ede841f3387fbe4da6c066085782273",
+      "schedules/drawing_list.json": "7fdcd45a7e6ba40cd50b4e6649cddc4546626e28c862274e62f59449811449c4",
       "schedules/duct.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "schedules/equipment.csv": "31c8d346df7c627d1c76dfbc5b70a703e542df7de6a7d0e69aeb0d0f03820f10",
+      "schedules/equipment.csv": "79c8edea2f28b2ae974da642eefdeefe0018778c1a7ba9efbee51af251667f52",
       "schedules/fitting.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "schedules/hvac_devices.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "schedules/levels.csv": "acd5ceaf7e07606a8ab2d5b276502291bc195d60db215e5e0ce9c55a5c94a4c6",
-      "schedules/material.csv": "97f0e94015fb0689bce59dfbac0acc9a2855beac509dd55e73c656819c3c2704",
-      "schedules/part.csv": "89edfb55af8c3d66ef902d9e835b74d3f3e8ae7722bd239cfac10244d4c63d6b",
+      "schedules/levels.csv": "068a1a93d9b55b92a400f26ee7e2317aa59e0bffa4a8f5c9c103d9aea2b1bfeb",
+      "schedules/material.csv": "8b60563d7e95e7f6e859a1f0070e12084a50b84a58822a8f772a19ae3b8759fb",
+      "schedules/part.csv": "3393b798b26df990bbca7f493200ffdd1fa6793c661c4f77af50e77be5bed83a",
       "schedules/pipe.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "schedules/plumbing_takeoff.json": "c1e61b8cd541928133dee5e69dce4b658c45b94c5927a9e8d402b0ac93dff070",
-      "schedules/room.csv": "4e26a3d805a69b9d207373f071797d048c2c144c7f393c9b70e2016e396525e9",
+      "schedules/room.csv": "17a47dafbedd05b0d3ed3b30b4f69b747c93e588a6a3a1f9d8c78170d45cc612",
       "schedules/wall.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "schedules/windows.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "schedules/zone_areas.csv": "4e26a3d805a69b9d207373f071797d048c2c144c7f393c9b70e2016e396525e9",
+      "schedules/zone_areas.csv": "17a47dafbedd05b0d3ed3b30b4f69b747c93e588a6a3a1f9d8c78170d45cc612",
       "views/elev_E.svg": "68eadbaecb91be1efdcfecb6b1a7c19e953201e150ff2b0865e35dadea163d59",
       "views/elev_S.svg": "2f469c945e59f960040a6f8a787fd3e97235834be1257a3f6332763f34e05327",
       "views/plan_Module.svg": "1684953273a50464486440e39a6ed0aed7fddb9116fe7aeae3e4862b2bdd0637",
@@ -547,22 +547,22 @@
       "parts/drawings/P-000_assembly_GA.svg": "a3ff84647843aa5bc786c6dbb876023593f7ff743391beebfa6b98da918dca95",
       "parts/drawings/P-001_Stand_pad.svg": "09258f795c2909941c8e339ec3b0322d21d9c51fc656fc3044ab84fceebf463e",
       "parts/drawings/P-002_Inner_CF_Halbach_rotor.svg": "4ea70865783d9bff6adf2d19b4b2fd9280c8904b5920b41bc42ed64794d99aa7",
-      "parts/drawings/P-003_Halbach_rim_sintered_shell_0.svg": "1f033936b3fa3ed4129e4f982f05e33deba032011db82d1ed077aba7b6b4b9ef",
+      "parts/drawings/P-003_Halbach_magnets_glued_encapsulated_set_g.svg": "46dfb2ef619f446671532bd8816f6ae60d8643d282ba5b82175eef4146562742",
       "parts/drawings/P-004_Middle_CF_Halbach_rotor.svg": "89881bc5a57327910c0359db12bb4363773ff5ce6346f99c143f4085823150f8",
-      "parts/drawings/P-005_Halbach_rim_sintered_shell_1.svg": "f1278f2ebdc2ff9f5149c3bfa3c0d82ca84703463bcb08e131bcdbae67d8b369",
+      "parts/drawings/P-005_Halbach_magnets_glued_encapsulated_set_g.svg": "e2a461bd952770177a240fce8392700368942a2e7f54e84159ff994e4ca837fe",
       "parts/drawings/P-006_Outer_CF_Halbach_rotor_driven_harvested.svg": "847a1ce12e0f4b0ca585290153c57509e6ed52ff3911359e74c2a81b8335738a",
-      "parts/drawings/P-007_Halbach_rim_sintered_shell_2.svg": "50937a75946d3a3adeb31d53d4b6849683d6d4172237d90ffa5d9eb1577db944",
+      "parts/drawings/P-007_Halbach_magnets_glued_encapsulated_set_g.svg": "e5f00077e22e8b4513f6d9957bd2af103f790e4a779a6d8f950ed42ca0f4288c",
       "parts/drawings/P-008_Exterior_shell_vacuum_barrier_stator_hos.svg": "c9523a06dc9579bdb23d6619577a13a2af47c4f085a4e671aa52bbe0f702dfe1",
       "parts/drawings/P-009_Stator_coils_in_vacuum_shell_6_seg_drive.svg": "4e0e598ba5daaa37cecdcc08a5a6aefa7b9c30d245975f543e01d2f557e6582e",
       "parts/drawings/P-010_Bottom_vacuum_head.svg": "4023962a98ff310f6483b0314bb092cdf0a255ed0b3cddf9e2d40c85c9935f64",
       "parts/drawings/P-011_Top_vacuum_head.svg": "253f8d2ebc653a060b56cc560756d39b34ff284f918f9eeea2860887f9e6945d",
       "parts/step/P-001_Stand_pad.step": "d956e2ed5f782984a4c2c747d8d73c6c0967d471efce039b9e85e1756240b473",
       "parts/step/P-002_Inner_CF_Halbach_rotor.step": "7dee62517fa138f94fa11895af001e03d877f4f5e8805e39053d1cf4e377abfc",
-      "parts/step/P-003_Halbach_rim_sintered_shell_0.step": "8e0658207cd87ae4d4992cdd3933e1e507efbf69ef8e3e1c75aca75d31977e44",
+      "parts/step/P-003_Halbach_magnets_glued_encapsulated_set_g.step": "48529db336d716c4643f65c342bf63d5756e12bf6c42b6f0498002959dd151be",
       "parts/step/P-004_Middle_CF_Halbach_rotor.step": "206bb1778d10c0c709f0dbc5a381549a90c4fa0a932fefbddcb0fbd749cdc905",
-      "parts/step/P-005_Halbach_rim_sintered_shell_1.step": "491fff73c8db3de1738fa8c69432789b51b5826db5b86a96303906068fe1970b",
+      "parts/step/P-005_Halbach_magnets_glued_encapsulated_set_g.step": "afe6275e23cdc69f7f918bb99745945f67bf9adc084872c310146289e8e7d663",
       "parts/step/P-006_Outer_CF_Halbach_rotor_driven_harvested.step": "358aa7649648d98df681ea935f36b3b2924acde8384a1b51f3c4df91b2b46366",
-      "parts/step/P-007_Halbach_rim_sintered_shell_2.step": "0cddd76ffd0fee53e7608850479e391699140e36557ba2bd13e314d8a7410e8b",
+      "parts/step/P-007_Halbach_magnets_glued_encapsulated_set_g.step": "aa40ac5bd5dbae9978014769420cdb7f47cb9b5ba3d354a3286b69094836c778",
       "parts/step/P-008_Exterior_shell_vacuum_barrier_stator_hos.step": "3565208dd6f15810137de87924a149c152cea6b964b5d50b90b1e1d9423bf740",
       "parts/step/P-009_Stator_coils_in_vacuum_shell_6_seg_drive.step": "7170e67881227c0d6dac0dbdb2c3b39053f3d32b89f70359d682ab1d27822c13",
       "parts/step/P-010_Bottom_vacuum_head.step": "4d43bdeb5e49cf488bfd5de8bd9a14a79d417c2869e033e67ba066e9ebe99f4f",

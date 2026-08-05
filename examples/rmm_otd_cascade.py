@@ -4,7 +4,7 @@
 USER LOCK (2026-08-05):
   · Nested CF rotors (inner / middle / outer) — NO magnetic gears, NO CVT gear train
   · Magnetic coupling ONLY between outer↔middle and middle↔inner
-  · Halbach arrays sintered / embedded in the carbon-fiber rotors
+  · Halbach magnets glued or encapsulated in CF rotors as set geometry (designed poles)
   · Outer rotor driven AND harvested by stator coils
   · Stator coils live in the exterior shell = vacuum barrier
 
@@ -166,16 +166,16 @@ def build(out_dir: Path | None = None) -> tuple[Project, Path]:
             height=L,
             part=part,
         )
-        # Halbach rim band (outer portion of wall) — visual of sintered array
-        # rim occupies outer ~f_v of wall radial span
+        # Halbach magnets glued/encapsulated in CF wall as set geometry (pole pattern)
+        # rim occupies outer ~f_v of wall radial span under retainment overwrap
         f_v = float(det.get("magnet_rim", {}).get("f_v_nominal", 0.1))
         t_wall = ro - ri
-        r_mag_outer = ro - 5.0  # overwrap class
+        r_mag_outer = ro - 5.0  # CF overwrap retainment outside magnets
         r_mag_inner = max(ri + 2.0, r_mag_outer - max(t_wall * (0.25 + f_v), 8.0))
         if r_mag_outer > r_mag_inner + 1.0:
             _tube(
                 p,
-                name=f"Halbach rim (sintered) — shell {i}",
+                name=f"Halbach magnets (glued/encapsulated set geometry) — shell {i}",
                 kind="magnet",
                 od=r_mag_outer * 2,
                 id_mm=r_mag_inner * 2,
@@ -343,7 +343,7 @@ def build(out_dir: Path | None = None) -> tuple[Project, Path]:
             "magnetic_coupling_only": True,
             "no_gears": True,
             "no_cvt_gears": True,
-            "halbach_in_cf_rotors": True,
+            "halbach_glued_or_encapsulated_set_geometry": True,
             "outer_driven_and_harvested_by_shell_stator": True,
             "shell_is_vacuum_barrier": True,
         },
@@ -515,7 +515,8 @@ code {{ color:#9ecbff; }} a {{ color:var(--accent); }}
   <span class="badge no">NO GEARS</span>
   <span class="badge ok">STATOR = VACUUM SHELL</span>
   <p class="meta">
-    Three coaxial CF rotors with <strong>Halbach arrays sintered into the rotors</strong>.
+    Three coaxial CF rotors with <strong>Halbach magnets glued or encapsulated</strong>
+    in the CF as <strong>set geometry</strong> (pockets/fixtures fix the pole pattern).
     <strong>Magnetic coupling only</strong> between outer↔middle↔inner (no contact, no gears).
     <strong>Outer rotor</strong> is driven and harvested by <strong>stator coils in the exterior shell</strong>,
     which is also the <strong>vacuum barrier</strong>.
@@ -533,7 +534,7 @@ code {{ color:#9ecbff; }} a {{ color:var(--accent); }}
 <ul class="locks">
 <li>Nested rotors only (inner / middle / outer)</li>
 <li>Magnetic coupling only between shells — <strong>no gears, no CVT gear train</strong></li>
-<li>Halbach arrays sintered into CF rotor walls</li>
+<li>Halbach magnets <strong>glued or encapsulated</strong> in CF as <strong>set geometry</strong> (designed poles)</li>
 <li>Outer rotor driven <em>and</em> harvested by shell stator coils</li>
 <li>Exterior shell = vacuum barrier = stator host</li>
 </ul>
