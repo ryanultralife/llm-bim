@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import math
+import subprocess
 from pathlib import Path
 
 import cadquery as cq
@@ -28,26 +29,53 @@ import cadquery as cq
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "output" / "mineclean_studio" / "fab_step"
 
-# --- Eigen SSOT basis resolution (robust: sibling, home, feature worktrees) ---
+# --- Eigen SSOT basis resolution (branch/checkout-independent) ---------------
+# The SSOT `mbclean_basis.json` is CANONICAL on the Eigen `main` branch. The main
+# ~/Eigen working tree floats across feature/collab branches, so we do NOT trust its
+# working-tree copy — we read the basis straight from git by ref (`git show`). That
+# survives whatever branch any checkout happens to be on. Working-tree files are only
+# a last-resort fallback for a detached/offline clone.
+_REL = "cad/design_basis/mbclean_basis.json"
 _NAME = "mbclean_basis.json"
-_CANDS = [
-    HERE.parents[1] / "Eigen" / "cad" / "design_basis" / _NAME,           # sibling ~/Eigen
-    Path.home() / "Eigen" / "cad" / "design_basis" / _NAME,
-]
-# feature worktrees where the post-ECO-MC-001 SSOT currently lives
-_wt = Path.home() / "Eigen" / ".claude" / "worktrees"
-if _wt.exists():
-    _CANDS += sorted(_wt.glob(f"*/cad/design_basis/{_NAME}"))
+
+
+def _eigen_repo() -> Path:
+    for c in (HERE.parents[1] / "Eigen", Path.home() / "Eigen"):
+        if (c / ".git").exists():
+            return c
+    return Path.home() / "Eigen"
+
+
+def _git_show(repo: Path, ref: str) -> dict | None:
+    try:
+        r = subprocess.run(["git", "-C", str(repo), "show", f"{ref}:{_REL}"],
+                           capture_output=True, text=True, timeout=20)
+        if r.returncode == 0 and r.stdout.strip():
+            return json.loads(r.stdout)
+    except Exception:
+        pass
+    return None
 
 
 def _load_basis() -> dict:
-    for c in _CANDS:
+    repo = _eigen_repo()
+    for ref in ("origin/main", "main"):                    # canonical, checkout-independent
+        b = _git_show(repo, ref)
+        if b is not None:
+            print(f"[basis] {repo} @ {ref} (git ref — canonical)")
+            return b
+    # fallback: any working-tree / worktree copy (detached or offline clone)
+    cands = [repo / _REL, Path.home() / "Eigen" / _REL]
+    _wt = Path.home() / "Eigen" / ".claude" / "worktrees"
+    if _wt.exists():
+        cands += sorted(_wt.glob(f"*/{_REL}"))
+    for c in cands:
         if c.exists():
-            print(f"[basis] {c}")
+            print(f"[basis] {c} (working-tree fallback)")
             return json.loads(c.read_text(encoding="utf-8"))
     raise SystemExit(
-        f"SSOT basis {_NAME} not found. Searched:\n  " + "\n  ".join(map(str, _CANDS)) +
-        "\nRun Eigen scripts/mbclean_design_basis.py and ensure the JSON is on one of these paths."
+        f"SSOT basis not resolvable. Tried git refs origin/main, main in {repo}; "
+        f"and working-tree copies. Run Eigen scripts/mbclean_design_basis.py + push to main."
     )
 
 
