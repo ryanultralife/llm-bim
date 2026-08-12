@@ -605,13 +605,24 @@ class Project:
         centered: bool = False,
         z0_mm: float = 0.0,
         shape: str = "box",
+        orientation: str | None = None,
         id_mm: float | None = None,
         wall_mm: float | None = None,
+        equipment: str | None = None,
+        part: str | None = None,
+        mark: str | None = None,
     ) -> str:
-        """Place equipment envelope: shape ``box`` or ``cylinder`` (along +X).
+        """Place equipment envelope: shape ``box`` or ``cylinder``.
 
-        For hollow tubes (shell, magnet ring), pass ``id_mm`` (inner diameter)
-        or ``wall_mm`` so glTF exports a tube instead of a solid plug.
+        Cylinder:
+          - default / ``orientation='x'``: along +X, size=(length, dia, dia)
+          - ``orientation='y'|'north'``: along +Y, size=(dia, length, dia)
+          - ``orientation='z'|'vertical'``: upright, size=(dia, dia, height)
+            → smooth circular mesh in glTF (not a box stack)
+
+        For hollow tubes pass ``id_mm`` (inner diameter) or ``wall_mm``.
+
+        Multi-part machines: pass ``equipment`` (parent tag) and ``part``.
         """
         result = self._log.execute(
             self._model,
@@ -624,8 +635,12 @@ class Project:
                 centered=centered,
                 z0_mm=z0_mm,
                 shape=shape,
+                orientation=orientation or "",
                 id_mm=id_mm,
                 wall_mm=wall_mm,
+                equipment=equipment or "",
+                part=part or "",
+                mark=mark or "",
             ),
         )
         return str(result["result"]["element_id"])
@@ -1883,8 +1898,13 @@ class Project:
         plan_level: str | None = None,
         plan_scale: float = 0.02,
         set_type: str = "construction",
+        units: str = "metric",
     ) -> dict[str, Any]:
-        """Drawing set: ``set_type=\"plan\"`` (permit sheets) or ``\"construction\"``."""
+        """Drawing set: ``set_type=\"plan\"`` (permit sheets) or ``\"construction\"``.
+
+        ``units``: ``\"metric\"`` (default) or ``\"imperial\"`` (ft-in dims /
+        scale notes). Model geometry stays millimetres SSOT.
+        """
         from llmbim_drawings.construction import export_construction_set
 
         result: dict[str, Any] = export_construction_set(
@@ -1893,6 +1913,7 @@ class Project:
             plan_level=plan_level,
             plan_scale=plan_scale,
             set_type=set_type,
+            units=units,
         )
         return result
 
@@ -1910,6 +1931,7 @@ class Project:
         plan_scale: float | None = None,
         phases: str | list[str] | None = None,
         set_type: str = "construction",
+        units: str = "metric",
     ) -> dict[str, Any]:
         """Full pack: JSON + IFC + glTF + STEP + construction and/or part sheets.
 
@@ -1918,6 +1940,8 @@ class Project:
         (full model still saved as model.llmbim.json).
         ``set_type``: ``\"plan\"`` (permit sheets only) or ``\"construction\"``
         (default — adds content-driven S/M/P/E discipline sheets).
+        ``units``: ``\"metric\"`` (default) or ``\"imperial\"`` — display only;
+        geometry store remains millimetres.
         """
         from llmbim_core.paths import project_output_dir
         from llmbim_drawings.deliverables import export_deliverables
@@ -1933,6 +1957,7 @@ class Project:
             plan_scale=plan_scale,
             phases=phases,
             set_type=set_type,
+            units=units,
         )
         result["output_dir"] = str(dest.resolve())
         return result

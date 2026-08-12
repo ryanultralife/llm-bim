@@ -60,6 +60,32 @@ _MATERIAL_PBR: dict[str, tuple[list[float], float, float]] = {
     "equip_collection": ([0.45, 0.75, 0.65, 1.0], 0.4, 0.45),  # product canisters
     "equip_chiller": ([0.3, 0.7, 0.85, 1.0], 0.35, 0.45),  # chiller / CW manifold
     "equip_controls": ([0.75, 0.75, 0.5, 1.0], 0.2, 0.55),  # racks / terminals
+    # Ti-Melt skid machine (ADD only — MB-TI-LINE; keep distinct from MineSep)
+    "equip_skid": ([0.42, 0.45, 0.50, 1.0], 0.55, 0.45),  # A36 frame / deck
+    "equip_skid_pan": ([0.55, 0.62, 0.68, 1.0], 0.75, 0.30),  # SS drip pan
+    "equip_chamber": ([0.55, 0.78, 0.92, 1.0], 0.40, 0.35),  # Ti process chamber
+    "equip_lid": ([0.70, 0.82, 0.90, 1.0], 0.50, 0.35),
+    "equip_finger": ([0.92, 0.55, 0.18, 1.0], 0.25, 0.45),  # OFHC Cu CCIM fingers
+    "equip_coil_ti": ([0.95, 0.78, 0.22, 1.0], 0.30, 0.40),  # MF coil
+    "equip_mold": ([0.85, 0.48, 0.20, 1.0], 0.35, 0.40),  # Cu mold
+    "equip_electrical": ([0.78, 0.72, 0.35, 1.0], 0.25, 0.50),
+    "equip_argon": ([0.45, 0.75, 0.95, 1.0], 0.30, 0.45),
+    "equip_guard": ([0.55, 0.58, 0.62, 0.85], 0.40, 0.50),
+    "equip_pour": ([0.65, 0.70, 0.75, 1.0], 0.55, 0.35),
+    "equip_actuator": ([0.50, 0.55, 0.60, 1.0], 0.60, 0.40),
+    "equip_basket": ([0.60, 0.68, 0.72, 1.0], 0.50, 0.40),
+    "equip_cooling": ([0.25, 0.65, 0.80, 1.0], 0.40, 0.40),
+    "equip_hose": ([0.20, 0.55, 0.45, 1.0], 0.20, 0.55),
+    "equip_valve": ([0.35, 0.80, 0.50, 1.0], 0.45, 0.40),
+    "equip_label": ([0.90, 0.90, 0.35, 1.0], 0.15, 0.55),
+    "equip_bolt": ([0.55, 0.58, 0.62, 1.0], 0.85, 0.25),  # fasteners
+    "equip_nut": ([0.50, 0.52, 0.56, 1.0], 0.80, 0.28),
+    "equip_pipe": ([0.75, 0.45, 0.20, 1.0], 0.35, 0.40),  # Cu process pipe
+    "equip_pipe_ss": ([0.70, 0.74, 0.78, 1.0], 0.55, 0.35),  # SS tubing
+    "equip_elbow": ([0.80, 0.50, 0.22, 1.0], 0.40, 0.40),
+    "equip_flange": ([0.72, 0.75, 0.80, 1.0], 0.60, 0.35),
+    "equip_gasket": ([0.25, 0.25, 0.28, 1.0], 0.10, 0.70),
+    "equip_weld": ([0.45, 0.48, 0.52, 1.0], 0.50, 0.45),
     "fab_ultem": ([1.0, 0.55, 0.15, 1.0], 0.05, 0.4),  # slotted cartridge BREP — high contrast
     "pipe_copper": ([0.85, 0.42, 0.18, 1.0], 0.85, 0.28),
     "pipe_fire": ([0.12, 0.12, 0.14, 1.0], 0.7, 0.4),
@@ -162,6 +188,46 @@ EQUIP_KIND_MATERIAL: dict[str, str] = {
     "manifold": "equip_chiller",
     "controls": "equip_controls",
     "terminal": "equip_controls",
+    # MB-TI-LINE purpose-built Ti skid (ADD only)
+    "skid_beam": "equip_skid",
+    "skid_deck": "equip_skid",
+    "skid_post": "equip_skid",
+    "skid_foot": "equip_skid",
+    "skid_fork": "equip_skid",
+    "skid_lift": "equip_skid",
+    "skid_pan": "equip_skid_pan",
+    "chamber": "equip_chamber",
+    "lid": "equip_lid",
+    "base": "equip_skid",
+    "finger": "equip_finger",
+    "coil": "equip_coil_ti",
+    "coil_lead": "equip_coil_ti",
+    "clamp": "equip_rail",
+    "mold": "equip_mold",
+    "mold_stand": "equip_skid",
+    "basket": "equip_basket",
+    "cooling": "equip_cooling",
+    "hose": "equip_hose",
+    "valve": "equip_valve",
+    "vacuum": "equip_vacuum",
+    "argon": "equip_argon",
+    "electrical": "equip_electrical",
+    "guard": "equip_guard",
+    "pour": "equip_pour",
+    "actuator": "equip_actuator",
+    "label": "equip_label",
+    "seal": "equip_port",
+    "bolt": "equip_bolt",
+    "nut": "equip_nut",
+    "washer": "equip_bolt",
+    "pipe": "equip_pipe",
+    "pipe_ss": "equip_pipe_ss",
+    "elbow": "equip_elbow",
+    "tee": "equip_elbow",
+    "flange": "equip_flange",
+    "gasket": "equip_gasket",
+    "weld": "equip_weld",
+    "stud": "equip_bolt",
 }
 
 # FROZEN wire phase → glTF material key (same SSOT table): RMF_A/phase A → a…
@@ -770,6 +836,59 @@ def _cylinder_mesh(
     return pos, nrm, idx
 
 
+def _tube_mesh_vertical(
+    cx: float,
+    cy: float,
+    z_bot: float,
+    z_top: float,
+    r_outer: float,
+    r_inner: float,
+    *,
+    segments: int = 48,
+) -> tuple[list[float], list[float], list[int]]:
+    """Upright hollow tube (chamber / coil ring) with smooth radial normals."""
+    ro = max(float(r_outer), 2.0)
+    ri = max(min(float(r_inner), ro - 1.0), 0.5)
+    segs = max(16, int(segments))
+    outer = _cylinder_mesh(
+        cx, cy, cx, cy, z_bot, z_top, ro, vertical=True, segments=segs, caps=False
+    )
+    inner = _cylinder_mesh(
+        cx, cy, cx, cy, z_bot, z_top, ri, vertical=True, segments=segs, caps=False
+    )
+    ipos, inrm, iidx = inner
+    inrm = [-n for n in inrm]
+    flipped: list[int] = []
+    for t in range(0, len(iidx), 3):
+        flipped.extend([iidx[t], iidx[t + 2], iidx[t + 1]])
+    # Annular caps top/bottom
+    pos: list[float] = []
+    nrm: list[float] = []
+    idx: list[int] = []
+
+    def _emit(gxyz: tuple[float, float, float], nxyz: tuple[float, float, float]) -> int:
+        vi = len(pos) // 3
+        pos.extend(gxyz)
+        nrm.extend(nxyz)
+        return vi
+
+    for z, ny in ((min(z_bot, z_top), -1.0), (max(z_bot, z_top), 1.0)):
+        ring_o: list[int] = []
+        ring_i: list[int] = []
+        for i in range(segs):
+            ang = 2 * math.pi * i / segs
+            c, s = math.cos(ang), math.sin(ang)
+            ring_o.append(_emit(_mm_to_gltf(cx + ro * c, cy + ro * s, z), (0.0, ny, 0.0)))
+            ring_i.append(_emit(_mm_to_gltf(cx + ri * c, cy + ri * s, z), (0.0, ny, 0.0)))
+        for i in range(segs):
+            j = (i + 1) % segs
+            if ny > 0:
+                idx.extend([ring_o[i], ring_o[j], ring_i[j], ring_o[i], ring_i[j], ring_i[i]])
+            else:
+                idx.extend([ring_o[i], ring_i[i], ring_i[j], ring_o[i], ring_i[j], ring_o[j]])
+    return _merge_meshes([outer, (ipos, inrm, flipped), (pos, nrm, idx)])
+
+
 def _tube_mesh(
     x0: float,
     y0: float,
@@ -1290,6 +1409,62 @@ def _mesh_from_origin_size(
             ri = float(id_v) / 2.0 if id_v is not None else None
             return _axis_tube_mesh((x0, y0, z0), d3, length, od_t / 2.0, ri, segments=28)
         if shape == "cylinder":
+            orient = str(el.params.get("orientation") or el.params.get("axis") or "").lower()
+            # Vertical Z cylinder: size ≈ (D, D, H) or orientation flag
+            vertical = orient in {"z", "vertical", "up"} or (
+                not orient
+                and abs(lx - ly) <= max(lx, ly, 1.0) * 0.12
+                and hz >= max(lx, ly) * 0.4
+            )
+            y_axis = orient in {"y", "north", "plan_y"}
+            if vertical:
+                od = max(lx, ly, 4.0)
+                r = od / 2.0
+                # origin_mm is min-corner of footprint for vertical; center = +r
+                cx, cy = x0 + lx / 2.0, y0 + ly / 2.0
+                z1 = z0 + max(hz, 1.0)
+                id_mm = el.params.get("id_mm")
+                if id_mm is None:
+                    id_mm = el.params.get("inner_d_mm")
+                if id_mm is None:
+                    id_mm = el.params.get("bore_mm")
+                kind = str(el.params.get("kind") or "").lower()
+                if id_mm is None and kind in {
+                    "chamber", "shell", "coil", "pipe", "pipe_ss", "manifold", "basket",
+                }:
+                    wall = float(el.params.get("wall_mm") or (20.0 if kind == "chamber" else 8.0))
+                    id_mm = max(od - 2 * wall, od * 0.55)
+                segs = 64 if r >= 80 else (48 if r >= 30 else 32)
+                if id_mm is not None and float(id_mm) > 1.0 and float(id_mm) < od - 1.0:
+                    return _tube_mesh_vertical(
+                        cx, cy, z0, z1, r, float(id_mm) / 2.0, segments=segs
+                    )
+                return _cylinder_mesh(
+                    cx, cy, cx, cy, z0, z1, r, vertical=True, segments=segs, caps=True
+                )
+            if y_axis:
+                # +Y cylinder: size = (diameter, length_along_Y, diameter);
+                # origin_mm x = centerline, y = axis start.
+                od = max(lx, hz, 4.0)
+                r = od / 2.0
+                length = max(ly, 1.0)
+                id_mm = el.params.get("id_mm")
+                if id_mm is None:
+                    id_mm = el.params.get("inner_d_mm")
+                if id_mm is None:
+                    id_mm = el.params.get("bore_mm")
+                kind = str(el.params.get("kind") or "").lower()
+                if id_mm is None and kind in {"shell", "yoke", "cartridge", "port"}:
+                    wall = float(el.params.get("wall_mm") or 10.0)
+                    id_mm = max(od - 2 * wall, od * 0.5)
+                y1 = y0 + length
+                z1 = z0 + od
+                segs_h = 48 if r >= 40 else 32
+                if id_mm is not None and float(id_mm) > 1.0 and float(id_mm) < od - 1.0:
+                    return _tube_mesh(
+                        x0, y0, x0, y1, z0, z1, r, float(id_mm) / 2.0, segments=segs_h
+                    )
+                return _cylinder_mesh(x0, y0, x0, y1, z0, z1, r, segments=segs_h)
             od = max(ly, hz, 30)
             r = od / 2
             # Inner diameter: explicit id_mm / inner_d_mm, or kind defaults for rings/tubes
@@ -1310,11 +1485,31 @@ def _mesh_from_origin_size(
                     id_mm = max(od - 2 * wall, od * 0.5)
             x1 = x0 + max(lx, 50)
             z1 = z0 + od
+            segs_h = 48 if r >= 40 else 32
             if id_mm is not None and float(id_mm) > 1.0 and float(id_mm) < od - 1.0:
                 return _tube_mesh(
-                    x0, y0, x1, y0, z0, z1, r, float(id_mm) / 2.0, segments=36
+                    x0, y0, x1, y0, z0, z1, r, float(id_mm) / 2.0, segments=segs_h
                 )
-            return _cylinder_mesh(x0, y0, x1, y0, z0, z1, r, segments=28)
+            return _cylinder_mesh(x0, y0, x1, y0, z0, z1, r, segments=segs_h)
+        # Round-ish box equipment → smooth vertical cylinder (photoreal presentation)
+        kind_b = str(el.params.get("kind") or "").lower()
+        ROUND_BOX = {
+            "bolt", "nut", "washer", "pipe", "pipe_ss", "hose", "port", "sensor",
+            "skid_foot", "basket", "actuator", "clamp", "coil", "coil_lead",
+        }
+        if (
+            kind_b in ROUND_BOX
+            and abs(lx - ly) <= max(lx, ly, 1.0) * 0.2
+            and max(lx, ly) >= 4.0
+            and hz >= 2.0
+        ):
+            od = max(lx, ly)
+            r = od / 2.0
+            cx, cy = x0 + lx / 2.0, y0 + ly / 2.0
+            segs = 48 if r >= 20 else 28
+            return _cylinder_mesh(
+                cx, cy, cx, cy, z0, z0 + hz, r, vertical=True, segments=segs, caps=True
+            )
         # column: W-section I when section looks like W##x##
         if el.category == "column" or el.params.get("fitting_type") == "column":
             ht = float(el.params.get("height_mm") or hz or 3000)
@@ -1714,6 +1909,16 @@ _EXTRA_PARAM_KEYS: tuple[str, ...] = (
     "wire_role",
     # ADDITIVE (WP-SCHAD-S3): foundation marks in viewer extras
     "mark",
+    # Multi-part machine identity (click-to-inspect: equipment + part)
+    "equipment",
+    "equipment_name",  # full display name for 3-D click title
+    "equipment_tag",   # schedule tag (e.g. EG-151) kept for reference
+    "equipment_full",  # alias of equipment_name
+    "part",
+    "assembly",
+    "role",
+    "shape",
+    "label",
 )
 
 

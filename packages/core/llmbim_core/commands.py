@@ -438,18 +438,32 @@ class RestoreGrid(Command):
 
 @dataclass
 class CreateEquipmentBox(Command):
-    """Axis-aligned equipment envelope (box or cylinder along +X)."""
+    """Axis-aligned equipment envelope (box or cylinder).
+
+    Cylinder axes:
+      - default / orientation ``x`` or ``horizontal``: along +X
+        size = (length, diameter, diameter)
+      - orientation ``y`` or ``north``: along +Y (plan north)
+        size = (diameter, length, diameter)
+      - orientation ``z`` or ``vertical``: upright Z
+        size = (diameter, diameter, height)  — smooth mesh in glTF
+    """
 
     level: str
     origin: tuple[float, float]  # plan mm, min-corner or center if centered=True
-    size: tuple[float, float, float]  # box: Lx,Ly,Hz; cylinder: length, diameter, diameter
+    size: tuple[float, float, float]  # box: Lx,Ly,Hz; cylinder: see docstring
     name: str = ""
     kind: str = "equipment"
     centered: bool = False
     z0_mm: float = 0.0
     shape: str = "box"  # box | cylinder
+    orientation: str = ""  # "" | x | horizontal | y | north | z | vertical
     id_mm: float | None = None  # inner diameter for hollow tubes (magnets, shells)
     wall_mm: float | None = None
+    # Multi-part machine identity (inspect / schedules / sheets)
+    equipment: str = ""  # parent machine tag e.g. SEP-01, TC-401
+    part: str = ""  # component name e.g. shell, Tie-rod M6 #1
+    mark: str = ""  # schedule mark override
     op: str = "create_equipment_box"
     _element_id: str | None = None
 
@@ -461,20 +475,58 @@ class CreateEquipmentBox(Command):
         lx, ly, hz = (float(self.size[0]), float(self.size[1]), float(self.size[2]))
         if lx <= 0 or ly <= 0 or hz <= 0:
             raise ValidationError("Equipment size must be positive")
-        if shape == "cylinder" and abs(ly - hz) > 1e-3:
-            # normalize diameter
+        orient = (self.orientation or "").lower().strip()
+        vertical_cyl = shape == "cylinder" and orient in {"z", "vertical", "up"}
+        y_axis_cyl = shape == "cylinder" and orient in {"y", "north", "plan_y"}
+        # Auto-vertical: square footprint (D×D) and height as third dim
+        if shape == "cylinder" and not orient:
+            if abs(lx - ly) <= max(lx, ly, 1.0) * 0.12 and hz >= max(lx, ly) * 0.45:
+                vertical_cyl = True
+                orient = "vertical"
+        if shape == "cylinder" and y_axis_cyl:
+            # size = (diameter, length_along_Y, diameter)
+            d = max(lx, hz)
+            lx = hz = d
+        elif shape == "cylinder" and not vertical_cyl and abs(ly - hz) > 1e-3:
+            # normalize diameter for horizontal +X cylinder
             d = max(ly, hz)
             ly = hz = d
+        if shape == "cylinder" and vertical_cyl:
+            d = max(lx, ly)
+            lx = ly = d
         ox, oy = float(self.origin[0]), float(self.origin[1])
         if self.centered:
-            if shape == "cylinder":
+            if shape == "cylinder" and vertical_cyl:
+                x0, y0 = ox - lx / 2, oy - ly / 2
+            elif shape == "cylinder" and y_axis_cyl:
+                x0, y0 = ox, oy - ly / 2  # x = centerline, y = axis start
+            elif shape == "cylinder":
                 x0, y0 = ox - lx / 2, oy  # y is centerline
             else:
                 x0, y0 = ox - lx / 2, oy - ly / 2
         else:
             x0, y0 = ox, oy
         eid = self._element_id or new_id("eqp")
-        if shape == "cylinder":
+        if shape == "cylinder" and vertical_cyl:
+            r = lx / 2
+            poly = [
+                [x0, y0],
+                [x0 + lx, y0],
+                [x0 + lx, y0 + ly],
+                [x0, y0 + ly],
+            ]
+            origin_store = [x0, y0]
+        elif shape == "cylinder" and y_axis_cyl:
+            r = lx / 2
+            # plan footprint: diameter along X, length along Y; x = centerline
+            poly = [
+                [x0 - r, y0],
+                [x0 + r, y0],
+                [x0 + r, y0 + ly],
+                [x0 - r, y0 + ly],
+            ]
+            origin_store = [x0, y0]  # x = centerline for +Y cylinder
+        elif shape == "cylinder":
             r = ly / 2
             # plan footprint rectangle for queries
             poly = [
@@ -499,11 +551,25 @@ class CreateEquipmentBox(Command):
             "size_mm": [lx, ly, hz],
             "z0_mm": float(self.z0_mm),
             "polygon_mm": poly,
+            "centered": bool(self.centered),
         }
+        if orient or vertical_cyl:
+            if vertical_cyl:
+                params["orientation"] = "vertical"
+            elif y_axis_cyl:
+                params["orientation"] = "y"
+            else:
+                params["orientation"] = orient
         if self.id_mm is not None and float(self.id_mm) > 0:
             params["id_mm"] = float(self.id_mm)
         if self.wall_mm is not None and float(self.wall_mm) > 0:
             params["wall_mm"] = float(self.wall_mm)
+        if self.equipment:
+            params["equipment"] = str(self.equipment)
+        if self.part:
+            params["part"] = str(self.part)
+        if self.mark:
+            params["mark"] = str(self.mark)
         el = Element(
             id=eid,
             category="equipment",
