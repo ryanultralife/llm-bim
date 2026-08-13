@@ -8,6 +8,10 @@ as references — **not** against any authoring tool:
   Architects; CFBR Structural, PE/SE stamped). Top-tier residential CD detail.
 - **Verseon** — pharmaceutical lab building, full multi-discipline CD set
   (A/S/M/P/E/FP/LV/doors). The lab/industrial analog with heavy MEP + process.
+  **Detail bar (2026-08-12):** Arch V15 Rev 02, Cogen complete set,
+  17.08.29 Mechanical, 17.08.29 Plumbing — see **`docs/VERSEON_CD_STANDARD.md`**
+  and `docs/standards/verseon_cd_checklist.json`. Those four sets are how
+  dense a sheet must be.
 
 Evidence class: **[REFERENCE BENCHMARKS]** for drawing detail and anatomy —
 never for engineering claims, which stay governed by `docs/HONESTY.md`.
@@ -58,6 +62,16 @@ same level with different `include` groups, `tags`, and dimension options.
   hydraulic reference nodes.
 - **Process/N (no ref analog — hold to the same anatomy)**: zone poché,
   shielding hatch by material/thickness, penetration tags, boundary linework.
+- **Machine / skid GA** (MineClean, Proto-10, field skids — wall-less):
+  EQ-101 general arrangement from the model cut (not colored boxes);
+  auto or authored bay grids; 3-tier dims; one footprint + leader per
+  `M-*` / equipment tag; **pipe centerlines of routed (not floating) services**;
+  south/east elevations; equipment schedule. Default register when
+  `export_construction_set` / `export_deliverables` sees equipment and no walls
+  (`llmbim_drawings.machine_set`). Title block uses the **human product name**;
+  P/Ns stay drawing/part IDs. 3D that feeds the cut must meet
+  **`docs/MACHINE_ENGINEERING_BAR.md`** (fittings at bends, hardware layers).
+  Matplotlib / `product_views` box diagrams are **not** the issued GA.
 
 ## 4. What this standard is for
 

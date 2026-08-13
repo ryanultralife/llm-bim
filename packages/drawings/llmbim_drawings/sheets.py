@@ -20,14 +20,18 @@ from llmbim_drawings.svg_util import fmt
 
 # Frame geometry (SVG user units). Exposed so callers can size views to fit.
 SHEET_MARGIN = 20.0
-TITLE_BLOCK_W = 180.0
+# 3.5" on a 42" sheet (Ryan 2026-08-12). Scale with sheet_w so 1100-wide
+# SVGs stay the same proportion.
+TITLE_BLOCK_FRAC = 3.5 / 42.0
+TITLE_BLOCK_W = 1100.0 * TITLE_BLOCK_FRAC  # default 1100-wide sheet ≈ 91.7
 
 
 def drawing_area(sheet_w: float = 1100, sheet_h: float = 850) -> tuple[float, float, float, float]:
     """(x, y, w, h) of the usable drawing area inside border + title column."""
     x = SHEET_MARGIN + 10
     y = SHEET_MARGIN + 10
-    w = sheet_w - 2 * SHEET_MARGIN - TITLE_BLOCK_W - 20
+    tb_w = sheet_w * TITLE_BLOCK_FRAC
+    w = sheet_w - 2 * SHEET_MARGIN - tb_w - 20
     h = sheet_h - 2 * SHEET_MARGIN - 20
     return x, y, w, h
 
@@ -234,6 +238,13 @@ def _trunc(text: str, n: int) -> str:
     return text if len(text) <= n else text[: n - 1] + "…"
 
 
+def _wrap(text: str, width: int, nlines: int = 3) -> list[str]:
+    import textwrap
+
+    lines = textwrap.wrap(str(text or ""), width)[:nlines]
+    return lines or [""]
+
+
 def title_block_svg(
     *,
     sheet_w: float = 1100,
@@ -264,7 +275,7 @@ def title_block_svg(
     title column (S-discipline sheets, per the CD completeness standard).
     """
     margin = SHEET_MARGIN
-    tb_w = TITLE_BLOCK_W
+    tb_w = sheet_w * TITLE_BLOCK_FRAC
     if date is None:
         date = _dt.date.today().isoformat()
     if revisions is None:
@@ -301,24 +312,26 @@ def title_block_svg(
     caption(pad_x, y, "PROJECT")
     y += 13
     # auto-size so a long project name fits the column instead of truncating
-    _pj_fs = 11.0 if len(project) <= 26 else (9.5 if len(project) <= 32 else 8.5)
-    blocks.append(
-        f'  <text x="{fmt(cx)}" y="{fmt(y)}" text-anchor="middle" '
-        f'font-size="{fmt(_pj_fs)}" font-weight="bold">'
-        f"{escape(_trunc(project, 40))}</text>"
-    )
-    y += 12
+    _pj_fs = 9.0 if len(project) > 22 else 11.0
+    for ln in _wrap(project, 18, 3):
+        blocks.append(
+            f'  <text x="{fmt(cx)}" y="{fmt(y)}" text-anchor="middle" '
+            f'font-size="{fmt(_pj_fs)}" font-weight="bold">'
+            f"{escape(ln)}</text>"
+        )
+        y += 11
     hline(y)
 
     # ── sheet title block
     y += 11
     caption(pad_x, y, "TITLE")
-    y += 15
-    blocks.append(
-        f'  <text x="{fmt(cx)}" y="{fmt(y)}" text-anchor="middle" font-size="12" '
-        f'font-weight="bold">{escape(_trunc(sheet_title, 26))}</text>'
-    )
-    y += 10
+    y += 13
+    for ln in _wrap(sheet_title, 16, 4):
+        blocks.append(
+            f'  <text x="{fmt(cx)}" y="{fmt(y)}" text-anchor="middle" font-size="10" '
+            f'font-weight="bold">{escape(ln)}</text>'
+        )
+        y += 11
     hline(y)
 
     # ── scale / date row (two cells)
@@ -329,7 +342,7 @@ def title_block_svg(
     y += 14
     blocks.append(
         f'  <text x="{fmt(pad_x)}" y="{fmt(y)}" font-size="9.5">'
-        f"{escape(_trunc(scale_note, 14))}</text>"
+        f"{escape(_wrap(scale_note, 16, 1)[0])}</text>"
     )
     blocks.append(
         f'  <text x="{fmt(tb_x + tb_w / 2 + 6)}" y="{fmt(y)}" font-size="9.5">'

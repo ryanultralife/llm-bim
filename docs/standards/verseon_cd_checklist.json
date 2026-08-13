@@ -1,0 +1,38 @@
+{
+  "schema": "llmbim.verseon_cd_checklist/v1",
+  "honesty": "REFERENCE BENCHMARK anatomy — not a PE stamp",
+  "evidence": [
+    "Verseon Arch 3-2 OCR.pdf (V15 Rev 02)",
+    "VERSEON_COGEN_Final Complete Set.pdf",
+    "17.08.29_Verseon_Mechanical.pdf",
+    "17.08.29_Verseon_Plumbing.pdf"
+  ],
+  "required_on_work_plan": [
+    "grid_bubbles",
+    "dim_tiers",
+    "room_name_number_area",
+    "door_leaf_swing_mark",
+    "equipment_footprint_leader",
+    "keynotes_and_legend",
+    "north_arrow",
+    "graphic_scale_imperial",
+    "key_plan",
+    "true_scale_not_fit_stretched"
+  ],
+  "required_on_mep_overlay": [
+    "ghost_architecture",
+    "sized_runs",
+    "equipment_tags",
+    "service_key"
+  ],
+  "scale": {
+    "work_plan": {"note": "1/8\\\" = 1'-0\\\"", "ratio": 96},
+    "overall_plan": {"note": "1/16\\\" = 1'-0\\\"", "ratio": 192},
+    "enlarged": {"note": "1/4\\\" = 1'-0\\\"", "ratio": 48}
+  },
+  "title_block": {
+    "width_in": 3.5,
+    "sheet_w_in": 42,
+    "wrap_text": true
+  }
+}
