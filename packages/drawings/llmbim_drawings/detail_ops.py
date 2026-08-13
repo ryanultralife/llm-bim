@@ -76,16 +76,33 @@ def format_mm_feet_inches(value_mm: float) -> str:
     return f"{sign}{feet}'-{inches}\""
 
 
+# Metric CD ratios that print as the nearest US architectural scale.
+# 1:100 ≈ 1/8"=1'-0" (true 1:96); 1:200 ≈ 1/16" (true 1:192). Never map
+# 1:100 → 1/4" (that is 1:48) — that inversion made INTEC bars lie.
+_IMPERIAL_RATIO_SNAP = {
+    100.0: 96.0,
+    200.0: 192.0,
+    50.0: 48.0,
+    25.0: 24.0,
+    75.0: 64.0,
+}
+
+
 def imperial_scale_note(ratio: float) -> str | None:
     """Architectural scale note when the drawing ratio maps cleanly to a
     paper-inches-per-foot value (48 -> ``1/4" = 1'-0"``); ``None`` otherwise
     (e.g. metric 1:50), so callers keep the numeric note."""
     if ratio <= 0:
         return None
-    six = (12.0 / ratio) * 16.0
-    if round(six) <= 0 or abs(six - round(six)) > 0.01:
+    for metric, arch in ((100.0, 96.0), (200.0, 192.0), (50.0, 48.0),
+                         (25.0, 24.0), (75.0, 64.0)):
+        if abs(ratio - metric) / metric <= 0.18 or abs(ratio - arch) / arch <= 0.12:
+            return scale_note_from_ratio(arch)
+    snapped = _IMPERIAL_RATIO_SNAP.get(round(ratio, 0), ratio)
+    six = (12.0 / snapped) * 16.0
+    if round(six) <= 0 or abs(six - round(six)) > 0.02:
         return None
-    return scale_note_from_ratio(ratio)
+    return scale_note_from_ratio(snapped)
 
 
 def scale_note_from_ratio(ratio: float) -> str:

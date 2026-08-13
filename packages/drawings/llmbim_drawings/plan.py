@@ -99,6 +99,125 @@ def _chain_segments(
     return out
 
 
+def _equip_parent_tag(el: Element) -> str:
+    """Parent machine tag for multi-part equipment (M-CHAMBER, SEP-01, …)."""
+    pr = el.params or {}
+    for key in ("equipment_tag", "equipment", "tag"):
+        val = str(pr.get(key) or "").strip()
+        if val:
+            return val
+    mark = str(pr.get("mark") or "").strip()
+    if mark:
+        return mark
+    return ""
+
+
+def _equip_poly(el: Element) -> list[tuple[float, float]]:
+    """Plan footprint corners; empty if the element has no stored polygon."""
+    out: list[tuple[float, float]] = []
+    for pt in el.params.get("polygon_mm") or []:
+        try:
+            out.append((float(pt[0]), float(pt[1])))
+        except (TypeError, ValueError, IndexError):
+            continue
+    return out
+
+
+def _cluster_positions(vals: list[float], tol: float = 400.0) -> list[float]:
+    """Merge nearby stations so a process train becomes bay grids, not soup."""
+    if not vals:
+        return []
+    clusters: list[list[float]] = []
+    for v in sorted(vals):
+        if not clusters or v - clusters[-1][-1] > tol:
+            clusters.append([v])
+        else:
+            clusters[-1].append(v)
+    return [sum(c) / len(c) for c in clusters]
+
+
+class _SynthGrid:
+    """View-only grid (not written back to the model)."""
+
+    def __init__(
+        self, axis: str, positions: list[float], labels: list[str]
+    ) -> None:
+        self.params: dict[str, Any] = {
+            "axis": axis,
+            "positions_mm": positions,
+            "labels": labels,
+        }
+
+
+def synthesize_machine_grids(
+    equipment: Sequence[Element],
+) -> list[_SynthGrid]:
+    """U/V grids from equipment envelope + clustered machine centers.
+
+    Used when a wall-less skid has no authored grids. Outer stations are the
+    envelope; interior U stations are process-bay centers.
+    """
+    xs: list[float] = []
+    ys: list[float] = []
+    cx_major: list[float] = []
+    cy_major: list[float] = []
+    for eq in equipment:
+        poly = _equip_poly(eq)
+        if len(poly) < 3:
+            continue
+        px = [p[0] for p in poly]
+        py = [p[1] for p in poly]
+        xs.extend(px)
+        ys.extend(py)
+        tag = _equip_parent_tag(eq)
+        area = abs(
+            sum(
+                px[i] * py[(i + 1) % len(px)] - px[(i + 1) % len(px)] * py[i]
+                for i in range(len(px))
+            )
+        ) / 2.0
+        if tag or area >= 250_000:
+            cx_major.append(sum(px) / len(px))
+            cy_major.append(sum(py) / len(py))
+    if not xs or not ys:
+        return []
+    x0, x1 = min(xs), max(xs)
+    y0, y1 = min(ys), max(ys)
+    span_x, span_y = x1 - x0, y1 - y0
+    if span_x < 50 or span_y < 50:
+        return []
+
+    u_pos = [x0]
+    for c in _cluster_positions(cx_major, tol=max(350.0, span_x * 0.06)):
+        if x0 + 250 < c < x1 - 250:
+            u_pos.append(c)
+    u_pos.append(x1)
+    # drop near-duplicates after inserting envelope
+    u_pos = _cluster_positions(u_pos, tol=180.0)
+    if u_pos[0] > x0 + 1:
+        u_pos = [x0] + u_pos
+    if u_pos[-1] < x1 - 1:
+        u_pos = u_pos + [x1]
+    u_pos = u_pos[:10]
+    u_labs = [str(i + 1) for i in range(len(u_pos))]
+
+    v_pos = [y0]
+    if span_y >= 1500:
+        v_pos.append((y0 + y1) / 2.0)
+    v_pos.append(y1)
+    v_pos = _cluster_positions(v_pos, tol=180.0)
+    if v_pos[0] > y0 + 1:
+        v_pos = [y0] + v_pos
+    if v_pos[-1] < y1 - 1:
+        v_pos = v_pos + [y1]
+    v_labs = [_GRID_LETTERS_NO_I[i % len(_GRID_LETTERS_NO_I)] for i in range(len(v_pos))]
+
+    return [
+        _SynthGrid("U", u_pos, u_labs),
+        _SynthGrid("V", v_pos, v_labs),
+    ]
+
+
 def _element_mark(el: Element) -> str:
     """Tag text for door/window bubbles: params ``mark``, else name, else short id."""
     mark = str(el.params.get("mark") or "").strip()
@@ -262,6 +381,8 @@ def render_plan_view(
     keynotes: bool = False,
     hide_note_disciplines: set[str] | None = None,
     clouds: Sequence[Mapping[str, Any]] | None = None,
+    auto_grid: bool = False,
+    collapse_equipment: bool = False,
 ) -> DrawingView:
     """Build a plan DrawingView (inner body + size).
 
@@ -341,6 +462,15 @@ def render_plan_view(
       param is in this set before they render (as keynotes or inline).
       Untagged notes are treated as architectural and always kept. Lets an
       architectural plan omit MEP fixture notes that live on the MEP sheets.
+
+    Machine / skid GA extras (default off — building plans unchanged):
+
+    - ``auto_grid``: when the model has no grids, synthesize U/V bay grids
+      from the equipment envelope and clustered machine centers (process
+      train → numbered bays, letters across the short axis).
+    - ``collapse_equipment``: one plan footprint per parent machine tag
+      instead of every part AABB (skid rails / canopy that swallow the
+      envelope render as a light outline only).
     """
     if units not in {"metric", "imperial"}:
         raise ValidationError(
@@ -441,6 +571,9 @@ def render_plan_view(
     equipment = [
         el for el in model.query(category="equipment", level=lvl.name) if _in_crop(el)
     ]
+    grids_src: list[Any] = list(model.grids)
+    if auto_grid and not grids_src and equipment:
+        grids_src = list(synthesize_machine_grids(equipment))
     slabs = (
         [el for el in model.query(category="slab", level=lvl.name) if _in_crop(el)]
         if include is not None and "slabs" in include
@@ -538,6 +671,15 @@ def render_plan_view(
     else:
         min_x, min_y, max_x, max_y = 0.0, 0.0, 1000.0, 1000.0
 
+    # Overall facility plans (span > 40 m, no explicit include): architectural
+    # LOD only. Per-instance W12×230 / window-type / MEP text is illegible at
+    # 1:100–1:200 and is what made INTEC A-101 unreadable vs Verseon.
+    _auto_overall = False
+    if include is None and max(max_x - min_x, max_y - min_y) > 40_000.0:
+        include = {"walls", "openings", "rooms", "columns", "grids", "equipment"}
+        collapse_equipment = True
+        _auto_overall = True
+
     width = (max_x - min_x) * scale
     height = (max_y - min_y) * scale
     # Right-hand annotation gutter: the key plan and keynote legend live in a
@@ -556,6 +698,13 @@ def render_plan_view(
         f'  <title>{esc(label)}</title>',
         f'  <rect x="0" y="0" width="{fmt(width)}" height="{fmt(height)}" fill="#ffffff"/>',
     ]
+    if _auto_overall:
+        parts.append(
+            '  <g class="overall-lod-note" font-family="sans-serif" fill="#5f5e5a">'
+            f'<text x="{fmt(12)}" y="{fmt(height - 14)}" font-size="9">'
+            "OVERALL — rooms + walls + grids. Column W-sections TYP (see structural)."
+            " Window/door types on schedules. MEP on discipline plans.</text></g>"
+        )
     wall_by_id = {el.id: el for el, _ in walls}
     if ghost_walls:
         # context-only walls: light grey outline, no fill, no annotations
@@ -664,7 +813,7 @@ def render_plan_view(
             '  <g class="wall-types" fill="#333" font-family="sans-serif" '
             f'font-size="{fmt(max(6, 9))}">'
         )
-        for el, (x0, y0, x1, y1, _t) in walls:
+        for el, (x0, y0, x1, y1, _t) in ([] if _auto_overall else walls):
             tid = el.type_id or el.params.get("type_id") or ""
             fr = el.params.get("fire_rating") or ""
             if not tid and not fr:
@@ -745,6 +894,8 @@ def render_plan_view(
                 return tid[2:][:14]
             return tid[:14]
 
+        if _auto_overall:
+            continue
         if tags:
             # Marked tag bubbles (WP-SCHAD-S7): hexagon per door, diamond per
             # window, text from params ``mark`` (fallback: name, short id).
@@ -847,8 +998,66 @@ def render_plan_view(
         f'  <g class="equipment" fill="#cfe8ff" fill-opacity="0.55" '
         f'stroke="#0b5cab" stroke-width="{fmt(max(0.4, 8 * scale))}">'
     )
+    collapsed_tags: set[str] = set()
+    if collapse_equipment:
+        env_xs: list[float] = []
+        env_ys: list[float] = []
+        by_tag: dict[str, list[Element]] = {}
+        for eq in equipment:
+            if not _eq_on(eq):
+                continue
+            poly = _equip_poly(eq)
+            env_xs.extend(p[0] for p in poly)
+            env_ys.extend(p[1] for p in poly)
+            tag = _equip_parent_tag(eq)
+            if tag:
+                by_tag.setdefault(tag, []).append(eq)
+        env_area = 0.0
+        if env_xs and env_ys:
+            env_area = (max(env_xs) - min(env_xs)) * (max(env_ys) - min(env_ys))
+        unions: list[tuple[float, str, float, float, float, float]] = []
+        for tag, els in by_tag.items():
+            xs: list[float] = []
+            ys: list[float] = []
+            for eq in els:
+                for px, py in _equip_poly(eq):
+                    xs.append(px)
+                    ys.append(py)
+            if len(xs) < 2:
+                continue
+            x0, x1 = min(xs), max(xs)
+            y0, y1 = min(ys), max(ys)
+            area = (x1 - x0) * (y1 - y0)
+            if area < 1.0:
+                continue
+            collapsed_tags.add(tag)
+            unions.append((area, tag, x0, y0, x1, y1))
+        unions.sort(reverse=True)
+        envelope_emitted = False
+        for area, tag, x0, y0, x1, y1 in unions:
+            outline_only = env_area > 0 and area > 0.55 * env_area
+            poly = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+            pts = " ".join(
+                f"{fmt(px)},{fmt(py)}"
+                for px, py in (project(float(p[0]), float(p[1])) for p in poly)
+            )
+            if outline_only:
+                if envelope_emitted:
+                    continue
+                envelope_emitted = True
+                parts.append(
+                    f'    <polygon class="equip-envelope" points="{pts}" '
+                    f'fill="none" stroke="#37474f" stroke-width="{fmt(max(0.7, 10 * scale))}" '
+                    f'stroke-dasharray="{fmt(max(3, 40 * scale))} {fmt(max(2, 20 * scale))}"/>'
+                )
+            else:
+                parts.append(
+                    f'    <polygon class="equip-machine" points="{pts}" fill="#b8d4f0"/>'
+                )
     for eq in equipment:
         if not _eq_on(eq):
+            continue
+        if collapse_equipment and _equip_parent_tag(eq) in collapsed_tags:
             continue
         if eq.params.get("shape") == "cylinder":
             try:
@@ -960,14 +1169,15 @@ def render_plan_view(
                 parts.append(
                     f'    <line x1="{fmt(c[0])}" y1="{fmt(c[1])}" x2="{fmt(dpt[0])}" y2="{fmt(dpt[1])}"/>'
                 )
-            mx, my = project(ox, oy - half_d - 80)
-            sec_s = str(sec)[:16]
-            mx, my = label_nudge.place(mx, my, max(14.0, len(sec_s) * 2.8), 7.0)
-            parts.append(
-                f'    <text class="column-label" x="{fmt(mx)}" y="{fmt(my)}" text-anchor="middle" '
-                f'font-size="{fmt(max(6, 9))}" fill="#263238" font-family="sans-serif">'
-                f"{esc(sec_s)}</text>"
-            )
+            if not _auto_overall:
+                mx, my = project(ox, oy - half_d - 80)
+                sec_s = str(sec)[:16]
+                mx, my = label_nudge.place(mx, my, max(14.0, len(sec_s) * 2.8), 7.0)
+                parts.append(
+                    f'    <text class="column-label" x="{fmt(mx)}" y="{fmt(my)}" text-anchor="middle" '
+                    f'font-size="{fmt(max(6, 9))}" fill="#263238" font-family="sans-serif">'
+                    f"{esc(sec_s)}</text>"
+                )
         except (KeyError, TypeError, ValueError, IndexError):
             continue
     if _on("columns"):
@@ -1367,21 +1577,65 @@ def render_plan_view(
             s = s[: s.rfind("(")].strip()
         return s[:28]
 
+    def _eq_display_name(eq: Element, *, with_part: bool = False) -> str:
+        """Equipment tag first; optionally append part so sheets match 3-D inspect."""
+        pr = eq.params or {}
+        equip = str(
+            pr.get("equipment_tag") or pr.get("equipment") or pr.get("tag") or ""
+        ).strip()
+        part = str(pr.get("part") or "").strip()
+        if part.startswith("p") and len(part) > 3 and part[1:3].isdigit():
+            part = ""  # skip p01_… keys; use human name below
+        base = _short_eq_name(str(eq.name or ""))
+        if not equip:
+            # "SEP-01 shell …" → equip SEP-01
+            toks = base.split(None, 1)
+            if toks and "-" in toks[0] and any(c.isdigit() for c in toks[0]):
+                equip = toks[0]
+                if not part and len(toks) > 1:
+                    part = toks[1][:24]
+            else:
+                return base[:32]
+        if with_part and part and part.lower() not in equip.lower():
+            return f"{equip} {part}"[:36]
+        # default plan: equipment tag only (one label per machine footprint)
+        # unless name is already the major solid callout
+        if part and any(
+            k in part.lower()
+            for k in ("shell", "vessel", "skid", "hearth", "cart", "robot")
+        ):
+            return f"{equip}"[:28]
+        return equip[:28] if equip else base[:28]
+
     # Micro structural / skid detail never gets a plan text label (the blue
     # soup on A-101 was ~1.5k un-nudged equipment names).
     _EQ_LABEL_SKIP = (
         "skid_post", "skid_rail", "frame_post", "rail_wheel", "wheel",
         "sensor_rail", "JB_enclosure", "utility_stub", "access_panel",
         "ftg", "footing", "bolt", "grout", "liner", "rebar",
+        "tie-rod", "tie_rod", "bolt circle", "spacer",
     )
 
     def _eq_worth_label(eq: Element) -> bool:
         nm = _short_eq_name(str(eq.name or "")).lower()
-        if not nm:
+        part = str((eq.params or {}).get("part") or "").lower()
+        if not nm and not _equip_parent_tag(eq):
             return False
-        if any(tok in nm for tok in _EQ_LABEL_SKIP):
+        if collapse_equipment and _equip_parent_tag(eq):
+            if any(tok in nm for tok in _EQ_LABEL_SKIP) or any(
+                tok in part for tok in _EQ_LABEL_SKIP
+            ):
+                return False
+            return True
+        if any(tok in nm for tok in _EQ_LABEL_SKIP) or any(
+            tok in part for tok in _EQ_LABEL_SKIP
+        ):
             return False
+        # Prefer major machine solids (shell / large footprint)
+        kind = str((eq.params or {}).get("kind") or "").lower()
+        shape = str((eq.params or {}).get("shape") or "")
         poly = eq.params.get("polygon_mm") or []
+        area = 0.0
         if len(poly) >= 3:
             xs = [float(p[0]) for p in poly]
             ys = [float(p[1]) for p in poly]
@@ -1392,7 +1646,14 @@ def render_plan_view(
                 )
             ) / 2.0
             # skip tiny footprints (< ~0.25 m²)
-            if area < 250_000:
+            if area < 250_000 and kind not in {"shell", "yoke"} and shape != "cylinder":
+                return False
+        # multi-part: only label shell / primary equip once per machine
+        if _equip_parent_tag(eq) and kind not in {
+            "shell", "yoke", "pedestal", "equipment", "ahu", "tank",
+        }:
+            # still allow large unique machines
+            if area < 800_000 and "shell" not in nm and "vessel" not in nm:
                 return False
         return True
 
@@ -1416,15 +1677,25 @@ def render_plan_view(
             ) / 2.0
 
         eq_candidates.sort(key=_eq_area, reverse=True)
+        # one label per equipment tag (SEP-01 not 65 times)
+        seen_equip: set[str] = set()
         eq_label_font = max(6.5, min(11.0, font * 0.65))
-        for eq in eq_candidates[:48]:
+        labeled = 0
+        for eq in eq_candidates:
+            if labeled >= 48:
+                break
+            equip_key = _equip_parent_tag(eq)
+            if equip_key:
+                if equip_key in seen_equip:
+                    continue
+                seen_equip.add(equip_key)
             poly = eq.params.get("polygon_mm") or []
             if not poly:
                 continue
             cx = sum(float(p[0]) for p in poly) / len(poly)
             cy = sum(float(p[1]) for p in poly) / len(poly)
             px, py = project(cx, cy)
-            name = _short_eq_name(str(eq.name))
+            name = _eq_display_name(eq, with_part=False)
             hw = max(14.0, len(name) * eq_label_font * 0.32)
             hh = eq_label_font * 0.7
             lx, ly = label_nudge.place(px, py, hw, hh)
@@ -1432,10 +1703,11 @@ def render_plan_view(
                 f'    <text x="{fmt(lx)}" y="{fmt(ly)}" fill="#0b5cab" '
                 f'font-size="{fmt(eq_label_font)}">{esc(name)}</text>'
             )
+            labeled += 1
     parts.append("  </g>")
 
-    # Equipment leader tags (tags=True): underlined name on a leader, keyed to
-    # the equipment schedule (VAV-DD-1 style per the CD anatomy standard)
+    # Equipment leader tags (tags=True): underlined equipment name (+ part when
+    # distinct) on a leader, keyed to the equipment schedule
     if tags:
         eq_tag_font = max(7.0, min(11.0, 200 * scale))
         parts.append(
@@ -1449,7 +1721,16 @@ def render_plan_view(
         eq_tag_list.sort(
             key=lambda e: len(e.params.get("polygon_mm") or []), reverse=True
         )
-        for eq in eq_tag_list[:60]:
+        seen_tag: set[str] = set()
+        n_tags = 0
+        for eq in eq_tag_list:
+            if n_tags >= 60:
+                break
+            equip_key = _equip_parent_tag(eq)
+            if equip_key:
+                if equip_key in seen_tag:
+                    continue
+                seen_tag.add(equip_key)
             poly = eq.params.get("polygon_mm") or []
             if poly:
                 cx = sum(float(p[0]) for p in poly) / len(poly)
@@ -1463,7 +1744,7 @@ def render_plan_view(
                 except (TypeError, ValueError, IndexError):
                     continue
             px, py = project(cx, cy)
-            name = _short_eq_name(str(eq.name))
+            name = _eq_display_name(eq, with_part=not collapse_equipment)
             hw = max(16.0, len(name) * eq_tag_font * 0.35)
             lx, ly = label_nudge.place(px + 28.0, py - 20.0, hw, eq_tag_font * 0.7)
             text_w = len(name) * eq_tag_font * 0.55
@@ -1481,6 +1762,7 @@ def render_plan_view(
                 f'y1="{fmt(ly + 2.5)}" x2="{fmt(lx + text_w)}" y2="{fmt(ly + 2.5)}" '
                 f'stroke="#0b3d6e" stroke-width="0.8"/>'
             )
+            n_tags += 1
         parts.append("  </g>")
 
     # Boxed room tags: NAME / area m² centered in the boundary
@@ -1552,7 +1834,7 @@ def render_plan_view(
         dim_budget = max_dimensions
         # grid dim chains / dim tiers carry the wall/overall dims — skip the
         # per-wall midspan dims then (they collide with markers and chains)
-        _has_grid_chains = (grid_dims and _on("grids") and bool(model.grids)) or dim_tiers
+        _has_grid_chains = (grid_dims and _on("grids") and bool(grids_src)) or dim_tiers
         if walls and _on("walls") and not ghost_walls and not _has_grid_chains:
             ranked = sorted(
                 walls,
@@ -1623,7 +1905,7 @@ def render_plan_view(
         return (p_min, p_max)
 
     parts.append('  <g class="grids" stroke="#888" stroke-width="0.6" fill="none">')
-    for g in model.grids if _on("grids") else []:
+    for g in grids_src if _on("grids") else []:
         axis = g.params.get("axis", "U")
         labels = g.params.get("labels") or []
         positions = g.params.get("positions_mm") or []
@@ -1666,11 +1948,11 @@ def render_plan_view(
     # main grid by more than FRACTIONAL_GRID_TOL_MM get a dash-dot centerline
     # with bubbles on both ends, labelled fractionally between neighbours
     # (between grids 1 and 2 at 90% → "1.9"; between B and C at 20% → "B.2").
-    if fractional_grids and _on("grids") and model.grids:
+    if fractional_grids and _on("grids") and grids_src:
 
         def _axis_pairs(axis: str) -> list[tuple[float, str]]:
             pairs: list[tuple[float, str]] = []
-            for g in model.grids:
+            for g in grids_src:
                 if g.params.get("axis", "U") != axis:
                     continue
                 g_labels = g.params.get("labels") or []
@@ -1757,16 +2039,16 @@ def render_plan_view(
     # Grid dimension chains: running dims between consecutive grid positions
     # (top band for the U axis, left band for the V axis) + overall dimension.
     _gd_br = max(8.0, 120 * scale)  # grid bubble radius (chains sit outside it)
-    if grid_dims and _on("grids") and model.grids:
+    if grid_dims and _on("grids") and grids_src:
         u_pos = sorted(
             float(p)
-            for g in model.grids
+            for g in grids_src
             if g.params.get("axis", "U") == "U"
             for p in (g.params.get("positions_mm") or [])
         )
         v_pos = sorted(
             float(p)
-            for g in model.grids
+            for g in grids_src
             if g.params.get("axis", "U") == "V"
             for p in (g.params.get("positions_mm") or [])
         )
@@ -1855,16 +2137,21 @@ def render_plan_view(
     # opening jambs) innermost, tier 2 grid-to-grid bay string, tier 1 overall
     # extents outermost. 45° tick terminators, witness lines with a small gap
     # off the object, ≥3 equal segments collapse to "N EQ. SPACES".
-    _grids_drawn = _on("grids") and bool(model.grids)
+    _grids_drawn = _on("grids") and bool(grids_src)
     _tier_base = (_gd_br if _grids_drawn else 8.0) + (
         34.0 if (grid_dims and _grids_drawn) else 0.0
     )
-    if dim_tiers and walls_draw:
+    if dim_tiers and (walls_draw or equipment):
         band_pts = [
             pt
             for _el, (x0, y0, x1, y1, t) in walls_draw
             for pt in _wall_band(x0, y0, x1, y1, t)
         ]
+        if not band_pts:
+            for eq in equipment:
+                band_pts.extend(_equip_poly(eq))
+        if not band_pts:
+            band_pts = [(min_x, min_y), (max_x, max_y)]
         wx0 = min(p[0] for p in band_pts)
         wx1 = max(p[0] for p in band_pts)
         wy0 = min(p[1] for p in band_pts)
@@ -1875,7 +2162,7 @@ def render_plan_view(
         u_pos = sorted(
             {
                 float(p)
-                for g in model.grids
+                for g in grids_src
                 if g.params.get("axis", "U") == "U"
                 for p in (g.params.get("positions_mm") or [])
             }
@@ -1883,7 +2170,7 @@ def render_plan_view(
         v_pos = sorted(
             {
                 float(p)
-                for g in model.grids
+                for g in grids_src
                 if g.params.get("axis", "U") == "V"
                 for p in (g.params.get("positions_mm") or [])
             }
@@ -1921,6 +2208,31 @@ def render_plan_view(
         if vert:
             el_w, w_w = min(vert, key=lambda t: (t[1][0] + t[1][2]) / 2)
             feat_y = [w_w[1], w_w[3]] + [p[1] for p in _jambs(el_w, w_w)]
+        if not feat_x or not feat_y:
+            # machine / skid: one station pair per parent machine, not every part
+            env_span = max((wx1 - wx0) * (wy1 - wy0), 1.0)
+            by_tag: dict[str, list[tuple[float, float]]] = {}
+            for eq in equipment:
+                tag = _equip_parent_tag(eq)
+                if not tag:
+                    continue
+                by_tag.setdefault(tag, []).extend(_equip_poly(eq))
+            north_x: list[float] = []
+            west_y: list[float] = []
+            for pts in by_tag.values():
+                if len(pts) < 2:
+                    continue
+                px = [p[0] for p in pts]
+                py = [p[1] for p in pts]
+                area = (max(px) - min(px)) * (max(py) - min(py))
+                if area < 80_000 or area > 0.55 * env_span:
+                    continue
+                north_x.extend((min(px), max(px)))
+                west_y.extend((min(py), max(py)))
+            if not feat_x:
+                feat_x = north_x[:16] or [wx0, wx1]
+            if not feat_y:
+                feat_y = west_y[:16] or [wy0, wy1]
 
         def _stations(vals: list[float]) -> list[float]:
             out: list[float] = []
@@ -2001,11 +2313,14 @@ def render_plan_view(
             'font-family="sans-serif" font-size="9">'
         )
         # top side (X): feature innermost → grid bays → overall outermost
-        _chain_h(feat_x, -(_tier_base + 14.0), "tier-feature")
+        # Wall-less machine GA: skip the feature string (no jambs; part edges
+        # smash). Grid + overall are the Sierra Star-useful tiers.
+        if walls_draw:
+            _chain_h(feat_x, -(_tier_base + 14.0), "tier-feature")
+            _chain_v(feat_y, -(_tier_base + 14.0), "tier-feature")
         _chain_h(u_pos, -(_tier_base + 30.0), "tier-grid")
         _chain_h([wx0, wx1], -(_tier_base + 46.0), "tier-overall")
         # left side (Y)
-        _chain_v(feat_y, -(_tier_base + 14.0), "tier-feature")
         _chain_v(v_pos, -(_tier_base + 30.0), "tier-grid")
         _chain_v([wy0, wy1], -(_tier_base + 46.0), "tier-overall")
         if tiers_any:
@@ -2331,7 +2646,7 @@ def render_plan_view(
     # reveal the dimension band (offset 12 + text) and grid bubbles (radius br),
     # which sit just outside the geometry extents, so they render on-canvas.
     dim_pad = max(30.0, 130.0 * scale) if show_dimensions else max(4.0, 130.0 * scale)
-    if grid_dims and _on("grids") and model.grids:
+    if grid_dims and _on("grids") and grids_src:
         # grid dim chains sit outside the grid bubbles: bubble radius + 2 chains
         dim_pad = max(dim_pad, _gd_br + 44.0)
     if dim_tiers:
@@ -2363,6 +2678,7 @@ def render_plan_svg(
     view_range_mm: float = 1200.0,
     title: str | None = None,
     show_dimensions: bool = True,
+    **opts: Any,
 ) -> str:
     view = render_plan_view(
         model,
@@ -2372,13 +2688,14 @@ def render_plan_svg(
         view_range_mm=view_range_mm,
         title=title,
         show_dimensions=show_dimensions,
+        **opts,
     )
     return view.to_svg()
 
 
 def write_plan_svg(model: ProjectModel, level: str, path: str | Path, **opts: object) -> Path:
-    svg = render_plan_svg(model, level, **opts)  # type: ignore[arg-type]
+    view = render_plan_view(model, level, **opts)  # type: ignore[arg-type]
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(svg, encoding="utf-8")
+    p.write_text(view.to_svg(), encoding="utf-8")
     return p

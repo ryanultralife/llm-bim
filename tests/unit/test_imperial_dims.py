@@ -53,9 +53,11 @@ def test_imperial_scale_note_clean_ratios_only() -> None:
     assert imperial_scale_note(48) == "1/4\" = 1'-0\""
     assert imperial_scale_note(96) == "1/8\" = 1'-0\""
     assert imperial_scale_note(16) == "3/4\" = 1'-0\""
-    # metric ratios have no clean architectural equivalent
-    assert imperial_scale_note(50) is None
-    assert imperial_scale_note(100) is None
+    # metric CD ratios snap to the nearest US arch scale (1:100 is 1/8",
+    # not 1/4" — that inversion made facility overall-plan bars lie)
+    assert imperial_scale_note(100) == "1/8\" = 1'-0\""
+    assert imperial_scale_note(200) == "1/16\" = 1'-0\""
+    assert imperial_scale_note(50) == "1/4\" = 1'-0\""
     assert imperial_scale_note(0) is None
 
 

@@ -100,6 +100,11 @@ def _sheet_from_view(
     # true scaled drawing views (px_per_mm known) may upscale to fill the sheet;
     # tables / diagrams only get a modest bump so short schedules stay legible
     s, body = view.scaled_to_fit(aw, ah, pad=5, max_scale=2.5 if px_per_mm else 1.5)
+    # Title-block scale must not claim a larger scale than the fit drew.
+    # Stating 1:100 then shrinking the view to fit was the INTEC A-101 lie.
+    # Upscale-to-fill (small test / detail views) keeps the declared note.
+    if px_per_mm and s < 0.98:
+        scale_note = _scale_note_for(px_per_mm * s, units)
     return title_block_svg(
         sheet_w=sheet_w,
         sheet_h=sheet_h,
@@ -653,7 +658,9 @@ def export_construction_set(
                         ``fractional_grids``, ``key_plan``, ``room_areas``,
                         ``keynotes`` (each overriding the export-level
                         default), ``grid_sides`` (``"arch"``/``"framing"``),
-                        ``callouts`` (detail callout bubbles), ``match_lines``.
+                        ``callouts`` (detail callout bubbles), ``match_lines``,
+                        ``auto_grid`` (synthesize bay grids when none authored),
+                        ``collapse_equipment`` (one footprint per machine tag).
     - ``"elevations"``— paired elevations. opts: ``pair`` e.g. ``["S", "N"]``.
     - ``"sections"``  — the two default building sections (A-A / B-B).
     - ``"schedule"``  — ruled schedule table(s). opts: ``schedule`` — a
@@ -694,6 +701,16 @@ def export_construction_set(
     ):
         for stale in out.glob(pattern):
             stale.unlink()
+
+    if sheets is None:
+        _has_walls = any(el.category == "wall" for el in model.elements)
+        _has_equip = any(el.category == "equipment" for el in model.elements)
+        if not _has_walls and _has_equip:
+            from llmbim_drawings.machine_set import machine_sheet_register
+
+            sheets = machine_sheet_register(model, plan_level=plan_level)
+            dim_tiers = True
+            keynotes = True
 
     if sheets is not None:
         return _export_custom_register(
@@ -1942,6 +1959,8 @@ def _export_custom_register(
                 keynotes=bool(spec.get("keynotes", keynotes)),
                 hide_note_disciplines=hide_note_disciplines,
                 clouds=[{**r, "number": rev_delta} for r in rev_clouds.get(lvl, [])] or None,
+                auto_grid=bool(spec.get("auto_grid", False)),
+                collapse_equipment=bool(spec.get("collapse_equipment", False)),
                 title=f"{model.name} — {title}",
             )
             svg = _sheet_from_view(
