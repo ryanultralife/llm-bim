@@ -278,12 +278,17 @@ def _quad(a: _Vec3, b: _Vec3, c: _Vec3, d: _Vec3, key: str) -> list[_Tri]:
 
 
 def _inject_closed_envelope(tris: list[_Tri]) -> list[_Tri]:
-    """Solid roof deck + perimeter walls so product stills are closed exterior.
+    """DEPRECATED restage — do not call for product stills.
 
-    Pack glTF often lacks continuous roof/facade faces — beams read as open
-    steel and isos look into the hall. Cap + four wall planes seal the shell;
-    walls use material ``wall`` (lightly ghosted); roof stays solid.
+    Invented a padded AABB shell + roof that did not match model.gltf.
+    Ryan 2026-08-17: 3-D IS the model; ISOs must match it exactly.
+    Kept only so old callers do not ImportError.
     """
+    return list(tris)
+
+
+def _inject_closed_envelope_LEGACY_UNUSED(tris: list[_Tri]) -> list[_Tri]:
+    """Former fake shell. Not used. Left for git blame."""
     if not tris:
         return tris
     x0, x1, y0, y1, z0, z1 = _shell_bounds(tris)
@@ -353,47 +358,26 @@ def _inject_closed_envelope(tris: list[_Tri]) -> list[_Tri]:
 
 
 def _inject_yellow_canopy(tris: list[_Tri], shell_tris: list[_Tri]) -> list[_Tri]:
-    """South/east eave canopy strip (hero match — yellow apron on photo)."""
-    x0, x1, y0, y1, z0, z1 = _shell_bounds(tris)
-    strip_h = 0.50
-    yb = y1 - strip_h - 0.08
-    yt = y1 - 0.06
-    xs = x0 + 0.32 * (x1 - x0)
-    xe = x1 - 0.04
-    zo = z0 - 1.15
-    zi = z0 + 0.04
-    # equip_gas keyed yellow; presentation_tint maps to canopy gold
-    return (
-        _quad((xs, yb, zo), (xe, yb, zo), (xe, yt, zo), (xs, yt, zo), "equip_gas")
-        + _quad((xs, yb, zi), (xs, yb, zo), (xs, yt, zo), (xs, yt, zi), "equip_gas")
-        + _quad((xe, yb, zo), (xe, yb, zi), (xe, yt, zi), (xe, yt, zo), "equip_gas")
-        + _quad((xs, yt, zo), (xe, yt, zo), (xe, yt, zi), (xs, yt, zi), "equip_gas")
-        + shell_tris
-    )
+    """DEPRECATED — do not invent a yellow eave to match a photoreal hero.
+
+    Ryan 2026-08-17: hero may drift; mesh ISOs must be the model.
+    """
+    return list(shell_tris)
 
 
 def _exterior_product_tris(tris: list[_Tri]) -> list[_Tri]:
-    """Closed exterior product mesh: white panel shell + machines under ghost walls.
+    """Exact glTF triangles. No injected shell, no yellow eave.
 
-    Keeps machine solids + frame so ghost walls show wireframe/equipment
-    inside. Drops only fine MEP clutter. Roof solid (no exposed steel).
+    Primary stills are the model. Drop only fine MEP so walls/frame/machines
+    read; do not restage geometry.
     """
-    closed = _inject_closed_envelope(tris)
     out: list[_Tri] = []
-    for v0, v1, v2, key in closed:
+    for v0, v1, v2, key in tris:
         k = (key or "").lower()
         if k in _INTERIOR_DROP_KEYS or k.startswith("pipe_"):
             continue
-        # keep machines, frame, shell, walls, doors, canopy keys
-        if k.startswith("equip_") and k not in _MACHINE_KEEP_KEYS and k != "equip_shell":
-            # keep major equipment kinds; skip unknown fine parts
-            if k not in (
-                "equip_chiller", "equip_pedestal", "equip_yoke",
-                "equip_vacuum", "equip_cartridge", "equip_gas",
-            ):
-                continue
         out.append((v0, v1, v2, key))
-    return _inject_yellow_canopy(tris, out)
+    return out or list(tris)
 
 
 def export_mesh_product_views(
@@ -403,17 +387,10 @@ def export_mesh_product_views(
     title_prefix: str = "llm-bim",
     gltf_name: str = "model.gltf",
 ) -> list[Path]:
-    """Write multi-view PNGs from pack ``model.gltf`` — matches viewer 3D.
+    """Write multi-view PNGs from pack ``model.gltf`` — same triangles as viewer 3D.
 
-    Primary product stills: **closed roof deck + ghost walls** (no process-open
-    cutaway, no exposed roof steel, no iso angling into the hall). Process-open
-    remains MEP-only.
-
-    Files:
-      R1_iso.png / model_match_iso_full.png  closed shell + ghost walls (hero 3-D)
-      model_match_iso.png                    same
-      R1_iso_process.png                     process-open (MEP only)
-      R2_plan / R3_elev / R4_elev            elev/plan with ghost walls
+    Primary stills are the live mesh. No injected envelope, no yellow eave.
+    Process-open is the only filtered view (roof faces dropped for MEP).
     """
     pack = Path(pack_dir)
     gltf_path = pack / gltf_name
@@ -435,36 +412,36 @@ def export_mesh_product_views(
             "R1_iso.png",
             218.0,
             22.0,
-            f"{prefix} — white panels · ghost walls · machines inside",
+            f"{prefix} — model mesh",
             False,
             True,
         ),
         (
             "R1_iso_process.png",
-            210.0,
+            218.0,
             22.0,
-            f"{prefix} — process train open (MEP review)",
+            f"{prefix} — process train (roof off)",
             True,
             False,
         ),
-        ("R2_plan.png", 0.0, 89.0, f"{prefix} — plan · ghost walls", False, True),
-        ("R3_elev.png", 180.0, 0.0, f"{prefix} — elev S · ghost walls", False, True),
-        ("R3_elev_S.png", 180.0, 0.0, f"{prefix} — elev S · ghost walls", False, True),
-        ("R4_elev_E.png", 90.0, 0.0, f"{prefix} — elev E · ghost walls", False, True),
+        ("R2_plan.png", 0.0, 89.0, f"{prefix} — plan · model mesh", False, True),
+        ("R3_elev.png", 180.0, 0.0, f"{prefix} — elev S · model mesh", False, True),
+        ("R3_elev_S.png", 180.0, 0.0, f"{prefix} — elev S · model mesh", False, True),
+        ("R4_elev_E.png", 90.0, 0.0, f"{prefix} — elev E · model mesh", False, True),
         (
             "model_match_iso.png",
             218.0,
             22.0,
-            f"{prefix} — white panels · ghost walls · machines inside",
+            f"{prefix} — model mesh",
             False,
             True,
         ),
-        ("model_match_plan.png", 0.0, 89.0, f"{prefix} — model-match plan · ghost walls", False, True),
+        ("model_match_plan.png", 0.0, 89.0, f"{prefix} — plan · model mesh", False, True),
         (
             "model_match_iso_full.png",
             218.0,
             22.0,
-            f"{prefix} — white panels · ghost walls · machines inside",
+            f"{prefix} — model mesh",
             False,
             True,
         ),
@@ -481,16 +458,15 @@ def export_mesh_product_views(
             elevation_deg=el,
             size=(1600, 1000) if "iso" in fname else (1600, 900),
             ghost_walls=ghost,
-            # Strong ghost — white panels translucent, machines/frame read through
-            wall_alpha=0.22,
+            wall_alpha=0.28,
             ghost_roof=False,
-            presentation_tint=not use_open,
+            presentation_tint=False,
         )
         paths.append(p)
     man = {
         "rule": (
-            "mesh match — primary stills = closed roof + light ghost walls + "
-            "no interior MEP (exterior 3/4, not iso into hall)"
+            "mesh match — primary stills = live model.gltf triangles; "
+            "no injected shell; no yellow eave; hero may drift"
         ),
         "source": gltf_name,
         "triangle_count": len(tris),
@@ -505,6 +481,19 @@ def export_mesh_product_views(
         "honesty": "presentation stills from live model mesh — not PE stamp",
     }
     (out / "MESH_VIEWS.json").write_text(json.dumps(man, indent=2) + "\n", encoding="utf-8")
+    # Layout ISOs used to be a third language (colored AABBs). Same mesh,
+    # same cameras — hero may drift, these may not.
+    import shutil
+    aliases = (
+        ("R1_iso.png", "L1_layout_iso.png"),
+        ("model_match_plan.png", "L2_layout_plan.png"),
+        ("R3_elev_S.png", "L3_layout_elev.png"),
+    )
+    for src, dst in aliases:
+        a, b = out / src, out / dst
+        if a.is_file():
+            shutil.copyfile(a, b)
+            paths.append(b)
     return paths
 
 
