@@ -726,7 +726,7 @@ def _emit_svg(faces: list[_Face], name: str, width: int, height: int) -> str:
 
     min_x = min_y = math.inf
     max_x = max_y = -math.inf
-    for _d, pts, _c in faces:
+    for _d, pts, _c, _a in faces:
         for x, y in pts:
             min_x, max_x = min(min_x, x), max(max_x, x)
             min_y, max_y = min(min_y, y), max(max_y, y)
