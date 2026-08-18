@@ -269,6 +269,121 @@ def _cell_text(value: object) -> str:
     return str(value)
 
 
+# Verseon schedule (MB-INT-SHEET-TABLE-001): Arch-E 42" → 1100 SVG units.
+_VERSEON_PX_PER_IN = 1100.0 / 42.0
+_VERSEON_ROW = 0.200 * _VERSEON_PX_PER_IN
+_VERSEON_HDR = 1.050 * _VERSEON_PX_PER_IN
+_VERSEON_TITLE = 0.280 * _VERSEON_PX_PER_IN
+_VERSEON_FS = (1.0 / 16.0) * _VERSEON_PX_PER_IN  # 1/16″
+_VERSEON_INK = "#2c2c2a"
+_VERSEON_FONT = "Century Gothic, CenturyGothic, Questrial, sans-serif"
+
+
+def verseon_table_view(
+    headers: Sequence[str],
+    rows: Sequence[Sequence[object]],
+    *,
+    title: str = "",
+    width_px: float = 340.0,
+) -> DrawingView:
+    """Verseon schedule: rotated headers, no fill, no zebra, no stretch.
+
+    Row pitch and header height are plotted inches (0.200″ / 1.050″).
+    Height follows row count — never scaled to fill the cell.
+    """
+    ncols = max(len(headers), 1)
+    texts: list[list[str]] = [[_cell_text(v) for v in row[:ncols]] for row in rows]
+    for t in texts:
+        while len(t) < ncols:
+            t.append("—")
+    scores: list[float] = []
+    for c in range(ncols):
+        mx = 4
+        for t in texts[:80]:
+            mx = max(mx, len(t[c]))
+        if c == 0:
+            mx = min(mx, 16)
+        scores.append(max(5.0, float(mx)))
+    total = sum(scores) or 1.0
+    shares = [s / total for s in scores]
+    widths = [width_px * s for s in shares]
+    x_edges = [0.0]
+    for w in widths:
+        x_edges.append(x_edges[-1] + w)
+    title_h = _VERSEON_TITLE if title else 0.0
+    n = max(len(texts), 1)
+    total_h = title_h + _VERSEON_HDR + n * _VERSEON_ROW
+    parts: list[str] = [
+        f'<g class="verseon-table" font-family="{_VERSEON_FONT}" '
+        f'fill="{_VERSEON_INK}" stroke="{_VERSEON_INK}">'
+    ]
+    if title:
+        parts.append(
+            f'  <text x="{fmt(width_px / 2)}" y="{fmt(title_h * 0.72)}" '
+            f'text-anchor="middle" font-size="{fmt(_VERSEON_FS * 1.5)}">'
+            f"{esc(str(title)[:72].upper())}</text>"
+        )
+    y0 = title_h
+    # rotated headers — no filled band
+    x = 0.0
+    for c, htxt in enumerate(headers):
+        cx = x + widths[c] / 2.0
+        hy = y0 + _VERSEON_HDR - 4.0
+        label = str(htxt).replace("\n", " ").strip().upper()
+        parts.append(
+            f'  <text transform="translate({fmt(cx)},{fmt(hy)}) rotate(-90)" '
+            f'text-anchor="start" dominant-baseline="middle" '
+            f'font-size="{fmt(_VERSEON_FS)}">{esc(label[:28])}</text>'
+        )
+        x += widths[c]
+    # body rows at fixed pitch
+    yr = y0 + _VERSEON_HDR
+    for t in texts:
+        for c in range(ncols):
+            char_w = _VERSEON_FS * 0.62
+            max_chars = max(3, int((widths[c] - 4) / max(char_w, 0.4)))
+            text = t[c]
+            if len(text) > max_chars:
+                text = text[: max_chars - 1] + "…"
+            hdr = str(headers[c]).upper()
+            left = c == 0 or any(
+                k in hdr for k in ("NAME", "ROOM", "DESC", "REMARK", "NOTE",
+                                   "DUTY", "TITLE", "MODULE", "BASIS")
+            )
+            if left:
+                tx, anchor = x_edges[c] + 2.0, "start"
+            else:
+                tx, anchor = x_edges[c] + widths[c] / 2.0, "middle"
+            parts.append(
+                f'  <text x="{fmt(tx)}" y="{fmt(yr + _VERSEON_ROW * 0.72)}" '
+                f'text-anchor="{anchor}" font-size="{fmt(_VERSEON_FS)}">'
+                f"{esc(text)}</text>"
+            )
+        yr += _VERSEON_ROW
+        parts.append(
+            f'  <line x1="0" y1="{fmt(yr)}" x2="{fmt(width_px)}" y2="{fmt(yr)}" '
+            f'stroke-width="0.35" fill="none"/>'
+        )
+    # column rules + outer box (hairline, no fill)
+    for xe in x_edges[1:-1]:
+        parts.append(
+            f'  <line x1="{fmt(xe)}" y1="{fmt(y0)}" x2="{fmt(xe)}" y2="{fmt(yr)}" '
+            f'stroke-width="0.35" fill="none"/>'
+        )
+    parts.append(
+        f'  <line x1="0" y1="{fmt(y0 + _VERSEON_HDR)}" x2="{fmt(width_px)}" '
+        f'y2="{fmt(y0 + _VERSEON_HDR)}" stroke-width="0.7" fill="none"/>'
+    )
+    parts.append(
+        f'  <rect x="0" y="{fmt(y0)}" width="{fmt(width_px)}" '
+        f'height="{fmt(yr - y0)}" fill="none" stroke-width="0.7"/>'
+    )
+    parts.append("</g>")
+    return DrawingView(
+        width=width_px + 4, height=total_h + 4, body="\n".join(parts), title=title
+    )
+
+
 def table_view(
     headers: Sequence[str],
     rows: Sequence[Sequence[object]],

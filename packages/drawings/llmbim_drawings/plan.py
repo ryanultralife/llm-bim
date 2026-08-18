@@ -383,6 +383,7 @@ def render_plan_view(
     clouds: Sequence[Mapping[str, Any]] | None = None,
     auto_grid: bool = False,
     collapse_equipment: bool = False,
+    equipment_wireframe: bool = False,
 ) -> DrawingView:
     """Build a plan DrawingView (inner body + size).
 
@@ -469,6 +470,7 @@ def render_plan_view(
       from the equipment envelope and clustered machine centers (process
       train → numbered bays, letters across the short axis).
     - ``collapse_equipment``: one plan footprint per parent machine tag
+    - ``equipment_wireframe``: outline only (no fill) — EQ arrangement sheets
       instead of every part AABB (skid rails / canopy that swallow the
       envelope render as a light outline only).
     """
@@ -994,9 +996,19 @@ def render_plan_view(
         parts.append("  </g>")
 
     # Equipment
+    if equipment_wireframe:
+        _eq_fill = "none"
+        _eq_op = ""
+        _eq_stroke = "#8a5a2c"
+        _eq_sw = max(0.7, 12 * scale)
+    else:
+        _eq_fill = "#cfe8ff"
+        _eq_op = ' fill-opacity="0.55"'
+        _eq_stroke = "#0b5cab"
+        _eq_sw = max(0.4, 8 * scale)
     parts.append(
-        f'  <g class="equipment" fill="#cfe8ff" fill-opacity="0.55" '
-        f'stroke="#0b5cab" stroke-width="{fmt(max(0.4, 8 * scale))}">'
+        f'  <g class="equipment" fill="{_eq_fill}"{_eq_op} '
+        f'stroke="{_eq_stroke}" stroke-width="{fmt(_eq_sw)}">'
     )
     collapsed_tags: set[str] = set()
     if collapse_equipment:
@@ -1052,7 +1064,8 @@ def render_plan_view(
                 )
             else:
                 parts.append(
-                    f'    <polygon class="equip-machine" points="{pts}" fill="#b8d4f0"/>'
+                    f'    <polygon class="equip-machine" points="{pts}" '
+                    f'fill="{_eq_fill}"/>'
                 )
     for eq in equipment:
         if not _eq_on(eq):
@@ -1073,7 +1086,7 @@ def render_plan_view(
                     f"{fmt(px)},{fmt(py)}"
                     for px, py in (project(float(p[0]), float(p[1])) for p in poly)
                 )
-                parts.append(f'    <polygon points="{pts}" fill="#b8d4f0"/>')
+                parts.append(f'    <polygon points="{pts}" fill="{_eq_fill}"/>')
                 # end circles
                 for cx in (x0, x0 + L):
                     pcx, pcy = project(cx, y0)

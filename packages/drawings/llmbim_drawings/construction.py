@@ -15,7 +15,7 @@ from llmbim_core.errors import ValidationError
 from llmbim_core.model import Element, ProjectModel
 
 from llmbim_drawings.detail_ops import imperial_scale_note, render_detail_sheet
-from llmbim_drawings.layout import compose_sheet, table_view
+from llmbim_drawings.layout import compose_sheet, table_view, verseon_table_view
 from llmbim_drawings.plan import render_plan_view
 from llmbim_drawings.schedules import export_schedule_csv, schedule_rows
 from llmbim_drawings.section import render_elevation_svg, render_section_svg
@@ -1318,6 +1318,7 @@ def export_construction_set(
             _ax, _ay, _aw, _ah = drawing_area()
             _eq_cw = max(80.0, (_aw - 10.0) * 0.64 - 8.0)
             _eq_ch = max(80.0, (_ah - 10.0) - 32.0)
+            _eq_tbl_w = max(160.0, (_aw - 10.0) * 0.36 - 8.0)
             eq_scale, eq_note = _eq_scale_for_crop(
                 crop, units=units, cell_w_px=_eq_cw, cell_h_px=_eq_ch
             )
@@ -1328,6 +1329,7 @@ def export_construction_set(
                 show_dimensions=True,
                 include={"equipment", "walls", "rooms", "grids"},
                 ghost_walls=True,
+                equipment_wireframe=True,
                 crop_mm=crop,
                 units=units,
                 title=f"{model.name} — Equipment Arrangement {room_name}",
@@ -1382,10 +1384,11 @@ def export_construction_set(
             if len(eq_tbl_rows) > _max_eq_tbl:
                 _note_extra = f" (+{len(eq_tbl_rows) - _max_eq_tbl} more — see A-501)"
                 eq_tbl_rows = eq_tbl_rows[:_max_eq_tbl]
-            tbl = table_view(
+            tbl = verseon_table_view(
                 ["TAG", "EQUIPMENT NAME", "KIND", "N PARTS", "Z0 mm"],
                 eq_tbl_rows,
                 title=f"Equipment — {room_name}{_note_extra}",
+                width_px=_eq_tbl_w,
             )
             sn = f"EQ-1{eq_i:02d}"
             sh = _multi_sheet(

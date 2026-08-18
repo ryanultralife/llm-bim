@@ -112,12 +112,18 @@ def test_eq_sheets_room_crop_and_table(tmp_path: Path) -> None:
     assert "ServiceSkid" not in eq1  # neighbor room's equipment outside the crop
     # walls ghosted; equipment table cell present
     assert "walls-ghost" in eq1
-    assert 'class="schedule-table"' in eq1
+    assert "verseon-table" in eq1
     assert "N PARTS" in eq1
     # partially-inside geometry is clipped at the crop window
     assert "clip-path" in eq1
     # drawn at the scale the room needs (8×10 m cell → 1:20), not 1:50 blown up
     assert "1:20" in eq1
+    # wireframe equipment + Verseon table (no fill, no zebra, no stretch)
+    assert 'class="equipment"' in eq1
+    assert 'fill="#cfe8ff"' not in eq1
+    assert "verseon-table" in eq1
+    assert 'fill="#dfe3e8"' not in eq1
+    assert 'fill="#f2f5f7"' not in eq1
 
 
 def test_shielding_plan_fills_and_legend(tmp_path: Path) -> None:
