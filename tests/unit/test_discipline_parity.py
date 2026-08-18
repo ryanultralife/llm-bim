@@ -1,7 +1,7 @@
 """Discipline parity vs the 126-sheet reference register: EQ / N / C / H series.
 
 Content-driven emitters added to the construction set:
-  EQ-1xx per-room equipment arrangements (cropped, enlarged plans + table)
+  EQ-1xx per-room equipment arrangements (true scale for that room, not blown up)
   N-1xx  shielding & confinement plan (walls color-coded by type + legend)
   C-1xx  site / underground plan (underground equipment + ghost shell + slabs)
   H-1xx  HVAC supply / exhaust plans split out of M
@@ -113,9 +113,11 @@ def test_eq_sheets_room_crop_and_table(tmp_path: Path) -> None:
     # walls ghosted; equipment table cell present
     assert "walls-ghost" in eq1
     assert 'class="schedule-table"' in eq1
-    assert "W×D×H mm" in eq1
+    assert "N PARTS" in eq1
     # partially-inside geometry is clipped at the crop window
     assert "clip-path" in eq1
+    # drawn at the scale the room needs (8×10 m cell → 1:20), not 1:50 blown up
+    assert "1:20" in eq1
 
 
 def test_shielding_plan_fills_and_legend(tmp_path: Path) -> None:

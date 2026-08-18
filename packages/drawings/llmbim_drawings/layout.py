@@ -17,6 +17,7 @@ from llmbim_drawings.svg_util import esc, fmt
 from llmbim_drawings.view import DrawingView
 
 # cell = (view, title, scale_note) or (view, title, scale_note, px_per_mm)
+# optional 5th: max_scale (1.0 = drawn at the declared scale, no blow-up)
 Cell = tuple
 
 _LABEL_H = 28.0
@@ -25,10 +26,13 @@ _LABEL_H = 28.0
 _MAX_UPSCALE = 2.5
 
 
-def _cell_parts(cell: Cell) -> tuple[DrawingView, str, str, float | None]:
+def _cell_parts(cell: Cell) -> tuple[DrawingView, str, str, float | None, float]:
     view, title, scale_note = cell[0], str(cell[1]), str(cell[2])
     px_per_mm = float(cell[3]) if len(cell) > 3 and cell[3] else None
-    return view, title, scale_note, px_per_mm
+    cap = float(cell[4]) if len(cell) > 4 and cell[4] is not None else (
+        _MAX_UPSCALE if px_per_mm else 1.0
+    )
+    return view, title, scale_note, px_per_mm, cap
 
 
 def _fit_scale(view: DrawingView, w: float, h: float, cap: float) -> float:
@@ -52,7 +56,7 @@ def _grid_for(n: int, cells: Sequence[Cell], width: float, height: float, gutter
         # choose orientation maximizing the worst-fitted view scale (same
         # per-cell upscale cap the renderer uses, so the choice is consistent)
         parsed = [_cell_parts(c) for c in cells]
-        caps = [_MAX_UPSCALE if p[3] else 1.0 for p in parsed]
+        caps = [p[4] for p in parsed]
         row_s = min(
             _fit_scale(p[0], (width - gutter) / 2, height - _LABEL_H, cap)
             for p, cap in zip(parsed, caps, strict=True)
@@ -135,10 +139,11 @@ def compose_sheet(
 
     parts: list[str] = []
     for i, (cell, (cx, cy, cw, ch)) in enumerate(zip(cells, rects, strict=True), start=1):
-        view, title, scale_note, px_per_mm = _cell_parts(cell)
-        # scaled drawing views may upscale to fill the cell; legends/tables don't
+        view, title, scale_note, px_per_mm, cap = _cell_parts(cell)
+        # scaled drawing views may upscale to fill the cell unless the cell
+        # already declared its own scale (EQ arrangements: max_scale=1).
         s, body = view.scaled_to_fit(
-            cw - 4, ch - _LABEL_H, pad=4, max_scale=_MAX_UPSCALE if px_per_mm else 1.0
+            cw - 4, ch - _LABEL_H, pad=4, max_scale=cap
         )
         parts.append(f'<g class="view-cell" transform="translate({fmt(cx)},{fmt(cy)})">')
         parts.append(body)

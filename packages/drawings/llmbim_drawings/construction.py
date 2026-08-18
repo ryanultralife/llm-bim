@@ -54,6 +54,36 @@ def _scale_note_for(plan_scale: float, units: str) -> str:
     return numeric
 
 
+# Largest-first. Imperial maps to 1/2", 3/8", 1/4", 3/16", 1/8", 1/16".
+_EQ_RATIOS_IMPERIAL = (24.0, 32.0, 48.0, 64.0, 96.0, 192.0)
+_EQ_RATIOS_METRIC = (20.0, 25.0, 50.0, 100.0, 200.0)
+
+
+def _eq_scale_for_crop(
+    crop_mm: tuple[float, float, float, float],
+    *,
+    units: str,
+    cell_w_px: float,
+    cell_h_px: float,
+) -> tuple[float, str]:
+    """Largest standard scale at which ``crop_mm`` fits the EQ plan cell.
+
+    Returns ``(px_per_mm, scale_note)``. Never larger than the cell — leftover
+    paper is margin, not a blow-up of a smaller-scale crop.
+    """
+    cw = max(1.0, float(crop_mm[2]) - float(crop_mm[0]))
+    ch = max(1.0, float(crop_mm[3]) - float(crop_mm[1]))
+    fit = min(float(cell_w_px) / cw, float(cell_h_px) / ch)
+    ratios = _EQ_RATIOS_IMPERIAL if units == "imperial" else _EQ_RATIOS_METRIC
+    chosen = ratios[-1]
+    for r in ratios:
+        if (1.0 / r) <= fit * 0.98:
+            chosen = r
+            break
+    px = 1.0 / chosen
+    return px, _scale_note_for(px, units)
+
+
 def _check_set_units(units: str) -> str:
     if units not in {"metric", "imperial"}:
         raise ValidationError("units must be 'metric' or 'imperial'", units=units)
@@ -1180,7 +1210,10 @@ def export_construction_set(
                         }
                     )
 
-        # ── EQ-1xx: per-room equipment arrangements (enlarged, cropped plans)
+        # ── EQ-1xx: per-room equipment arrangements at the scale that room
+        # needs. Do NOT crop the overall plan and blow it up — that lies
+        # about the scale bar and fattens lineweights. Draw the room at
+        # the largest standard architectural scale that fits the cell.
         eq_rooms: list[tuple[str, Element, list[Element]]] = []
         for lname in plan_levels:
             lid = level_ids.get(lname)
@@ -1281,12 +1314,19 @@ def export_construction_set(
                 max(bys) + 1000.0,
             )
             room_name = room.name or "Room"
+            # Plan cell is 64% of the drawing area (row + schedule).
+            _ax, _ay, _aw, _ah = drawing_area()
+            _eq_cw = max(80.0, (_aw - 10.0) * 0.64 - 8.0)
+            _eq_ch = max(80.0, (_ah - 10.0) - 32.0)
+            eq_scale, eq_note = _eq_scale_for_crop(
+                crop, units=units, cell_w_px=_eq_cw, cell_h_px=_eq_ch
+            )
             view = render_plan_view(
                 model,
                 lname,
-                scale=plan_scale,
-                show_dimensions=False,
-                include={"equipment"},
+                scale=eq_scale,
+                show_dimensions=True,
+                include={"equipment", "walls", "rooms", "grids"},
                 ghost_walls=True,
                 crop_mm=crop,
                 units=units,
@@ -1353,11 +1393,12 @@ def export_construction_set(
                 sheet_no=sn,
                 title=f"Equipment Arrangement — {room_name}",
                 cells=[
-                    (view, f"Equipment Arrangement {room_name}", nominal_scale, plan_scale),
+                    (view, f"Equipment Arrangement {room_name}",
+                     eq_note, eq_scale, 1.0),
                     (tbl, "Room Equipment", "NTS"),
                 ],
                 date=date,
-                scale_note=nominal_scale,
+                scale_note=eq_note,
                 arrange="row",
                 weights=[0.64, 0.36],
                 north_arrow=True,
