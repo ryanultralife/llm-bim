@@ -86,6 +86,7 @@ _GHOST_WALL_KEYS = frozenset({
     "wall", "wall_structure", "wall_insulation", "wall_finish", "wall_membrane",
     "door", "window", "glass", "curtain", "cladding",
     "panel_seam",
+    "slab", "roof", "floor", "concrete", "footing", "stem_wall",
     # massing shells ghost so machines read through
     "equip_shell",
 })
@@ -663,7 +664,9 @@ def _project_and_shade(
             elif k in _MACHINE_KEEP_KEYS or k.startswith("equip_"):
                 # keep catalog color, slight boost for read-through
                 pass
-        if ghost_walls and (k in _GHOST_WALL_KEYS or k.startswith("wall")):
+        if ghost_walls and (
+            k in _GHOST_WALL_KEYS or k.startswith("wall") or "shield" in k
+        ):
             alpha = float(wall_alpha)
             if k in _GHOST_NEUTRAL_KEYS and not presentation_tint:
                 rgb0, rgb1, rgb2 = _GHOST_NEUTRAL_RGB

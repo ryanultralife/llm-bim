@@ -135,6 +135,8 @@ def test_viewer3d_html_rich_ui_hooks(tmp_path: Path) -> None:
     for hook in ("clipOn", "clipAxis", "ghostWalls", "globalAlpha",
                  "UnrealBloomPass", "studioSky", "localClippingEnabled"):
         assert hook in text, hook
+    assert "enclosureGhostKind" in text
+    assert "bioshield" in text
 
 
 def _find_chromium() -> str | None:

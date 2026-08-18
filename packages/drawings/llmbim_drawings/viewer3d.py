@@ -133,7 +133,11 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
     padding: 12px 14px; font-size: 0.76rem; box-shadow: 0 12px 36px rgba(0,0,0,0.5);
     backdrop-filter: blur(14px);
   }
-  #inspect h3 { margin: 0 18px 6px 0; font-size: 0.84rem; letter-spacing: -0.01em; }
+  #inspect h3 { margin: 0 18px 4px 0; font-size: 0.9rem; letter-spacing: -0.01em; }
+  #inspect .partSub {
+    margin: 0 18px 8px 0; font-size: 0.78rem; color: var(--accent);
+    font-weight: 500; word-break: break-word;
+  }
   #inspect .kv { display: flex; justify-content: space-between; gap: 10px; margin: 3px 0; }
   #inspect .kv .k { color: var(--muted); flex-shrink: 0; }
   #inspect .kv .v { text-align: right; word-break: break-all; }
@@ -157,6 +161,7 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
 <div id="inspect">
   <button type="button" id="inspectClose" title="Close">&#10005;</button>
   <h3 id="inspectName"></h3>
+  <div class="partSub" id="inspectPart" style="display:none"></div>
   <div id="inspectBody"></div>
 </div>
 <div id="measureLabel"></div>
@@ -168,7 +173,7 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
       <span class="badge">LLM-NATIVE</span>
     </div>
   </div>
-  <div class="sub">Solid materials + round pipes by default. Toggle <strong>ghost walls</strong> only when you need see-through MEP review. Section cut · bloom · Imagine studio.</div>
+  <div class="sub">Solid materials + round pipes by default. Toggle <strong>ghost enclosure</strong> to see through walls, roofs, slabs and bioshields. Section cut · bloom · Imagine studio.</div>
 
   <h2><span class="step-tag">1</span>Section cut</h2>
   <div class="row">
@@ -214,7 +219,7 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
     <input type="checkbox" id="contactAO" checked/>
   </div>
   <div class="row">
-    <label for="ghostWalls">Ghost shells / walls (see-through)</label>
+    <label for="ghostWalls">Ghost enclosure (walls, roofs, bioshields)</label>
     <input type="checkbox" id="ghostWalls"/>
   </div>
   <div class="row">
@@ -243,6 +248,14 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
     <button type="button" id="btnAll">All layers</button>
     <button type="button" id="btnSnap" title="Save this view as a PNG (2x; Shift+P = 4x)">Save PNG</button>
     <button type="button" id="btnNone">None</button>
+  </div>
+  <div class="sub" style="margin:8px 0 4px">Architectural elevations (facade orthos)</div>
+  <div class="btns">
+    <button type="button" id="btnElevN" title="North elevation — look south at N face">Elev N</button>
+    <button type="button" id="btnElevS" title="South elevation — look north at S face">Elev S</button>
+    <button type="button" id="btnElevE" title="East elevation — look west at E face">Elev E</button>
+    <button type="button" id="btnElevW" title="West elevation — look east at W face">Elev W</button>
+    <button type="button" id="btnElevExt" title="Hide partitions + interior densify for clean facade elev">Ext elev mode</button>
   </div>
 
   <h2><span class="step-tag">3</span>Studio env</h2>
@@ -305,6 +318,18 @@ const { THREE, OrbitControls, GLTFLoader, RoomEnvironment, EffectComposer, Rende
 
 const EMBEDDED = __EMBEDDED_GLTF__;
 const WALL_GHOST = __WALL_GHOST__;
+const SLAB_GHOST = 0.28;
+function enclosureGhostKind(name) {
+  // Building solids: walls (incl. bioshield), roofs, slabs, concrete, openings.
+  // MEP / steel / machine internals stay opaque so they read through the shell.
+  const n = String(name || '').toLowerCase();
+  if (!n) return null;
+  if (n.startsWith('wall') || n.includes('shield') || n.includes('bioshield')) return 'wall';
+  if (['door', 'window', 'glass', 'curtain', 'cladding', 'panel_seam'].includes(n)) return 'wall';
+  if (['slab', 'roof', 'floor', 'concrete', 'footing', 'stem_wall'].includes(n)) return 'slab';
+  if (n.includes('roof') || n.includes('slab') || n.includes('floor') || n.includes('concrete')) return 'slab';
+  return null;
+}
 const SKY_URI = __SKY_URI__;
 const FLOOR_URI = __FLOOR_URI__;
 const BRAND_URI = __BRAND_URI__;
@@ -470,8 +495,9 @@ function applyLayerStyle(name) {
   const isGlass = name === 'window';
   for (const mat of L.mats) {
     let op = L.opacity * globalA;
-    if (ghostWalls && (name === 'wall' || name === 'slab')) {
-      op = Math.min(op, name === 'wall' ? WALL_GHOST : 0.32);
+    const envKind = enclosureGhostKind(name);
+    if (ghostWalls && envKind) {
+      op = Math.min(op, envKind === 'wall' ? WALL_GHOST : SLAB_GHOST);
     }
     // Ghost mode: walls + outer machine shells (see internals). Off by default.
     const equipGhost = (
@@ -949,6 +975,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 // Camera presets (SSOT P3.11): iso / end views / top for equipment review.
+// Architectural elev N/S/E/W: low eye height, look at facade (Walsh 3-D elev).
 // Section-through-bore = preset + the existing cutaway plane controls.
 function presetCamera(dir) {
   if (modelBox.isEmpty()) fitCamera(root);
@@ -957,21 +984,98 @@ function presetCamera(dir) {
   const center = modelBox.getCenter(new THREE.Vector3());
   const maxDim = Math.max(size.x, size.y, size.z, 1);
   const dist = maxDim * 1.6;
+  // glTF Y-up: plan X = east, plan Z = north (llmbim export convention)
   const offsets = {
     iso: [0.9, 0.52, 0.72],
     endA: [1.0, 0.12, 0.0],
     endB: [-1.0, 0.12, 0.0],
     top: [0.0, 1.0, 0.001],
+    // elev: low eye (~0.08 of dist above target) so facade reads as elevation
+    elevN: [0.0, 0.08, 1.15],   // camera north of model, look south
+    elevS: [0.0, 0.08, -1.15],  // camera south, look north
+    elevE: [1.15, 0.08, 0.0],   // camera east, look west
+    elevW: [-1.15, 0.08, 0.0],  // camera west, look east
   };
   const o = offsets[dir] || offsets.iso;
-  controls.target.copy(center);
-  camera.position.set(center.x + dist * o[0], center.y + dist * o[1], center.z + dist * o[2]);
+  // For elevs, aim at building mass center slightly above grade
+  const tgt = center.clone();
+  if (String(dir).startsWith('elev')) {
+    tgt.y = modelBox.min.y + size.y * 0.35;
+  }
+  controls.target.copy(tgt);
+  camera.position.set(tgt.x + dist * o[0], tgt.y + dist * o[1], tgt.z + dist * o[2]);
   controls.update();
 }
 document.getElementById('btnIso').addEventListener('click', () => presetCamera('iso'));
 document.getElementById('btnEndA').addEventListener('click', () => presetCamera('endA'));
 document.getElementById('btnEndB').addEventListener('click', () => presetCamera('endB'));
 document.getElementById('btnTop').addEventListener('click', () => presetCamera('top'));
+['N', 'S', 'E', 'W'].forEach((d) => {
+  const el = document.getElementById('btnElev' + d);
+  if (el) el.addEventListener('click', () => {
+    setExteriorElevMode(true);
+    presetCamera('elev' + d);
+  });
+});
+
+// Exterior elev mode: hide interior partitions + densify clutter so the white
+// metal shell and outdoor yards read as a clean architectural elevation.
+let exteriorElevMode = false;
+function setExteriorElevMode(on) {
+  exteriorElevMode = !!on;
+  const btn = document.getElementById('btnElevExt');
+  if (btn) {
+    btn.style.borderColor = exteriorElevMode ? 'var(--accent)' : '';
+    btn.style.background = exteriorElevMode ? '#1a3a55' : '';
+  }
+  // force layer re-eval
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    o.visible = meshExtraVisible(o) && layerVisibleForMesh(o);
+  });
+  // also re-apply per-layer visibility if helpers exist
+  if (typeof applyAllLayerStyles === 'function') applyAllLayerStyles();
+  else if (typeof refreshVisibility === 'function') refreshVisibility();
+}
+const _btnElevExt = document.getElementById('btnElevExt');
+if (_btnElevExt) {
+  _btnElevExt.addEventListener('click', () => setExteriorElevMode(!exteriorElevMode));
+}
+
+function layerVisibleForMesh(mesh) {
+  if (!exteriorElevMode) return true;
+  const extras = mesh.userData.__extras || mesh.userData.extras || {};
+  const cat = String(extras.category || mesh.userData.__category || '').toLowerCase();
+  const name = String(mesh.name || extras.name || '').toLowerCase();
+  const tid = String(extras.type_id || extras.typeId || '').toLowerCase();
+  const kind = String(extras.kind || (extras.params && extras.params.kind) || '').toLowerCase();
+  // Keep exterior shell, slabs, outdoor-looking equipment, structure, doors on shell
+  if (cat === 'wall' || name.includes('wall')) {
+    // hide interior partitions (gyp / partition)
+    if (tid.includes('int') || tid.includes('gyp') || name.includes('partition')) return false;
+    return true;
+  }
+  if (cat === 'slab' || cat === 'door' || cat === 'window') return true;
+  if (cat === 'column' || cat === 'beam') return false; // no frame through elev
+  if (cat === 'pipe' || cat === 'duct' || cat === 'conduit' || cat === 'cable_tray') return false;
+  if (cat === 'equipment' || cat === 'generic') {
+    // keep outdoor yards / stack / large tags; drop tiny densify
+    const tag = String(extras.equipment_tag || extras.equipment || extras.tag || name);
+    const outdoor =
+      /LAR|LIN|WT-|DI-BULK|TANK|WATER|COOL|STACK|EF-|HEPA|CH-|CT-|IA-|CL2|T1|SWGR|CNS-|CONSUM|ELECYARD|WATERPLANT|TANKFARM/i.test(tag);
+    if (outdoor) return true;
+    // hide interior process densify on elev
+    return false;
+  }
+  return true;
+}
+
+// Patch meshExtraVisible to honor exterior elev mode
+const _meshExtraVisibleOrig = meshExtraVisible;
+meshExtraVisible = function (mesh) {
+  if (!_meshExtraVisibleOrig(mesh)) return false;
+  return layerVisibleForMesh(mesh);
+};
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -1079,6 +1183,116 @@ function clearSelection() {
   inspectEl.style.display = 'none';
 }
 
+// Full equipment names (MineClean / machines SSOT) — click title uses these, not M-* tags
+const EQUIP_FULL_NAME = {
+  'M-SKID': 'ISO 20-ft skid structure',
+  'M-FEED-PUMP': 'Feed pump skidlet (mag-drive PTFE/PVDF)',
+  'M-STRAINER': 'Y-strainer 3-in PTFE 800 µm',
+  'M-EC': 'Electrocoagulation cell 150 A',
+  'M-CLARIFIER': 'Inclined-plate clarifier',
+  'M-SLUDGE': 'Sludge pot 60 L + AODD pump',
+  'M-CHAMBER': 'RMF liquid-MHD separator chamber assembly',
+  'M-FILTER-BANK': 'Effluent filter bank 20/5/1 µm',
+  'M-FILTER': 'Effluent filter bank 20/5/1 µm',
+  'M-CONC': 'Concentrate harvest station 40 L',
+  'M-CHILLER': 'Skid chiller ≥15 kW',
+  'M-POWER': 'Power & controls enclosure',
+  'M-RECYCLE': 'Recycle pump',
+  'M-VALVE': 'Process valve set',
+  'M-VALVES': 'Process valve set',
+  'M-IAC': 'Instrumentation package',
+  'M-PIPING': 'Process + cooling pipe network',
+  'M-CW': 'Cooling water (CW) system',
+  'M-PROC': 'Process piping',
+  'MB-MCLEAN': 'MineClean field skid',
+  'MCLEAN': 'MineClean field skid',
+};
+
+function expandEquipName(tag) {
+  const t = (tag || '').toString().trim();
+  if (!t) return '';
+  if (EQUIP_FULL_NAME[t]) return EQUIP_FULL_NAME[t];
+  // already a long name
+  if (t.length > 12 && !/^M-[A-Z]/.test(t)) return t;
+  return t;
+}
+
+function parseEquipPart(ex) {
+  /** Prefer full equipment_name; keep M-* tag for reference. */
+  const p = ex.params || {};
+  const GENERIC = new Set(['', 'mclean', 'mb-mclean', 'equipment', 'box', 'part', 'unknown']);
+  let equipTag = (p.equipment_tag || p.equipment || p.assoc || p.tag || '').toString().trim();
+  let equip = (p.equipment_name || p.equipment_full || '').toString().trim();
+  let part = (p.part || p.desc || '').toString().trim();
+  // P/N: prefer explicit pn; else mark when it looks like a BOM number (MB-MC-*, FTG-*, HW-*, P-*)
+  let pn = (p.pn || '').toString().trim();
+  const markRaw = (p.mark || '').toString().trim();
+  if (!pn && markRaw && /^(MB-MC-|FTG-|HW-|P-\d|CW-|XV-|FE-|PIT-|PSV-)/i.test(markRaw)) {
+    pn = markRaw;
+  }
+  if (!pn && p.part_id && /^(MB-MC-|FTG-|HW-)/i.test(String(p.part_id))) {
+    pn = String(p.part_id).trim();
+  }
+  // strip layer prefix [PROC_plasma] from display name
+  let raw = (ex.name || '').toString().trim();
+  if (raw.startsWith('[')) {
+    const br = raw.indexOf(']');
+    if (br >= 0) raw = raw.slice(br + 1).trim();
+  }
+  // strip filename-ish part keys like p01_shell_...
+  if (part && /^p\d{2}_/.test(part)) {
+    part = part.replace(/^p\d{2}_/, '').replace(/_/g, ' ').trim();
+  }
+  // Generic product tags are not machine associations — re-parse from name
+  if (GENERIC.has(equipTag.toLowerCase())) equipTag = '';
+  if (!equipTag || !part) {
+    // "M-CHAMBER shell" / "SEP-01 shell" / "FEED-PUMP housing" / "SKID rail L"
+    const m = raw.match(/^(M-[A-Z0-9][A-Z0-9\-]+)\s+(.+)$/i)
+           || raw.match(/^([A-Z]{1,8}-\d{2,4}[A-Z]?)\s+(.+)$/i)
+           || raw.match(/^([A-Z]{2,12}(?:-[A-Z0-9]+)?)\s+(.+)$/i)
+           || raw.match(/^([A-Z]{2,8}\d{0,3})\s+(.+)$/i);
+    if (m) {
+      if (!equipTag) equipTag = m[1];
+      if (!part) part = m[2];
+    }
+  }
+  // Expand M-* tags to full equipment names for the inspect title
+  if (!equip) equip = expandEquipName(equipTag);
+  else if (/^M-[A-Z]/.test(equip)) equip = expandEquipName(equip);
+  // Pipe tags: show service when present
+  if (p.service && (raw.match(/^P-\d/) || raw.match(/^CW-/))) {
+    const fromTag = (p.from_equip || p.equipment || equipTag || raw).toString();
+    equip = (p.from_equip_name || expandEquipName(fromTag) || fromTag);
+    equipTag = fromTag;
+    part = p.service.toString();
+    if (p.to_equip || p.to_equip_name) {
+      const toN = p.to_equip_name || expandEquipName(p.to_equip) || p.to_equip;
+      part = `${part} → ${toN}`;
+    }
+  }
+  if (!equip && raw) equip = raw;
+  if (part && equip && part.toLowerCase().startsWith(equip.toLowerCase())) {
+    part = part.slice(equip.length).replace(/^[\s:·\-]+/, '');
+  }
+  // Prefer explicit human label for status bar
+  const label = (p.label || '').toString().trim();
+  // Subtitle: PN · description (component identity)
+  let sub = '';
+  if (pn && part && !part.includes(pn)) sub = `${pn} · ${part}`;
+  else if (pn) sub = pn + (part && part !== pn ? ' · ' + part : '');
+  else sub = part || '';
+  return {
+    equip: equip || ex.id,
+    equipTag: equipTag || '',
+    part: sub || part || '',
+    full: raw || ex.name || ex.id,
+    label: label || '',
+    mark: (p.mark || pn || '').toString().trim(),
+    pn: pn,
+    isComponent: !!(p.component || pn),
+  };
+}
+
 function selectElement(ex) {
   clearSelection();
   const rec = elementIndex.get(ex.id);
@@ -1093,16 +1307,60 @@ function selectElement(ex) {
       mat.emissiveIntensity = 0.85;
     }
   }
-  inspectName.textContent = ex.name || ex.id;
-  const rows = [['category', ex.category]];
+  const { equip, equipTag, part, full, label, mark, pn, isComponent } = parseEquipPart(ex);
+  const p0 = ex.params || {};
+  const kind = (p0.kind || '').toString().trim();
+  const pnVal = (pn || p0.pn || p0.part_id || '').toString().trim();
+  // Title = FULL equipment name (never bare M-CHAMBER if we can expand)
+  let title = (p0.equipment_name || equip || '').toString().trim();
+  if (!title || /^M-[A-Z]/.test(title)) title = expandEquipName(equipTag || title) || title;
+  if (!title) title = full || mark || ex.id;
+  // Component subtitle: PN · part description
+  let subtitle = '';
+  if (pnVal && part && !String(part).includes(pnVal)) subtitle = `${pnVal} · ${part}`;
+  else if (pnVal) subtitle = pnVal + (part && part !== pnVal ? ' · ' + part : '');
+  else subtitle = part || '';
+  if (!subtitle || subtitle === title) {
+    subtitle = (full && full !== title) ? full : (kind || '');
+  }
+  const inspectPart = document.getElementById('inspectPart');
+  inspectName.textContent = title;
+  if (subtitle && subtitle !== title) {
+    inspectPart.textContent = subtitle;
+    inspectPart.style.display = 'block';
+  } else {
+    inspectPart.textContent = '';
+    inspectPart.style.display = 'none';
+  }
+  const rows = [];
+  if (isComponent || pnVal || p0.component) rows.push(['type', 'component']);
+  rows.push(['category', ex.category]);
+  rows.push(['equipment', title]);
+  if (equipTag && equipTag !== title) rows.push(['equipment tag', equipTag]);
+  if (pnVal) rows.push(['pn', pnVal]);
+  if (part) rows.push(['part', part]);
+  if (full && full !== title && full !== part) rows.push(['element name', full]);
+  if (mark && mark !== title && mark !== pnVal) rows.push(['mark', mark]);
+  if (kind) rows.push(['kind / layer', kind]);
+  if (p0.make) rows.push(['make', p0.make]);
   if (ex.level) rows.push(['level', ex.level]);
   if (ex.layer) rows.push(['layer', ex.layer]);
-  for (const [k, v] of Object.entries(ex.params || {})) rows.push([k, v]);
+  const skip = new Set([
+    'equipment', 'equipment_name', 'equipment_tag', 'equipment_full', 'part', 'tag',
+    'assoc', 'label', 'mark', 'product', 'kind', 'pn', 'part_id', 'desc', 'component',
+    'make', 'from_equip', 'to_equip', 'from_equip_name', 'to_equip_name',
+  ]);
+  for (const [k, v] of Object.entries(p0)) {
+    if (skip.has(k)) continue;
+    if (v && typeof v === 'object') continue;
+    rows.push([k, v]);
+  }
   rows.push(['id', ex.id]);
   inspectBody.innerHTML = rows.map(([k, v]) =>
     `<div class="kv"><span class="k">${escHtml(k)}</span><span class="v">${escHtml(v)}</span></div>`
   ).join('');
   inspectEl.style.display = 'block';
+  setStatus(`Selected: ${title}${subtitle ? ' · ' + subtitle : ''}`);
 }
 
 // --- Measure tool (two clicks = distance, third resets) ---
