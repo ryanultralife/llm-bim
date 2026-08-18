@@ -173,7 +173,7 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
       <span class="badge">LLM-NATIVE</span>
     </div>
   </div>
-  <div class="sub">Solid materials + round pipes by default. Toggle <strong>ghost enclosure</strong> to see through walls, roofs, slabs and bioshields. Section cut · bloom · Imagine studio.</div>
+  <div class="sub">Solid materials + round pipes by default. Toggle <strong>ghost enclosure</strong> to see through walls, roofs and slabs. Bioshield is a wall type. Section cut · bloom · Imagine studio.</div>
 
   <h2><span class="step-tag">1</span>Section cut</h2>
   <div class="row">
@@ -219,7 +219,7 @@ _VIEWER_HTML = r"""<!DOCTYPE html>
     <input type="checkbox" id="contactAO" checked/>
   </div>
   <div class="row">
-    <label for="ghostWalls">Ghost enclosure (walls, roofs, bioshields)</label>
+    <label for="ghostWalls">Ghost enclosure (walls, roofs, slabs)</label>
     <input type="checkbox" id="ghostWalls"/>
   </div>
   <div class="row">
@@ -320,11 +320,11 @@ const EMBEDDED = __EMBEDDED_GLTF__;
 const WALL_GHOST = __WALL_GHOST__;
 const SLAB_GHOST = 0.28;
 function enclosureGhostKind(name) {
-  // Building solids: walls (incl. bioshield), roofs, slabs, concrete, openings.
+  // Building solids only. Bioshield is a wall type (WT-S*), not a second item.
   // MEP / steel / machine internals stay opaque so they read through the shell.
   const n = String(name || '').toLowerCase();
   if (!n) return null;
-  if (n.startsWith('wall') || n.includes('shield') || n.includes('bioshield')) return 'wall';
+  if (n.startsWith('wall')) return 'wall';
   if (['door', 'window', 'glass', 'curtain', 'cladding', 'panel_seam'].includes(n)) return 'wall';
   if (['slab', 'roof', 'floor', 'concrete', 'footing', 'stem_wall'].includes(n)) return 'slab';
   if (n.includes('roof') || n.includes('slab') || n.includes('floor') || n.includes('concrete')) return 'slab';

@@ -664,9 +664,7 @@ def _project_and_shade(
             elif k in _MACHINE_KEEP_KEYS or k.startswith("equip_"):
                 # keep catalog color, slight boost for read-through
                 pass
-        if ghost_walls and (
-            k in _GHOST_WALL_KEYS or k.startswith("wall") or "shield" in k
-        ):
+        if ghost_walls and (k in _GHOST_WALL_KEYS or k.startswith("wall")):
             alpha = float(wall_alpha)
             if k in _GHOST_NEUTRAL_KEYS and not presentation_tint:
                 rgb0, rgb1, rgb2 = _GHOST_NEUTRAL_RGB
