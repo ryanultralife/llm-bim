@@ -1310,15 +1310,49 @@ def export_construction_set(
                     eq_rooms.append((lname, room, contained))
                     _have_room.add(rname)
 
+        def _eq_station_tok(room: Element) -> str:
+            raw = str(
+                (room.params or {}).get("number") or room.name or ""
+            ).upper()
+            aliases = (
+                ("E-BEAM", "EBEAM"), ("EVAPORATION HUB", "EBEAM"),
+                ("CASK UNLOADING", "UNCASK"), ("DE-CASK", "UNCASK"),
+                ("DECLAD", "DECLAD"), ("SHEAR CELL", "DECLAD"),
+                ("CHLORINATION", "CHLOR"),
+                ("TYPE B", "CASKBAY"), ("PULL-THROUGH", "CASKBAY"),
+                ("PRODUCT CASKING", "CASKING"),
+                ("DOWN-BLEND", "DOWNBLEND"), ("DOWNBLEND", "DOWNBLEND"),
+                ("ROBOT MAINTENANCE", "ROBMAINT"),
+                ("WASTE HANDLING", "WASTE"),
+                ("ELECTROREFINER", "ERF"),
+                ("CONTROL ROOM", "CONTROL"),
+                ("PERSONNEL DECON", "DECON"),
+                ("HEALTH-PHYSICS", "HP"),
+                ("ACCOUNTANCY", "MCA"),
+                ("HOT-CELL TUNNEL", "TUNNEL"), ("OPEN HALL", "TUNNEL"),
+                ("ROBOTIC SPINE", "SPINE"),
+            )
+            for needle, tok in aliases:
+                if needle in raw:
+                    return tok
+            import re as _re
+            m = _re.search(r"SEPARATOR VESSEL (\d+)", raw)
+            if m:
+                return f"CELL-{int(m.group(1))}"
+            m = _re.search(r"\bCELL-(\d+)\b", raw)
+            if m:
+                return f"CELL-{int(m.group(1))}"
+            for tok in _EQ_STATION_ORDER:
+                if raw == tok or raw.startswith(tok + " ") or raw.startswith(tok + "-"):
+                    return tok
+            return raw
+
         def _eq_sort_key(item: tuple) -> tuple:
             _ln, _room, _c = item
-            n = str(
-                (_room.params or {}).get("number") or _room.name or ""
-            ).upper()
-            for i, tok in enumerate(_EQ_STATION_ORDER):
-                if n == tok or n.startswith(tok + "-") or n.startswith(tok + " "):
-                    return (0, i, n)
-            return (1, n, n)
+            tok = _eq_station_tok(_room)
+            if tok in _EQ_STATION_ORDER:
+                return (0, _EQ_STATION_ORDER.index(tok), tok)
+            return (1, tok, tok)
 
         eq_rooms.sort(key=_eq_sort_key)
         for eq_i, (lname, room, contained) in enumerate(
