@@ -26,8 +26,16 @@ from llmbim_drawings.view import DrawingView
 # rows per schedule sheet before paginating to A-601B, A-601C, …
 SCHEDULE_ROWS_PER_SHEET = 28
 
-# EQ series cap: per-room equipment arrangement sheets beyond this get a cover note
-MAX_EQ_SHEETS = 20
+# EQ series: process stations first (same order as INT-EQ-001..016), then
+# remaining rooms. Cap is high so "all of them" get a sheet.
+MAX_EQ_SHEETS = 48
+_EQ_STATION_ORDER = (
+    "TUNNEL", "SPINE", "EBEAM", "UNCASK", "DECLAD", "CHLOR",
+    "CELL-1", "CELL-2", "CELL-3", "CELL-4",
+    "CELL-5", "CELL-6", "CELL-7", "CELL-8",
+    "DOWNBLEND", "ROBMAINT", "WASTE", "CASKBAY", "CASKING",
+    "STACK", "CONTROL", "DECON", "HP", "MCA", "ERF",
+)
 
 # custom-register auto match lines: crop rects sharing an edge within this
 # tolerance (mm) count as abutting — each sheet gets a "SEE <other>" match line
@@ -1301,6 +1309,18 @@ def export_construction_set(
                 if contained:
                     eq_rooms.append((lname, room, contained))
                     _have_room.add(rname)
+
+        def _eq_sort_key(item: tuple) -> tuple:
+            _ln, _room, _c = item
+            n = str(
+                (_room.params or {}).get("number") or _room.name or ""
+            ).upper()
+            for i, tok in enumerate(_EQ_STATION_ORDER):
+                if n == tok or n.startswith(tok + "-") or n.startswith(tok + " "):
+                    return (0, i, n)
+            return (1, n, n)
+
+        eq_rooms.sort(key=_eq_sort_key)
         for eq_i, (lname, room, contained) in enumerate(
             eq_rooms[:MAX_EQ_SHEETS], start=1
         ):
