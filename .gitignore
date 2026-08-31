@@ -32,3 +32,7 @@ Thumbs.db
 
 .env
 .env.*
+
+# Private fleet OS lives in its own repo (ryanultralife/hq)
+/hq/
+
