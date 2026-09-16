@@ -4,9 +4,56 @@ from __future__ import annotations
 
 from typing import Any
 
+from llmbim_core.csi import room_containing
 from llmbim_core.model import ProjectModel
 from llmbim_core.quantities import wall_area_m2
 from llmbim_core.validate import validate_model
+
+
+def _wall_mid_mm(el) -> tuple[float, float] | None:
+    s = el.params.get("start_mm") or el.params.get("start")
+    e = el.params.get("end_mm") or el.params.get("end")
+    try:
+        return (
+            (float(s[0]) + float(e[0])) / 2.0,
+            (float(s[1]) + float(e[1])) / 2.0,
+        )
+    except (TypeError, ValueError, IndexError):
+        return None
+
+
+def _level_covers_xy(model: ProjectModel, lv, x: float, y: float) -> bool:
+    """True if this level is a full plate (no rooms) or a room contains XY."""
+    rooms = [
+        el for el in model.query(category="room")
+        if el.level_id == lv.id
+    ]
+    if not rooms:
+        return True
+    return room_containing(model, x, y, level_id=lv.id) is not None
+
+
+def _story_clear_mm(model: ProjectModel, levels, lv, wall_el) -> tuple[float, str]:
+    """Clear height to the next level that actually covers this wall.
+
+    Levels with no rooms are full plates (simple two-storey buildings).
+    A mezzanine that only has rooms on the east wing does not cap a wall
+    on the west hall — the wall spans to the next covering plate (tunnel
+    / roof). Fallback: last level in the stack.
+    """
+    mid = _wall_mid_mm(wall_el)
+    above = [L for L in levels if L.elevation_mm > lv.elevation_mm + 50]
+    if mid is None:
+        if not above:
+            return 1e9, "(none)"
+        nxt = above[0]
+        return nxt.elevation_mm - lv.elevation_mm, nxt.name
+    x, y = mid
+    for L in above:
+        if _level_covers_xy(model, L, x, y):
+            return L.elevation_mm - lv.elevation_mm, L.name
+    top = levels[-1]
+    return top.elevation_mm - lv.elevation_mm, top.name
 
 
 def run_design_rules(model: ProjectModel) -> list[dict[str, Any]]:
@@ -65,45 +112,49 @@ def run_design_rules(model: ProjectModel) -> list[dict[str, Any]]:
                 }
             )
 
-    # Wall height vs level spacing
+    # Wall height vs the plate that actually covers this wall's XY — not the
+    # next name in the level list. A mezzanine / east-wing L2 does not cap
+    # a process-hall wall 30 m west of it (INTEC 77 false WALL_EXCEEDS_STORY).
     levels = sorted(model.levels, key=lambda lv: lv.elevation_mm)
-    for i, lv in enumerate(levels[:-1]):
-        clear = levels[i + 1].elevation_mm - lv.elevation_mm
+    for lv in levels:
         for el in model.query(category="wall", level=lv.name):
             ht = float(el.params.get("height_mm") or 0)
-            if ht > clear + 50:
-                # Intentionally tall walls — multi-plate / balloon-framed
-                # (stacked top plates, garage high bays) — declare it on the
-                # element: params.multi_plate / params.balloon_framed, or an
-                # explicit params.plate_height_mm covering the wall height.
-                declared = float(el.params.get("plate_height_mm") or 0)
-                intentional = bool(
-                    el.params.get("multi_plate") or el.params.get("balloon_framed")
-                ) or (declared > 0 and ht <= declared + 50)
-                if intentional:
-                    findings.append(
-                        {
-                            "rule": "WALL_MULTI_PLATE",
-                            "severity": "info",
-                            "message": (
-                                f"Wall height {ht} > story clear {clear} mm — declared "
-                                f"multi-plate/balloon framing "
-                                f"(plate_height_mm={declared or ht:.0f})"
-                            ),
-                            "element_id": el.id,
-                            "domain": "constructability",
-                        }
-                    )
-                    continue
+            if ht <= 0:
+                continue
+            clear, plate = _story_clear_mm(model, levels, lv, el)
+            if ht <= clear + 50:
+                continue
+            declared = float(el.params.get("plate_height_mm") or 0)
+            intentional = bool(
+                el.params.get("multi_plate") or el.params.get("balloon_framed")
+            ) or (declared > 0 and ht <= declared + 50)
+            if intentional:
                 findings.append(
                     {
-                        "rule": "WALL_EXCEEDS_STORY",
-                        "severity": "error",
-                        "message": f"Wall height {ht} > story clear {clear} mm",
+                        "rule": "WALL_MULTI_PLATE",
+                        "severity": "info",
+                        "message": (
+                            f"Wall height {ht} > story clear {clear} mm "
+                            f"(plate {plate}) — declared multi-plate/balloon "
+                            f"(plate_height_mm={declared or ht:.0f})"
+                        ),
                         "element_id": el.id,
                         "domain": "constructability",
                     }
                 )
+                continue
+            findings.append(
+                {
+                    "rule": "WALL_EXCEEDS_STORY",
+                    "severity": "error",
+                    "message": (
+                        f"Wall height {ht} > story clear {clear} mm "
+                        f"(next covering plate: {plate})"
+                    ),
+                    "element_id": el.id,
+                    "domain": "constructability",
+                }
+            )
 
     # Equipment not on a level with walls (orphan equipment ok)
     # Large wall areas without openings (info)
@@ -199,12 +250,23 @@ def run_design_rules(model: ProjectModel) -> list[dict[str, Any]]:
                 }
             )
 
-    # Locked STEP refs must exist on disk
+    # Locked STEP refs must exist on disk (absolute or portable relative)
     for el in model.query(category="equipment"):
         if el.params.get("locked") and el.params.get("step_ref_path"):
             from pathlib import Path
 
-            if not Path(str(el.params["step_ref_path"])).is_file():
+            raw = str(el.params["step_ref_path"]).replace("\\", "/")
+            name = Path(raw).name
+            candidates = [
+                Path(raw),
+                Path.cwd() / raw,
+                Path.cwd() / "step_refs" / name,
+                Path.cwd() / name,
+            ]
+            # legacy absolute …/step_refs/FOO.step → try local step_refs/FOO.step
+            if "step_refs/" in raw:
+                candidates.append(Path.cwd() / "step_refs" / raw.split("step_refs/")[-1])
+            if not any(c.is_file() for c in candidates):
                 findings.append(
                     {
                         "rule": "MISSING_STEP_REF",
