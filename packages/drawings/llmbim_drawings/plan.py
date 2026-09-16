@@ -53,7 +53,7 @@ class _LabelNudge:
     ) -> tuple[float, float]:
         """Return (x, y) that does not overlap prior boxes (or best-effort)."""
         candidates: list[tuple[float, float]] = [(0.0, 0.0)]
-        for dist in (10.0, 16.0, 22.0, 30.0, 40.0):
+        for dist in (10.0, 16.0, 22.0, 30.0, 40.0, 60.0, 90.0, 130.0, 180.0):
             candidates.extend(
                 [
                     (0.0, -dist),
@@ -1607,6 +1607,9 @@ def render_plan_view(
         else:
             h_txt = ""
         label = f"{name}{area_txt}{h_txt}"
+        _hw = max(18.0, len(label) * font * 0.28)
+        _hh = font * 0.6
+        px, py = label_nudge.place(px, py, _hw, _hh)
         parts.append(
             f'    <text class="room-label" x="{fmt(px)}" y="{fmt(py)}">{esc(label)}</text>'
         )
@@ -1818,10 +1821,6 @@ def render_plan_view(
             f'  <g class="room-tags" font-family="sans-serif" font-size="{fmt(tag_font)}" '
             f'text-anchor="middle">'
         )
-        # Largest rooms first; skip a tag whose centroid lands on one already
-        # placed (INTEC EQ-101: "Hot cell tunnel" sat on "Robotic spine").
-        _tag_placed: list[tuple[float, float]] = []
-        _tag_sep = tag_font * 5.0
         _rooms_ord = sorted(
             enumerate(rooms, start=1),
             key=lambda it: -((_room_centroid_area(it[1]) or (0.0, 0.0, 0.0))[2]),
@@ -1832,24 +1831,6 @@ def render_plan_view(
                 continue
             cx, cy, area_mm2 = ca
             px, py = project(cx, cy)
-            # Relocate, never drop (Fable T1). Skip-label was wackamole.
-            if any(math.hypot(px - qx, py - qy) < _tag_sep for qx, qy in _tag_placed):
-                found = False
-                for _r in (_tag_sep, _tag_sep * 1.6, _tag_sep * 2.4):
-                    for _deg in range(0, 360, 45):
-                        _rad = math.radians(_deg)
-                        nx = px + _r * math.cos(_rad)
-                        ny = py + _r * math.sin(_rad)
-                        if not any(
-                            math.hypot(nx - qx, ny - qy) < _tag_sep
-                            for qx, qy in _tag_placed
-                        ):
-                            px, py = nx, ny
-                            found = True
-                            break
-                    if found:
-                        break
-            _tag_placed.append((px, py))
             name = _clean_room_name(room.name or "ROOM").upper()
             if imperial:
                 area_txt = f"{area_mm2 / _MM2_PER_SF:.0f} SF"
@@ -1860,6 +1841,12 @@ def render_plan_view(
                 number = str(room.params.get("number") or f"{room_i:03d}")
                 num_w = max(30.0, len(number) * tag_font * 0.62 + 12.0)
                 num_h = tag_font + 8.0
+                name_w = len(name) * tag_font * 0.28
+                px, py = label_nudge.place(
+                    px, py,
+                    max(num_w / 2, name_w, 20.0),
+                    num_h / 2 + tag_font,
+                )
                 parts.append(
                     f'    <text x="{fmt(px)}" y="{fmt(py - num_h / 2 - 5)}" '
                     f'font-weight="bold">{esc(name)}</text>'
@@ -1881,6 +1868,7 @@ def render_plan_view(
                 continue
             box_w = max(len(name), len(area_txt)) * tag_font * 0.62 + 14
             box_h = 2 * tag_font + 12
+            px, py = label_nudge.place(px, py, box_w / 2, box_h / 2)
             parts.append(
                 f'    <rect x="{fmt(px - box_w / 2)}" y="{fmt(py - box_h / 2)}" '
                 f'width="{fmt(box_w)}" height="{fmt(box_h)}" fill="#ffffff" '
