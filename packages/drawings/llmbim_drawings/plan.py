@@ -482,6 +482,39 @@ def render_plan_view(
         raise ValidationError(
             "grid_sides must be 'arch' or 'framing'", grid_sides=grid_sides
         )
+    # Canonical include groups: walls/rooms/ducts/pipes/notes/... Singular
+    # aliases ("wall", "duct") used to silently drop geometry (INTEC H-002).
+    _INCLUDE_ALIASES = {
+        "wall": "walls",
+        "walls": "walls",
+        "room": "rooms",
+        "rooms": "rooms",
+        "door": "openings",
+        "window": "openings",
+        "opening": "openings",
+        "openings": "openings",
+        "column": "columns",
+        "columns": "columns",
+        "beam": "beams",
+        "beams": "beams",
+        "pipe": "pipes",
+        "pipes": "pipes",
+        "duct": "ducts",
+        "ducts": "ducts",
+        "note": "notes",
+        "notes": "notes",
+        "grid": "grids",
+        "grids": "grids",
+        "slab": "slabs",
+        "slabs": "slabs",
+        "equipment": "equipment",
+        "conduit": "conduit",
+        "cable_tray": "cable_tray",
+    }
+    if include is not None:
+        include = {_INCLUDE_ALIASES.get(str(g), str(g)) for g in include}
+        if keynotes:
+            include.add("notes")
     imperial = units == "imperial"
 
     def _fmt_len(length_mm: float) -> str:
@@ -1785,12 +1818,23 @@ def render_plan_view(
             f'  <g class="room-tags" font-family="sans-serif" font-size="{fmt(tag_font)}" '
             f'text-anchor="middle">'
         )
-        for room_i, room in enumerate(rooms, start=1):
+        # Largest rooms first; skip a tag whose centroid lands on one already
+        # placed (INTEC EQ-101: "Hot cell tunnel" sat on "Robotic spine").
+        _tag_placed: list[tuple[float, float]] = []
+        _tag_sep = tag_font * 5.0
+        _rooms_ord = sorted(
+            enumerate(rooms, start=1),
+            key=lambda it: -((_room_centroid_area(it[1]) or (0.0, 0.0, 0.0))[2]),
+        )
+        for room_i, room in _rooms_ord:
             ca = _room_centroid_area(room)
             if ca is None:
                 continue
             cx, cy, area_mm2 = ca
             px, py = project(cx, cy)
+            if any(math.hypot(px - qx, py - qy) < _tag_sep for qx, qy in _tag_placed):
+                continue
+            _tag_placed.append((px, py))
             name = _clean_room_name(room.name or "ROOM").upper()
             if imperial:
                 area_txt = f"{area_mm2 / _MM2_PER_SF:.0f} SF"
