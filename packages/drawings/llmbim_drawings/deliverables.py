@@ -472,6 +472,15 @@ def verify_pack(
         checks["ok"] = False
     if require_materials and not checks.get("has_materials_package"):
         checks["ok"] = False
+    # INTEC pack review 2026-09-16: 77 WALL_EXCEEDS_STORY errors while
+    # MANIFEST/index said Status: OK. Files-exist is not constructability.
+    n_err = int((checks.get("design_rules_summary") or {}).get("error") or 0)
+    if n_err:
+        checks["ok"] = False
+        failures.append(
+            f"design_rules.json has {n_err} error(s); pack is not OK"
+        )
+        checks["failures"] = failures
     return checks
 
 
@@ -560,10 +569,22 @@ def export_deliverables(
 
     views = out / "views"
     views.mkdir(exist_ok=True)
+    _plan_kw: dict[str, Any] = {"scale": plan_scale}
+    if has_equip and not has_walls:
+        _plan_kw.update(
+            auto_grid=True,
+            dim_tiers=True,
+            tags=True,
+            grid_dims=True,
+            collapse_equipment=True,
+            keynotes=True,
+        )
     _try(
         "plan_view",
         errors,
-        lambda: write_plan_svg(work, level, views / f"plan_{level}.svg", scale=plan_scale),
+        lambda: write_plan_svg(
+            work, level, views / f"plan_{level}.svg", **_plan_kw
+        ),
     )
     _try(
         "elev_S",
@@ -776,6 +797,25 @@ def export_deliverables(
         )
         if cd:
             result["construction"] = cd
+    elif has_equip:
+        # Wall-less machine / skid: Sierra Star–style GA set (EQ-101…)
+        cd = _try(
+            "machine_set",
+            errors,
+            lambda: export_construction_set(
+                work,
+                out / "construction",
+                plan_level=level,
+                plan_scale=plan_scale,
+                set_type=set_type,
+                units=units,
+                dim_tiers=True,
+                keynotes=True,
+            ),
+        )
+        if cd:
+            result["construction"] = cd
+            result["machine_set"] = True
 
     if mode in {"part", "both"} or has_equip:
         scale_parts = 0.15 if has_walls else max(plan_scale, 0.2)
