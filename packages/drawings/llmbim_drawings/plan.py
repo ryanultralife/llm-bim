@@ -1832,8 +1832,23 @@ def render_plan_view(
                 continue
             cx, cy, area_mm2 = ca
             px, py = project(cx, cy)
+            # Relocate, never drop (Fable T1). Skip-label was wackamole.
             if any(math.hypot(px - qx, py - qy) < _tag_sep for qx, qy in _tag_placed):
-                continue
+                found = False
+                for _r in (_tag_sep, _tag_sep * 1.6, _tag_sep * 2.4):
+                    for _deg in range(0, 360, 45):
+                        _rad = math.radians(_deg)
+                        nx = px + _r * math.cos(_rad)
+                        ny = py + _r * math.sin(_rad)
+                        if not any(
+                            math.hypot(nx - qx, ny - qy) < _tag_sep
+                            for qx, qy in _tag_placed
+                        ):
+                            px, py = nx, ny
+                            found = True
+                            break
+                    if found:
+                        break
             _tag_placed.append((px, py))
             name = _clean_room_name(room.name or "ROOM").upper()
             if imperial:
