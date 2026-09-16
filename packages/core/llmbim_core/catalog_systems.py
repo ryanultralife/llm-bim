@@ -271,7 +271,7 @@ def register_process_piping(into: dict[str, Any], PartType: type, BomLine: type)
     # Include NPS-8 (DN200) for plant CWS/CWR trunks — INTEC CR-004 / hyd dual 8"
     nps = {k: {**v, "unit_cost_m": v["unit_cost_m"] * 6.5, "mass_kg_m": v["mass_kg_m"] * 1.02}
            for k, v in STEEL_NPS.items()
-           if k in ("1/2", "3/4", "1", "1-1/2", "2", "3", "4", "6", "8")}
+           if k in ("1/2", "3/4", "1", "1-1/4", "1-1/2", "2", "2-1/2", "3", "4", "6", "8")}
     _pipe_family(
         into,
         prefix="PT-SS",

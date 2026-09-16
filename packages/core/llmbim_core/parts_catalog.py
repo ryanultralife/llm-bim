@@ -287,6 +287,7 @@ def _register_plumbing_parts(into: dict[str, PartType]) -> None:
         ("2", 60.3, 11.0, 0.62),
         ("3", 88.9, 18.0, 1.10),
         ("4", 114.3, 28.0, 1.65),
+        ("6", 168.3, 48.0, 3.20),  # INTEC SAN main (CR-124)
     ):
         slug = nps_slug(nps)
         pid = f"PT-PVC-PIPE-{slug}"
