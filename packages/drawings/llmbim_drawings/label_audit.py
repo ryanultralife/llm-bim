@@ -110,22 +110,14 @@ def audit_construction_svgs(
     per: list[dict[str, Any]] = []
     total_pairs = 0
     total_labels = 0
-    for spec in sheets:
-        fname = str(spec.get("file") or "")
+    by_file = {str(s.get("file") or ""): s for s in sheets}
+    # T7a: every SVG on disk, not only the emitter's register (A-1xx_plan family).
+    disk = sorted(p.name for p in out.glob("*.svg"))
+    for fname in disk:
+        spec = by_file.get(fname) or {
+            "no": Path(fname).stem, "file": fname, "title": "",
+        }
         path = out / fname
-        if not path.is_file():
-            per.append(
-                {
-                    "no": spec.get("no"),
-                    "file": fname,
-                    "title": spec.get("title"),
-                    "n_labels": 0,
-                    "overlap_pairs": 0,
-                    "labels": [],
-                    "missing_file": True,
-                }
-            )
-            continue
         text = path.read_text(encoding="utf-8", errors="replace")
         bs = boxes(text)
         hits = overlap_pairs(bs)
@@ -140,6 +132,7 @@ def audit_construction_svgs(
                 "n_labels": len(labels),
                 "overlap_pairs": len(hits),
                 "labels": labels,
+                "element_ids": list(spec.get("element_ids") or []),
                 "samples": hits[:5],
             }
         )

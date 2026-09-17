@@ -841,8 +841,19 @@ def export_construction_set(
         )
         fname = f"{sn}_plan.svg"
         (out / fname).write_text(plan_sheet, encoding="utf-8")
+        lid = level_ids.get(lname)
+        _ids = [
+            el.id for el in model.elements
+            if el.level_id == lid and el.category in ("room", "equipment", "wall")
+        ]
         sheets.append(
-            {"no": sn, "title": f"Floor Plan {lname}", "file": fname, "discipline": "A"}
+            {
+                "no": sn,
+                "title": f"Floor Plan {lname}",
+                "file": fname,
+                "discipline": "A",
+                "element_ids": _ids,
+            }
         )
 
     # ── A-201/A-202: paired elevations (two views per sheet)
@@ -1478,6 +1489,7 @@ def export_construction_set(
                     "title": f"Equipment Arrangement {room_name}",
                     "file": fname,
                     "discipline": "EQ",
+                    "element_ids": [room.id] + [eq.id for eq in contained],
                 }
             )
         if len(eq_rooms) > MAX_EQ_SHEETS:
@@ -1686,6 +1698,7 @@ def export_construction_set(
                         "title": s["title"],
                         "n_labels": s["n_labels"],
                         "labels": s["labels"],
+                        "element_ids": s.get("element_ids") or [],
                     }
                     for s in audit["sheets"]
                 ],

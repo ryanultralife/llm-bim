@@ -53,7 +53,11 @@ class _LabelNudge:
     ) -> tuple[float, float]:
         """Return (x, y) that does not overlap prior boxes (or best-effort)."""
         candidates: list[tuple[float, float]] = [(0.0, 0.0)]
-        for dist in (10.0, 16.0, 22.0, 30.0, 40.0, 60.0, 90.0, 130.0, 180.0):
+        span = max(float(hw), float(hh), 12.0)
+        for dist in (
+            10.0, 16.0, 22.0, 30.0, 40.0, 60.0, 90.0, 130.0, 180.0,
+            span, span * 1.5, span * 2.2, span * 3.0,
+        ):
             candidates.extend(
                 [
                     (0.0, -dist),
@@ -1794,7 +1798,7 @@ def render_plan_view(
                     continue
             px, py = project(cx, cy)
             name = _eq_display_name(eq, with_part=not collapse_equipment)
-            hw = max(16.0, len(name) * eq_tag_font * 0.35)
+            hw = max(16.0, len(name) * eq_tag_font * 0.28)
             lx, ly = label_nudge.place(px + 28.0, py - 20.0, hw, eq_tag_font * 0.7)
             text_w = len(name) * eq_tag_font * 0.55
             parts.append(
