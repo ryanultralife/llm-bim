@@ -275,6 +275,28 @@ def verify_pack(
     if (out / "construction").is_dir():
         sheet_svgs = list((out / "construction").glob("*.svg"))
         checks["construction_sheets"] = len(sheet_svgs)
+        la = out / "construction" / "LABEL_AUDIT.json"
+        if la.is_file():
+            try:
+                audit = json.loads(la.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                audit = {}
+            checks["label_overlap_pairs"] = int(audit.get("overlap_pairs") or 0)
+            checks["label_count"] = int(audit.get("n_labels") or 0)
+            checks["label_audit_ok"] = bool(audit.get("ok"))
+            proj = ""
+            try:
+                proj = str(
+                    json.loads((out / "model.llmbim.json").read_text(encoding="utf-8")).get("name")
+                    or ""
+                )
+            except Exception:
+                pass
+            if "INTEC" in proj.upper() and checks["label_overlap_pairs"] > 0:
+                failures.append(
+                    f"construction SVG label overlap_pairs="
+                    f"{checks['label_overlap_pairs']} (T7 ratchet)"
+                )
         by_disc: dict[str, int] = {}
         for sheet in sheet_svgs:
             stem = sheet.name.split("-", 1)[0]

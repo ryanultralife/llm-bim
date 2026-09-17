@@ -172,9 +172,12 @@ def _multi_sheet(
     weights: list[float] | None = None,
     north_arrow: bool = False,
     stamp_block: bool = False,
+    sheet_w: float = 1100,
+    sheet_h: float = 850,
+    units: str = "metric",
 ) -> str:
-    """Compose 1–4 view cells into the drawing area and frame the sheet."""
-    _ax, _ay, aw, ah = drawing_area()
+    """Compose 1-4 view cells into the drawing area and frame the sheet."""
+    _ax, _ay, aw, ah = drawing_area(sheet_w, sheet_h)
     composed = compose_sheet(
         cells, width=aw - 10, height=ah - 10, arrange=arrange, weights=weights
     )
@@ -187,6 +190,9 @@ def _multi_sheet(
         north_arrow=north_arrow,
         date=date,
         stamp_block=stamp_block,
+        sheet_w=sheet_w,
+        sheet_h=sheet_h,
+        units=units,
     )
 
 
@@ -621,6 +627,8 @@ def export_construction_set(
     stamp_block: bool = False,
     revisions: dict | None = None,
     sheets: list[dict] | None = None,
+    sheet_w: float = 1100,
+    sheet_h: float = 850,
 ) -> dict:
     """Write a drawing package with proper view fitting.
 
@@ -770,6 +778,8 @@ def export_construction_set(
             hatches=hatches,
             stamp_block=stamp_block,
             revisions=revisions,
+            sheet_w=sheet_w,
+            sheet_h=sheet_h,
         )
 
     rev_clouds, rev_rows, rev_delta = _normalize_revisions(model, revisions, date)
@@ -1653,6 +1663,38 @@ def export_construction_set(
         "sheets": sheets,
     }
     (out / "SHEET_INDEX.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    from llmbim_drawings.label_audit import audit_construction_svgs
+
+    audit = audit_construction_svgs(out, sheets)
+    (out / "LABEL_AUDIT.json").write_text(
+        json.dumps(
+            {k: audit[k] for k in ("n_sheets", "n_labels", "overlap_pairs", "ok")},
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (out / "SHEET_CONTENTS.json").write_text(
+        json.dumps(
+            {
+                "n_sheets": audit["n_sheets"],
+                "n_labels": audit["n_labels"],
+                "sheets": [
+                    {
+                        "no": s["no"],
+                        "file": s["file"],
+                        "title": s["title"],
+                        "n_labels": s["n_labels"],
+                        "labels": s["labels"],
+                    }
+                    for s in audit["sheets"]
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     return manifest
 
 
@@ -1860,6 +1902,8 @@ def _export_custom_register(
     hatches: bool = False,
     stamp_block: bool = False,
     revisions: dict | None = None,
+    sheet_w: float = 1100,
+    sheet_h: float = 850,
 ) -> dict:
     """Emit a caller-defined sheet register (replaces the default A-1xx… set).
 
@@ -1936,7 +1980,7 @@ def _export_custom_register(
                 {"edge": edges[1], "label": f"MATCH LINE — SEE {sa['no']}"}
             )
 
-    _ax, _ay, aw, ah = drawing_area()
+    _ax, _ay, aw, ah = drawing_area(sheet_w, sheet_h)
     emitted: list[dict] = []
 
     def _emit(spec: dict, svg: str, *, no: str | None = None, title: str | None = None) -> None:
@@ -1975,6 +2019,7 @@ def _export_custom_register(
                 model, sheet_no=no, title=title, view=view,
                 scale_note=str(spec.get("scale_note") or "NTS"), date=date,
                 stamp_block=_spec_stamp(spec),
+                sheet_w=sheet_w, sheet_h=sheet_h, units=sheet_units,
             )
             _emit(spec, svg)
 
@@ -2068,6 +2113,7 @@ def _export_custom_register(
                 stamp_block=_spec_stamp(spec),
                 revisions_rows=rev_rows,
                 units=sheet_units,
+                sheet_w=sheet_w, sheet_h=sheet_h,
             )
             _emit(spec, svg)
 
@@ -2094,6 +2140,7 @@ def _export_custom_register(
                 model, sheet_no=no, title=title, cells=cells, date=date,
                 scale_note=str(spec.get("scale_note") or nominal),
                 stamp_block=_spec_stamp(spec),
+                sheet_w=sheet_w, sheet_h=sheet_h, units=sheet_units,
             )
             _emit(spec, svg)
 
@@ -2116,6 +2163,7 @@ def _export_custom_register(
                 model, sheet_no=no, title=title, cells=sec_cells, date=date,
                 scale_note=str(spec.get("scale_note") or nominal),
                 stamp_block=_spec_stamp(spec),
+                sheet_w=sheet_w, sheet_h=sheet_h, units=sheet_units,
             )
             _emit(spec, svg)
 
@@ -2156,6 +2204,7 @@ def _export_custom_register(
                         model, sheet_no=page_no, title=page_title, view=view,
                         scale_note=note, date=date,
                         stamp_block=_spec_stamp(spec),
+                        sheet_w=sheet_w, sheet_h=sheet_h, units=sheet_units,
                     )
                     _emit(spec, svg, no=page_no, title=page_title)
             else:
@@ -2168,6 +2217,7 @@ def _export_custom_register(
                     model, sheet_no=no, title=title, cells=tbl_cells, date=date,
                     scale_note=note,
                     stamp_block=_spec_stamp(spec),
+                    sheet_w=sheet_w, sheet_h=sheet_h, units=sheet_units,
                 )
                 _emit(spec, svg)
 
@@ -2182,6 +2232,7 @@ def _export_custom_register(
                 model, sheet_no=no, title=title, view=view,
                 scale_note=str(spec.get("scale_note") or "AS NOTED"), date=date,
                 stamp_block=_spec_stamp(spec),
+                sheet_w=sheet_w, sheet_h=sheet_h, units=sheet_units,
             )
             _emit(spec, svg)
 
@@ -2191,6 +2242,7 @@ def _export_custom_register(
                 model, sheet_no=no, title=title, view=view,
                 scale_note=str(spec.get("scale_note") or "NTS"), date=date,
                 stamp_block=_spec_stamp(spec),
+                sheet_w=sheet_w, sheet_h=sheet_h, units=sheet_units,
             )
             _emit(spec, svg)
 
@@ -2200,6 +2252,7 @@ def _export_custom_register(
                 model, sheet_no=no, title=title, view=view,
                 scale_note=str(spec.get("scale_note") or "NTS"), date=date,
                 stamp_block=_spec_stamp(spec),
+                sheet_w=sheet_w, sheet_h=sheet_h, units=sheet_units,
             )
             _emit(spec, svg)
 
