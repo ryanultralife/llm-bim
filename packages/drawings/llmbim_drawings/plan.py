@@ -834,6 +834,41 @@ def render_plan_view(
     # Residual #13: shared collision grid for wall-type / opening / column marks
     label_nudge = _LabelNudge()
 
+    def _plan_text(
+        x: float,
+        y: float,
+        s: str,
+        *,
+        fs: float,
+        cls: str,
+        anchor: str = "start",
+        extra: str = "",
+        weight: str = "",
+        fill: str = "",
+    ) -> tuple[float, float]:
+        """Emit <text> with a class and register its AABB. Never drop."""
+        raw = str(s)
+        w = max(4.0, len(raw) * fs * 0.55)
+        hh = fs * 0.6
+        if anchor == "middle":
+            nx, ny = label_nudge.place(x, y, w / 2, hh)
+            x, y = nx, ny
+        elif anchor == "end":
+            nx, ny = label_nudge.place(x - w / 2, y, w / 2, hh)
+            x, y = nx + w / 2, ny
+        else:
+            nx, ny = label_nudge.place(x + w / 2, y, w / 2, hh)
+            x, y = nx - w / 2, ny
+        cls_a = f' class="{cls}"'
+        anc = f' text-anchor="{anchor}"' if anchor != "start" else ""
+        fw = f' font-weight="{weight}"' if weight else ""
+        fl = f' fill="{fill}"' if fill else ""
+        parts.append(
+            f'    <text{cls_a}{anc}{fw}{fl} x="{fmt(x)}" y="{fmt(y)}"{extra}>'
+            f"{esc(raw)}</text>"
+        )
+        return x, y
+
     if _on("walls") and not ghost_walls:
         parts.append(
             f'  <g class="centerlines" stroke="#8a1a1a" stroke-width="{fmt(max(0.3, 8 * scale))}" '
@@ -951,10 +986,10 @@ def render_plan_view(
                     f'    <polygon class="door-tag" points="{hex_pts}" '
                     f'fill="#e8ffe8" stroke="#228822" stroke-width="1.2"/>'
                 )
-                parts.append(
-                    f'    <text x="{fmt(pm_x)}" y="{fmt(pm_y + r * 0.3)}" '
-                    f'text-anchor="middle" font-size="{fmt(max(7, r * 0.8))}" '
-                    f'fill="#145214" font-family="sans-serif">{esc(mark[:6])}</text>'
+                _plan_text(
+                    pm_x, pm_y + r * 0.3, mark[:6],
+                    fs=max(7, r * 0.8), cls="door-mark",
+                    anchor="middle", fill="#145214",
                 )
             else:
                 dia_pts = (
@@ -965,10 +1000,10 @@ def render_plan_view(
                     f'    <polygon class="window-tag" points="{dia_pts}" '
                     f'fill="#e8f0ff" stroke="#0066aa" stroke-width="1.2"/>'
                 )
-                parts.append(
-                    f'    <text x="{fmt(pm_x)}" y="{fmt(pm_y + r * 0.3)}" '
-                    f'text-anchor="middle" font-size="{fmt(max(7, r * 0.7))}" '
-                    f'fill="#003366" font-family="sans-serif">{esc(mark[:6])}</text>'
+                _plan_text(
+                    pm_x, pm_y + r * 0.3, mark[:6],
+                    fs=max(7, r * 0.7), cls="window-mark",
+                    anchor="middle", fill="#003366",
                 )
         elif opening.category == "door":
             door_num += 1
@@ -983,9 +1018,10 @@ def render_plan_view(
                 f'    <circle cx="{fmt(pm[0])}" cy="{fmt(pm[1])}" r="{fmt(r)}" '
                 f'fill="#e8ffe8" stroke="#228822" stroke-width="1"/>'
             )
-            parts.append(
-                f'    <text x="{fmt(pm[0])}" y="{fmt(pm[1] + r * 0.35)}" text-anchor="middle" '
-                f'font-size="{fmt(max(7, r))}" fill="#145214" font-family="sans-serif">{tag}</text>'
+            _plan_text(
+                pm[0], pm[1] + r * 0.35, tag,
+                fs=max(7, r), cls="door-mark",
+                anchor="middle", fill="#145214",
             )
             if tshort:
                 parts.append(
@@ -1002,9 +1038,10 @@ def render_plan_view(
                 f'    <rect x="{fmt(pm[0] - r)}" y="{fmt(pm[1] - r * 0.6)}" '
                 f'width="{fmt(2 * r)}" height="{fmt(1.2 * r)}" fill="#e8f0ff" stroke="#0066aa"/>'
             )
-            parts.append(
-                f'    <text x="{fmt(pm[0])}" y="{fmt(pm[1] + r * 0.25)}" text-anchor="middle" '
-                f'font-size="{fmt(max(6, r * 0.9))}" fill="#003366" font-family="sans-serif">{tag}</text>'
+            _plan_text(
+                pm[0], pm[1] + r * 0.25, tag,
+                fs=max(6, r * 0.9), cls="window-mark",
+                anchor="middle", fill="#003366",
             )
             if tshort:
                 parts.append(
@@ -1611,11 +1648,9 @@ def render_plan_view(
         else:
             h_txt = ""
         label = f"{name}{area_txt}{h_txt}"
-        _hw = max(18.0, len(label) * font * 0.28)
-        _hh = font * 0.6
-        px, py = label_nudge.place(px, py, _hw, _hh)
-        parts.append(
-            f'    <text class="room-label" x="{fmt(px)}" y="{fmt(py)}">{esc(label)}</text>'
+        _plan_text(
+            px, py, label, fs=font, cls="room-label",
+            anchor="middle", weight="bold",
         )
     def _short_eq_name(raw: str) -> str:
         """Strip layer tags and micro-part noise for plan labels."""
@@ -1806,10 +1841,7 @@ def render_plan_view(
                 f'x2="{fmt(lx - 2)}" y2="{fmt(ly + 2)}" stroke="#0b3d6e" '
                 f'stroke-width="0.8"/>'
             )
-            parts.append(
-                f'    <text class="equipment-tag" x="{fmt(lx)}" y="{fmt(ly)}">'
-                f"{esc(name)}</text>"
-            )
+            _plan_text(lx, ly, name, fs=eq_tag_font, cls="equipment-tag", fill="#0b3d6e")
             parts.append(
                 f'    <line class="equipment-tag-underline" x1="{fmt(lx)}" '
                 f'y1="{fmt(ly + 2.5)}" x2="{fmt(lx + text_w)}" y2="{fmt(ly + 2.5)}" '
@@ -2001,10 +2033,10 @@ def render_plan_view(
                     f'    <circle cx="{fmt(bx)}" cy="{fmt(by)}" r="{fmt(br)}" '
                     f'fill="#fff" stroke="#555" stroke-width="1"/>'
                 )
-                parts.append(
-                    f'    <text x="{fmt(bx)}" y="{fmt(by + br * 0.35)}" text-anchor="middle" '
-                    f'font-size="{fmt(max(7, br * 0.9))}" fill="#333" font-family="sans-serif">'
-                    f"{esc(lab)}</text>"
+                _plan_text(
+                    bx, by + br * 0.35, lab,
+                    fs=max(7, br * 0.9), cls="grid-bubble",
+                    anchor="middle", fill="#333",
                 )
     parts.append("  </g>")
 
@@ -2145,9 +2177,9 @@ def render_plan_view(
                 )
                 parts.append(_tick(xa, y_run))
                 parts.append(_tick(xb, y_run))
-                parts.append(
-                    f'    <text x="{fmt((xa + xb) / 2)}" y="{fmt(y_run - 3)}" '
-                    f'text-anchor="middle">{_fmt_grid(b - a)}</text>'
+                _plan_text(
+                    (xa + xb) / 2, y_run - 3, _fmt_grid(b - a),
+                    fs=8.0, cls="dim", anchor="middle",
                 )
             x0, x1 = px_of[u_pos[0]], px_of[u_pos[-1]]
             parts.append(
@@ -2155,9 +2187,9 @@ def render_plan_view(
             )
             parts.append(_tick(x0, y_all))
             parts.append(_tick(x1, y_all))
-            parts.append(
-                f'    <text x="{fmt((x0 + x1) / 2)}" y="{fmt(y_all - 3)}" '
-                f'text-anchor="middle" font-weight="bold">{_fmt_grid(u_pos[-1] - u_pos[0])}</text>'
+            _plan_text(
+                (x0 + x1) / 2, y_all - 3, _fmt_grid(u_pos[-1] - u_pos[0]),
+                fs=8.0, cls="dim", anchor="middle", weight="bold",
             )
         if len(v_pos) >= 2:
             x_run = -(_gd_br + 12)
