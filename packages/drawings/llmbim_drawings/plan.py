@@ -1300,10 +1300,9 @@ def render_plan_view(
                 (float(s[1]) + float(e[1])) / 2,
             )
             sec = el.params.get("section") or "BM"
-            parts.append(
-                f'    <text x="{fmt(mx)}" y="{fmt(my - 4)}" text-anchor="middle" '
-                f'font-size="{fmt(max(6, 9))}" fill="#37474f" font-family="sans-serif">'
-                f"{esc(str(sec)[:16])}</text>"
+            _plan_text(
+                mx, my - 4, str(sec)[:16],
+                fs=max(6, 9), cls="steel-tag", anchor="middle", fill="#37474f",
             )
         except (KeyError, TypeError, ValueError, IndexError):
             continue
@@ -1355,10 +1354,9 @@ def render_plan_view(
                     f'stroke="{stroke}" fill="{stroke}"/>'
                 )
                 tag = f'R{nps}"' if nps else "R"
-                parts.append(
-                    f'    <text x="{fmt(px + r * 1.5)}" y="{fmt(py)}" '
-                    f'font-size="{fmt(max(6, 9))}" fill="{stroke}" font-family="sans-serif">'
-                    f"{esc(tag)}</text>"
+                _plan_text(
+                    px + r * 1.5, py, tag,
+                    fs=max(6, 9), cls="mep-tag", fill=stroke,
                 )
                 continue
             if "start_mm" in el.params and "end_mm" in el.params:
@@ -1377,10 +1375,9 @@ def render_plan_view(
             # Cap NPS text density: only label longer runs (reduces blue soup)
             if nps and math.hypot(x1 - x0, y1 - y0) >= 2500:
                 mx, my = (pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2
-                parts.append(
-                    f'    <text x="{fmt(mx)}" y="{fmt(my - 3)}" text-anchor="middle" '
-                    f'font-size="{fmt(max(6, 9))}" fill="{stroke}" font-family="sans-serif">'
-                    f"{esc(str(nps))}\"</text>"
+                _plan_text(
+                    mx, my - 3, f'{nps}"',
+                    fs=max(6, 9), cls="mep-tag", anchor="middle", fill=stroke,
                 )
         except (KeyError, TypeError, ValueError, IndexError):
             continue
@@ -1430,10 +1427,9 @@ def render_plan_view(
                 label = f'{w / 25.4:.0f}x{duct_h / 25.4:.0f}"'
             else:
                 label = f"{w:.0f}x{duct_h:.0f}"
-            parts.append(
-                f'    <text x="{fmt(mx)}" y="{fmt(my - 4)}" text-anchor="middle" '
-                f'font-size="{fmt(max(6, 9))}" fill="#1b5e20" font-family="sans-serif">'
-                f"{esc(label)}</text>"
+            _plan_text(
+                mx, my - 4, label,
+                fs=max(6, 9), cls="mep-tag", anchor="middle", fill="#1b5e20",
             )
         except (KeyError, TypeError, ValueError, IndexError):
             continue
@@ -1470,10 +1466,9 @@ def render_plan_view(
                 )
             mx, my = project((x0 + x1) / 2, (y0 + y1) / 2)
             label = f'CT {w / 25.4:.0f}"' if imperial else f"CT {w:.0f}"
-            parts.append(
-                f'    <text x="{fmt(mx)}" y="{fmt(my - 4)}" text-anchor="middle" '
-                f'font-size="{fmt(max(6, 9))}" fill="#4a148c" font-family="sans-serif">'
-                f"{esc(label)}</text>"
+            _plan_text(
+                mx, my - 4, label,
+                fs=max(6, 9), cls="mep-tag", anchor="middle", fill="#4a148c",
             )
         except (KeyError, TypeError, ValueError, IndexError):
             continue
@@ -1523,19 +1518,18 @@ def render_plan_view(
                     f'    <circle cx="{fmt(px)}" cy="{fmt(py)}" r="{fmt(r)}" '
                     f'fill="{fill}" stroke="{stroke}"/>'
                 )
-                parts.append(
-                    f'    <text x="{fmt(px)}" y="{fmt(py + r * 0.35)}" text-anchor="middle" '
-                    f'font-size="{fmt(max(5, r * 0.9))}" fill="{stroke}" font-family="sans-serif">'
-                    f"{'90' if '90' in ftype else '45'}</text>"
+                _plan_text(
+                    px, py + r * 0.35, "90" if "90" in ftype else "45",
+                    fs=max(5, r * 0.9), cls="mep-tag", anchor="middle", fill=stroke,
                 )
             elif ftype == "tee":
                 parts.append(
                     f'    <rect x="{fmt(px - r)}" y="{fmt(py - r)}" width="{fmt(2 * r)}" '
                     f'height="{fmt(2 * r)}" fill="{fill}" stroke="{stroke}"/>'
                 )
-                parts.append(
-                    f'    <text x="{fmt(px)}" y="{fmt(py + r * 0.35)}" text-anchor="middle" '
-                    f'font-size="{fmt(max(5, r * 0.85))}" fill="{stroke}" font-family="sans-serif">T</text>'
+                _plan_text(
+                    px, py + r * 0.35, "T",
+                    fs=max(5, r * 0.85), cls="mep-tag", anchor="middle", fill=stroke,
                 )
             elif el.category in {"fixture", "accessory"} or ftype in (
                 "toilet",
@@ -1548,10 +1542,9 @@ def render_plan_view(
                     f'height="{fmt(2 * r)}" fill="{fill}" stroke="{stroke}" rx="2"/>'
                 )
                 tag = (el.name or ftype)[:6]
-                parts.append(
-                    f'    <text x="{fmt(px)}" y="{fmt(py + r * 0.3)}" text-anchor="middle" '
-                    f'font-size="{fmt(max(5, r * 0.7))}" fill="{stroke}" font-family="sans-serif">'
-                    f"{esc(tag)}</text>"
+                _plan_text(
+                    px, py + r * 0.3, tag,
+                    fs=max(5, r * 0.7), cls="mep-tag", anchor="middle", fill=stroke,
                 )
             elif ftype in ("vav", "fire_damper", "smoke_damper", "diffuser", "grille") or el.category == "hvac":
                 # HVAC terminal / damper / VAV
@@ -1573,10 +1566,9 @@ def render_plan_view(
                     "diffuser": "CD",
                     "grille": "RG",
                 }.get(ftype, (ftype or "HVAC")[:4].upper())
-                parts.append(
-                    f'    <text x="{fmt(px)}" y="{fmt(py + r * 0.35)}" text-anchor="middle" '
-                    f'font-size="{fmt(max(5, r * 0.75))}" fill="{stroke}" font-family="sans-serif">'
-                    f"{esc(tag)}</text>"
+                _plan_text(
+                    px, py + r * 0.35, tag,
+                    fs=max(5, r * 0.75), cls="mep-tag", anchor="middle", fill=stroke,
                 )
             else:
                 parts.append(
@@ -1584,10 +1576,9 @@ def render_plan_view(
                     f'fill="{fill}" stroke="{stroke}"/>'
                 )
             if nps and ftype not in ("toilet", "lavatory"):
-                parts.append(
-                    f'    <text x="{fmt(px + r * 1.4)}" y="{fmt(py)}" '
-                    f'font-size="{fmt(max(5, 8))}" fill="{stroke}" font-family="sans-serif">'
-                    f"{esc(str(nps))}\"</text>"
+                _plan_text(
+                    px + r * 1.4, py, f'{nps}"',
+                    fs=max(5, 8), cls="mep-tag", fill=stroke,
                 )
         except (KeyError, TypeError, ValueError, IndexError):
             continue
@@ -1787,9 +1778,8 @@ def render_plan_view(
             hw = max(14.0, len(name) * eq_label_font * 0.32)
             hh = eq_label_font * 0.7
             lx, ly = label_nudge.place(px, py, hw, hh)
-            parts.append(
-                f'    <text x="{fmt(lx)}" y="{fmt(ly)}" fill="#0b5cab" '
-                f'font-size="{fmt(eq_label_font)}">{esc(name)}</text>'
+            _plan_text(
+                lx, ly, name, fs=eq_label_font, cls="equipment-tag", fill="#0b5cab",
             )
             labeled += 1
     parts.append("  </g>")
@@ -2507,9 +2497,9 @@ def render_plan_view(
                 f'y="{fmt(by - sq)}" width="{fmt(2 * sq)}" height="{fmt(2 * sq)}" '
                 f'fill="#ffffff" stroke="#1a1a1a" stroke-width="1"/>'
             )
-            parts.append(
-                f'    <text x="{fmt(bx)}" y="{fmt(by + 3)}" text-anchor="middle" '
-                f'font-size="9" font-weight="bold">{kn_num}</text>'
+            _plan_text(
+                bx, by + 3, kn_num,
+                fs=9.0, cls="keynote", anchor="middle", weight="bold",
             )
         parts.append("  </g>")
     else:
@@ -2522,7 +2512,9 @@ def render_plan_view(
                 text = str(note.params.get("text", ""))
                 px, py = project(float(pos[0]), float(pos[1]))
                 parts.append(f'    <circle cx="{fmt(px)}" cy="{fmt(py)}" r="3" fill="#a30"/>')
-                parts.append(f'    <text x="{fmt(px + 6)}" y="{fmt(py)}">{esc(text[:80])}</text>')
+                _plan_text(
+                    px + 6, py, text[:80], fs=10.0, cls="note", fill="#a30",
+                )
             except (KeyError, TypeError, ValueError):
                 continue
         parts.append("  </g>")
