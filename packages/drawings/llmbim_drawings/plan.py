@@ -48,15 +48,15 @@ class _LabelNudge:
                 return True
         return False
 
-    def place(
+    def try_place(
         self, x: float, y: float, hw: float, hh: float
-    ) -> tuple[float, float]:
-        """Return (x, y) that does not overlap prior boxes (or best-effort)."""
+    ) -> tuple[float, float] | None:
+        """Clear (x, y) or None. Never registers an overlapping box."""
         candidates: list[tuple[float, float]] = [(0.0, 0.0)]
         span = max(float(hw), float(hh), 12.0)
         for dist in (
             10.0, 16.0, 22.0, 30.0, 40.0, 60.0, 90.0, 130.0, 180.0,
-            span, span * 1.5, span * 2.2, span * 3.0,
+            span, span * 1.5, span * 2.2, span * 3.0, span * 4.0,
         ):
             candidates.extend(
                 [
@@ -76,6 +76,15 @@ class _LabelNudge:
             if not self._hit(x0, y0, x1, y1):
                 self.boxes.append((x0, y0, x1, y1))
                 return cx, cy
+        return None
+
+    def place(
+        self, x: float, y: float, hw: float, hh: float
+    ) -> tuple[float, float]:
+        """Return (x, y) that does not overlap prior boxes (or best-effort)."""
+        hit = self.try_place(x, y, hw, hh)
+        if hit is not None:
+            return hit
         self.boxes.append((x - hw, y - hh, x + hw, y + hh))
         return x, y
 
@@ -846,27 +855,106 @@ def render_plan_view(
         weight: str = "",
         fill: str = "",
     ) -> tuple[float, float]:
-        """Emit <text> with a class and register its AABB. Never drop."""
+        """Emit <text> with a class and register its AABB. Never drop.
+
+        T11: try offsets, wrap, shrink to a floor, then leader outside the
+        plan. Dense sheets (EQ-101) ran out of a 180 px ladder and took the
+        least-bad overlap. Room/equipment labels must not do that.
+        """
         raw = str(s)
-        w = max(4.0, len(raw) * fs * 0.55)
-        hh = fs * 0.6
-        if anchor == "middle":
-            nx, ny = label_nudge.place(x, y, w / 2, hh)
-            x, y = nx, ny
-        elif anchor == "end":
-            nx, ny = label_nudge.place(x - w / 2, y, w / 2, hh)
-            x, y = nx + w / 2, ny
-        else:
-            nx, ny = label_nudge.place(x + w / 2, y, w / 2, hh)
-            x, y = nx - w / 2, ny
+        ox, oy = x, y
+        min_fs = 5.0
+        dense = cls in ("room-label", "equipment-tag")
+
+        def _split(txt: str) -> list[str]:
+            if " " not in txt.strip():
+                return [txt]
+            mid = len(txt) // 2
+            sp = txt.rfind(" ", 0, mid + 1)
+            if sp < 4:
+                sp = txt.find(" ", mid)
+            if sp < 4:
+                return [txt]
+            return [txt[:sp].strip(), txt[sp + 1 :].strip()]
+
+        def _try(fs_now: float, lines: list[str], cx: float, cy: float):
+            w = max(len(ln) for ln in lines) * fs_now * 0.55
+            hh = fs_now * 0.6 * len(lines)
+            if anchor == "middle":
+                return label_nudge.try_place(cx, cy, w / 2, hh), w, hh
+            if anchor == "end":
+                hit = label_nudge.try_place(cx - w / 2, cy, w / 2, hh)
+                return ((hit[0] + w / 2, hit[1]) if hit else None), w, hh
+            hit = label_nudge.try_place(cx + w / 2, cy, w / 2, hh)
+            return ((hit[0] - w / 2, hit[1]) if hit else None), w, hh
+
+        attempts: list[tuple[float, list[str], float, float]] = [
+            (fs, [raw], x, y),
+        ]
+        wrapped = _split(raw)
+        if len(wrapped) == 2:
+            attempts.append((fs, wrapped, x, y))
+        if dense:
+            for f2 in (fs * 0.85, fs * 0.7, min_fs):
+                if f2 < min_fs - 0.01:
+                    continue
+                attempts.append((f2, [raw], x, y))
+                if len(wrapped) == 2:
+                    attempts.append((f2, wrapped, x, y))
+            # outside the plan, with a leader back to origin
+            for oxp, oyp in (
+                (width + 14.0, oy),
+                (-14.0, oy),
+                (ox, -12.0),
+                (ox, height + 14.0),
+            ):
+                attempts.append((min_fs, wrapped if len(wrapped) == 2 else [raw], oxp, oyp))
+
+        placed = None
+        use_fs = fs
+        use_lines = [raw]
+        for f_try, lines, cx, cy in attempts:
+            hit, _w, _hh = _try(f_try, lines, cx, cy)
+            if hit is not None:
+                placed = hit
+                use_fs = f_try
+                use_lines = lines
+                x, y = hit
+                break
+        if placed is None:
+            if dense and crop_mm is not None:
+                raise RuntimeError(
+                    f"T11: no clear place for {cls} {raw[:60]!r} on this sheet"
+                )
+            w = max(4.0, len(raw) * fs * 0.55)
+            hh = fs * 0.6
+            x, y = label_nudge.place(x, y, w / 2, hh)
+
+        leader = dense and (abs(x - ox) > 40 or abs(y - oy) > 40)
+        if leader:
+            parts.append(
+                f'    <line class="label-leader" x1="{fmt(ox)}" y1="{fmt(oy)}" '
+                f'x2="{fmt(x)}" y2="{fmt(y)}" stroke="#555" stroke-width="0.6"/>'
+            )
         cls_a = f' class="{cls}"'
         anc = f' text-anchor="{anchor}"' if anchor != "start" else ""
         fw = f' font-weight="{weight}"' if weight else ""
         fl = f' fill="{fill}"' if fill else ""
-        parts.append(
-            f'    <text{cls_a}{anc}{fw}{fl} x="{fmt(x)}" y="{fmt(y)}"{extra}>'
-            f"{esc(raw)}</text>"
-        )
+        if len(use_lines) == 1:
+            parts.append(
+                f'    <text{cls_a}{anc}{fw}{fl} x="{fmt(x)}" y="{fmt(y)}"{extra}>'
+                f"{esc(use_lines[0])}</text>"
+            )
+        else:
+            parts.append(
+                f'    <text{cls_a}{anc}{fw}{fl} x="{fmt(x)}" y="{fmt(y)}"{extra}>'
+            )
+            for i, ln in enumerate(use_lines):
+                dy = "0" if i == 0 else f"{fmt(use_fs * 1.15)}"
+                parts.append(
+                    f'      <tspan x="{fmt(x)}" dy="{dy}">{esc(ln)}</tspan>'
+                )
+            parts.append("    </text>")
         return x, y
 
     if _on("walls") and not ghost_walls:
