@@ -854,6 +854,7 @@ def render_plan_view(
         extra: str = "",
         weight: str = "",
         fill: str = "",
+        along: tuple[float, float] | None = None,
     ) -> tuple[float, float]:
         """Emit <text> with a class and register its AABB. Never drop.
 
@@ -865,6 +866,7 @@ def render_plan_view(
         ox, oy = x, y
         min_fs = 5.0
         dense = cls in ("room-label", "equipment-tag")
+        run = cls in ("mep-tag", "pipe-tag", "raceway-tag")
 
         def _split(txt: str) -> list[str]:
             if " " not in txt.strip():
@@ -891,6 +893,16 @@ def render_plan_view(
         attempts: list[tuple[float, list[str], float, float]] = [
             (fs, [raw], x, y),
         ]
+        if run and along is not None:
+            ulen = math.hypot(along[0], along[1]) or 1.0
+            ux, uy = along[0] / ulen, along[1] / ulen
+            # perpendicular stagger (parallel services) then along-run
+            px_, py_ = -uy, ux
+            for dist in (8.0, 14.0, 22.0, 34.0, 50.0, 72.0):
+                attempts.append((fs, [raw], x + px_ * dist, y + py_ * dist))
+                attempts.append((fs, [raw], x - px_ * dist, y - py_ * dist))
+                attempts.append((fs, [raw], x + ux * dist, y + uy * dist))
+                attempts.append((fs, [raw], x - ux * dist, y - uy * dist))
         wrapped = _split(raw)
         if len(wrapped) == 2:
             attempts.append((fs, wrapped, x, y))
@@ -1465,7 +1477,8 @@ def render_plan_view(
                 mx, my = (pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2
                 _plan_text(
                     mx, my - 3, f'{nps}"',
-                    fs=max(6, 9), cls="mep-tag", anchor="middle", fill=stroke,
+                    fs=max(6, 9), cls="pipe-tag", anchor="middle", fill=stroke,
+                    along=(pb[0] - pa[0], pb[1] - pa[1]),
                 )
         except (KeyError, TypeError, ValueError, IndexError):
             continue
@@ -1518,6 +1531,7 @@ def render_plan_view(
             _plan_text(
                 mx, my - 4, label,
                 fs=max(6, 9), cls="mep-tag", anchor="middle", fill="#1b5e20",
+                along=((x1 - x0) * scale, -(y1 - y0) * scale),
             )
         except (KeyError, TypeError, ValueError, IndexError):
             continue
@@ -1556,7 +1570,8 @@ def render_plan_view(
             label = f'CT {w / 25.4:.0f}"' if imperial else f"CT {w:.0f}"
             _plan_text(
                 mx, my - 4, label,
-                fs=max(6, 9), cls="mep-tag", anchor="middle", fill="#4a148c",
+                fs=max(6, 9), cls="raceway-tag", anchor="middle", fill="#4a148c",
+                along=((x1 - x0) * scale, -(y1 - y0) * scale),
             )
         except (KeyError, TypeError, ValueError, IndexError):
             continue
