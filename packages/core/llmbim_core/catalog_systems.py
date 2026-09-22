@@ -23,6 +23,30 @@ STEEL_NPS: dict[str, dict[str, float]] = {
     "4": {"od_mm": 114.3, "mass_kg_m": 16.1, "unit_cost_m": 155.0},
     "6": {"od_mm": 168.3, "mass_kg_m": 28.3, "unit_cost_m": 280.0},
     "8": {"od_mm": 219.1, "mass_kg_m": 42.5, "unit_cost_m": 420.0},
+    # Same B36.10 OD column as the rows above (not a second ladder).
+    # Sch40 plain-end mass, rounded like NPS 6 = 28.3 / NPS 8 = 42.5.
+    # DN125 / DN250 / DN300. DN32/65/100 are already 1-1/4 / 2-1/2 / 4.
+    "5": {"od_mm": 141.3, "mass_kg_m": 21.8, "unit_cost_m": 220.0},
+    "10": {"od_mm": 273.0, "mass_kg_m": 60.2, "unit_cost_m": 600.0},
+    "12": {"od_mm": 323.8, "mass_kg_m": 79.6, "unit_cost_m": 800.0},
+}
+
+# ISO DN for the NPS labels in STEEL_NPS. Do not invent a parallel OD table.
+DN_OF_NPS: dict[str, int] = {
+    "1/2": 15,
+    "3/4": 20,
+    "1": 25,
+    "1-1/4": 32,
+    "1-1/2": 40,
+    "2": 50,
+    "2-1/2": 65,
+    "3": 80,
+    "4": 100,
+    "5": 125,
+    "6": 150,
+    "8": 200,
+    "10": 250,
+    "12": 300,
 }
 
 _FTYPE_CODES = {
@@ -127,6 +151,9 @@ def _pipe_family(
                 "mass_kg_m": geom["mass_kg_m"],
                 "unit": "m",
                 "csi_code": csi_pipe,
+                **({"dn": int(geom["dn"])} if geom.get("dn") is not None else {}),
+                **({"schedule": str(geom["schedule"])} if geom.get("schedule") else {}),
+                **({"spec": str(geom["spec"])} if geom.get("spec") else {}),
             },
         )
         for ftype in ftypes:
@@ -162,6 +189,8 @@ def _pipe_family(
                     "od_mm": geom["od_mm"],
                     "unit": "ea",
                     "csi_code": csi_fit,
+                    **({"dn": int(geom["dn"])} if geom.get("dn") is not None else {}),
+                    **({"schedule": str(geom["schedule"])} if geom.get("schedule") else {}),
                 },
             )
 
@@ -268,10 +297,23 @@ def register_process_piping(into: dict[str, Any], PartType: type, BomLine: type)
         "gate_valve",
         "check_valve",
     ]
-    # Include NPS-8 (DN200) for plant CWS/CWR trunks — INTEC CR-004 / hyd dual 8"
-    nps = {k: {**v, "unit_cost_m": v["unit_cost_m"] * 6.5, "mass_kg_m": v["mass_kg_m"] * 1.02}
-           for k, v in STEEL_NPS.items()
-           if k in ("1/2", "3/4", "1", "1-1/4", "1-1/2", "2", "2-1/2", "3", "4", "6", "8")}
+    # NPS-8 (DN200) is the CR-004 CWS trunk. NPS 5/10/12 are DN125/250/300
+    # on the same OD column. DN32/65/100 (1-1/4, 2-1/2, 4) are already here.
+    _ss_nps = (
+        "1/2", "3/4", "1", "1-1/4", "1-1/2", "2", "2-1/2", "3", "4",
+        "5", "6", "8", "10", "12",
+    )
+    nps = {
+        k: {
+            **v,
+            "unit_cost_m": v["unit_cost_m"] * 6.5,
+            "mass_kg_m": v["mass_kg_m"] * 1.02,
+            "dn": DN_OF_NPS[k],
+            "schedule": "40",
+        }
+        for k, v in STEEL_NPS.items()
+        if k in _ss_nps
+    }
     _pipe_family(
         into,
         prefix="PT-SS",
@@ -660,11 +702,207 @@ def register_hvac_electrical_misc(into: dict[str, Any], PartType: type, BomLine:
         )
 
 
+def register_cs_containment_and_ci(into: dict[str, Any], PartType: type, BomLine: type) -> None:
+    """Carbon-steel, chlorine double-wall, no-hub CI, and SS 10S DN300.
+
+    SS Sch40 at DN32/65/100 already exists (NPS 1-1/4, 2-1/2, 4). This adds
+    the CS twins at those DNs plus DN125/250/300, and does not copy them.
+    OD for steel sizes is STEEL_NPS. No-hub CI uses ASTM A888 service-weight
+    barrel OD, which is not the B36.10 OD.
+    """
+    fit_only = [
+        "elbow_90",
+        "elbow_45",
+        "tee",
+        "coupling",
+        "cap",
+        "union",
+        "ball_valve",
+        "flange",
+        "reducer",
+        "gate_valve",
+        "check_valve",
+    ]
+    # DN32, 65, 100, 125, 250, 300. No bare DN25 — that size is the Sch80 carrier.
+    cs_keys = ("1-1/4", "2-1/2", "4", "5", "10", "12")
+    cs_nps = {
+        k: {
+            **STEEL_NPS[k],
+            "dn": DN_OF_NPS[k],
+            "schedule": "40",
+            "spec": "ASTM A106 Gr B Sch40",
+        }
+        for k in cs_keys
+    }
+    _pipe_family(
+        into,
+        prefix="PT-CS",
+        nps_table=cs_nps,
+        material_id="black_steel",
+        category="process_piping",
+        system="carbon_steel",
+        csi_pipe="40 05 13",
+        csi_fit="40 05 13",
+        name_prefix="CS A106 Sch40",
+        ftypes=fit_only,
+        cost_scale=1.0,
+        PartType=PartType,
+        BomLine=BomLine,
+    )
+
+    # ASME B36.10 NPS 1 Sch80: wall 4.55 mm, plain-end mass 3.24 kg/m.
+    # Jacket OD is the existing DN50 / DN80 steel OD, not a new ladder.
+    carrier_od = STEEL_NPS["1"]["od_mm"]
+    carrier_wall = 4.55
+    carrier_mass = 3.24
+    for cdn, cnps in ((50, "2"), (80, "3")):
+        jacket_od = STEEL_NPS[cnps]["od_mm"]
+        pid = f"PT-CS-CL2-SCH80-DN25-IN-DN{cdn}"
+        into[pid] = PartType(
+            id=pid,
+            name=f"CS Sch80 DN25 chlorine carrier in DN{cdn} containment",
+            category="process_piping",
+            primary_material_id="black_steel",
+            csi_code="40 05 13",
+            unit_cost=85.0 if cdn == 50 else 140.0,
+            shape="cylinder",
+            default_size_mm=[1000.0, jacket_od, jacket_od],
+            bom=[
+                BomLine(
+                    material_id="black_steel",
+                    qty=1.0,
+                    unit="m",
+                    mass_kg=carrier_mass,
+                    description=f"Sch80 DN25 carrier per m inside DN{cdn} jacket",
+                )
+            ],
+            specs={
+                "system": "carbon_steel",
+                "material": "black_steel",
+                "fitting_type": "double_wall_pipe",
+                "service": "CL2",
+                "spec": "ASTM A106 Gr B Sch80 carrier",
+                "schedule": "80",
+                "dn": 25,
+                "carrier_dn": 25,
+                "carrier_nps": "1",
+                "carrier_schedule": "80",
+                "carrier_od_mm": carrier_od,
+                "carrier_wall_mm": carrier_wall,
+                "carrier_id_mm": round(carrier_od - 2.0 * carrier_wall, 1),
+                "containment_dn": cdn,
+                "containment_nps": cnps,
+                "containment_od_mm": jacket_od,
+                "od_mm": jacket_od,
+                "mass_kg_m": carrier_mass,
+                "unit": "m",
+            },
+        )
+
+    # ASTM A888 service-weight no-hub (barrel OD). Not STEEL_NPS.
+    # DN80 / DN100 are the sizes the wet/gas lane named; 2 and 6 match the
+    # PVC Sch40 family already in the catalog (1-1/2..6) without new DNs.
+    nohub = (
+        # nps, dn, od_mm, id_mm, mass_kg_m, unit_cost_m
+        ("2", 50, 59.7, 49.8, 5.3, 32.0),
+        ("3", 80, 85.1, 75.2, 8.0, 45.0),
+        ("4", 100, 111.3, 100.1, 10.7, 58.0),
+        ("6", 150, 160.0, 150.9, 17.5, 90.0),
+    )
+    for nps, dn, od, id_mm, mass_m, cost_m in nohub:
+        slug = _nps_slug(nps)
+        pid = f"PT-CI-PIPE-{slug}"
+        into[pid] = PartType(
+            id=pid,
+            name=f"No-hub cast iron soil pipe {nps}\" (DN{dn})",
+            category="plumbing",
+            primary_material_id="cast_iron",
+            csi_code="22 13 16",
+            unit_cost=cost_m,
+            shape="cylinder",
+            default_size_mm=[1000.0, od, od],
+            bom=[BomLine(material_id="cast_iron", qty=1.0, unit="m", mass_kg=mass_m)],
+            specs={
+                "system": "plumbing",
+                "material": "cast_iron",
+                "spec": "ASTM A888 no-hub service weight",
+                "nps": nps,
+                "dn": dn,
+                "fitting_type": "pipe",
+                "od_mm": od,
+                "id_mm": id_mm,
+                "mass_kg_m": mass_m,
+                "unit": "m",
+            },
+        )
+        for ftype, code, mult in (("elbow_90", "ELB90", 1.0), ("tee", "TEE", 1.4), ("coupling", "CPL", 0.5)):
+            fid = f"PT-CI-{code}-{slug}"
+            into[fid] = PartType(
+                id=fid,
+                name=f"No-hub CI {ftype.replace('_', ' ')} {nps}\"",
+                category="plumbing",
+                primary_material_id="cast_iron",
+                csi_code="22 13 16",
+                unit_cost=round(cost_m * 0.45 * mult, 2),
+                specs={
+                    "system": "plumbing",
+                    "material": "cast_iron",
+                    "spec": "ASTM A888 no-hub",
+                    "nps": nps,
+                    "dn": dn,
+                    "fitting_type": ftype,
+                    "od_mm": od,
+                    "unit": "ea",
+                },
+            )
+
+    # OFG header is SS Sch 10S, not the Sch40 family pipe at the same DN.
+    # B36.19 NPS 12 Sch 10S wall 0.180 in = 4.57 mm. OD is STEEL_NPS["12"].
+    od12 = STEEL_NPS["12"]["od_mm"]
+    wall_10s = 4.57
+    mass_10s = 36.7  # plain-end carbon ~36.0 kg/m, SS factor 1.02 used on Sch40
+    pid = "PT-SS-PIPE-10S-12"
+    into[pid] = PartType(
+        id=pid,
+        name="SS316L Sch10S pipe 12\" (DN300)",
+        category="process_piping",
+        primary_material_id="ss316L",
+        csi_code="40 05 13",
+        unit_cost=2350.0,
+        shape="cylinder",
+        default_size_mm=[1000.0, od12, od12],
+        bom=[
+            BomLine(
+                material_id="ss316L",
+                qty=1.0,
+                unit="m",
+                mass_kg=mass_10s,
+                description="SS316L Sch10S 12\" per m",
+            )
+        ],
+        specs={
+            "system": "process",
+            "material": "ss316L",
+            "spec": "ASTM A312 TP316L Sch10S",
+            "nps": "12",
+            "dn": 300,
+            "schedule": "10S",
+            "fitting_type": "pipe",
+            "od_mm": od12,
+            "wall_mm": wall_10s,
+            "id_mm": round(od12 - 2.0 * wall_10s, 1),
+            "mass_kg_m": mass_10s,
+            "unit": "m",
+        },
+    )
+
+
 def register_all_systems(into: dict[str, Any]) -> None:
     from llmbim_core.parts_catalog import BomLine, PartType
 
     register_fire_protection(into, PartType, BomLine)
     register_process_piping(into, PartType, BomLine)
+    register_cs_containment_and_ci(into, PartType, BomLine)
     register_framing(into, PartType, BomLine)
     register_structural_steel(into, PartType, BomLine)
     register_rebar(into, PartType, BomLine)

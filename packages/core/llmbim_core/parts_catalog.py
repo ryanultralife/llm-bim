@@ -116,15 +116,19 @@ def _nps_sort_key(label: str) -> float:
 
 def _material_prefix(material: str) -> str | None:
     """Material / system alias → catalog part-id prefix (PT-CU / PT-PVC / …)."""
-    mat = material.lower().replace(" ", "_")
+    mat = material.lower().replace(" ", "_").replace("-", "_")
     if mat in ("copper", "cu", "c12200", "copper_c12200", "plumbing"):
         return "PT-CU"
     if "pvc" in mat:
         return "PT-PVC"
     if mat in ("fire", "fp", "sprinkler", "black_steel", "black", "a53"):
         return "PT-FP"
-    if mat in ("process", "ss", "ss316", "ss316l", "316", "316l", "stainless"):
+    if mat in ("process", "ss", "ss316", "ss316l", "316", "316l", "stainless", "a312"):
         return "PT-SS"
+    if mat in ("cs", "carbon", "carbon_steel", "a106", "a106b"):
+        return "PT-CS"
+    if mat in ("ci", "cast_iron", "nohub", "no_hub", "soil_pipe"):
+        return "PT-CI"
     return None
 
 
@@ -570,6 +574,55 @@ def resolve_fitting_part_id(
         return None
     pid = f"{prefix}-{code}-{slug}"
     return pid if pid in PARTS else None
+
+
+def _parse_dn(dn: int | str) -> int:
+    s = str(dn).strip().upper()
+    if s.startswith("DN"):
+        s = s[2:]
+    return int(float(s))
+
+
+def _norm_schedule(schedule: str | None) -> str:
+    if not schedule:
+        return ""
+    s = str(schedule).strip().upper().replace(" ", "").replace("-", "")
+    return s.replace("SCHEDULE", "").replace("SCH", "")
+
+
+def resolve_pipe_sku(
+    material: str,
+    dn: int | str,
+    *,
+    schedule: str | None = None,
+    containment_dn: int | None = None,
+) -> str | None:
+    """Resolve a pipe SKU by DN. ``schedule`` defaults to the family pipe (Sch40).
+
+    Sch80 DN25 chlorine carrier needs ``containment_dn`` 50 or 80.
+    SS schedule 10S is a different part from the Sch40 pipe at the same DN.
+    OD comes from the existing NPS ladder (or ASTM A888 for no-hub CI).
+    """
+    from llmbim_core.catalog_systems import DN_OF_NPS
+
+    dn_i = _parse_dn(dn)
+    nps = next((label for label, d in DN_OF_NPS.items() if d == dn_i), None)
+    if nps is None:
+        return None
+    sched = _norm_schedule(schedule)
+    mat = material.lower().replace(" ", "_").replace("-", "_")
+    cdn = int(containment_dn) if containment_dn is not None else None
+    if mat in ("cl2", "chlorine", "cl2_carrier") or (cdn is not None and dn_i == 25):
+        if dn_i == 25 and sched in ("", "80") and cdn in (50, 80):
+            pid = f"PT-CS-CL2-SCH80-DN25-IN-DN{cdn}"
+            return pid if pid in PARTS else None
+        return None
+    if sched == "10S":
+        pid = f"PT-SS-PIPE-10S-{nps_slug(nps)}"
+        return pid if pid in PARTS else None
+    if sched not in ("", "40"):
+        return None
+    return resolve_fitting_part_id("pipe", nps, material=material)
 
 
 def resolve_part_id(

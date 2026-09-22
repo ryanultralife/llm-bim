@@ -201,6 +201,7 @@ _MATERIAL_BY_CATEGORY: dict[str, str] = {
     "duct": "Galvanized Steel",
     "conduit": "Galvanized Steel EMT",
     "cable_tray": "Galvanized Steel",
+    "duct_bank": "Concrete f'c=4000psi",
     "wall": "Wood Framing DF-L",
     "door": "Wood / Hollow Metal",
     "window": "Aluminum / Insulated Glass",
@@ -352,6 +353,8 @@ def _flow_segment_kind(el) -> tuple[str, str]:
         return "IFCCABLECARRIERSEGMENT", ".CABLETRAYSEGMENT."
     if cat == "conduit":
         return "IFCCABLECARRIERSEGMENT", ".CONDUITSEGMENT."
+    if cat == "duct_bank":
+        return "IFCCABLECARRIERSEGMENT", ".CONDUITSEGMENT."
     return "IFCPIPESEGMENT", ".RIGIDSEGMENT."
 
 
@@ -372,6 +375,13 @@ def _export_pipe_proxy(
         if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
             od = max(float(el.params["size_mm"][0]), float(el.params["size_mm"][1]), 20.0)
         z0 = float(el.params.get("z0_mm", 0))
+        # Rectangular runs (duct, tray, duct bank) carry width_mm and height_mm.
+        # size_mm[0] on those runs is the length, so it must not become the section.
+        if el.params.get("width_mm") is not None and el.params.get("height_mm") is not None:
+            sec_w = max(float(el.params["width_mm"]), 1.0)
+            sec_h = max(float(el.params["height_mm"]), 1.0)
+        else:
+            sec_w = sec_h = od
 
         if vertical:
             o = el.params.get("origin_mm") or el.params.get("start_mm")
@@ -388,7 +398,7 @@ def _export_pipe_proxy(
             pt = f.add(f"IFCCARTESIANPOINT(({x0},{y0},{z_base}))")
             a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},$)")
             loc = f.add(f"IFCLOCALPLACEMENT({par},#{a3})")
-            body = extrude_rect(od, od, height)
+            body = extrude_rect(sec_w, sec_h, height)
         elif "start_mm" in el.params and "end_mm" in el.params:
             s = el.params["start_mm"]
             e = el.params["end_mm"]
@@ -406,7 +416,7 @@ def _export_pipe_proxy(
                 pt = f.add(f"IFCCARTESIANPOINT(({x0},{y0},{z0}))")
                 a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},$)")
                 loc = f.add(f"IFCLOCALPLACEMENT({par},#{a3})")
-                body = extrude_rect(od, od, max(height, 50.0))
+                body = extrude_rect(sec_w, sec_h, max(height, 50.0))
             else:
                 ang = math.atan2(y1 - y0, x1 - x0)
                 pt = f.add(f"IFCCARTESIANPOINT(({x0},{y0},{z0}))")
@@ -414,7 +424,7 @@ def _export_pipe_proxy(
                 a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{dx_dir})")
                 loc = f.add(f"IFCLOCALPLACEMENT({par},#{a3})")
                 # run start->end from the placement point, centered on the pipe width
-                body = extrude_rect(length, od, od, cx=length / 2.0, cy=0.0)
+                body = extrude_rect(length, sec_w, sec_h, cx=length / 2.0, cy=0.0)
         elif "origin_mm" in el.params and "size_mm" in el.params:
             o = el.params["origin_mm"]
             sz = el.params["size_mm"]
@@ -425,7 +435,7 @@ def _export_pipe_proxy(
             dx_dir = f.add(f"IFCDIRECTION(({math.cos(ang)},{math.sin(ang)},0.))")
             a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{dx_dir})")
             loc = f.add(f"IFCLOCALPLACEMENT({par},#{a3})")
-            body = extrude_rect(length, od, od, cx=length / 2.0, cy=0.0)
+            body = extrude_rect(length, sec_w, sec_h, cx=length / 2.0, cy=0.0)
         else:
             return None
     except (KeyError, TypeError, ValueError, IndexError):
@@ -782,7 +792,13 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
             dx, dy = max(xs) - minx, max(ys) - miny
             if dx < 1 or dy < 1:
                 continue
-            pt = f.add(f"IFCCARTESIANPOINT(({minx},{miny},{z_base - th}))")
+            if el.params.get("kind") == "shield_slab":
+                z_place = float(el.params.get("z0_mm") or 0.0)
+                predefined = ".USERDEFINED."
+            else:
+                z_place = z_base - th
+                predefined = ".FLOOR."
+            pt = f.add(f"IFCCARTESIANPOINT(({minx},{miny},{z_place}))")
             a3 = f.add(f"IFCAXIS2PLACEMENT3D(#{pt},#{axis_z},#{axis_x})")
             loc = f.add(f"IFCLOCALPLACEMENT(#{parent_local},#{a3})")
             # placement at min-corner: offset profile so slab spans [minx,minx+dx]x[miny,miny+dy]
@@ -790,7 +806,7 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
             prod = f.add(f"IFCPRODUCTDEFINITIONSHAPE($,$,(#{body}))")
             slab = f.add(
                 f"IFCSLAB('{f.guid()}',#{owner},'{_esc(el.name or el.id)}',$,$,#{loc},"
-                f"#{prod},$,.FLOOR.)"
+                f"#{prod},$,{predefined})"
             )
             contained[storey].append(slab)
 
@@ -915,7 +931,7 @@ def export_ifc(model: ProjectModel, path: str | Path) -> Path:
                 _attach_csi_pset(f, owner, eid, model, el)
                 _add_system(el, eid)
 
-        elif el.category in {"duct", "hvac", "cable_tray"}:
+        elif el.category in {"duct", "hvac", "cable_tray", "duct_bank"}:
             # rectangular duct / cable tray as concrete distribution segment
             eid = _export_pipe_proxy(f, el, owner, axis_z, extrude_rect, parent_local)
             if eid is None:

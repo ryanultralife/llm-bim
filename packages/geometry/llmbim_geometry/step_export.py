@@ -219,6 +219,12 @@ def _pipe_solid(
             if length < 1e-6:
                 return None
             z0 = (_level_z(model, el.level_id) + float(el.params.get("z0_mm", 0))) / 1000.0
+            sec_h = od
+            if el.params.get("height_mm") is not None and (
+                el.category in {"duct", "hvac", "cable_tray", "duct_bank"}
+                or str(el.params.get("fitting_type") or "") in {"duct", "cable_tray", "duct_bank"}
+            ):
+                sec_h = max(float(el.params["height_mm"]) / 1000.0, 0.02)
             xmin, xmax = min(x0, x1), max(x0, x1)
             ymin, ymax = min(y0, y1), max(y0, y1)
             if abs(xmax - xmin) < 1e-6:
@@ -230,7 +236,7 @@ def _pipe_solid(
             if abs(ymax - ymin) < 1e-6:
                 ymin -= od / 2
                 ymax += od / 2
-            return _box_corners(xmin, ymin, z0, xmax, ymax, z0 + od), _BOX_FACES
+            return _box_corners(xmin, ymin, z0, xmax, ymax, z0 + sec_h), _BOX_FACES
         return _equipment_solid(el, model, cyl_sides=cyl_sides)
     except (KeyError, TypeError, ValueError, IndexError):
         return None
@@ -411,6 +417,8 @@ def _step_layer(el: Element) -> str:
         return "CONDUIT"
     if cat == "cable_tray" or ftype == "cable_tray":
         return "CABLE-TRAY"
+    if cat == "duct_bank" or ftype == "duct_bank":
+        return "DUCT-BANK"
     if cat == "column" or ftype == "column":
         return "COLUMN"
     if cat == "beam" or ftype == "beam":
@@ -519,6 +527,7 @@ def export_step(
         "hvac",
         "conduit",
         "cable_tray",
+        "duct_bank",
         "column",
         "beam",
         "wire",
@@ -545,6 +554,7 @@ def export_step(
             "duct",
             "hvac",
             "cable_tray",
+            "duct_bank",
             "beam",
             "wire",
         }:
@@ -599,7 +609,10 @@ def export_step(
                 continue
             xs = [float(p[0]) / 1000.0 for p in poly]
             ys = [float(p[1]) / 1000.0 for p in poly]
-            z0 = _level_z(model, el.level_id) / 1000.0 - th
+            if el.params.get("kind") == "shield_slab":
+                z0 = (_level_z(model, el.level_id) + float(el.params.get("z0_mm") or 0.0)) / 1000.0
+            else:
+                z0 = _level_z(model, el.level_id) / 1000.0 - th
             corners = _box_corners(min(xs), min(ys), z0, max(xs), max(ys), z0 + th)
             solids.append((pname, corners, _BOX_FACES))
 

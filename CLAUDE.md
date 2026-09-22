@@ -14,7 +14,7 @@ You are working in the **llm-bim** repository. Goal: the user chats with you; yo
 
 ## How you create work
 
-Use the **kernel**, never freehand IFC/SVG/STEP in chat:
+Use the **kernel**, never freehand IFC/SVG/STEP in chat. A device and a site are the same path: one `Project`, then `export_deliverables`. A lid is `place_shield_slab`. A buried conduit bank is `place_duct_bank`. Sheets and the glTF use the stored width, height, and elevation.
 
 ```python
 from llmbim import Project
@@ -46,7 +46,11 @@ llmbim pack path.llmbim.json --out output/name
 - Mutations only via SDK / CLI / MCP / `project.op`.
 - Do not invent geometry in prose.
 - Run `validate`, `rules`, `clash` before calling work “done”.
-- Hand the user **exactly one path**: `output/<slug>/index.html` — the 3D viewer, PDF, sheets, and schedules are linked from it. Never open/point to `viewer3d.html` separately (duplicate tabs).
+- **Always end work with a re-engage link** (clickable pack HTML), not a file-tree tour:
+  - Prefer `http://127.0.0.1:8766/<slug>/` after `OPEN.bat` / `python examples/open_packs.py <slug>`
+  - MineClean default: `OPEN_MINECLEAN.bat` → `http://127.0.0.1:8766/mineclean_studio/`
+  - Fallback only: absolute `…/output/<slug>/index.html`
+  - Never hand `viewer3d.html` alone (duplicate tabs — it's linked from the pack index).
 - **Version control (mandatory):** after each meaningful batch of model edits,  
   `p.commit("clear message of what changed")`.  
   Check `p.status()` — do not say “done” while dirty unless the user said not to commit.  
@@ -69,6 +73,25 @@ work never uses `W-EXT-CMU`), explicit `sheets=[...]` register with
 `units="imperial"` where appropriate, drift-pin tests. Worked instance:
 `llmbim case schad` + `skills/llm-bim/recipes/schad_cd.md`.
 
+### Machines / field products / vehicle arrays (platform doctrine)
+
+If the user asks for a **product**, **launcher**, **pod**, **field unit**,
+**vehicle array**, **skid**, **apparatus**, or **fab-ready** machine:
+
+1. Read **`docs/MACHINE_ENGINEERING_BAR.md`** (engineering + drawing law) and
+   **`docs/FIELD_DEVICE_FAB.md`** (PN / layer / fab law) +
+   `skills/llm-bim/recipes/field_device_fab.md` · `recipes/machine_ga.md`.
+2. Call `p.authoring_checklist("field_device_fab")` and
+   `p.validate_intent("field_device_fab")` before export — the intent scores both bars.
+3. **Do not** ship a single equipment box, a floating header/tray, a diagonal
+   service run, or a matplotlib colored-box GA. Use a design-basis **parts[]**
+   catalog, distinct `kind` per family (including hardware), connected orthogonal
+   services with fittings at bends, `export_deliverables(mode="part")` (machine_set),
+   and the **human product name** on titles (P/Ns stay document IDs).
+4. State **scale posture** out loud: field/vehicle ≠ plant rack ≠ lab bench unless asked.
+5. Worked examples: `examples/mineclean_component_apparatus.py` (engineering bar);
+   `examples/pal_launcher.py` (field-array PN depth).
+
 ## Materials / parts / plumbing
 
 ```python
@@ -81,3 +104,7 @@ p.export_material_lists()  # or included in export_deliverables → materials/
 ```
 
 CLI: `llmbim takeoff <project> --kind plumbing` · `llmbim parts --fitting-type elbow_90`
+
+## Group HQ pointer (added 2026-08-30)
+
+This repo is one project inside a multi-company portfolio — UltraLife, Client+, Mechanical Battery, League+, SprayMapCA — under the Group (name TBD). Fleet-wide rules (queue, honesty blocks, handoffs, marketing) live in the **hq** repo: seeded today at `./hq/`, destined for `github.com/ryanultralife/hq` (move it out of this repo before pushing: it should live as its own repo, e.g. `C:\Users\ryanv\hq`). Before cross-project or company-level work, read `hq/AGENTS.md`. Everything below still governs work inside this repo.

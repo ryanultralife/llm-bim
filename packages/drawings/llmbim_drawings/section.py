@@ -473,8 +473,9 @@ def render_section_svg(
                     foundation_meta.append(el)
             except (KeyError, TypeError, ValueError, IndexError):
                 continue
-        elif el.category == "slab" and el.params.get("kind") == "slab_on_grade":
-            # WP-SCHAD-S3: slab band where the cut crosses the polygon bbox
+        elif el.category == "slab" and el.params.get("kind") in {"slab_on_grade", "shield_slab"}:
+            # Slab band where the cut crosses the polygon. A shield lid uses its
+            # stored soffit and top; a slab-on-grade stays below the datum.
             try:
                 poly = el.params.get("polygon_mm") or []
                 if len(poly) < 3:
@@ -488,8 +489,13 @@ def render_section_svg(
                 if span is None:
                     continue
                 t0, t1 = span
-                foundation_rects.append((t0 * cut_len, z_bot, t1 * cut_len, z_top))
-                foundation_meta.append(el)
+                band = (t0 * cut_len, z_bot, t1 * cut_len, z_top)
+                if el.params.get("kind") == "shield_slab":
+                    rects.append(band)
+                    rect_meta.append(("slab", True, el))
+                else:
+                    foundation_rects.append(band)
+                    foundation_meta.append(el)
             except (KeyError, TypeError, ValueError, IndexError):
                 continue
         elif el.category in {"door", "window"}:
@@ -601,6 +607,7 @@ def render_section_svg(
             "hvac",
             "conduit",
             "cable_tray",
+            "duct_bank",
         }:
             try:
                 hit = _project_point_to_cut(model, el, p0, p1, cut_len, depth_mm=depth_mm)
@@ -610,19 +617,21 @@ def render_section_svg(
                 cat = el.category or ""
                 ftype = str(el.params.get("fitting_type") or "")
                 is_duct = cat in {"duct", "hvac"} or ftype == "duct"
+                is_bank = cat == "duct_bank" or ftype == "duct_bank"
                 is_conduit = cat == "conduit" or ftype == "conduit"
                 is_tray = cat == "cable_tray" or ftype == "cable_tray"
-                if is_duct:
+                if is_duct or is_bank:
                     w = float(el.params.get("width_mm") or 400)
                     h = float(el.params.get("height_mm") or 250)
-                    half_w = max(w / 4, 80.0)
+                    half_w = w / 2.0
                     rects.append((s - half_w, z, s + half_w, z + h))
-                    rect_meta.append(("duct", False, el))
-                    pipe_marks.append((s, z + h / 2, max(w / 6, 40.0), "#2e7d32"))  # green
+                    rect_meta.append(("duct" if is_duct else "duct_bank", False, el))
+                    mark = "#2e7d32" if is_duct else "#5d4037"
+                    pipe_marks.append((s, z + h / 2, max(w / 6, 40.0), mark))
                 elif is_tray:
                     w = float(el.params.get("width_mm") or 300)
                     h = float(el.params.get("height_mm") or 100)
-                    half_w = max(w / 4, 60.0)
+                    half_w = w / 2.0
                     rects.append((s - half_w, z, s + half_w, z + h))
                     rect_meta.append(("tray", False, el))
                     pipe_marks.append((s, z + h / 2, max(w / 6, 30.0), "#6a1b9a"))  # purple
@@ -1062,13 +1071,30 @@ def _project_point_to_cut(
     *,
     depth_mm: float = 500.0,
 ) -> tuple[float, float] | None:
-    """Map element center to (s along cut, z elev) if within depth of cut plane."""
-    if el.params.get("origin_mm"):
+    """Map an element to (s along cut, z elev).
+
+    A run with start and end is taken where that segment crosses the cut.
+    A run that does not cross is kept only when its midpoint is within
+    ``depth_mm`` of the cut. Point elements use their origin the same way.
+    """
+    z = _level_elev(model, el.level_id) + float(el.params.get("z0_mm") or 0)
+    if el.params.get("start_mm") and el.params.get("end_mm"):
+        spt, ept = el.params["start_mm"], el.params["end_mm"]
+        x0, y0 = float(spt[0]), float(spt[1])
+        x1, y1 = float(ept[0]), float(ept[1])
+        abx, aby = x1 - x0, y1 - y0
+        cdx, cdy = p1[0] - p0[0], p1[1] - p0[1]
+        den = abx * cdy - aby * cdx
+        if abs(den) >= 1e-9:
+            t = ((p0[0] - x0) * cdy - (p0[1] - y0) * cdx) / den
+            u = ((p0[0] - x0) * aby - (p0[1] - y0) * abx) / den
+            if -1e-6 <= t <= 1.0 + 1e-6 and -0.02 <= u <= 1.02:
+                ix = x0 + max(0.0, min(1.0, t)) * abx
+                iy = y0 + max(0.0, min(1.0, t)) * aby
+                return math.hypot(ix - p0[0], iy - p0[1]), z
+        ox, oy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+    elif el.params.get("origin_mm"):
         ox, oy = float(el.params["origin_mm"][0]), float(el.params["origin_mm"][1])
-    elif el.params.get("start_mm") and el.params.get("end_mm"):
-        s, e = el.params["start_mm"], el.params["end_mm"]
-        ox = (float(s[0]) + float(e[0])) / 2
-        oy = (float(s[1]) + float(e[1])) / 2
     else:
         return None
     ax, ay = p0
@@ -1294,10 +1320,15 @@ def render_elevation_svg(
                     continue
                 hs = [float(q[0]) if d in {"N", "S"} else float(q[1]) for q in poly]
                 h0, h1 = min(hs), max(hs)
-                if h1 - h0 < 5000.0:
-                    continue  # tiny admin pads only — skip
                 zlv = _level_elev(model, el.level_id)
                 th = float(el.params.get("thickness_mm") or 300)
+                if kind == "shield_slab":
+                    z0 = zlv + float(el.params.get("z0_mm") or 0.0)
+                    z1 = zlv + float(el.params.get("top_of_slab_mm") or (z0 + th))
+                    segs.append((h0, h1, z0, z1))
+                    continue
+                if h1 - h0 < 5000.0:
+                    continue  # tiny admin pads only — skip
                 if "roof" in name or "roof" in kind:
                     z1 = zlv + th
                     z0 = zlv
@@ -1486,9 +1517,9 @@ def render_elevation_svg(
                 continue
         elif (
             el.category
-            in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac", "cable_tray", "beam"}
+            in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac", "cable_tray", "duct_bank", "beam"}
             or el.params.get("fitting_type")
-            in {"pipe", "conduit", "duct", "cable_tray", "beam"}
+            in {"pipe", "conduit", "duct", "cable_tray", "duct_bank", "beam"}
         ):
             if exterior:
                 # architectural elev: no steel/MEP wireframe over the facade
@@ -1502,6 +1533,8 @@ def render_elevation_svg(
                     stroke = "#6b7c8a"
                 if el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct":
                     stroke = "#2e7d32"
+                if el.category == "duct_bank" or el.params.get("fitting_type") == "duct_bank":
+                    stroke = "#5d4037"
                 if el.category == "conduit" or el.params.get("fitting_type") == "conduit":
                     stroke = "#6a1b9a"
                 if el.category == "beam" or el.params.get("fitting_type") == "beam":
@@ -1534,7 +1567,9 @@ def render_elevation_svg(
                     h0, h1 = y0, y1
                 # duct/beam: thicker elev bar using height_mm
                 elev_h = 50.0
-                if el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct":
+                if el.category in {"duct", "hvac", "duct_bank"} or el.params.get("fitting_type") in {
+                    "duct", "duct_bank",
+                }:
                     elev_h = float(el.params.get("height_mm") or 250)
                 if el.category == "beam" or el.params.get("fitting_type") == "beam":
                     elev_h = float(el.params.get("height_mm") or el.params.get("depth_mm") or 300)

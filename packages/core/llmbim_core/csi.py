@@ -147,6 +147,7 @@ CATEGORY_CSI: dict[str, str] = {
     "duct": "23 31 00",
     "conduit": "26 05 33",
     "cable_tray": "26 05 36",
+    "duct_bank": "26 05 43",
     "column": "05 12 00",
     "beam": "05 12 00",
     "electrical": "26 05 00",

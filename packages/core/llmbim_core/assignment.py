@@ -664,6 +664,57 @@ def place_riser(
         "base_level": base.name,
     }
 
+def _run_elev_mm(z0_mm: float | None, z0: float | None, default: float) -> float:
+    """Run elevation above the level, in mm. ``z0`` aliases ``z0_mm``.
+
+    ``z0_mm`` wins when both are set so existing callers keep their value.
+    Both omitted → ``default``.
+    """
+    if z0_mm is not None:
+        return float(z0_mm)
+    if z0 is not None:
+        return float(z0)
+    return float(default)
+
+
+# EMT OD (mm) by trade size. Shared by conduit and duct bank.
+_CONDUIT_OD_MM: dict[str, float] = {
+    "1/2": 17.9,
+    "3/4": 23.4,
+    "1": 29.5,
+    "1-1/4": 38.4,
+    "1-1/2": 44.5,
+    "2": 55.8,
+    "2-1/2": 73.0,
+    "3": 88.9,
+    "4": 114.3,
+}
+
+# NEMA VE 1 standard tray widths (in × 25.4). Not a snap table.
+NEMA_TRAY_WIDTHS_MM: tuple[float, ...] = (152.4, 228.6, 304.8, 457.2, 609.6, 762.0, 914.4)
+
+_TRAY_TYPE_ALIASES = {
+    "rung": "rung",
+    "ladder": "rung",
+    "ladder_rung": "rung",
+    "solid": "solid_bottom",
+    "solid_bottom": "solid_bottom",
+    "solid-bottom": "solid_bottom",
+    "solidbottom": "solid_bottom",
+}
+
+
+def _normalize_tray_type(tray_type: str | None) -> str:
+    key = (tray_type or "rung").strip().lower().replace(" ", "_")
+    canon = _TRAY_TYPE_ALIASES.get(key)
+    if canon is None:
+        raise ValidationError(
+            "tray_type must be 'rung' (ladder) or 'solid_bottom'",
+            tray_type=tray_type,
+        )
+    return canon
+
+
 def place_duct(
     model: ProjectModel,
     *,
@@ -674,7 +725,8 @@ def place_duct(
     height_mm: float = 250.0,
     name: str | None = None,
     system_tag: str = "SA",
-    z0_mm: float = 2700.0,
+    z0_mm: float | None = None,
+    z0: float | None = None,
     material_id: str = "galv_steel",
 ) -> dict[str, Any]:
     """Rectangular HVAC duct run (coordination envelope). CSI 23 31 00."""
@@ -689,6 +741,7 @@ def place_duct(
         raise ValidationError("Duct length too small", start=start, end=end)
     length_m = length_mm / 1000.0
     w, h = float(width_mm), float(height_mm)
+    elev = _run_elev_mm(z0_mm, z0, 2700.0)
     # surface area m2 for takeoff (4 sides, open ends)
     area_m2 = 2.0 * (w + h) * length_mm / 1_000_000.0
     level_id = model.get_level(level).id
@@ -714,7 +767,8 @@ def place_duct(
             "area_m2": round(area_m2, 3),
             "size_mm": [length_mm, w, h],
             "shape": "box",
-            "z0_mm": float(z0_mm),
+            "z0_mm": elev,
+            "z0": elev,
             "fitting_type": "duct",
             "csi_code": "23 31 00",
         },
@@ -757,11 +811,7 @@ def place_conduit(
         raise ValidationError("Conduit length too small", start=start, end=end)
     length_m = length_mm / 1000.0
     # nominal OD mm from trade size (approx EMT)
-    od_map = {
-        "1/2": 17.9, "3/4": 23.4, "1": 29.5, "1-1/4": 38.4,
-        "1-1/2": 44.5, "2": 55.8, "2-1/2": 73.0, "3": 88.9, "4": 114.3,
-    }
-    od = float(od_map.get(str(trade_size), 23.4))
+    od = float(_CONDUIT_OD_MM.get(str(trade_size), 23.4))
     level_id = model.get_level(level).id
     el = Element(
         id=new_id("cnd"),
@@ -797,6 +847,210 @@ def place_conduit(
     }
 
 
+def _duct_bank_section(trade_size: str, conduit_count: int) -> tuple[float, float, float]:
+    """Concrete envelope (width_mm, height_mm, conduit_od_mm) around a conduit bank."""
+    od = _CONDUIT_OD_MM.get(str(trade_size))
+    if od is None:
+        raise ValidationError(
+            "Unknown conduit trade_size for duct bank",
+            trade_size=trade_size,
+            known=list(_CONDUIT_OD_MM),
+        )
+    n = int(conduit_count)
+    if n < 1:
+        raise ValidationError("conduit_count must be >= 1", conduit_count=n)
+    rows = 1 if n <= 4 else 2
+    cols = n if rows == 1 else (n + 1) // 2
+    gap = 50.0
+    cover = 75.0
+    inner_w = cols * od + (cols - 1) * gap
+    inner_h = rows * od + (rows - 1) * gap
+    return inner_w + 2.0 * cover, inner_h + 2.0 * cover, od
+
+
+def place_duct_bank(
+    model: ProjectModel,
+    *,
+    level: str,
+    start: tuple[float, float] | list[float],
+    end: tuple[float, float] | list[float],
+    trade_size: str = "4",
+    conduit_count: int = 4,
+    spare_count: int = 0,
+    name: str | None = None,
+    system_tag: str = "PWR",
+    z0_mm: float | None = None,
+    z0: float | None = None,
+    width_mm: float | None = None,
+    height_mm: float | None = None,
+    material_id: str = "concrete_4000psi",
+    feeder_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    """Buried concrete duct bank (a bank of conduits, not a cable tray).
+
+    CSI 26 05 43. Elevation defaults to 600 mm below the level. ``z0`` aliases
+    ``z0_mm``. ``spare_count`` is how many of ``conduit_count`` are spares.
+    """
+    import math
+
+    from llmbim_core.ids import new_id
+
+    n = int(conduit_count)
+    spares = int(spare_count)
+    if spares < 0 or spares > n:
+        raise ValidationError(
+            "spare_count must be between 0 and conduit_count",
+            spare_count=spares,
+            conduit_count=n,
+        )
+    x0, y0 = float(start[0]), float(start[1])
+    x1, y1 = float(end[0]), float(end[1])
+    length_mm = math.hypot(x1 - x0, y1 - y0)
+    if length_mm < 1:
+        raise ValidationError("Duct bank length too small", start=start, end=end)
+    env_w, env_h, od = _duct_bank_section(str(trade_size), n)
+    w = float(width_mm) if width_mm is not None else env_w
+    h = float(height_mm) if height_mm is not None else env_h
+    if w <= 0 or h <= 0:
+        raise ValidationError("Duct bank section must be positive", width_mm=w, height_mm=h)
+    elev = _run_elev_mm(z0_mm, z0, -600.0)
+    length_m = length_mm / 1000.0
+    level_id = model.get_level(level).id
+    el = Element(
+        id=new_id("dbk"),
+        category="duct_bank",
+        name=name or f"Duct bank {n}×{trade_size}\" L={length_m:.2f}m",
+        level_id=level_id,
+        type_id="PT-ELEC-DUCT-BANK",
+        params={
+            "start_mm": [x0, y0],
+            "end_mm": [x1, y1],
+            "origin_mm": [x0, y0],
+            "length_mm": length_mm,
+            "length_m": length_m,
+            "width_mm": w,
+            "height_mm": h,
+            "trade_size": str(trade_size),
+            "conduit_od_mm": od,
+            "conduit_count": n,
+            "spare_count": spares,
+            "feeder_ids": [str(f) for f in (feeder_ids or [])],
+            "system": system_tag,
+            "system_tag": system_tag,
+            "material_id": material_id,
+            "size_mm": [length_mm, w, h],
+            "shape": "box",
+            "z0_mm": elev,
+            "z0": elev,
+            "kind": "duct_bank",
+            "fitting_type": "duct_bank",
+            "csi_code": "26 05 43",
+        },
+    )
+    model.add_element(el)
+    return {
+        "element_id": el.id,
+        "length_m": round(length_m, 3),
+        "trade_size": str(trade_size),
+        "conduit_count": n,
+        "spare_count": spares,
+        "width_mm": w,
+        "height_mm": h,
+        "z0": elev,
+    }
+
+
+def place_shield_slab(
+    model: ProjectModel,
+    *,
+    level: str,
+    thickness_mm: float,
+    z0_mm: float | None = None,
+    z0: float | None = None,
+    polygon: list[tuple[float, float]] | list[list[float]] | None = None,
+    origin: tuple[float, float] | list[float] | None = None,
+    width_mm: float | None = None,
+    depth_mm: float | None = None,
+    name: str | None = None,
+    material_id: str = "concrete_4000psi",
+) -> dict[str, Any]:
+    """Monolithic shield slab (a lid). Not a plug and not a plug well.
+
+    ``thickness_mm`` and the soffit (``z0`` or ``z0_mm``, millimetres above the
+    level) are required. Nothing is defaulted and nothing is placed until this
+    is called. Plan extent is a ``polygon`` or ``origin`` + ``width_mm`` +
+    ``depth_mm``. The solid runs from the soffit up by ``thickness_mm``
+    (``top_of_slab_mm``).
+
+    When a lid is placed at 9.0 m (``z0_mm=9000``) with thickness 1.5 m
+    (``thickness_mm=1500``) it occupies z 9.0–10.5 m. Cranes must not occupy
+    that band. This function does not place a crane, a room, or a door.
+    """
+    from llmbim_core.ids import new_id
+    from llmbim_geometry.primitives import polygon_area_mm2
+
+    if z0_mm is None and z0 is None:
+        raise ValidationError(
+            "shield slab requires z0 or z0_mm (soffit, mm); no default lid",
+        )
+    th = float(thickness_mm)
+    if th <= 0:
+        raise ValidationError("thickness_mm must be positive", thickness_mm=thickness_mm)
+    soffit = _run_elev_mm(z0_mm, z0, 0.0)
+    if polygon is not None and (origin is not None or width_mm is not None or depth_mm is not None):
+        raise ValidationError("pass polygon or origin+width_mm+depth_mm, not both")
+    if polygon is None:
+        if origin is None or width_mm is None or depth_mm is None:
+            raise ValidationError(
+                "shield slab needs a polygon or origin, width_mm, and depth_mm",
+            )
+        w = float(width_mm)
+        d = float(depth_mm)
+        if w <= 0 or d <= 0:
+            raise ValidationError("shield slab plan size must be positive", width_mm=w, depth_mm=d)
+        ox, oy = float(origin[0]), float(origin[1])
+        pts = [(ox, oy), (ox + w, oy), (ox + w, oy + d), (ox, oy + d)]
+    else:
+        if len(polygon) < 3:
+            raise ValidationError("shield slab polygon needs at least 3 points")
+        pts = [(float(pt[0]), float(pt[1])) for pt in polygon]
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    top = soffit + th
+    level_id = model.get_level(level).id
+    el = Element(
+        id=new_id("lid"),
+        category="slab",
+        name=name or f"Shield slab t={th:.0f} z={soffit:.0f}",
+        level_id=level_id,
+        params={
+            "kind": "shield_slab",
+            "monolithic": True,
+            "polygon_mm": [[x, y] for x, y in pts],
+            "origin_mm": [min(xs), min(ys)],
+            "size_mm": [max(xs) - min(xs), max(ys) - min(ys), th],
+            "thickness_mm": th,
+            "z0_mm": soffit,
+            "z0": soffit,
+            "top_of_slab_mm": top,
+            "area_mm2": float(polygon_area_mm2(pts)),
+            "material_id": material_id,
+            "shape": "box",
+            "fitting_type": "shield_slab",
+            "csi_code": "03 30 00",
+        },
+    )
+    model.add_element(el)
+    return {
+        "element_id": el.id,
+        "kind": "shield_slab",
+        "thickness_mm": th,
+        "z0": soffit,
+        "z0_mm": soffit,
+        "top_of_slab_mm": top,
+    }
+
+
 def place_cable_tray(
     model: ProjectModel,
     *,
@@ -807,10 +1061,19 @@ def place_cable_tray(
     height_mm: float = 100.0,
     name: str | None = None,
     system_tag: str = "PWR",
-    z0_mm: float = 2900.0,
+    z0_mm: float | None = None,
+    z0: float | None = None,
+    tray_type: str = "rung",
+    nema_width_mm: float | None = None,
     material_id: str = "galv_steel",
 ) -> dict[str, Any]:
-    """Cable tray run (ladder/solid bottom coordination). CSI 26 05 36."""
+    """Cable tray run (rung / solid-bottom). CSI 26 05 36.
+
+    ``z0`` aliases ``z0_mm`` (mm above the level). ``tray_type`` is
+    ``rung`` (ladder, the default) or ``solid_bottom``. ``nema_width_mm``
+    is the NEMA VE 1 width and, when set, is the section width.
+    Defaults stay PWR at 2900 mm so callers that omit system and z are unchanged.
+    """
     import math
 
     from llmbim_core.ids import new_id
@@ -821,7 +1084,10 @@ def place_cable_tray(
     if length_mm < 1:
         raise ValidationError("Cable tray length too small", start=start, end=end)
     length_m = length_mm / 1000.0
-    w, h = float(width_mm), float(height_mm)
+    kind = _normalize_tray_type(tray_type)
+    w = float(nema_width_mm) if nema_width_mm is not None else float(width_mm)
+    h = float(height_mm)
+    elev = _run_elev_mm(z0_mm, z0, 2900.0)
     # takeoff: plan area of tray bottom (m2)
     area_m2 = (w * length_mm) / 1_000_000.0
     level_id = model.get_level(level).id
@@ -841,17 +1107,22 @@ def place_cable_tray(
             "width_mm": w,
             "height_mm": h,
             "system": system_tag,
+            "system_tag": system_tag,
+            "tray_type": kind,
             "material_id": material_id,
             "part_id": pid,
             "part_qty": round(length_m, 3),
             "area_m2": round(area_m2, 3),
             "size_mm": [length_mm, w, h],
             "shape": "box",
-            "z0_mm": float(z0_mm),
+            "z0_mm": elev,
+            "z0": elev,
             "fitting_type": "cable_tray",
             "csi_code": "26 05 36",
         },
     )
+    if nema_width_mm is not None:
+        el.params["nema_width_mm"] = w
     model.add_element(el)
     try:
         assign_part(model, el.id, pid, qty=length_m)

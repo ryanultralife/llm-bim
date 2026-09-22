@@ -19,6 +19,14 @@ def _num_param(p: dict[str, Any], key: str, alt: str, default: float) -> float:
     return float(p.get(alt) or default)
 
 
+def _first_present(p: dict[str, Any], keys: tuple[str, ...]) -> Any:
+    """First key that is present and not None. Zero is a value."""
+    for k in keys:
+        if k in p and p[k] is not None:
+            return p[k]
+    return None
+
+
 @dataclass
 class OpSpec:
     name: str
@@ -619,6 +627,8 @@ def _create_equipment_box(model: ProjectModel, p: dict[str, Any]) -> dict[str, A
     size = p.get("size") or p.get("size_mm") or [1000, 1000, 1000]
     if len(size) < 3:
         size = list(size) + [1000] * (3 - len(size))
+    id_mm = p.get("id_mm")
+    wall_mm = p.get("wall_mm")
     cmd = CreateEquipmentBox(
         level=p.get("level") or model.levels[0].name,
         origin=(float(origin[0]), float(origin[1])),
@@ -628,6 +638,11 @@ def _create_equipment_box(model: ProjectModel, p: dict[str, Any]) -> dict[str, A
         centered=bool(p.get("centered") or False),
         z0_mm=float(p.get("z0_mm") or 0),
         shape=str(p.get("shape") or "box"),
+        id_mm=float(id_mm) if id_mm is not None else None,
+        wall_mm=float(wall_mm) if wall_mm is not None else None,
+        equipment=str(p.get("equipment") or p.get("tag") or ""),
+        part=str(p.get("part") or ""),
+        mark=str(p.get("mark") or ""),
     )
     return cmd.apply(model)
 
@@ -855,6 +870,7 @@ def _place_duct(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
 
     start = p.get("start") or p.get("start_mm") or [0, 0]
     end = p.get("end") or p.get("end_mm") or [1000, 0]
+    zraw = _first_present(p, ("z0_mm", "z0"))
     return place_duct(
         model,
         level=p.get("level") or model.levels[0].name,
@@ -863,8 +879,8 @@ def _place_duct(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
         width_mm=float(p.get("width_mm") or p.get("width") or 400),
         height_mm=float(p.get("height_mm") or p.get("height") or 250),
         name=p.get("name"),
-        system_tag=p.get("system") or "SA",
-        z0_mm=float(p.get("z0_mm") or 2700),
+        system_tag=str(_first_present(p, ("system_tag", "system")) or "SA"),
+        z0_mm=float(zraw) if zraw is not None else None,
         material_id=p.get("material_id") or p.get("material") or "galv_steel",
     )
 
@@ -875,6 +891,7 @@ def _place_conduit(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
 
     start = p.get("start") or p.get("start_mm") or [0, 0]
     end = p.get("end") or p.get("end_mm") or [1000, 0]
+    zraw = _first_present(p, ("z0_mm", "z0"))
     return place_conduit(
         model,
         level=p.get("level") or model.levels[0].name,
@@ -882,9 +899,65 @@ def _place_conduit(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
         end=end,
         trade_size=str(p.get("trade_size") or p.get("nps") or "3/4"),
         name=p.get("name"),
-        system_tag=p.get("system") or "P",
-        z0_mm=float(p.get("z0_mm") or 2800),
+        system_tag=str(_first_present(p, ("system_tag", "system")) or "P"),
+        z0_mm=float(zraw) if zraw is not None else 2800.0,
         material_id=p.get("material_id") or p.get("material") or "steel_A36",
+    )
+
+
+@register(
+    "place_duct_bank",
+    description="Place a concrete duct bank (bank of conduits, not a tray). CSI 26 05 43",
+    mutates=True,
+)
+def _place_duct_bank(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import place_duct_bank
+
+    start = p.get("start") or p.get("start_mm") or [0, 0]
+    end = p.get("end") or p.get("end_mm") or [1000, 0]
+    zraw = _first_present(p, ("z0_mm", "z0"))
+    feeders = p.get("feeder_ids") or p.get("feeders") or []
+    return place_duct_bank(
+        model,
+        level=p.get("level") or model.levels[0].name,
+        start=start,
+        end=end,
+        trade_size=str(p.get("trade_size") or p.get("nps") or "4"),
+        conduit_count=int(p.get("conduit_count") or p.get("count") or 4),
+        spare_count=int(p.get("spare_count") or 0),
+        name=p.get("name"),
+        system_tag=str(_first_present(p, ("system_tag", "system")) or "PWR"),
+        z0_mm=float(zraw) if zraw is not None else None,
+        width_mm=float(p["width_mm"]) if p.get("width_mm") is not None else None,
+        height_mm=float(p["height_mm"]) if p.get("height_mm") is not None else None,
+        material_id=p.get("material_id") or p.get("material") or "concrete_4000psi",
+        feeder_ids=[str(f) for f in feeders],
+    )
+
+
+@register(
+    "place_shield_slab",
+    description="Place a monolithic shield slab (lid). Thickness and soffit z are required; not a plug.",
+    mutates=True,
+)
+def _place_shield_slab(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
+    from llmbim_core.assignment import place_shield_slab
+
+    zraw = _first_present(p, ("z0_mm", "z0"))
+    th = _first_present(p, ("thickness_mm", "thickness"))
+    poly = p.get("polygon") or p.get("polygon_mm")
+    origin = p.get("origin") or p.get("origin_mm")
+    return place_shield_slab(
+        model,
+        level=p.get("level") or model.levels[0].name,
+        thickness_mm=float(th) if th is not None else 0.0,
+        z0_mm=float(zraw) if zraw is not None else None,
+        polygon=[(float(pt[0]), float(pt[1])) for pt in poly] if poly else None,
+        origin=origin,
+        width_mm=float(p["width_mm"]) if p.get("width_mm") is not None else None,
+        depth_mm=float(p["depth_mm"]) if p.get("depth_mm") is not None else None,
+        name=p.get("name"),
+        material_id=p.get("material_id") or p.get("material") or "concrete_4000psi",
     )
 
 
@@ -894,16 +967,21 @@ def _place_cable_tray(model: ProjectModel, p: dict[str, Any]) -> dict[str, Any]:
 
     start = p.get("start") or p.get("start_mm") or [0, 0]
     end = p.get("end") or p.get("end_mm") or [1000, 0]
+    zraw = _first_present(p, ("z0_mm", "z0"))
+    nema = _first_present(p, ("nema_width_mm",))
+    width = float(nema) if nema is not None else float(p.get("width_mm") or p.get("width") or 300)
     return place_cable_tray(
         model,
         level=p.get("level") or model.levels[0].name,
         start=start,
         end=end,
-        width_mm=float(p.get("width_mm") or p.get("width") or 300),
+        width_mm=width,
         height_mm=float(p.get("height_mm") or p.get("height") or 100),
         name=p.get("name"),
-        system_tag=p.get("system") or "PWR",
-        z0_mm=float(p.get("z0_mm") or 2900),
+        system_tag=str(_first_present(p, ("system_tag", "system")) or "PWR"),
+        z0_mm=float(zraw) if zraw is not None else None,
+        tray_type=str(_first_present(p, ("tray_type",)) or "rung"),
+        nema_width_mm=float(nema) if nema is not None else None,
         material_id=p.get("material_id") or p.get("material") or "galv_steel",
     )
 

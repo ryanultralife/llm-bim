@@ -14,6 +14,16 @@ You are operating **llm-bim**: a deterministic BIM **kernel**. You never invent 
 
 User points you at this repo and chats. You write **real files** under **`output/<project>/`** on their machine (models, drawings, PDF, BOQ). No cloud required.
 
+## Northstar
+
+One project, one pack. A device and a site both call `export_deliverables`. That call writes the model, the sheets, and the renderings (`hero.svg`, `model.gltf`, `index.html`). The size and elevation stored on the element are the size and elevation on the sheet and in the mesh.
+
+- A duct is `width_mm` by `height_mm` at `z0`.
+- A monolithic lid is `place_shield_slab` (soffit `z0`, thickness `thickness_mm`, no plugs).
+- A buried conduit bank is `place_duct_bank`. It is concrete around conduits, not a cable tray.
+
+Do not draft a second sheet set or a second mesh outside this kernel.
+
 Also read **`CLAUDE.md`** in the repo root when present.
 
 ## Install (user's machine — no cloud required)
@@ -62,6 +72,11 @@ Or HTTP (optional): `llmbim serve --port 8000` → docs at `/docs`.
     `p.authoring_checklist("building_shell"|"mep_run"|"fab_part"|…)`  
     and either ask the user for **required** fields or **state defaults in the reply**.  
     After modeling: `p.validate_intent(...)`. See `recipes/explicit_build.md`.
+11. **Machine / skid / apparatus engineering bar:** any product, skid, process
+    train, or field machine must meet **`docs/MACHINE_ENGINEERING_BAR.md`**
+    (connected services, fittings at bends, hardware layers, model-cut GA,
+    human product name). PN/fab rules remain in `docs/FIELD_DEVICE_FAB.md`.
+    Call `validate_intent("field_device_fab")` — it scores both.
 
 ## Act like the architect / machinist on the job
 
@@ -87,8 +102,15 @@ The repo judges only **outcomes**, and you self-check them before saying done:
    is visible, and `walls_untyped` so a massing study can't pass as a deliverable.
 4. Types match occupancy (see Wall types) on anything handed over as a design.
 5. Model VCS commits at meaningful stages — `p.log()` is the history, not chat.
-6. Exactly one path handed over: `output/<slug>/index.html`.
-7. **Review packet** after export — open `hero.svg` + plan; convert visual
+6. **Machines** pass `docs/MACHINE_ENGINEERING_BAR.md` (connected services,
+   fittings, hardware layers, model-cut GA, human product name).
+7. **Re-engage link (mandatory after every work block):** hand the user a
+   **clickable pack HTML**, not a filesystem tour. Prefer:
+   - `http://127.0.0.1:8766/<slug>/` after `OPEN.bat` / `python examples/open_packs.py <slug>`
+   - or absolute `…/output/<slug>/index.html` **only if** the portal is not running  
+   Never dump a list of raw paths. One primary re-engage URL + optional
+   `OPEN_MINECLEAN.bat` / `OPEN.bat` for next session.
+8. **Review packet** after export — open `hero.svg` + plan; convert visual
    concerns into checks (`references/review_packet.md`). Do not claim done
    on an unreviewed pack.
 
@@ -100,10 +122,11 @@ If your output passes these, nobody second-guesses how you got there.
 |---------|------|
 | After export / “is it done?” | `references/review_packet.md` |
 | Validation / clash / blank 3D | `references/repair_loop.md` |
-| Full CD / multi-sheet set | `recipes/design_program.md` |
+| Full CD / multi-sheet set | `recipes/design_program.md` · **`docs/VERSEON_CD_STANDARD.md`** · `recipes/verseon_cd.md` |
 | Schad residential CD | `recipes/schad_cd.md` |
 | Always produce pack | `recipes/produce_pack.md` |
 | Product hero still (pitch render) | `recipes/hero_product_render.md` · `docs/HERO_PRODUCT_RENDER.md` |
+| **Machine / pod / launcher / field array / fab-ready product** | **`docs/MACHINE_ENGINEERING_BAR.md`** · **`docs/FIELD_DEVICE_FAB.md`** · **`recipes/field_device_fab.md`** · `recipes/machine_ga.md` · `recipes/device_pack.md` · `docs/EQUIPMENT_3D_AND_DEVICE_SSOT.md` |
 | Peer CAD skills analysis | `docs/REFERENCE_TEXT_TO_CAD.md` |
 
 ## Authoring contract (what the LLM must know)
@@ -119,8 +142,11 @@ Vague user ask → **you** make parameters explicit. Never silently invent PE ra
 | Roof | level, footprint, pitch + plate height (or both plate heights for shed) | ridge axis/offset, overhang, thickness |
 | Foundation | level, footing W×D, slab thickness | rebar callouts (carried data), stem walls, marks F1/S1 |
 | Fab part | name + solid feature(s) in mm | fillet selector, thread designation, GD&T, host knit |
+| **Field device / vehicle array / machine product** | checklist `field_device_fab` — PN catalog + layers **and** `docs/MACHINE_ENGINEERING_BAR.md` (connected services, fittings, hardware kinds, model-cut GA, human product name) | fab BREP+GD&T; BOM/LAYERS.json; `process_notes`; honesty FAB-INTENT — `docs/FIELD_DEVICE_FAB.md` · `recipes/field_device_fab.md` · `recipes/machine_ga.md` |
 | Full plan/CD set | design-basis module (ALL numbers), explicit sheet register | drift-pin tests, staged VCS commits — see `recipes/design_program.md` |
 | Pack | `export_deliverables` | verify; hand over exactly ONE path: `<abs>/index.html` |
+
+**Machine / product asks are never a single grey box, a floating header, or a colored-box GA.** State scale out loud; match packaging to physics; each family is a viewer layer; issued sheets are model cuts. See **`docs/MACHINE_ENGINEERING_BAR.md`**.
 
 ```python
 print(p.authoring_checklist("building_shell"))
@@ -147,16 +173,33 @@ CLI: `llmbim template office_bay`  → `output/office_bay/`
 
 ## Output contract (any agent, any environment)
 
-The deliverable is **one HTML file**: `output/<slug>/index.html`.
+The deliverable is **one clickable HTML pack**: `index.html` under the pack root.
 
-- Tell the user (or open) **exactly that one absolute path** — nothing else.
-  The 3D viewer, PDF plot set, sheets, schedules, and takeoffs are all linked
-  from it. Do **not** also open `viewer3d.html` — that causes duplicate tabs.
-- `viewer3d.html` is fully self-contained (three.js bundled inline): it works
-  offline, from `file://`, with no CDN or network. If a user reports a blank
-  3D view, their pack predates this — regenerate with current `main`
-  (old packs carried a glTF indexing bug; new packs also show errors in a
-  visible banner instead of a black page).
+### Re-engage (always end work with this)
+
+After any modeling / render / pack pass, **always** close with a re-engage
+block so the user never has to dig the filesystem:
+
+```
+REENGAGE: http://127.0.0.1:8766/<slug>/
+  (or double-click OPEN.bat / OPEN_MINECLEAN.bat)
+```
+
+How to produce it:
+
+```bash
+# Windows: double-click OPEN.bat   or   OPEN_MINECLEAN.bat
+python examples/open_packs.py <slug>          # opens browser to pack HTML
+python examples/open_packs.py                 # portal of all packs
+```
+
+- Portal serves `examples/output/` on **8766** (next free port if busy).
+- Pack list: `http://127.0.0.1:8766/`
+- Default MineClean: `http://127.0.0.1:8766/mineclean_studio/`
+- Do **not** also open `viewer3d.html` as a second handoff — it's linked from
+  the pack index (duplicate tabs).
+- `viewer3d.html` needs **HTTP** for ES modules (portal); prefer portal over
+  `file://`. If a user reports a blank 3D view on an old pack, regenerate.
 
 ### B. Freeform model
 
@@ -578,6 +621,9 @@ Window: `WIN-CASE-48x48`. Headers: `HDR-1`, `HDR-2` (LVL). Shear panels:
 - Freehand SVG/IFC/STEP in the reply  
 - Require a cloud host for modeling (local kernel is enough)  
 - Build a human drafting GUI  
+- Issue matplotlib / `product_views` colored boxes as a machine GA  
+- Leave headers, returns, or trays floating; route services on the diagonal  
+- Title a pack with a part-number prefix when the product has a human name  
 
 ## Reference files in repo
 
@@ -590,8 +636,18 @@ Window: `WIN-CASE-48x48`. Headers: `HDR-1`, `HDR-2` (LVL). Shear panels:
 - `docs/INTEC_METHODOLOGY.md` — industrial multi-part machines, imperial pack
   export, plan label budget, Proto10→facility import  
 
+- **`docs/MACHINE_ENGINEERING_BAR.md`** — **engineering + drawing law** for
+  machines/skids: connected services, fittings, hardware layers, model-cut
+  EQ-101, human product name. Required of every project pointed at this skill.
+  Worked instance: `examples/mineclean_component_apparatus.py`.
+
+- **`docs/FIELD_DEVICE_FAB.md`** — **platform doctrine** for field-deployable /
+  vehicle-array / machine products: PN catalog, viewer layers per component,
+  fab-intent part sheets, scale posture (not plant, not accidental lab bench).
+  Checklist: `authoring_checklist("field_device_fab")`. Example:
+  `examples/pal_launcher.py`.
 
 - `docs/DIGITAL_TWIN_TRL.md` — twin fidelity levels (F0–F3), TRL→artifact
   mapping for device development, `trl`/`trl_evidence`/`verification` param
   convention (carried claims with evidence pointers, never certifications)  
-- `examples/intec_site.py` · `examples/proto10_separator.py` · `examples/schad_build.py`  
+- `examples/intec_site.py` · `examples/proto10_separator.py` · `examples/pal_launcher.py` · `examples/schad_build.py`  

@@ -124,6 +124,13 @@ _MATERIAL_PBR: dict[str, tuple[list[float], float, float]] = {
     "equip_tie_rod": ([0.62, 0.64, 0.68, 1.0], 0.90, 0.28),
     "equip_header": ([0.20, 0.62, 0.72, 1.0], 0.55, 0.38),
     "equip_rail": ([0.68, 0.70, 0.74, 1.0], 0.80, 0.32),
+    "equip_door": ([0.78, 0.80, 0.82, 1.0], 0.55, 0.32),  # SS door leaf
+    "equip_hinge": ([0.72, 0.58, 0.22, 1.0], 0.75, 0.35),  # brass/bronze hinge
+    "equip_latch": ([0.55, 0.58, 0.22, 1.0], 0.65, 0.40),  # olive latch / handle
+    "equip_nameplate": ([0.92, 0.88, 0.28, 1.0], 0.35, 0.45),  # etched brass/yellow plate
+    "equip_handwheel": ([0.18, 0.55, 0.28, 1.0], 0.25, 0.50),  # green valve wheel
+    "equip_grating": ([0.62, 0.64, 0.58, 1.0], 0.70, 0.40),  # galv checker clip
+    "equip_louver": ([0.38, 0.40, 0.44, 1.0], 0.45, 0.50),  # vent / louver
     "default": ([0.62, 0.62, 0.65, 1.0], 0.2, 0.7),
 }
 
@@ -228,6 +235,23 @@ EQUIP_KIND_MATERIAL: dict[str, str] = {
     "gasket": "equip_gasket",
     "weld": "equip_weld",
     "stud": "equip_bolt",
+    "door_leaf": "equip_door",
+    "door_panel": "equip_door",
+    "hinge": "equip_hinge",
+    "latch": "equip_latch",
+    "handle": "equip_latch",
+    "nameplate": "equip_nameplate",
+    "tag_plate": "equip_nameplate",
+    "handwheel": "equip_handwheel",
+    "stem": "equip_valve",
+    "grating": "equip_grating",
+    "clip": "equip_grating",
+    "kickplate": "equip_grating",
+    "louver": "equip_louver",
+    "vent": "equip_louver",
+    "gland_nut": "equip_port",
+    "foot": "equip_skid",
+    "twistlock": "equip_skid",
 }
 
 # FROZEN wire phase → glTF material key (same SSOT table): RMF_A/phase A → a…
@@ -1540,10 +1564,11 @@ def _mesh_from_pipe(el: Element, model: ProjectModel) -> tuple[list[float], list
             od = max(float(el.params["size_mm"][1]), 20.0)
         is_duct = el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct"
         is_tray = el.category == "cable_tray" or el.params.get("fitting_type") == "cable_tray"
+        is_bank = el.category == "duct_bank" or el.params.get("fitting_type") == "duct_bank"
         is_beam = el.category == "beam" or el.params.get("fitting_type") == "beam"
         is_conduit = el.category == "conduit" or el.params.get("fitting_type") == "conduit"
         is_pipe = el.category in {"pipe", "plumbing_pipe"} or el.params.get("fitting_type") == "pipe"
-        if is_duct or is_tray:
+        if is_duct or is_tray or is_bank:
             od = float(el.params.get("width_mm") or od)
         if el.params.get("vertical") or el.params.get("orientation") == "vertical":
             o = el.params.get("origin_mm") or el.params.get("start_mm") or [0, 0]
@@ -1571,7 +1596,7 @@ def _mesh_from_pipe(el: Element, model: ProjectModel) -> tuple[list[float], list
         z0_off = float(el.params.get("z0_mm", 0))
         z0 = _level_z(model, el.level_id) + z0_off
         elev_h = od
-        if is_duct:
+        if is_duct or is_bank:
             elev_h = float(el.params.get("height_mm") or 250)
         elif is_tray:
             elev_h = float(el.params.get("height_mm") or 100)
@@ -1810,7 +1835,7 @@ def _gltf_material_key(el: Element) -> str:
         return "wall"
     if cat == "slab":
         # ADDITIVE (WP-SCHAD-S3): slabs-on-grade render concrete; plain slabs keep "slab"
-        if str(el.params.get("kind") or "") == "slab_on_grade":
+        if str(el.params.get("kind") or "") in {"slab_on_grade", "shield_slab"}:
             return "concrete"
         return "slab"
     if cat in {"footing", "stem_wall"}:
@@ -1842,6 +1867,8 @@ def _gltf_material_key(el: Element) -> str:
         return "fab_part"
     if cat in {"duct", "hvac"} or ftype == "duct":
         return "duct"
+    if cat == "duct_bank" or ftype == "duct_bank":
+        return "concrete"
     if cat == "conduit" or ftype == "conduit":
         return "conduit"
     if cat == "cable_tray" or ftype == "cable_tray":
@@ -2091,7 +2118,9 @@ def export_gltf_walls(model: ProjectModel, path: str | Path) -> Path:
             pos, nrm, indices = _mesh_from_origin_size(el, model)
         elif el.category == "beam" or el.params.get("fitting_type") == "beam":
             pos, nrm, indices = _mesh_from_pipe(el, model)
-        elif el.category in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac", "cable_tray"}:
+        elif el.category in {
+            "pipe", "plumbing_pipe", "conduit", "duct", "hvac", "cable_tray", "duct_bank",
+        }:
             pos, nrm, indices = _mesh_from_pipe(el, model)
         elif el.category == "wire_path" or el.params.get("shape") == "wire_path":
             pos, nrm, indices = _mesh_from_wire_path(el, model)

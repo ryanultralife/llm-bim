@@ -125,27 +125,33 @@ def element_aabb(el: Element, model: ProjectModel) -> AABB | None:
             return None
         xs = [float(p[0]) for p in poly]
         ys = [float(p[1]) for p in poly]
+        # Floor slabs still hang below the level. A shield slab (lid) occupies
+        # soffit z0_mm up through thickness — not that floor convention.
+        if str(el.params.get("kind") or "") == "shield_slab":
+            soffit = z0 + float(el.params.get("z0_mm") or 0.0)
+            return AABB(min(xs), min(ys), soffit, max(xs), max(ys), soffit + th)
         return AABB(min(xs), min(ys), z0 - th, max(xs), max(ys), z0)
     if (
         el.category
-        in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac", "cable_tray", "beam"}
+        in {"pipe", "plumbing_pipe", "conduit", "duct", "hvac", "cable_tray", "duct_bank", "beam"}
         or el.params.get("fitting_type")
-        in {"pipe", "conduit", "duct", "cable_tray", "beam"}
+        in {"pipe", "conduit", "duct", "cable_tray", "duct_bank", "beam"}
     ):
         try:
             is_duct = el.category in {"duct", "hvac"} or el.params.get("fitting_type") == "duct"
             is_tray = el.category == "cable_tray" or el.params.get("fitting_type") == "cable_tray"
+            is_bank = el.category == "duct_bank" or el.params.get("fitting_type") == "duct_bank"
             is_beam = el.category == "beam" or el.params.get("fitting_type") == "beam"
             od = 50.0
             if el.params.get("size_mm") and len(el.params["size_mm"]) >= 2:
                 od = max(float(el.params["size_mm"][1]), 20.0)
-            if is_duct or is_tray:
+            if is_duct or is_tray or is_bank:
                 od = float(el.params.get("width_mm") or od)
             if is_beam:
                 od = float(el.params.get("width_mm") or el.params.get("depth_mm") or od or 150)
             z_off = float(el.params.get("z0_mm", 0))
             elev_h = od
-            if is_duct or is_tray:
+            if is_duct or is_tray or is_bank:
                 elev_h = float(el.params.get("height_mm") or (100 if is_tray else 250))
             if is_beam:
                 elev_h = float(el.params.get("height_mm") or el.params.get("depth_mm") or 300)

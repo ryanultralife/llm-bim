@@ -944,22 +944,30 @@ class Project:
         height_mm: float = 250.0,
         name: str | None = None,
         system: str = "SA",
-        z0_mm: float = 2700.0,
+        z0_mm: float | None = None,
+        z0: float | None = None,
         material: str = "galv_steel",
     ) -> str:
-        """Rectangular HVAC duct (CSI 23 31 00). Takeoff includes length_m + area_m2."""
-        r = self.op(
-            "place_duct",
-            level=level,
-            start=list(start),
-            end=list(end),
-            width_mm=width_mm,
-            height_mm=height_mm,
-            name=name,
-            system=system,
-            z0_mm=z0_mm,
-            material=material,
-        )
+        """Rectangular HVAC duct (CSI 23 31 00). Takeoff includes length_m + area_m2.
+
+        ``z0`` is an alias of ``z0_mm`` (mm above the level). Omit both to keep
+        the 2700 mm default.
+        """
+        kwargs: dict[str, Any] = {
+            "level": level,
+            "start": list(start),
+            "end": list(end),
+            "width_mm": width_mm,
+            "height_mm": height_mm,
+            "name": name,
+            "system": system,
+            "material": material,
+        }
+        if z0_mm is not None:
+            kwargs["z0_mm"] = z0_mm
+        if z0 is not None:
+            kwargs["z0"] = z0
+        r = self.op("place_duct", **kwargs)
         return str(r["element_id"])
 
     def place_column(
@@ -1020,22 +1028,39 @@ class Project:
         height_mm: float = 100.0,
         name: str | None = None,
         system: str = "PWR",
-        z0_mm: float = 2900.0,
+        system_tag: str | None = None,
+        z0_mm: float | None = None,
+        z0: float | None = None,
+        tray_type: str = "rung",
+        nema_width_mm: float | None = None,
         material: str = "galv_steel",
     ) -> str:
-        """Place cable tray run. CSI 26 05 36."""
-        r = self.op(
-            "place_cable_tray",
-            level=level,
-            start=list(start),
-            end=list(end),
-            width_mm=width_mm,
-            height_mm=height_mm,
-            name=name,
-            system=system,
-            z0_mm=z0_mm,
-            material=material,
-        )
+        """Place cable tray run. CSI 26 05 36.
+
+        ``system_tag`` overrides ``system`` (default PWR). ``z0`` aliases
+        ``z0_mm`` (default 2900 mm). ``tray_type`` is ``rung`` or
+        ``solid_bottom``. ``nema_width_mm`` sets the section width.
+        """
+        tag = system if system_tag is None else system_tag
+        kwargs: dict[str, Any] = {
+            "level": level,
+            "start": list(start),
+            "end": list(end),
+            "width_mm": width_mm,
+            "height_mm": height_mm,
+            "name": name,
+            "system": tag,
+            "system_tag": tag,
+            "tray_type": tray_type,
+            "material": material,
+        }
+        if nema_width_mm is not None:
+            kwargs["nema_width_mm"] = nema_width_mm
+        if z0_mm is not None:
+            kwargs["z0_mm"] = z0_mm
+        if z0 is not None:
+            kwargs["z0"] = z0
+        r = self.op("place_cable_tray", **kwargs)
         return str(r["element_id"])
 
     def place_conduit(
@@ -1062,6 +1087,95 @@ class Project:
             z0_mm=z0_mm,
             material=material,
         )
+        return str(r["element_id"])
+
+    def place_duct_bank(
+        self,
+        *,
+        level: str,
+        start: tuple[float, float],
+        end: tuple[float, float],
+        trade_size: str = "4",
+        conduit_count: int = 4,
+        spare_count: int = 0,
+        name: str | None = None,
+        system: str = "PWR",
+        system_tag: str | None = None,
+        z0_mm: float | None = None,
+        z0: float | None = None,
+        width_mm: float | None = None,
+        height_mm: float | None = None,
+        material: str = "concrete_4000psi",
+        feeder_ids: list[str] | None = None,
+    ) -> str:
+        """Concrete duct bank: a bank of conduits, not a buried tray. CSI 26 05 43.
+
+        ``z0`` aliases ``z0_mm``. Omit both for 600 mm below the level.
+        """
+        tag = system if system_tag is None else system_tag
+        kwargs: dict[str, Any] = {
+            "level": level,
+            "start": list(start),
+            "end": list(end),
+            "trade_size": trade_size,
+            "conduit_count": conduit_count,
+            "spare_count": spare_count,
+            "name": name,
+            "system": tag,
+            "system_tag": tag,
+            "material": material,
+            "feeder_ids": list(feeder_ids or []),
+        }
+        if width_mm is not None:
+            kwargs["width_mm"] = width_mm
+        if height_mm is not None:
+            kwargs["height_mm"] = height_mm
+        if z0_mm is not None:
+            kwargs["z0_mm"] = z0_mm
+        if z0 is not None:
+            kwargs["z0"] = z0
+        r = self.op("place_duct_bank", **kwargs)
+        return str(r["element_id"])
+
+    def place_shield_slab(
+        self,
+        *,
+        level: str,
+        thickness_mm: float,
+        z0_mm: float | None = None,
+        z0: float | None = None,
+        polygon: list[tuple[float, float]] | None = None,
+        origin: tuple[float, float] | None = None,
+        width_mm: float | None = None,
+        depth_mm: float | None = None,
+        name: str | None = None,
+        material: str = "concrete_4000psi",
+    ) -> str:
+        """Monolithic shield slab (a lid). Not a plug and not a plug well.
+
+        ``thickness_mm`` and soffit ``z0`` / ``z0_mm`` (mm) are required; neither
+        is defaulted. A lid at 9.0 m with thickness 1.5 m occupies z 9.0–10.5 m.
+        Cranes must not occupy that band. Does not place a crane, room, or door.
+        """
+        kwargs: dict[str, Any] = {
+            "level": level,
+            "thickness_mm": thickness_mm,
+            "name": name,
+            "material": material,
+        }
+        if polygon is not None:
+            kwargs["polygon"] = [list(pt) for pt in polygon]
+        if origin is not None:
+            kwargs["origin"] = list(origin)
+        if width_mm is not None:
+            kwargs["width_mm"] = width_mm
+        if depth_mm is not None:
+            kwargs["depth_mm"] = depth_mm
+        if z0_mm is not None:
+            kwargs["z0_mm"] = z0_mm
+        if z0 is not None:
+            kwargs["z0"] = z0
+        r = self.op("place_shield_slab", **kwargs)
         return str(r["element_id"])
 
     def place_wire(
@@ -1916,6 +2030,27 @@ class Project:
             units=units,
         )
         return result
+
+    def export_machine_set(
+        self,
+        out_dir: str | Path,
+        *,
+        plan_level: str | None = None,
+        plan_scale: float = 0.035,
+        units: str = "metric",
+        notes: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Skid / machine GA set (EQ-101 plan + elev + section + schedule)."""
+        from llmbim_drawings.machine_set import export_machine_set
+
+        return export_machine_set(
+            self._model,
+            out_dir,
+            plan_level=plan_level,
+            plan_scale=plan_scale,
+            units=units,
+            notes=notes,
+        )
 
     def export_part_pack(self, out_dir: str | Path, *, scale: float = 0.4) -> dict[str, Any]:
         from llmbim_drawings.parts import export_part_pack

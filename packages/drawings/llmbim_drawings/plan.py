@@ -402,8 +402,8 @@ def render_plan_view(
 
     ``include``: optional set of category groups to draw — any of
     ``walls, openings, rooms, equipment, columns, beams, grids, notes,
-    pipes, ducts, conduit, cable_tray, slabs`` (``slabs`` is opt-in only:
-    it never draws with ``include=None``). ``None`` (default) draws
+    pipes, ducts, conduit, cable_tray, duct_bank, slabs`` (``slabs`` is opt-in only:
+    it never draws with ``include=None``; a ``shield_slab`` lid still draws). ``None`` (default) draws
     everything exactly as before. ``ghost_walls`` draws wall outlines light
     grey with no fill (context for discipline plans) regardless of
     ``include``.
@@ -523,6 +523,7 @@ def render_plan_view(
         "equipment": "equipment",
         "conduit": "conduit",
         "cable_tray": "cable_tray",
+        "duct_bank": "duct_bank",
     }
     if include is not None:
         include = {_INCLUDE_ALIASES.get(str(g), str(g)) for g in include}
@@ -661,8 +662,14 @@ def render_plan_view(
             "hvac",
             "conduit",
             "cable_tray",
+            "duct_bank",
             "beam",
         }
+    ]
+    shield_slabs = [
+        el
+        for el in model.query(category="slab", level=lvl.name)
+        if _in_crop(el) and el.params.get("kind") == "shield_slab"
     ]
 
     xs: list[float] = []
@@ -706,7 +713,7 @@ def render_plan_view(
         for pt in el.params.get("polygon_mm") or []:
             xs.append(float(pt[0]))
             ys.append(float(pt[1]))
-    for slab in slabs:
+    for slab in list(slabs) + shield_slabs:
         for pt in slab.params.get("polygon_mm") or []:
             xs.append(float(pt[0]))
             ys.append(float(pt[1]))
@@ -1159,6 +1166,8 @@ def render_plan_view(
             f'stroke-dasharray="{fmt(max(3, 80 * scale))} {fmt(max(2, 40 * scale))}">'
         )
         for slab in slabs:
+            if slab.params.get("kind") == "shield_slab":
+                continue
             poly = slab.params.get("polygon_mm") or []
             if len(poly) < 3:
                 continue
@@ -1167,6 +1176,32 @@ def render_plan_view(
                 for px, py in (project(float(p[0]), float(p[1])) for p in poly)
             )
             parts.append(f'    <polygon points="{pts}"/>')
+        parts.append("  </g>")
+
+    # Shield lids draw on every plan. Floor slabs stay opt-in.
+    if shield_slabs:
+        parts.append(
+            f'  <g class="shield-slabs" fill="none" stroke="#5d4037" '
+            f'stroke-width="{fmt(max(1.2, 18 * scale))}">'
+        )
+        for slab in shield_slabs:
+            poly = slab.params.get("polygon_mm") or []
+            if len(poly) < 3:
+                continue
+            pts = " ".join(
+                f"{fmt(px)},{fmt(py)}"
+                for px, py in (project(float(p[0]), float(p[1])) for p in poly)
+            )
+            parts.append(f'    <polygon points="{pts}"/>')
+            xs_p = [float(p[0]) for p in poly]
+            ys_p = [float(p[1]) for p in poly]
+            cx, cy = project(sum(xs_p) / len(xs_p), sum(ys_p) / len(ys_p))
+            th = float(slab.params.get("thickness_mm") or 0)
+            z0 = float(slab.params.get("z0_mm") or 0)
+            _plan_text(
+                cx, cy, f"LID {th:.0f} @ {z0:.0f}",
+                fs=max(7, 10), cls="shield-tag", anchor="middle", fill="#4e342e",
+            )
         parts.append("  </g>")
 
     # Equipment
@@ -1578,6 +1613,50 @@ def render_plan_view(
     if _on("cable_tray"):
         parts.append("  </g>")
 
+    # Concrete duct banks: full stored width, not a tray.
+    banks = [
+        el for el in mep_els
+        if el.category == "duct_bank" or el.params.get("fitting_type") == "duct_bank"
+    ]
+    if banks and _on("duct_bank"):
+        parts.append(
+            f'  <g class="duct-banks" stroke="#5d4037" stroke-width="{fmt(max(1.0, 14 * scale))}" '
+            f'fill="none">'
+        )
+    for el in banks:
+        if not _on("duct_bank"):
+            continue
+        try:
+            s, e = el.params["start_mm"], el.params["end_mm"]
+            x0, y0 = float(s[0]), float(s[1])
+            x1, y1 = float(e[0]), float(e[1])
+            w = float(el.params.get("width_mm") or 300)
+            length = math.hypot(x1 - x0, y1 - y0)
+            if length < 1:
+                continue
+            nx, ny = -(y1 - y0) / length, (x1 - x0) / length
+            half = w / 2
+            for sign in (-1, 1):
+                a = project(x0 + sign * half * nx, y0 + sign * half * ny)
+                b = project(x1 + sign * half * nx, y1 + sign * half * ny)
+                parts.append(
+                    f'    <line x1="{fmt(a[0])}" y1="{fmt(a[1])}" '
+                    f'x2="{fmt(b[0])}" y2="{fmt(b[1])}" stroke="#5d4037"/>'
+                )
+            mx, my = project((x0 + x1) / 2, (y0 + y1) / 2)
+            n = int(el.params.get("conduit_count") or 0)
+            trade = el.params.get("trade_size") or ""
+            label = f'DB {n}×{trade}" {w:.0f}'
+            _plan_text(
+                mx, my - 4, label,
+                fs=max(6, 9), cls="duct-bank-tag", anchor="middle", fill="#3e2723",
+                along=((x1 - x0) * scale, -(y1 - y0) * scale),
+            )
+        except (KeyError, TypeError, ValueError, IndexError):
+            continue
+    if banks and _on("duct_bank"):
+        parts.append("  </g>")
+
     fittings_group = include is None or bool({"pipes", "ducts"} & include)
     if fittings_group:
         parts.append(
@@ -1587,11 +1666,11 @@ def render_plan_view(
     for el in mep_els:
         ftype0 = str(el.params.get("fitting_type") or "")
         # linear runs drawn elsewhere; keep point-placed HVAC devices (VAV, dampers)
-        if el.category in {"pipe", "plumbing_pipe", "conduit", "cable_tray"}:
+        if el.category in {"pipe", "plumbing_pipe", "conduit", "cable_tray", "duct_bank"}:
             continue
         if not _mep_on(el):
             continue
-        if el.category in {"duct"} or ftype0 in {"pipe", "duct", "flex_duct", "cable_tray"}:
+        if el.category in {"duct"} or ftype0 in {"pipe", "duct", "flex_duct", "cable_tray", "duct_bank"}:
             continue
         if el.category == "hvac" and ftype0 in {"duct", "flex_duct", ""}:
             # bare linear duct category without device type
