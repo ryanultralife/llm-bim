@@ -39,10 +39,13 @@ ALIASES = {
     "rmm-otd": "rmm_otd",
     "otd": "rmm_otd",
     "battery": "rmm_otd",
+    "ti": "mb_ti_melt_studio",
+    "ti_melt": "mb_ti_melt_studio",
+    "mb_ti_melt": "mb_ti_melt_studio",
 }
 
 NOTES = {
-    "mineclean_studio": "MB-MCLEAN full apparatus — product stills + 3D + stamp sheets",
+    "mineclean_studio": "MineClean — product stills + 3D + stamp sheets",
     "mineclean_full_apparatus": "Component apparatus densify (tubes / wire paths)",
     "mineclean": "Earlier thin skid pack",
     "mineclean_multilayer": "Multilayer intermediate",
@@ -50,6 +53,8 @@ NOTES = {
     "intec": "INTEC facility construction pack",
     "template_office": "Office template",
     "rmm_otd": "RMM-OTD cascade — STEP/glTF/IFC + 2D sheets + gallery.html",
+    "mb_ti_melt_studio": "MB-TI-LINE Ti-Melt — Sierra Star GA + hero/ghost + ECO-TI-001 specs",
+    "mb_ti_melt": "Ti-Melt coordination GA pack (EQ-101)",
 }
 
 

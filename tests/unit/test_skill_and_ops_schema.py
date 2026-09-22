@@ -40,6 +40,8 @@ def test_skill_files_exist() -> None:
     assert "set_type" in skill and "set_phase" in skill
     assert "doors.csv" in skill or "has_doors_schedule" in skill
     assert "place --kind grid" in skill or "add_grid" in skill
+    assert "MACHINE_ENGINEERING_BAR.md" in skill
+    assert (root / "docs" / "MACHINE_ENGINEERING_BAR.md").is_file()
 
 
 def test_assembly_op() -> None:

@@ -13,6 +13,7 @@ from llmbim_core.model import Element, ProjectModel
 from llmbim_core.registry import list_ops
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "device_pack_minimal.json"
+MCLEAN_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "mineclean_device_pack.json"
 
 
 def fresh_model() -> ProjectModel:
@@ -217,3 +218,32 @@ def test_bad_pack_duplicate_component_ids(tmp_path: Path) -> None:
     path = write_pack(tmp_path, [comp, dict(comp)])
     with pytest.raises(ValidationError, match="twin"):
         load_device_pack(path)
+
+
+def test_mineclean_device_pack_load_and_build() -> None:
+    """MineClean liquid AMD skid mini pack — tube + wire_path evidence for SSOT §6.2."""
+    pack = load_device_pack(MCLEAN_FIXTURE)
+    assert pack.name.startswith("MineClean")
+    assert pack.params.get("product") == "MB-MCLEAN"
+    assert len(pack.components) >= 12
+    shapes = {c.shape for c in pack.components}
+    assert "tube" in shapes
+    assert "wire_path" in shapes
+    assert "box" in shapes
+    assert any(c.id == "chamber_shell" for c in pack.components)
+    assert any(c.id.startswith("coil_") for c in pack.components)
+
+    model = fresh_model()
+    res = build_device(model, pack, level="L1", origin_mm=(0.0, 0.0), z0_mm=0.0)
+    assert res["ok"] is True
+    assert res["created_total"] >= 12
+    # Oriented nozzles should use place_tube when registered
+    if "place_tube" in op_names():
+        assert not any("place_tube" in w for w in res.get("warnings", []))
+    if "place_wire_path" in op_names():
+        assert not any("place_wire_path" in w for w in res.get("warnings", []))
+    shell_ids = res["element_ids"]["chamber_shell"]
+    assert shell_ids
+    shell = model.get_element(shell_ids[0])
+    assert shell.params.get("device_pack") == pack.name
+    assert shell.params.get("device_component") == "chamber_shell"

@@ -149,6 +149,15 @@ def schedule_rows(model: ProjectModel, kind: str) -> list[dict[str, Any]]:
                     "type_id": el.type_id,
                     "fire_rating": el.params.get("fire_rating") or "",
                     "mark": el.params.get("mark") or el.name or el.type_id,
+                    # INTEC / industrial enrichment (when stamped on element)
+                    "zone": el.params.get("zone") or "",
+                    "shield_class": el.params.get("shield_class") or "",
+                    "shield_cm": el.params.get("shield_cm") or "",
+                    "containment": el.params.get("containment") or "",
+                    "acs": el.params.get("acs") or "",
+                    "access_role": el.params.get("access_role") or "",
+                    "primary_barrier": el.params.get("primary_barrier") or "",
+                    "rating": el.params.get("rating") or "",
                 },
             )
             for el in model.query(category="door")

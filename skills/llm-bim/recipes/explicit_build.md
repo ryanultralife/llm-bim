@@ -23,6 +23,8 @@ CLI: `llmbim op authoring_checklist --params '{"product":"building_shell"}'`
 | **mep_run** | level, start→end or mep_route(from,to), size (NPS/WxH/trade), system |
 | **structure** | level, W-section, column origin or beam start→end |
 | **fab_part** | name, solid feature(s) with mm sizes; recommend GD&T + export_fab_step |
+| **field_device_fab** | product_class + PN catalog (≥20) + kind layers + equipment solids + fab BREP + `mode=part` pack **and** `docs/MACHINE_ENGINEERING_BAR.md` (connected services, fittings, hardware, model-cut GA, human product name) — see `field_device_fab.md` / `docs/FIELD_DEVICE_FAB.md` |
+| **machine_fab_pack** | alias of field_device_fab for bench/skid machines |
 | **deliverables_pack** | export path; always tell user `index.html` + `viewer3d.html` |
 
 ## 3. State defaults out loud

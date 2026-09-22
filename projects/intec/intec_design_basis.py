@@ -1,4 +1,10 @@
-"""INTEC design basis — SSOT for the llm-bim construction pack (MB-INT-CAD-001).
+"""RETIRED FOSSIL — do not use for INTEC.
+
+Builds a room and a shell per CELL/SPINE. The 2026-09-21 ruling forbids that
+(CELL and SPINE are equipment hosted by TUNNEL, not rooms). Still imported, so
+the module stays. Not a source for new INTEC geometry.
+
+INTEC design basis — SSOT for the llm-bim construction pack (MB-INT-CAD-001).
 
 Transcribed from:
   - Eigen/cad/fusion/intec_fusion_params.json  (params_version 2026-06-13.site5)

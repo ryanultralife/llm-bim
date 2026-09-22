@@ -20,6 +20,10 @@ Adopted from text-to-cad's mandatory snapshot-review pattern
 | Wrong size | measure via params / `query` · authoring checklist |
 | MEP missing on plan | MEP sheet is plan-kind with include set, not note overlay |
 | Clash blobs | `clash` report |
+| Colored-box / matplotlib “GA” | machine pack must emit `construction/EQ-101*.svg` via `machine_set` — see `docs/MACHINE_ENGINEERING_BAR.md` |
+| Floating header / tray | both ends land; `validate_intent("field_device_fab")` flags diagonal runs and missing fittings |
+| One grey 3D mass | distinct `kind` per family (bolts, doors, fittings) — not one `equipment` dump |
+| Sheet titled with a P/N | human product name on the title; P/N stays a document ID |
 
 ## Done only when
 

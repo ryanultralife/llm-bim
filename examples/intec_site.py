@@ -1,4 +1,11 @@
-"""INTEC FP separation facility — LLM-BIM test case.
+"""RETIRED FOSSIL — do not use for INTEC.
+
+Builds a room and a shell per CELL/SPINE. The 2026-09-21 ruling forbids that
+(CELL and SPINE are equipment hosted by TUNNEL, not rooms). Still imported by
+tests and the CLI smoke path, so the module stays. Not a source for new
+INTEC geometry.
+
+INTEC FP separation facility — LLM-BIM test case.
 
 Source of truth for arrangement (ENGINEERING ESTIMATE / design-basis):
   Eigen-discovery/cad/fusion/intec_fusion_params.json  (params_version 2026-06-13.site4)

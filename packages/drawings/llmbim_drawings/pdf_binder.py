@@ -225,6 +225,8 @@ def _path_construct(
 _PAGE_A4_LAND = (842.0, 595.0)       # metric default
 _PAGE_ANSI_B_LAND = (1224.0, 792.0)  # 17" x 11" — imperial construction sets
 _PAGE_ARCH_D_LAND = (2592.0, 1728.0)  # 36" x 24"
+_PAGE_ARCH_E1_LAND = (3024.0, 2160.0)  # 42" x 30" work sheets (Verseon CD bar)
+_PAGE_ARCH_E1_PORT = (2160.0, 3024.0)  # 30" x 42"
 
 
 def _hex_rgb(color: str | None) -> tuple[float, float, float] | None:
@@ -600,6 +602,12 @@ def _detect_page_size(
             "arch_d": _PAGE_ARCH_D_LAND,
             "arch-d": _PAGE_ARCH_D_LAND,
             "d": _PAGE_ARCH_D_LAND,
+            "arch_e1": _PAGE_ARCH_E1_LAND,
+            "arch-e1": _PAGE_ARCH_E1_LAND,
+            "e1": _PAGE_ARCH_E1_LAND,
+            "42x30": _PAGE_ARCH_E1_LAND,
+            "30x42": _PAGE_ARCH_E1_PORT,
+            "arch_e1_portrait": _PAGE_ARCH_E1_PORT,
         }
         if key in mapping:
             w, h = mapping[key]
@@ -659,22 +667,41 @@ def export_pdf_binder(
         f"(ENGINEERING ESTIMATE - agent-derived plot set | page {size_name}) Tj ET",
     ]
     y = title_y - 100
+    row_h = 11.0 if page_h >= 1600 else 14.0
+    col_x = 50.0
+    max_cols = 2 if page_w >= 2000 and len(sheets) > 50 else 1
+    col_w = (page_w - 100) / max_cols
+    col = 0
+    cover_ops_pages: list[list[str]] = [cover_ops]
+    ops = cover_ops
     for i, (s, (no, sheet_title)) in enumerate(
-        zip(sheets[:40], labels[:40], strict=False), start=1
+        zip(sheets, labels, strict=False), start=1
     ):
-        row = f"{i:02d}  {no} - {sheet_title}"
-        # drop if label was already the filename
+        row = f"{i:03d}  {no} - {sheet_title}"
         if no == s.stem and sheet_title == s.name:
-            row = f"{i:02d}  {s.name}"
-        cover_ops.append(
-            f"BT /F1 10 Tf 50 {y:.0f} Td ({_pdf_escape(row)[:70]}) Tj ET"
-        )
-        y -= 14
+            row = f"{i:03d}  {s.name}"
         if y < 40:
-            break
-    pages.append((page_w, page_h, cover_ops))
+            col += 1
+            if col >= max_cols:
+                ops = [
+                    f"BT /F1 14 Tf 50 {title_y:.0f} Td "
+                    f"(Plot index continued | { _pdf_escape(title)[:50] }) Tj ET",
+                ]
+                cover_ops_pages.append(ops)
+                y = title_y - 40
+                col = 0
+                col_x = 50.0
+            else:
+                col_x = 50.0 + col * col_w
+                y = title_y - 100
+        ops.append(
+            f"BT /F1 9 Tf {col_x:.0f} {y:.0f} Td ({_pdf_escape(row)[:72]}) Tj ET"
+        )
+        y -= row_h
+    for cops in cover_ops_pages:
+        pages.append((page_w, page_h, cops))
 
-    for s in sheets[:40]:
+    for s in sheets:
         try:
             pages.append(_parse_svg_drawing(s, page_w=page_w, page_h=page_h))
         except Exception:

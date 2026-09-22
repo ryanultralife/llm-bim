@@ -82,6 +82,32 @@ def _dim_overlay(L: float, W: float, H: float, view: str) -> str:
     )
 
 
+def _thin_plate_schematic(L: float, W: float, H: float, view: str) -> str:
+    """Readable plate edge when true BREP projects to a hairline (H << L,W)."""
+    # panel content box roughly 200x120 after title
+    if view == "top":
+        # L × W rectangle fill
+        return (
+            '<rect x="40" y="50" width="170" height="90" fill="none" stroke="#e3b341" '
+            'stroke-width="2"/>'
+            f'<text x="125" y="100" text-anchor="middle" fill="#8b97a8" font-size="10" '
+            f'font-family="Consolas,monospace">plan {L:.0f}×{W:.0f}</text>'
+        )
+    # front / right: exaggerate thickness to ~18 px bar so shop can see plate edge
+    span = 170
+    bar_h = 18
+    y = 90
+    label = f"t={H:.1f} mm (edge exaggerated)"
+    return (
+        f'<rect x="40" y="{y}" width="{span}" height="{bar_h}" fill="#1f6feb33" '
+        f'stroke="#e3b341" stroke-width="2"/>'
+        f'<text x="125" y="{y - 10}" text-anchor="middle" fill="#e3b341" font-size="10" '
+        f'font-family="Consolas,monospace">{label}</text>'
+        f'<text x="125" y="{y + 36}" text-anchor="middle" fill="#8b97a8" font-size="9" '
+        f'font-family="Consolas,monospace">true BREP is thin — use dim callouts</text>'
+    )
+
+
 def _embed_ortho_strip(
     feats: list[dict[str, Any]],
     *,
@@ -93,23 +119,30 @@ def _embed_ortho_strip(
     """Top/front/right ortho projections + overall size dimensions.
 
     Returns (svg_fragments, next_y). Uses CadQuery getSVG when available.
+    Thin plates (H << L,W) get schematic edge overlays so FRONT/RIGHT are not hairlines.
     """
     frags: list[str] = []
+    views: dict[str, str] = {}
     try:
         from llmbim_geometry.fab_brep import HAS_CADQUERY, export_fab_ortho_svgs
 
-        if not HAS_CADQUERY or not feats:
-            return frags, y0
-        views = export_fab_ortho_svgs(feats, width=panel_w - 20, height=panel_h - 40)
+        if HAS_CADQUERY and feats:
+            views = export_fab_ortho_svgs(feats, width=panel_w - 20, height=panel_h - 40)
     except Exception:  # noqa: BLE001
-        return frags, y0
+        views = {}
 
     L, W, H = _feature_bbox_mm(feats)
+    # Aspect: thickness vs plan — deck plates etc.
+    thin = (H > 0 and min(L, W) / H > 25) or (H > 0 and max(L, W) / H > 40)
     labels = [("top", "TOP"), ("front", "FRONT"), ("right", "RIGHT")]
     x = x0
+    title = "ORTHO VIEWS + PROJECTED SIZE (true BREP"
+    if thin:
+        title += " · thin plate — edge schematic on elev"
+    title += ")"
     frags.append(
         f'<text x="{x0}" y="{y0}" fill="#5eb1ff" font-family="Segoe UI,system-ui,sans-serif" '
-        f'font-size="13" font-weight="600">ORTHO VIEWS + PROJECTED SIZE (true BREP)</text>'
+        f'font-size="13" font-weight="600">{title}</text>'
     )
     y_panel = y0 + 12
     for key, label in labels:
@@ -118,13 +151,22 @@ def _embed_ortho_strip(
         if "?>" in body:
             body = body.split("?>", 1)[1]
         dims = _dim_overlay(L, W, H, key)
+        # For thin elev views, prefer schematic so dimensions stay readable
+        use_schematic = thin and key in ("front", "right")
+        if use_schematic or not body.strip():
+            body = _thin_plate_schematic(L, W, H, key)
+            body_g = body
+        else:
+            body_g = f'<g transform="translate(4,22) scale(0.8)">{body}</g>'
+        if use_schematic:
+            body_g = f'<g transform="translate(0,22)">{body}</g>'
         frags.append(
             f'<g transform="translate({x},{y_panel})">'
             f'<rect x="0" y="0" width="{panel_w}" height="{panel_h}" fill="#121820" '
             f'stroke="#30363d" stroke-width="1"/>'
             f'<text x="8" y="16" fill="#8b97a8" font-family="Segoe UI,system-ui,sans-serif" '
-            f'font-size="11">{label}</text>'
-            f'<g transform="translate(4,22) scale(0.8)">{body}</g>'
+            f'font-size="11">{label}{" · schematic" if use_schematic else ""}</text>'
+            f"{body_g}"
             f"{dims}</g>"
         )
         x += panel_w + 12

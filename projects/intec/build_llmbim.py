@@ -1,4 +1,11 @@
-"""INTEC — design basis → llm-bim Project + full CD sheet register.
+"""RETIRED FOSSIL — do not use for INTEC.
+
+Builds a room and a shell per CELL/SPINE from ``intec_design_basis``. The
+2026-09-21 ruling forbids that (CELL and SPINE are equipment, not rooms).
+Still imported by the old construction-set entrypoint and tests, so the
+module stays. Not a source for new INTEC geometry.
+
+INTEC — design basis → llm-bim Project + full CD sheet register.
 
 Mirrors the Schad Gate C pattern: model is SSOT; drawings are a custom
 ``sheets=[]`` register from ``intec_design_basis.sheet_register()``.
@@ -27,6 +34,8 @@ import intec_derived as derived
 import intec_design_basis as basis
 import svg_diagrams as diagrams
 from llmbim import Project
+from llmbim_drawings.layout import ARCH_E1_SIZE, apply_true_scale, size_work_plan
+from llmbim_drawings.sheets import drawing_area
 
 HONESTY = basis.HONESTY
 M = 1000.0  # m → mm
@@ -376,10 +385,83 @@ def build_model(*, on_stage: Any | None = None) -> Project:
         z0_mm=5000,
     )
 
-    # Notes
-    for i, note in enumerate(basis.general_notes()[:5]):
+    # HVAC branches off the mains (sized runs for H-002 density) [EST]
+    for x in (10.0, 16.0, 22.0, 28.0, 34.0):
+        p.place_duct(
+            level="L0",
+            start=(m_to_mm(x), m_to_mm(21.0)),
+            end=(m_to_mm(x), m_to_mm(16.0)),
+            width_mm=400,
+            height_mm=300,
+            name=f"HVE branch x={x}",
+            system="HVE",
+            z0_mm=4800,
+        )
+        p.place_duct(
+            level="L0",
+            start=(m_to_mm(x), m_to_mm(3.5)),
+            end=(m_to_mm(x), m_to_mm(8.0)),
+            width_mm=300,
+            height_mm=250,
+            name=f"HVS branch x={x}",
+            system="HVS",
+            z0_mm=4800,
+        )
+    p.place_duct(
+        level="L0",
+        start=(m_to_mm(40.0), m_to_mm(21.0)),
+        end=(m_to_mm(44.5), m_to_mm(28.0)),
+        width_mm=600,
+        height_mm=400,
+        name="HVE to stack",
+        system="HVE",
+        z0_mm=5000,
+    )
+    # Conduit homeruns [EST]
+    p.place_conduit(
+        level="L0",
+        start=(m_to_mm(46.0), m_to_mm(8.0)),
+        end=(m_to_mm(6.0), m_to_mm(8.0)),
+        name="PWR homerun",
+        system="PWR",
+        z0_mm=4200,
+    )
+    p.place_conduit(
+        level="L0",
+        start=(m_to_mm(46.0), m_to_mm(9.0)),
+        end=(m_to_mm(6.0), m_to_mm(9.0)),
+        name="IC homerun",
+        system="IC",
+        z0_mm=4200,
+    )
+
+    # Keynotes must sit INSIDE full_crop (x>=-2 m). Old origin x=-5 m was
+    # culled, so the KEYNOTES group rendered empty.
+    for i, note in enumerate(basis.general_notes()):
+        nid = p.create_note(
+            level="L0",
+            text=note,
+            position=(m_to_mm(46.5), m_to_mm(3.0 + i * 4.5)),
+            name=f"GN-{i + 1}",
+        )
         try:
-            p.op("create_note", level="L0", text=note, origin=[m_to_mm(-5), m_to_mm(i * 2)])
+            p.op("set_param", id=nid, key="discipline", value="A")
+        except Exception:
+            pass
+    for pl in placements:
+        if pl["id"] == "STACK":
+            cx, cy = m_to_mm(pl["x"]), m_to_mm(pl["y"])
+        else:
+            cx = m_to_mm(pl["x"] + pl["w"] / 2.0)
+            cy = m_to_mm(pl["y"] + pl["d"] / 2.0)
+        nid = p.create_note(
+            level="L0",
+            text=f"{pl['id']} — {pl['name']}",
+            position=(cx, cy),
+            name=f"RM-{pl['id']}",
+        )
+        try:
+            p.op("set_param", id=nid, key="discipline", value="EQ")
         except Exception:
             pass
 

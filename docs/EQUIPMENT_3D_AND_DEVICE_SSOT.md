@@ -4,7 +4,7 @@
 **Not a handoff.** This is a detailed engineering record of what failed, what was fixed, and what the repo still needs so design and modeling execute reliably.  
 **Evidence base:** End-to-end Proto-10 (MB-SEP-PROTO) build from Eigen SSOT → deliverables pack → `viewer3d.html` (2026-07 session).
 
-Related docs: `HONESTY.md` (geometry fidelity class), `LOCAL.md` (run/serve), `CAPABILITY.md`, `skills/llm-bim/SKILL.md`.
+Related docs: `HONESTY.md` (geometry fidelity class), `LOCAL.md` (run/serve), `CAPABILITY.md`, `skills/llm-bim/SKILL.md`, **`FIELD_DEVICE_FAB.md`** (field/vehicle multi-PN fab-intent packs — platform doctrine), **`MACHINE_ENGINEERING_BAR.md`** (connected services, hardware layers, model-cut GA — required of every machine project).
 
 ---
 
@@ -374,6 +374,55 @@ Before saying “3D is done”:
 - Keep honesty language honest: presentation / fab-intent envelopes, Eigen-driven dimensions, not certified fab or PE packages.
 
 When implementing, prefer small PRs: (1) glTF tests + VERIFY, (2) path/oriented primitives, (3) DevicePack + recipe—without mixing IFC freezes or launch-stack churn unless claimed.
+
+---
+
+## 12b. Facility-scale import of Proto10 (INTEC, 2026-08)
+
+**Problem:** Facility SEP bays were LOD1 (saddle + shell + a few boxes) while a
+full multi-part Proto10 llm-bim pack already existed (~65 equipment solids:
+shell, flanges, tie-rods, ports, yoke, cartridge, collectors).
+
+**Methodology (going forward):**
+
+1. Treat the detailed pack as the **machine template** (not a one-off demo).
+2. Scale anisotropically into facility vessel OD/L and place at each bay.
+3. Keep hollow-shell kinds (`shell` + `wall_mm`/`id_mm`) so glTF is not solid plugs.
+4. Export facility packs with `units="imperial"` for US contractor review.
+5. Rely on plan **label budget** so 8×65 parts do not paint A-101 blue soup.
+
+See **`docs/INTEC_METHODOLOGY.md`** for the full contract (units API, shape
+table, checklist). Eigen wiring:
+`intec_sep_proto10_import` → `generate_intec_sep_component_set.densified_solids`
+→ facility pack.
+
+---
+
+## 12c. MineClean skid pack (liquid AMD, 2026-08) — smoothing evidence
+
+**Product:** freestanding **MineClean** liquid skid (MB-MCLEAN) — **not** Proto-10 /
+isotope. Evidence pack: `examples/output/mineclean_studio/`.
+
+| Check (§10) | Observed |
+|-------------|----------|
+| Multi-material glTF | 17 keys (`equip_shell`, `equip_magnet`, `pipe_process`, …) |
+| Mesh count | 256 component solids |
+| glTF index errors | 0 (VERIFY + deep scan) |
+| VERIFY ok with non-black intent | ok=true, `gltf_valid`, bbox extent 6058 mm |
+| Viewer self-contained | true |
+| Component P/N identity | equipment_name / tag / part on click |
+
+**Lessons to fold into llm-bim (see `docs/MINECLEAN_MODELING_PROGRESS.md`):**
+
+1. **Portable `step_ref_path`** — always `step_refs/FOO.step`, never `C:\Users\…`.  
+2. **No hybrid 2D renders** — do not overlay CadQuery ASM mesh on design-basis bay
+   frames (misaligned coords → scribble PNGs). Use pure layout product views **or**
+   pure mesh iso.  
+3. **Component-only** apparatus: every solid has machine P/N; full equipment names
+   in viewer extras.  
+4. Product boundary: liquid skid claims ≠ dual-mode MineSep α / cascade kW.
+
+**Still open (same as §5 / §8):** oriented tube, path-wire batch mesh, DevicePack core.
 
 ---
 

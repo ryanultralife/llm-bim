@@ -83,13 +83,20 @@ def import_step_as_equipment(
         x0, y0, z0 = bbox["xmin"], bbox["ymin"], bbox["zmin"]
         lx, ly, lz = dx, dy, dz
 
+    # Prefer portable relative path when packing into a project folder
     stored_path = str(step_path.resolve())
     if copy_into:
         dest_dir = Path(copy_into)
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest = dest_dir / step_path.name
-        shutil.copy2(step_path, dest)
-        stored_path = str(dest.resolve())
+        if dest.resolve() != step_path.resolve():
+            shutil.copy2(step_path, dest)
+        # relative to pack root (parent of step_refs/) when possible
+        try:
+            pack_root = dest_dir.parent if dest_dir.name == "step_refs" else dest_dir
+            stored_path = dest.resolve().relative_to(pack_root.resolve()).as_posix()
+        except ValueError:
+            stored_path = f"step_refs/{dest.name}"
 
     lv = model.get_level(level)
     el = Element(
@@ -130,12 +137,21 @@ def pack_step_references(model: ProjectModel, pack_dir: str | Path) -> list[dict
             continue
         if not el.params.get("locked") or not el.params.get("step_ref_path"):
             continue
-        src = Path(str(el.params["step_ref_path"]))
+        raw = str(el.params["step_ref_path"])
+        src = Path(raw)
         if not src.is_file():
-            index.append({"id": el.id, "name": el.name, "missing": str(src)})
-            continue
+            # resolve relative to pack_dir
+            cand = Path(pack_dir) / raw
+            if cand.is_file():
+                src = cand
+            else:
+                index.append({"id": el.id, "name": el.name, "missing": raw})
+                continue
         dest = out / f"{el.id[:12]}_{src.name}"
-        shutil.copy2(src, dest)
+        if dest.resolve() != src.resolve():
+            shutil.copy2(src, dest)
+        # keep portable relative path on element
+        el.params["step_ref_path"] = f"step_refs/{dest.name}"
         index.append(
             {
                 "id": el.id,

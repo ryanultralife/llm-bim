@@ -46,6 +46,7 @@ LIBRARY_HERO_NAMES = (
     "field_skid_hero.jpg",
     "skid_hero.jpg",
     "hero.jpg",
+    "hero_shop.jpg",
     "product_hero.jpg",
     "line_hero.jpg",
     "campus_hero.jpg",
@@ -67,6 +68,11 @@ PRODUCT_ALIASES = {
     "intec_facility": "intec",
     "intec_fp_separation_facility": "intec",
     "fp_separation": "intec",
+    "proto10": "proto10",
+    "proto_10": "proto10",
+    "mb-sep-proto": "proto10",
+    "mb_sep_proto": "proto10",
+    "mb-sep-proto proto10 separator": "proto10",
 }
 
 
@@ -467,6 +473,8 @@ def _normalize_product_id(product_id: str) -> str:
     # collapse long project names containing intec
     if "intec" in raw:
         return PRODUCT_ALIASES.get(raw, "intec")
+    if "proto10" in raw or "proto_10" in raw or "mb_sep_proto" in raw:
+        return "proto10"
     return PRODUCT_ALIASES.get(product_id.lower(), PRODUCT_ALIASES.get(raw, raw))
 
 

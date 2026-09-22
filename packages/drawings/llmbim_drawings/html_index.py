@@ -65,6 +65,63 @@ def _construction_sheet_cards(out: Path) -> str:
     )
 
 
+def _renders_gallery(out: Path) -> str:
+    """Photoreal heroes + live-mesh stills as preview cards."""
+    renders = out / "renders"
+    prefer = (
+        "product_hero.jpg",
+        "product_cutaway.jpg",
+        "product_hero_campus.jpg",
+        "product_hero_day.jpg",
+        "product_hero_split.jpg",
+        "product_hero_split.png",
+        "R1_iso.png",
+        "R1_iso_process.png",
+        "R2_plan.png",
+        "R3_elev_S.png",
+        "R4_elev_E.png",
+        "model_match_iso_full.png",
+        "L1_layout_iso.png",
+    )
+    seen: set[str] = set()
+    files: list[Path] = []
+    if renders.is_dir():
+        for name in prefer:
+            p = renders / name
+            if p.is_file() and p.name not in seen:
+                files.append(p)
+                seen.add(p.name)
+        for p in sorted(renders.iterdir()):
+            if (
+                p.is_file()
+                and p.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}
+                and p.name not in seen
+                and not p.name.startswith("HERO_")
+            ):
+                files.append(p)
+                seen.add(p.name)
+    if (out / "hero.svg").is_file():
+        files.append(out / "hero.svg")
+    if not files:
+        return ""
+    cards: list[str] = []
+    for p in files:
+        rel = p.relative_to(out).as_posix()
+        label = p.stem.replace("_", " ")
+        cards.append(
+            f'<a class="sheet-card" href="{rel}" target="_blank">'
+            f'<div class="thumb"><img src="{rel}" alt="{label}" loading="lazy"/></div>'
+            f'<div class="cap"><strong>{label}</strong></div></a>'
+        )
+    return (
+        f'<h2>Renders / 3-D stills <span style="color:#8b949e;font-weight:400">'
+        f"({len(cards)})</span></h2>"
+        '<p style="color:#8b949e;font-size:0.9rem">Photoreal heroes (may drift) + '
+        "live-mesh stills (exact glTF triangles). Click to open.</p>"
+        f'<div class="sheet-grid">{"".join(cards)}</div>'
+    )
+
+
 def write_pack_index(out_dir: str | Path) -> Path:
     out = Path(out_dir)
     manifest_path = out / "MANIFEST.json"
@@ -287,6 +344,7 @@ def write_pack_index(out_dir: str | Path) -> Path:
             draw_preview = ""
 
     construction_gallery = _construction_sheet_cards(out)
+    renders_gallery = _renders_gallery(out)
 
     # door schedule sample (type + fire rating) — doors.csv preferred, door.csv legacy
     door_preview = ""
@@ -489,6 +547,7 @@ justify-content:center;overflow:hidden}}
 <p>{manifest.get("honesty", "")}</p>
 {hero_html}
 {"<p><a href='viewer3d.html' style='font-size:1.05rem'>Open 3D Studio</a> — section cut · cinematic bloom · Imagine env · layer opacity</p>" if (out / "viewer3d.html").exists() else ""}
+{renders_gallery}
 {construction_gallery}
 {draw_preview}
 <h2>3D / BIM</h2><ul>{"".join(threes)}</ul>

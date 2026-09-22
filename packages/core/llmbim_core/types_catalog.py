@@ -133,13 +133,14 @@ DEFAULT_WALL_TYPES: dict[str, WallType] = {
     ),
     "W-SHIELD-CONC": WallType(
         id="W-SHIELD-CONC",
-        name="Bioshield concrete",
+        name="Bioshield concrete (1.5 m TVL + SS316L liner)",
         layers=[
-            MaterialLayer(material="concrete_shield", thickness_mm=600, function="structure", density_kg_m3=3500, unit_cost_per_m3=550),
+            # INTEC DR-010 / N-008: 1500 mm provided bioshield (gamma TVL screen)
+            MaterialLayer(material="concrete_shield", thickness_mm=1500, function="structure", density_kg_m3=3500, unit_cost_per_m3=550),
             MaterialLayer(material="ss316L", thickness_mm=6, function="finish", density_kg_m3=8000, unit_cost_per_m3=12000),
         ],
         fire_rating="4-hr",
-        description="Hot-cell / tunnel shielding wall",
+        description="Hot-cell / tunnel shielding wall — 1.5 m CIP + 6 mm liner",
     ),
     "W-GENERIC-200": WallType(
         id="W-GENERIC-200",

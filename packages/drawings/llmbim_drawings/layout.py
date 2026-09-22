@@ -16,6 +16,66 @@ from llmbim_drawings.sheets import graphic_scale_bar, revision_cloud
 from llmbim_drawings.svg_util import esc, fmt
 from llmbim_drawings.view import DrawingView
 
+# 42" Arch-E1 landscape convention: 1100 SVG units = 42 in (sheets.TITLE_BLOCK_FRAC).
+# 30" height follows the same px/in so a 42x30 sheet is 1100 x 785.714.
+PX_PER_IN_ARCH_E1 = 1100.0 / 42.0
+ARCH_E1_W_IN = 42.0
+ARCH_E1_H_IN = 30.0
+ARCH_E1_SIZE = (1100.0, 1100.0 * ARCH_E1_H_IN / ARCH_E1_W_IN)
+
+
+def apply_true_scale(
+    ratio: float,
+    *,
+    sheet_w_in: float = ARCH_E1_W_IN,
+    sheet_w_px: float = 1100.0,
+) -> float:
+    """SVG px per model millimetre at an architectural ratio (96 = 1/8"=1-0).
+
+    Stated scale = graphic bar = what was drawn: never fit-stretch and keep
+    an old note. 1:100 snaps to 1/8" (true 1:96) via size_work_plan.
+    """
+    if ratio <= 0:
+        raise ValueError("ratio must be > 0")
+    paper_mm = float(sheet_w_in) * 25.4
+    return (float(sheet_w_px) / paper_mm) / float(ratio)
+
+
+def size_work_plan(
+    span_mm: float,
+    draw_w_px: float,
+    *,
+    units: str = "imperial",
+    sheet_w_in: float = ARCH_E1_W_IN,
+    sheet_w_px: float = 1100.0,
+) -> tuple[float, str]:
+    """Largest standard work-plan scale that fits span_mm into draw_w_px.
+
+    Imperial: 1/4" then 1/8" then 1/16". Metric: 1:50, 1:100, 1:200.
+    Returns (px_per_mm, scale_note).
+    """
+    from llmbim_drawings.detail_ops import imperial_scale_note, scale_note_from_ratio
+
+    span = max(1.0, float(span_mm))
+    budget = max(1.0, float(draw_w_px))
+    if units == "imperial":
+        ratios = (48.0, 96.0, 192.0)
+    else:
+        ratios = (50.0, 100.0, 200.0)
+    chosen = ratios[-1]
+    for r in ratios:
+        px = apply_true_scale(r, sheet_w_in=sheet_w_in, sheet_w_px=sheet_w_px)
+        if span * px <= budget * 0.98:
+            chosen = r
+            break
+    px = apply_true_scale(chosen, sheet_w_in=sheet_w_in, sheet_w_px=sheet_w_px)
+    if units == "imperial":
+        note = imperial_scale_note(chosen) or scale_note_from_ratio(chosen)
+    else:
+        note = f"1:{int(round(chosen))}"
+    return px, note
+
+
 # cell = (view, title, scale_note) or (view, title, scale_note, px_per_mm)
 # optional 5th: max_scale (1.0 = drawn at the declared scale, no blow-up)
 Cell = tuple

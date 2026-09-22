@@ -21,9 +21,12 @@ def export_plan_svg(
     *,
     view_range_mm: float = 1200.0,
     scale: float = 0.05,
+    **opts: object,
 ) -> None:
     """Horizontal cut at level elevation → SVG file."""
-    write_plan_svg(model, level, path, view_range_mm=view_range_mm, scale=scale)
+    write_plan_svg(
+        model, level, path, view_range_mm=view_range_mm, scale=scale, **opts
+    )
 
 
 def export_section_svg(
