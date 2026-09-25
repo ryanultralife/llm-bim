@@ -674,58 +674,205 @@ def wall_type_schedule_svg() -> str:
     return _title_block("A4.2", "WALL TYPES, SSW & MATERIALS", "\n".join(parts), scale_note="NTS")
 
 
-def _fit_rooms_svg(sheet_no: str, title: str, rooms: list[dict], note: str) -> str:
-    """Draw room rectangles. House y is south-positive."""
-    scale = 7.0
-    xs = [r["x"] for r in rooms] + [r["x"] + r["w"] for r in rooms]
-    ys = [r["y"] for r in rooms] + [r["y"] + r["d"] for r in rooms]
+def _pt(x, y, ox, oy, scale):
+    return ox + x * scale, oy + y * scale
+
+
+def _covers(op, x1, y1, x2, y2) -> bool:
+    tol = 0.2
+    if abs(y1 - y2) < tol and abs(op["y1"] - y1) < tol and abs(op["y2"] - y1) < tol:
+        lo, hi = sorted((x1, x2))
+        a, b = sorted((op["x1"], op["x2"]))
+        return a >= lo - tol and b <= hi + tol and b - a > 0.4
+    if abs(x1 - x2) < tol and abs(op["x1"] - x1) < tol and abs(op["x2"] - x1) < tol:
+        lo, hi = sorted((y1, y2))
+        a, b = sorted((op["y1"], op["y2"]))
+        return a >= lo - tol and b <= hi + tol and b - a > 0.4
+    return False
+
+
+def _wall_pieces(x1, y1, x2, y2, openings):
+    """Return the solid parts of a wall, with openings cut out."""
+    hits = [op for op in openings if _covers(op, x1, y1, x2, y2)]
+    if abs(y1 - y2) < 0.2:
+        y = y1
+        lo, hi = sorted((x1, x2))
+        cuts = sorted((min(op["x1"], op["x2"]), max(op["x1"], op["x2"])) for op in hits)
+        pieces = []
+        cursor = lo
+        for a, b in cuts:
+            if a > cursor + 0.05:
+                pieces.append((cursor, y, a, y))
+            cursor = max(cursor, b)
+        if hi > cursor + 0.05:
+            pieces.append((cursor, y, hi, y))
+        return pieces
+    x = x1
+    lo, hi = sorted((y1, y2))
+    cuts = sorted((min(op["y1"], op["y2"]), max(op["y1"], op["y2"])) for op in hits)
+    pieces = []
+    cursor = lo
+    for a, b in cuts:
+        if a > cursor + 0.05:
+            pieces.append((x, cursor, x, a))
+        cursor = max(cursor, b)
+    if hi > cursor + 0.05:
+        pieces.append((x, cursor, x, hi))
+    return pieces
+
+
+def _draw_seg(parts, x1, y1, x2, y2, ox, oy, scale, stroke, width):
+    a, b = _pt(x1, y1, ox, oy, scale)
+    c, d = _pt(x2, y2, ox, oy, scale)
+    parts.append(
+        f'<line x1="{a:.1f}" y1="{b:.1f}" x2="{c:.1f}" y2="{d:.1f}" '
+        f'stroke="{stroke}" stroke-width="{width}" stroke-linecap="square"/>'
+    )
+
+
+def _draw_opening(parts, op, ox, oy, scale):
+    x1, y1, x2, y2 = op["x1"], op["y1"], op["x2"], op["y2"]
+    a, b = _pt(x1, y1, ox, oy, scale)
+    c, d = _pt(x2, y2, ox, oy, scale)
+    mx, my = (a + c) / 2, (b + d) / 2
+    kind = op["kind"]
+    if kind == "window":
+        parts.append(
+            f'<line x1="{a:.1f}" y1="{b:.1f}" x2="{c:.1f}" y2="{d:.1f}" '
+            f'stroke="#1565c0" stroke-width="3"/>'
+        )
+    elif kind == "door":
+        parts.append(
+            f'<line x1="{a:.1f}" y1="{b:.1f}" x2="{c:.1f}" y2="{d:.1f}" '
+            f'stroke="#6d4c41" stroke-width="2"/>'
+        )
+        r = ((c - a) ** 2 + (d - b) ** 2) ** 0.5
+        # swing into the sheet, 90 degrees from the hinge at the first point
+        parts.append(
+            f'<path d="M {a:.1f},{b:.1f} A {r:.1f},{r:.1f} 0 0 1 {c:.1f},{d:.1f}" '
+            f'fill="none" stroke="#6d4c41" stroke-width="0.8"/>'
+        )
+    else:
+        parts.append(
+            f'<line x1="{a:.1f}" y1="{b:.1f}" x2="{c:.1f}" y2="{d:.1f}" '
+            f'stroke="#333" stroke-width="1" stroke-dasharray="3 2"/>'
+        )
+    parts.append(
+        f'<text x="{mx:.1f}" y="{my - 7:.1f}" text-anchor="middle" font-size="8" '
+        f'fill="#333" font-family="Segoe UI,Arial">{html.escape(op["label"])}</text>'
+    )
+
+
+def _draw_house_plan(sheet_no, title, rooms, openings, note, *, breezeway=False) -> str:
+    """Walled plan. House y is south-positive. Outdoor rooms are dashed."""
+    scale = 6.5
+    outdoor = {"DECK", "PORCH", "STAIR-W"}
+    xs, ys = [], []
+    for r in rooms:
+        xs += [r["x"], r["x"] + r["w"]]
+        ys += [r["y"], r["y"] + r["d"]]
     minx, maxx = min(xs), max(xs)
     miny, maxy = min(ys), max(ys)
-    ox = 48 - minx * scale
-    oy = 100 - miny * scale
+    ox = 70 - minx * scale
+    oy = 118 - miny * scale
     parts = [
-        f'<text x="28" y="88" font-size="11" fill="#333" font-family="Segoe UI,Arial">'
+        f'<text x="28" y="84" font-size="11" fill="#333" font-family="Segoe UI,Arial">'
         f'{html.escape(note)}</text>'
     ]
     for r in rooms:
-        x = ox + r["x"] * scale
-        y = oy + r["y"] * scale
-        w = r["w"] * scale
-        h = r["d"] * scale
+        x, y = _pt(r["x"], r["y"], ox, oy, scale)
+        w, h = r["w"] * scale, r["d"] * scale
+        fill = "#f3f6f4" if r.get("id") not in outdoor and "Porch" not in r["name"] and "Deck" not in r["name"] else "#f7f7f2"
+        if "OPEN" in r["name"]:
+            fill = "#fff8e1"
         parts.append(
             f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" '
-            f'fill="#f7f4ef" stroke="#222" stroke-width="1.2"/>'
+            f'fill="{fill}" stroke="none"/>'
+        )
+        heavy = r.get("id") in {"MASTER", "CLO-M"} or r["name"].startswith("MASTER")
+        stroke = "#111" if heavy else "#222"
+        width = 5 if "Deck" not in r["name"] and "Porch" not in r["name"] else 1.2
+        dash = ' stroke-dasharray="5 3"' if width < 2 else ""
+        edges = [
+            (r["x"], r["y"], r["x"] + r["w"], r["y"]),
+            (r["x"] + r["w"], r["y"], r["x"] + r["w"], r["y"] + r["d"]),
+            (r["x"], r["y"] + r["d"], r["x"] + r["w"], r["y"] + r["d"]),
+            (r["x"], r["y"], r["x"], r["y"] + r["d"]),
+        ]
+        for e in edges:
+            for piece in _wall_pieces(*e, openings):
+                _draw_seg(parts, *piece, ox, oy, scale, "#888" if width < 2 else stroke, width)
+                if width < 2:
+                    parts[-1] = parts[-1].replace("/>", dash + "/>")
+        parts.append(
             f'<text x="{x+w/2:.1f}" y="{y+h/2:.1f}" text-anchor="middle" '
-            f'font-size="9" font-family="Segoe UI,Arial">{html.escape(r["name"])}</text>'
+            f'font-size="10" font-family="Segoe UI,Arial">{html.escape(r["name"])}</text>'
             f'<text x="{x+w/2:.1f}" y="{y+h/2+12:.1f}" text-anchor="middle" '
             f'font-size="8" fill="#555" font-family="Segoe UI,Arial">'
-            f'{r["w"]:.0f}\' × {r["d"]:.0f}\'</text>'
+            f'{r["w"]:.0f}\' × {r["d"]:.0f}\'  ·  {r["w"]*r["d"]:.0f} sf</text>'
         )
-    sheet_w = max(900.0, ox + maxx * scale + 60)
-    sheet_h = max(700.0, oy + maxy * scale + 70)
+    for op in openings:
+        _draw_opening(parts, op, ox, oy, scale)
+    # overall dimension along the south of the plan
+    sx, sy = _pt(minx, maxy, ox, oy, scale)
+    ex, _ey = _pt(maxx, maxy, ox, oy, scale)
+    parts.append(
+        f'<line x1="{sx:.1f}" y1="{sy+28:.1f}" x2="{ex:.1f}" y2="{sy+28:.1f}" '
+        f'stroke="#444" stroke-width="0.6"/>'
+        f'<text x="{(sx+ex)/2:.1f}" y="{sy+42:.1f}" text-anchor="middle" font-size="10" '
+        f'font-family="Segoe UI,Arial">{maxx-minx:.0f}\'-0" overall</text>'
+    )
+    if breezeway:
+        bz = house.breezeway()
+        bx, by = 40, oy + maxy * scale + 70
+        bscale = 8
+        bw, bd = bz["w"] * bscale, bz["d"] * bscale
+        parts.append(
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bd:.1f}" '
+            f'fill="#fff" stroke="#6d4c41" stroke-width="1.4"/>'
+            f'<text x="{bx:.1f}" y="{by-8:.1f}" font-size="11" font-family="Segoe UI,Arial">'
+            f'Open breezeway {bz["w"]:.0f}\' × {bz["d"]:.0f}\' — 6x6 posts @ 6\', '
+            f'6:12 roof matching the garage, no walls</text>'
+        )
+        for i in range(int(bz["w"] / 6) + 1):
+            for side in (0, bz["d"]):
+                px, py = bx + i * 6 * bscale, by + side * bscale
+                parts.append(
+                    f'<rect x="{px-3:.1f}" y="{py-3:.1f}" width="6" height="6" fill="#5d4037"/>'
+                )
+    sheet_w = max(1100.0, ox + maxx * scale + 80)
+    sheet_h = oy + maxy * scale + (150 if breezeway else 80)
     return _title_block(
         sheet_no, title, "\n".join(parts),
-        w=sheet_w, h=sheet_h, scale_note='1/4" sheet, nearest foot',
+        w=sheet_w, h=sheet_h, scale_note='nearest foot, from the 1/4" sheet',
     )
 
 
 def house_existing_svg(level: str) -> str:
     rooms = [r for r in house.house_rooms() if r["level"] == level]
+    openings = house.existing_openings() if level == "Main" else []
     sheet = "H1.1" if level == "Main" else "H1.2"
     title = f"EXISTING HOUSE — {level.upper()} LEVEL"
-    return _fit_rooms_svg(
-        sheet, title, rooms,
-        "Scaled off the 1/4 in = 1 ft sheet, nearest foot. "
-        "The sheet says confirm all dimensions. Stairs stay.",
+    note = (
+        "Walls and the openings written on the 1/4 inch sheet. "
+        "3-foot doors are the sheet's typical passage door. Stairs stay. "
+        "Confirm on site."
+        if level == "Main"
+        else "Upper floor as drawn: two dormer bedrooms, closet, attic. The stair is the one that stays."
     )
+    return _draw_house_plan(sheet, title, rooms, openings, note)
 
 
 def house_concept_svg() -> str:
     rooms = list(house.concept_upper()) + list(house.concept_suite())
-    return _fit_rooms_svg(
-        "H2.2", "HOUSE REMODEL — CONCEPT PLANS", rooms,
-        "Proposed upper floor and northwest suite, on the scaled plan. "
-        "Existing stair stays. Roof matches the garage through the open breezeway.",
+    return _draw_house_plan(
+        "H2.2",
+        "HOUSE REMODEL — PROPOSED PLAN",
+        rooms,
+        house.proposed_openings(),
+        "New walls on the scaled footprint. Each bedroom has a 3-foot by 4-foot "
+        "egress window. The existing stair stays. The northwest suite is one story and vaulted.",
+        breezeway=True,
     )
 
 

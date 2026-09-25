@@ -38,45 +38,46 @@ def _room(rid, name, level, x, y, w, d, note=''):
 def house_rooms() -> list[dict]:
     """Existing rooms, nearest foot off the 1/4" sheet."""
     main = [
-        _room('LIVING', 'Living Room', 'Main', 0, 0, 24, 16,
+        # Sizes are the scaled sheet. Origins are shifted so shared
+        # walls touch instead of the boxes overlapping.
+        _room('LIVING', 'Living', 'Main', 0, 0, 24, 16,
               'oil tank + firewood + F/P on the north wall'),
         _room('DECK', 'Wood Deck', 'Main', 0, 16, 26, 12,
-              'large deck south of the living room'),
-        _room('STAIR-W', 'Stair to deck', 'Main', 22, -7, 7, 5,
-              'labeled 5\'-0" x 7\'-0" on the sheet; DN to deck level'),
-        _room('BATH-W', 'Bath', 'Main', 26, -8, 10, 9,
-              'tub/shower + lav + WC, north of the living room'),
+              'south of the living room'),
+        _room('STAIR-W', 'DN Deck', 'Main', 17, -5, 7, 5,
+              '5\'-0" x 7\'-0" on the sheet'),
+        _room('BATH-W', 'Bath', 'Main', 24, -9, 10, 9,
+              'tub/shower + lav + WC'),
+        _room('DINING', 'Dining', 'Main', 24, 0, 12, 14,
+              '3x8 header at the living opening'),
         _room('MASTER', 'Master', 'Main', 36, -28, 20, 13,
               '2x6 walls; becomes den / office / workout'),
-        _room('CLO-M', 'Master closet', 'Main', 36, -15, 9, 8, ''),
-        _room('CHANGING', 'Changing', 'Main', 36, -7, 14, 12,
-              'between master and dining'),
-        _room('MSTRBA', 'Mstr Ba', 'Main', 50, -12, 8, 10, 'tub + lav'),
-        _room('STAIR', 'Stairs', 'Main', 56, -10, 5, 7,
-              'existing stair to the upper floor — KEEP'),
-        _room('BATH1', 'Bath', 'Main', 62, -10, 9, 9,
+        _room('CLO-M', 'Clo.', 'Main', 36, -15, 9, 8, ''),
+        _room('CHANGING', 'Changing', 'Main', 36, -7, 14, 12, ''),
+        _room('MSTRBA', 'Mstr Ba', 'Main', 50, -15, 8, 10, 'tub + lav'),
+        _room('STAIR', 'Stair', 'Main', 58, -12, 5, 7,
+              'to the upper floor — KEEP'),
+        _room('BATH1', 'Bath', 'Main', 63, -12, 9, 9,
               'tub/shower + lav + WC'),
-        _room('GUEST', 'Guest Rm', 'Main', 68, -12, 18, 13, ''),
-        _room('CLO-G', 'Guest closet', 'Main', 68, -12, 6, 5, ''),
-        _room('DINING', 'Dining Rm', 'Main', 24, 2, 12, 14,
-              'open to kitchen; 3x8 header'),
-        _room('KITCHEN', 'Kitchen', 'Main', 36, 8, 12, 18,
-              '4x12 header at the west opening'),
-        _room('PORCH', 'Covered Porch', 'Main', 48, 10, 22, 8,
-              'depth 8\'-0" labeled on the sheet; concrete slab'),
-        _room('LAUNDRY', 'Laundry/Mud', 'Main', 71, 1, 14, 16,
-              'exterior door 2\'-6"'),
+        _room('GUEST', 'Guest', 'Main', 72, -12, 18, 13, ''),
+        _room('CLO-G', 'Clo.', 'Main', 72, -12, 6, 5, 'inside the guest room'),
+        _room('KITCHEN', 'Kitchen', 'Main', 36, 5, 12, 18,
+              '4x12 header at the dining opening; south windows fill the wall'),
+        _room('PORCH', 'Cov. Porch', 'Main', 48, 10, 22, 8,
+              '8\'-0" deep, written on the sheet; concrete slab'),
+        _room('LAUNDRY', 'Laundry', 'Main', 76, 1, 14, 16,
+              '2\'-6" exterior door'),
     ]
     upper = [
-        _room('GIRLS', 'Girls Rm', 'Upper', 36, -4, 14, 10,
-              'dormer; sits over the changing room'),
-        _room('CLOSET', 'Closet', 'Upper', 50, -2, 8, 6,
+        _room('GIRLS', 'Girls', 'Upper', 36, -7, 14, 10,
+              'dormer; over the changing room'),
+        _room('CLOSET', 'Clo.', 'Upper', 50, -4, 8, 6,
               'between the bedrooms'),
-        _room('BOYS', 'Boys Rm', 'Upper', 62, -4, 14, 10,
-              'dormer; sits over the guest wing'),
-        _room('STAIRWELL', 'Stairwell', 'Upper', 56, -10, 5, 7,
+        _room('STAIRWELL', 'Stair', 'Upper', 58, -12, 5, 7,
               'same stair as the main floor — KEEP'),
-        _room('ATTIC', 'Attic', 'Upper', 36, 6, 40, 8,
+        _room('BOYS', 'Boys', 'Upper', 72, -12, 14, 10,
+              'dormer; over the guest room'),
+        _room('ATTIC', 'Attic', 'Upper', 36, 4, 40, 8,
               'unfinished, south of the bedroom bar'),
     ]
     return main + upper
@@ -88,6 +89,85 @@ def house_exterior_features() -> list[str]:
         'Covered porch west of living + covered porch east, concrete slab, 8 ft deep',
         'ELECT MAIN on the living west wall; 8-0 x 6-6 garage door (lower level, west)',
         'OIL TANK + FIREWOOD + fireplace on the living-room north wall',
+    ]
+
+
+def _op(mark, kind, x1, y1, x2, y2, label, swing=''):
+    return {
+        'mark': mark, 'kind': kind,
+        'x1': float(x1), 'y1': float(y1), 'x2': float(x2), 'y2': float(y2),
+        'label': label, 'swing': swing,
+    }
+
+
+def existing_openings() -> list[dict]:
+    """Openings on the tiled main plan.
+
+    Sizes written on the sheet stay as written. A 3-foot passage door is
+    the sheet's "3-0 doors TYP" where a room otherwise has no way in.
+    The kitchen south wall is 12 feet, and the three written windows are
+    3 + 5 + 4, so they fill that wall.
+    """
+    return [
+        _op('HGD', 'door', 0, 4, 0, 12, '8\'-0" x 6\'-6"', 'out'),
+        _op('HW6', 'window', 3, 0, 7, 0, '4\'-0" x 5\'-0"'),
+        _op('HD-L', 'door', 10, 16, 13, 16, '3\'-0"', 'out'),
+        _op('HW1', 'window', 43, -28, 49, -28, '6\'-0" x 5\'-0"'),
+        _op('HW2', 'window', 36, -24, 36, -19, '5\'-0" x 6\'-8"'),
+        _op('HW3', 'window', 58, -14, 58, -12, '2\'-0" x 2\'-0"'),
+        _op('HW4', 'window', 90, -8, 90, -5, '3\'-0" x 4\'-6"'),
+        _op('HW7a', 'window', 36, 23, 39, 23, '3\'-0" x 5\'-0"'),
+        _op('HW7b', 'window', 39, 23, 44, 23, '5\'-0" x 5\'-0"'),
+        _op('HW7c', 'window', 44, 23, 48, 23, '4\'-0" x 5\'-0"'),
+        _op('HW5', 'window', 55, 18, 57, 18, '2\'-0" x 4\'-6" TYP'),
+        _op('HW5b', 'window', 63, 18, 65, 18, '2\'-0" x 4\'-6"'),
+        _op('HD-P', 'door', 70, 12, 70, 15, '3\'-0"', 'in'),
+        _op('HW8a', 'window', 90, 6, 90, 9, '3\'-0" x 4\'-6"'),
+        _op('HW8b', 'window', 78, 17, 82, 17, '4\'-0" x 3\'-0"'),
+        _op('HD2', 'door', 84, 17, 86.5, 17, '2\'-6"', 'out'),
+        _op('OP-D', 'cased', 24, 4, 24, 9, '3x8 HDR'),
+        _op('OP-K', 'cased', 36, 8, 36, 14, '4x12 HDR'),
+        _op('D-MB', 'door', 51, -15, 54, -15, '3\'-0"', 'in'),
+        _op('D-CL', 'door', 38, -7, 40.5, -7, '2\'-6"', 'in'),
+        _op('D-GS', 'door', 72, -8, 72, -5, '3\'-0"', 'in'),
+        _op('D-LY', 'door', 80, 1, 83, 1, '3\'-0"', 'in'),
+        _op('D-KP', 'door', 48, 12, 48, 15, '3\'-0"', 'in'),
+    ]
+
+
+def proposed_openings() -> list[dict]:
+    """New work. Egress is a 3-foot by 4-foot casement, sill at 44 inches.
+    Passage doors are 3-foot. Bath windows are high awnings.
+    """
+    return [
+        _op('E1', 'window', 36, -12, 36, -9, '3\'-0" x 4\'-0" EGRESS'),
+        _op('E2', 'window', 88, -12, 88, -9, '3\'-0" x 4\'-0" EGRESS'),
+        _op('E3', 'window', 40, 12, 43, 12, '3\'-0" x 4\'-0" EGRESS'),
+        _op('E4', 'window', 64, 12, 67, 12, '3\'-0" x 4\'-0" EGRESS'),
+        _op('NE', 'window', 38, -52, 44, -52, '6\'-0" x 5\'-0"'),
+        _op('NE2', 'window', 36, -48, 36, -45, '3\'-0" x 5\'-0" EGRESS'),
+        _op('P1', 'door', 40, -5, 43, -5, '3\'-0"', 'in'),
+        _op('P2', 'door', 78, -5, 81, -5, '3\'-0"', 'in'),
+        _op('P3', 'door', 40, 1, 43, 1, '3\'-0"', 'in'),
+        _op('P4', 'door', 64, 1, 67, 1, '3\'-0"', 'in'),
+        _op('PB', 'door', 52, -36, 52, -33, '3\'-0"', 'in'),
+        _op('PW', 'door', 52, -48, 52, -45.5, '2\'-6"', 'in'),
+        _op('BA1', 'window', 52, -13, 54, -13, '2\'-0" x 3\'-0" AWN'),
+        _op('BA2', 'window', 66, -13, 68, -13, '2\'-0" x 3\'-0" AWN'),
+        _op('BD', 'door', 42, -28, 45, -28, '3\'-0"', 'in'),
+    ]
+
+
+def house_symbols() -> list[dict]:
+    """Fixtures and stair marks. Not dimensioned on the sheet."""
+    return [
+        {'kind': 'fp', 'x': 8, 'y': 0.3, 'w': 5, 'd': 1.6, 'label': 'F/P'},
+        {'kind': 'note', 'x': 1, 'y': -1.2, 'label': 'OIL + WOOD'},
+        {'kind': 'stair', 'x': 58, 'y': -12, 'w': 5, 'd': 7, 'label': 'UP  KEEP'},
+        {'kind': 'stair', 'x': 17, 'y': -5, 'w': 7, 'd': 5, 'label': 'DN'},
+        {'kind': 'tub', 'x': 51, 'y': -14, 'w': 2.5, 'd': 5, 'label': ''},
+        {'kind': 'tub', 'x': 25, 'y': -8, 'w': 2.5, 'd': 5, 'label': ''},
+        {'kind': 'tub', 'x': 64, 'y': -11, 'w': 2.5, 'd': 5, 'label': ''},
     ]
 
 
@@ -211,23 +291,23 @@ def concept_upper() -> list[dict]:
     program, not a new measurement.
     """
     return [
-        {'name': 'BED 1', 'x': 36, 'y': -8, 'w': 13, 'd': 12,
-         'note': 'dormer + egress'},
-        {'name': 'BATH 1', 'x': 49, 'y': -6, 'w': 7, 'd': 10,
-         'note': 'over the kitchen wet wall'},
-        {'name': 'STAIR (KEEP)', 'x': 56, 'y': -10, 'w': 5, 'd': 7,
+        {'name': 'BED 1', 'x': 36, 'y': -17, 'w': 14, 'd': 12,
+         'note': 'egress west; 3-0 to hall'},
+        {'name': 'BATH 1', 'x': 50, 'y': -13, 'w': 8, 'd': 8,
+         'note': 'high awning'},
+        {'name': 'STAIR (KEEP)', 'x': 58, 'y': -12, 'w': 5, 'd': 7,
          'note': 'existing stair'},
-        {'name': 'HALL', 'x': 56, 'y': -3, 'w': 8, 'd': 6, 'note': ''},
-        {'name': 'BATH 2', 'x': 61, 'y': -10, 'w': 7, 'd': 8,
-         'note': 'stacks on the main bath'},
-        {'name': 'BED 2', 'x': 68, 'y': -8, 'w': 12, 'd': 12,
-         'note': 'dormer + egress'},
-        {'name': 'BED 3', 'x': 36, 'y': 4, 'w': 14, 'd': 11,
-         'note': 'dormer + egress'},
-        {'name': 'OPEN TO BELOW', 'x': 50, 'y': 4, 'w': 8, 'd': 8,
-         'note': 'over the entry'},
-        {'name': 'BED 4', 'x': 62, 'y': 4, 'w': 14, 'd': 11,
-         'note': 'dormer + egress'},
+        {'name': 'BATH 2', 'x': 63, 'y': -13, 'w': 9, 'd': 8,
+         'note': 'high awning'},
+        {'name': 'BED 2', 'x': 72, 'y': -17, 'w': 16, 'd': 12,
+         'note': 'egress east'},
+        {'name': 'HALL', 'x': 36, 'y': -5, 'w': 52, 'd': 6, 'note': ''},
+        {'name': 'BED 3', 'x': 36, 'y': 1, 'w': 14, 'd': 11,
+         'note': 'egress south'},
+        {'name': 'OPEN BELOW', 'x': 50, 'y': 1, 'w': 8, 'd': 8,
+         'note': 'rail at the entry'},
+        {'name': 'BED 4', 'x': 58, 'y': 1, 'w': 16, 'd': 11,
+         'note': 'egress south'},
     ]
 
 

@@ -64,7 +64,7 @@ def d01_wall_section() -> dict:
                 'T&G PINE VENTED SOFFIT W/ CONT. STRIP VENT + RECESSED '
                 'SOFFIT LIGHTS [USER]'))
     ops.append(('t', 1.1, 5.2, 0.5, '2x6 DF-L @ 16" OC; R-21 BATTS; '
-                '5/8" DF STRUCTURAL SIDING (SHEAR) W/ 1x3 BATTENS @ 16"; '
+                '7/16" OSB SHEAR SHTG, 8d @ 6"/12"; WRB; 5/8" DF BATTEN FINISH; '
                 '5/8" GYP INT'))
     ops.append(('t', 1.2, -1.0, 0.5, '4" SLAB W/ RADIANT PEX @ 9" OC, '
                 'FIBER MESH, 10-MIL VB, 4" GRAVEL; R-10 EDGE'))
@@ -252,11 +252,11 @@ def d12_batten_corner() -> dict:
     ops.append(('l', -0.054, -0.054, 3.0, -0.054))
     for i in range(3):
         _rect(ops, 0.6 + i * 1.33, -0.14, 0.25, 0.08)  # battens (plan)
-    ops.append(('t', 1.0, 1.8, 0.5, '5/8" DF SIDING = SHEAR LAYER: '
-                'EDGE NAILING PER EOR SCHEDULE; SS FASTENERS [HANDOFF]'))
-    ops.append(('t', 1.0, -1.1, 0.5, '1x3 BATTENS @ 16" OC; 2x CORNER '
-                'BOARDS; WRB BEHIND; FLASH @ OPENINGS'))
-    return {'id': 'D12', 'title': 'STRUCTURAL SIDING/BATTEN @ CORNER '
+    ops.append(('t', 1.0, 1.8, 0.5, '7/16" OSB = SHEAR LAYER: '
+                '8d @ 6" EDGE / 12" FIELD [USER 2026-09-25]'))
+    ops.append(('t', 1.0, -1.1, 0.5, 'WRB, THEN 5/8" DF BATTEN FINISH; '
+                '1x3 BATTENS @ 16" OC; SS FASTENERS'))
+    return {'id': 'D12', 'title': 'OSB SHEAR + BATTEN FINISH @ CORNER '
             '(PLAN)', 'scale': 12, 'ops': ops}
 
 

@@ -22,7 +22,7 @@ _REBAR_SPEC_RE = re.compile(r"\((\d+)\)\s*#(\d+)")
 # ---- loads ----------------------------------------------------------------
 SNOW_PSF = 75.0            # roof snow [RB framing notes]
 ROOF_DL_PSF = 15.0         # metal roof + trusses + insul (ASSUMED)
-WALL_DL_PSF = 12.0         # 2x6 + 5/8 DF siding + gyp (ASSUMED)
+WALL_DL_PSF = 12.0         # 2x6 + 7/16 OSB + DF batten + gyp (ASSUMED)
 WIND_V_MPH = 115.0         # CBC basic wind, Exp C (ASSUMED — site TBD)
 SDS = 1.0                  # seismic, SDC D (ASSUMED — site-specific TBD)
 R_WOOD_SW = 6.5            # light-frame wood shear wall system
@@ -122,8 +122,8 @@ def structural_notes() -> list[str]:
         'ROOF TRUSSES: DEFERRED SUBMITTAL — engineered by fabricator '
         '(modified scissor 32\' 6/12-6/12; 34\' 10/12-6/12; shed @ rear) '
         '[BOM]; truss calcs to building dept. prior to erection',
-        'LATERAL SYSTEM: Simpson Strong-Wall per schedule + 5/8" DF '
-        'structural siding (engineering memo governs over OSB note)',
+        'LATERAL SYSTEM: Simpson Strong-Wall at the overhead doors + '
+        '7/16" OSB shear sheathing. DF batten is finish only.',
         'ALL STRUCTURAL VALUES MARKED (ASSUMED) REQUIRE EOR CONFIRMATION; '
         'PE approval reserved per contract',
     ]
