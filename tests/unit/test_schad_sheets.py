@@ -44,7 +44,7 @@ EXPECTED_SHEET_FILES = {
     "S3-1_details.svg", "S3-2_details.svg", "S3-3_details.svg",
     "A4-1_schedule.svg", "S4-1_custom.svg",
     "MEP-101_plan.svg", "MEP-201_plan.svg", "MEP-301_plan.svg",
-    "H1-1_doc.svg", "H1-2_doc.svg", "H2-1_doc.svg", "H2-2_custom.svg",
+    "H1-1_custom.svg", "H1-2_custom.svg", "H2-1_doc.svg", "H2-2_custom.svg",
 }
 
 
@@ -174,7 +174,10 @@ def test_rebar_schedule_aggregates_marks(project):
 def test_roofs_placed_ridge_18ft(project):
     s = basis.build_scalars()
     roofs = {el.name: el for el in _by_category(project, "roof")}
-    assert set(roofs) == {"Roof-Main-Gable", "Roof-Bay2-CrossGable", "Roof-Rear-Shed"}
+    assert set(roofs) == {
+        "Roof-Main-Gable", "Roof-Bay2-CrossGable", "Roof-Rear-Shed",
+        "Roof-Breezeway",
+    }
     ridge_mm = s["ridge"] * FT_TO_MM
     # drift pin (WP-SCHAD-S8 CI guard): the PUBLISHED ridge is 18' = 5486.4 mm
     # (transition review §2.3 program facts) — basis or kernel drift fails here
@@ -197,6 +200,16 @@ def test_roofs_placed_ridge_18ft(project):
     expected_slope = (s["plate_rear_high"] - s["plate_rear_low"]) * FT_TO_MM / run_mm
     assert shed.params["slope"] == pytest.approx(expected_slope)
     assert "Q-SHED" in str(shed.params.get("status"))
+    # Open breezeway: 6:12 off the garage eave, ridge along the link.
+    import schad_house_basis as house
+    bzw = house.breezeway()
+    link = roofs["Roof-Breezeway"]
+    half_mm = (bzw["d"] / 2.0) * FT_TO_MM
+    assert link.params["pitch"] == pytest.approx(bzw["pitch"])
+    assert link.params["plate_mm"] == pytest.approx(bzw["plate"] * FT_TO_MM)
+    assert link.params["ridge_z_mm"] == pytest.approx(
+        bzw["plate"] * FT_TO_MM + half_mm * bzw["pitch"]
+    )
 
 
 # --- 3. Gate C register -------------------------------------------------------

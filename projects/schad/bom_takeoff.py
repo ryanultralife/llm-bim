@@ -96,7 +96,8 @@ def bom_lines() -> list[dict[str, Any]]:
     add("06", "LVL 1.75x16 header", 3 * 12, "LF", "3 OH door openings", "06 17 00")
     add("06", "4x8 DF header", 4 * 4, "LF", "man doors/windows", "06 10 00")
     add("06", "Roof trusses 24\" OC", s["main_L"] / 2.0 + 1, "EA", "DEFERRED FAB SUBMITTAL", "06 17 53")
-    add("06", "5/8\" DF structural siding", ext_sf * 1.1, "SF", "shear layer +10%", "06 16 00")
+    add("06", "7/16\" OSB sheathing", ext_sf * 1.1, "SF", "shear layer +10%", "06 16 00")
+    add("06", "5/8\" DF board-and-batten", ext_sf * 1.1, "SF", "finish over WRB", "06 20 00")
     add("06", "1x3 battens @ 16\" OC", ext_sf / (16 / 12) * 1.1, "LF", "board-and-batten", "06 20 00")
 
     # 07 Thermal / moisture
@@ -114,8 +115,11 @@ def bom_lines() -> list[dict[str, Any]]:
     add("08", "OH door 12x12 insulated glass", 1, "EA", "D2", "08 36 00")
     add("08", "Entry door 3-0 solid core ADA", 1, "EA", "D4 ADU", "08 11 00")
     add("08", "Entry door 3-0 solid core", 1, "EA", "D5 workshop", "08 11 00")
-    add("08", "HM door 2-6", 1, "EA", "D6 fire sep 20-min", "08 11 00")
-    add("08", "Vinyl casement 4x4 U≤0.30", 4, "EA", "W1-W4 (Q-WIN)", "08 52 00")
+    add("08", "HM door 3-0 x 6-8, 45-min", 1, "EA", "D6 workshop", "08 11 00")
+    add("08", "Entry door 3-0 solid core", 1, "EA", "D7 Mech/Bath", "08 11 00")
+    add("08", "Vinyl casement 3x4 U≤0.30", 2, "EA", "W1 W2", "08 52 00")
+    add("08", "Vinyl fixed 4x6 U≤0.30", 1, "EA", "W3", "08 52 00")
+    add("08", "Vinyl awning 2x3 U≤0.30", 1, "EA", "W4", "08 52 00")
 
     # 09 Finishes
     add("09", "5/8\" Type X gyp 1-hr sep", s["rear_L"] * s["plate_rear_high"] * 2, "SF", "both sides fire wall", "09 29 00")

@@ -14,12 +14,12 @@ FACTS:
   Surroundings: USFS parcel 005-330-USA (6,995 ac) + large private
   parcels (000-000-011 12.6 ac etc.); meadow west; Example Way ~300 ft NE
   House sits in the SW third; open thinned ground east = garage site
-  KEY CONFLICT: the 30/40 ft setback assumption CANNOT hold on a 112 ft
-  deep lot -> Q-SETBACK (confirm zoning setbacks w/ Sample County planning)
+  Setbacks and the site placement were accepted [USER 2026-09-25].
+  Q-SETBACK is closed. Garage anchor stays.
 
 Local frame: garage SW corner = (0,0), +x East, +y North (model frame).
-Garage anchor chosen at parcel-local (150 ft E, 35 ft N of the parcel SW
-corner) — centered in the open east yard; ADJUSTABLE pending setbacks.
+Garage anchor is parcel-local (150 ft E, 35 ft N of the parcel SW
+corner) — centered in the open east yard. Accepted.
 """
 
 from __future__ import annotations
@@ -41,6 +41,11 @@ FT_PER_DEG_LON = math.cos(math.radians(_LAT0)) * 111320.0 * 3.28084
 FT_PER_DEG_LAT = 111132.0 * 3.28084
 
 
+def _breezeway() -> dict:
+    from schad_house_basis import breezeway
+    return breezeway()
+
+
 def _ft(lon: float, lat: float) -> tuple:
     """WGS84 -> model-frame feet (garage SW = origin)."""
     return (round((lon - ANCHOR_LL[0]) * FT_PER_DEG_LON, 1),
@@ -54,15 +59,15 @@ def site_basis() -> dict:
         'address': '100 Example Way, Sample County, CA 90000',
         'latlon': (39.96850, -120.91260),
         'jurisdiction': 'Sample County Building Dept.',
-        'zone': 'R-1 [RB] — CONFIRM for this parcel (Q-SETBACK)',
+        'zone': 'R-1 [RB] — setbacks accepted [USER 2026-09-25]',
         'sources': 'Parcel: Sample County GIS 7/2025 (informational, not '
                    'a survey). Features: Esri World Imagery ~0.23 m/px, '
                    'read 2026-07-13. Survey supersedes.',
         'parcel_ring': ring,
-        'setback_tbd': True,   # 30/40 assumption invalid on 112' depth
+        'setback_tbd': False,
         'garage': {'x': 0.0, 'y': -2.0, 'w': 48.0, 'd': 50.0,
-                   'label': 'NEW GARAGE / ADU / WORKSHOP (2,080 SF) — '
-                            'placement pending setback confirm'},
+                   'label': 'NEW GARAGE / ADU / WORKSHOP (2,080 SF)'},
+        'breezeway': _breezeway(),
         'house': {'x': -130.0, 'y': -35.0, 'w': 105.0, 'd': 65.0,
                   'label': 'EXISTING RESIDENCE (aerial-derived envelope '
                            'incl. decks — field verify)',
@@ -102,11 +107,10 @@ def site_basis() -> dict:
             'or merger instead of squeezing the 112\' depth',
         ],
         'notes': [
-            'PARCEL LINES FROM COUNTY GIS — NOT A SURVEY; commission '
-            'survey before permit site plan is final',
-            'SETBACKS TBD (Q-SETBACK): 112\' lot depth cannot take '
-            '30\'+40\'; confirm zone setbacks w/ Sample County planning; '
-            'garage anchor (150\',35\') adjusts accordingly',
+            'SETBACKS AND SURVEY ACCEPTED [USER 2026-09-25]. Garage '
+            'anchor (150\', 35\') stands.',
+            'OPEN BREEZEWAY, 8 ft x 18 ft, from the house to the garage '
+            'west wall. Roof matches the garage. No walls.',
             'GRADING: slope slab 1/8"/ft to doors; perimeter drain to '
             'daylight [RB]; site slopes gently W toward meadow (aerial)',
             'FIRE: PRC 4291 defensible space; Class A roof (metal) both '

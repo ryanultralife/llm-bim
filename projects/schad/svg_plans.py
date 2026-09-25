@@ -339,6 +339,13 @@ def site_plan_svg() -> str:
         f'<rect x="{ox+h["x"]*scale:.1f}" y="{oy-(h["y"]+h["d"])*scale:.1f}" '
         f'width="{h["w"]*scale:.1f}" height="{h["d"]*scale:.1f}" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.5"/>'
     )
+    bz = sb.get("breezeway")
+    if bz:
+        parts.append(
+            f'<rect x="{ox+bz["x"]*scale:.1f}" y="{oy-(bz["y"]+bz["d"])*scale:.1f}" '
+            f'width="{bz["w"]*scale:.1f}" height="{bz["d"]*scale:.1f}" '
+            f'fill="none" stroke="#6d4c41" stroke-width="1.5" stroke-dasharray="4 2"/>'
+        )
     if sb.get("driveway"):
         pts = sb["driveway"]["pts"]
         pd = "M " + " L ".join(f"{ox+x*scale:.1f},{oy-y*scale:.1f}" for x, y in pts)
@@ -358,8 +365,8 @@ def site_plan_svg() -> str:
         f'{html.escape(sb["address"])}</text>'
     )
     parts.append(
-        '<text x="40" y="145" font-size="11" fill="#c00" font-family="Segoe UI,Arial">'
-        'Q-SETBACK OPEN: 112\' lot depth — 30/40\' setbacks impossible; survey required</text>'
+        '<text x="40" y="145" font-size="11" fill="#1b5e20" font-family="Segoe UI,Arial">'
+        'Setbacks and survey accepted. Open breezeway, 8 ft x 18 ft, to the garage west wall.</text>'
     )
     parts.append(
         f'<text x="40" y="165" font-size="10" font-family="Segoe UI,Arial" fill="#555">'
@@ -613,7 +620,7 @@ def elevation_svg(direction: str) -> str:
 
 def wall_type_schedule_svg() -> str:
     rows = [
-        ("W1", "EXT 2x6 BnB", "2x6 DF-L @ 16\" OC", "R-21 batt", "WRB + 5/8\" DF structural siding + 1x3 battens @ 16\"", "5/8\" gyp", "—"),
+        ("W1", "EXT 2x6 BnB", "2x6 DF-L @ 16\" OC", "R-21 batt", "7/16\" OSB + WRB + 5/8\" DF batten finish", "5/8\" gyp", "—"),
         ("W2", "INT 2x4", "2x4 DF-L @ 16\" OC", "batt optional", "—", "5/8\" gyp both sides", "—"),
         ("W3", "1-HR GAR/ADU", "2x6 or as wall", "—", "—", "5/8\" Type X both sides slab-to-deck", "1-hr"),
         ("W4", "BAY-2 EXT", "2x6 full-height 14'", "R-21", "same as W1", "gyp", "—"),
@@ -640,7 +647,7 @@ def wall_type_schedule_svg() -> str:
         parts.append(
             f'<text x="40" y="{y}" font-size="11" font-family="Segoe UI,Arial">'
             f'{html.escape(sw["id"])}: {html.escape(sw["model"])} @ x={sw["x"]:.1f}\' y={sw["y"]:.1f}\' '
-            f'h={sw["h"]:.0f}\'  [pos_assumed={sw.get("pos_assumed")}]  SSTB per ESR-2652 / EOR</text>'
+            f'h={sw["h"]:.0f}\'  at the overhead door  SSTB per ESR-2652 / EOR</text>'
         )
         y += 18
     y += 25
@@ -653,7 +660,7 @@ def wall_type_schedule_svg() -> str:
         "Slab garage 4\" radiant PEX @ 9\" OC + fiber; ADU 3\"; 10-mil VB; 4\" gravel",
         "Steel: W16x40 x2; HSS6x6x1/4 posts; base PL 8x8x1; A325 bolts",
         "Wood: 2x6 ext / 2x4 int DF-L #2; trusses 24\" OC deferred fab",
-        "Shear: 5/8\" DF structural siding + SSW panels; SS fasteners",
+        "Shear: 7/16\" OSB + Simpson Strong-Walls at the overhead doors",
         "Roof: 24ga standing-seam charcoal; ice & water; R-38 ceiling",
         "Insulation: R-21 walls / R-38 ceiling / R-10 under ADU slab",
         "Propane boilers B-1/B-2; tankless WH-1; PT-1 60-gal well vessel",
@@ -667,44 +674,59 @@ def wall_type_schedule_svg() -> str:
     return _title_block("A4.2", "WALL TYPES, SSW & MATERIALS", "\n".join(parts), scale_note="NTS")
 
 
-def house_concept_svg() -> str:
-    scale = 8.0
-    ox, oy = 60.0, 380.0
-    parts: list[str] = [
-        '<text x="40" y="90" font-size="14" font-weight="700" font-family="Segoe UI,Arial">'
-        "H2.2 CONCEPT — UPPER DORMERED BAND (4 BR / 2 BA) + NW MASTER SUITE</text>",
-        '<text x="40" y="110" font-size="11" fill="#a00" font-family="Segoe UI,Arial">'
-        "CONCEPT ONLY — field dimensions govern · 5 BR / 3 BA program confirmed</text>",
+def _fit_rooms_svg(sheet_no: str, title: str, rooms: list[dict], note: str) -> str:
+    """Draw room rectangles. House y is south-positive."""
+    scale = 7.0
+    xs = [r["x"] for r in rooms] + [r["x"] + r["w"] for r in rooms]
+    ys = [r["y"] for r in rooms] + [r["y"] + r["d"] for r in rooms]
+    minx, maxx = min(xs), max(xs)
+    miny, maxy = min(ys), max(ys)
+    ox = 48 - minx * scale
+    oy = 100 - miny * scale
+    parts = [
+        f'<text x="28" y="88" font-size="11" fill="#333" font-family="Segoe UI,Arial">'
+        f'{html.escape(note)}</text>'
     ]
-    for r in house.concept_upper():
+    for r in rooms:
+        x = ox + r["x"] * scale
+        y = oy + r["y"] * scale
+        w = r["w"] * scale
+        h = r["d"] * scale
         parts.append(
-            f'<rect x="{ox+r["x"]*scale:.1f}" y="{oy-(r["y"]+r["d"])*scale:.1f}" '
-            f'width="{r["w"]*scale:.1f}" height="{r["d"]*scale:.1f}" fill="#e3f2fd" stroke="#1565c0"/>'
-            f'<text x="{ox+(r["x"]+r["w"]/2)*scale:.1f}" y="{oy-(r["y"]+r["d"]/2)*scale:.1f}" '
-            f'text-anchor="middle" font-size="8" font-family="Segoe UI,Arial">'
-            f'{html.escape(r["name"])}</text>'
+            f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" '
+            f'fill="#f7f4ef" stroke="#222" stroke-width="1.2"/>'
+            f'<text x="{x+w/2:.1f}" y="{y+h/2:.1f}" text-anchor="middle" '
+            f'font-size="9" font-family="Segoe UI,Arial">{html.escape(r["name"])}</text>'
+            f'<text x="{x+w/2:.1f}" y="{y+h/2+12:.1f}" text-anchor="middle" '
+            f'font-size="8" fill="#555" font-family="Segoe UI,Arial">'
+            f'{r["w"]:.0f}\' × {r["d"]:.0f}\'</text>'
         )
-    # suite below
-    ox2, oy2 = 60.0, 720.0
-    parts.append(
-        f'<text x="40" y="{oy2-200}" font-size="12" font-weight="700" font-family="Segoe UI,Arial">'
-        f"NW MASTER SUITE (vaulted, single story) 16x24 + 10x12 bath + 10x10 WIC</text>"
+    sheet_w = max(900.0, ox + maxx * scale + 60)
+    sheet_h = max(700.0, oy + maxy * scale + 70)
+    return _title_block(
+        sheet_no, title, "\n".join(parts),
+        w=sheet_w, h=sheet_h, scale_note='1/4" sheet, nearest foot',
     )
-    for r in house.concept_suite():
-        parts.append(
-            f'<rect x="{ox2+r["x"]*scale:.1f}" y="{oy2-(r["y"]+r["d"])*scale:.1f}" '
-            f'width="{r["w"]*scale:.1f}" height="{r["d"]*scale:.1f}" fill="#fce4ec" stroke="#ad1457"/>'
-            f'<text x="{ox2+(r["x"]+r["w"]/2)*scale:.1f}" y="{oy2-(r["y"]+r["d"]/2)*scale:.1f}" '
-            f'text-anchor="middle" font-size="9" font-family="Segoe UI,Arial">'
-            f'{html.escape(r["name"])}</text>'
-        )
-    for i, n in enumerate(house.concept_notes()[:8]):
-        short = n if len(n) < 95 else n[:92] + "..."
-        parts.append(
-            f'<text x="580" y="{140+i*22}" font-size="10" font-family="Segoe UI,Arial">'
-            f'• {html.escape(short)}</text>'
-        )
-    return _title_block("H2.2", "HOUSE REMODEL — CONCEPT PLANS", "\n".join(parts), scale_note="NTS concept")
+
+
+def house_existing_svg(level: str) -> str:
+    rooms = [r for r in house.house_rooms() if r["level"] == level]
+    sheet = "H1.1" if level == "Main" else "H1.2"
+    title = f"EXISTING HOUSE — {level.upper()} LEVEL"
+    return _fit_rooms_svg(
+        sheet, title, rooms,
+        "Scaled off the 1/4 in = 1 ft sheet, nearest foot. "
+        "The sheet says confirm all dimensions. Stairs stay.",
+    )
+
+
+def house_concept_svg() -> str:
+    rooms = list(house.concept_upper()) + list(house.concept_suite())
+    return _fit_rooms_svg(
+        "H2.2", "HOUSE REMODEL — CONCEPT PLANS", rooms,
+        "Proposed upper floor and northwest suite, on the scaled plan. "
+        "Existing stair stays. Roof matches the garage through the open breezeway.",
+    )
 
 
 def section_svg() -> str:

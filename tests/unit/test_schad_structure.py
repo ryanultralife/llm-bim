@@ -192,7 +192,7 @@ def test_schad_headers_placed_at_basis_openings(project):
     headers = _by_category(project, "header")
     doors = basis.build_doors()
     windows = basis.build_windows()
-    assert len(headers) == len(doors) + len(windows) == 10
+    assert len(headers) == len(doors) + len(windows)
     oh_marks = {d["mark"] for d in doors if "OVERHEAD" in d["type"].upper()}
     hdr2 = [h for h in headers if h.type_id == "HDR-2"]
     hdr1 = [h for h in headers if h.type_id == "HDR-1"]
@@ -229,8 +229,8 @@ def test_schad_shear_walls_typed_with_schedule(project):
     for r in rows:
         assert r["size"]
         assert len(r["locations"]) == r["count"]
-        # basis flags SSW stations as assumed — carried through, not hidden
-        assert all(loc["pos_assumed"] for loc in r["locations"])
+        # stations are the overhead-door jambs, confirmed, not assumed
+        assert not any(loc["pos_assumed"] for loc in r["locations"])
 
 
 def test_schad_rules_no_wall_exceeds_story(project):

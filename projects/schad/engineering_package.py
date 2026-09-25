@@ -317,7 +317,7 @@ def structural_engineering_report() -> str:
         "",
         f"- Seismic weight W ≈ {lt['W_k']} k · Cs = {lt['Cs']} · Base shear V = {lt['V_k']} k",
         f"- Front-line demand {lt['v_front_k']} k vs SSW capacity {lt['cap_front_k']} k · **DCR {lt['DCR']} → {_ok(lt['ok'])}**",
-        "- System: Simpson SSW + 5/8\" DF structural siding diaphragm/shear skin",
+        "- System: Simpson SSW at the overhead doors + 7/16\" OSB shear sheathing",
         "- **EOR must** complete full ELF/RSA, N-S line, hold-down design, diaphragm nailing",
         "",
         "## 6. Wind (order-of-magnitude)",

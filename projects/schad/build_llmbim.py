@@ -13,7 +13,7 @@ explicit ``*_assumed`` flag (stem height, equipment massing sizes).
 
 Wall / door / window types are the WP-SCHAD-S1 residential registry
 (``llmbim_core.types_catalog``): W-EXT-2x6-BNB / W-INT-2x4 / W-1HR-GAR-ADU,
-D-OH-12x9 / D-OH-12x12 / D-SC-36-ADA / D-HM-30, WIN-CASE-48x48.
+D-OH-12x9 / D-OH-12x12 / D-SC-36-ADA / D-HM-3068, BOM windows.
 Per the transition review §8, no Schad wall may map to W-EXT-CMU / W-INT-GYP.
 
 WP-SCHAD-S6 adds: foundations (strip/pad footings, stem walls, dual slabs —
@@ -63,8 +63,7 @@ WALL_TYPE_INT = "W-INT-2x4"
 WALL_TYPE_FIRE = "W-1HR-GAR-ADU"
 DOOR_TYPES_OH = ("D-OH-12x9", "D-OH-12x12")
 DOOR_TYPE_SC = "D-SC-36-ADA"
-DOOR_TYPE_HM = "D-HM-30"
-WINDOW_TYPE = "WIN-CASE-48x48"
+DOOR_TYPE_HM = "D-HM-3068"
 
 # The record fixes footing section (18"x12") and stem thickness (8"/6") but not
 # a stem height / frost-depth scalar. The drawn D01 wall section (schad_details:
@@ -121,6 +120,11 @@ def wall_type_for_kind(kind: str) -> tuple[str, str]:
     if "interior" in k:
         return WALL_TYPE_INT, ""
     return WALL_TYPE_EXT, ""
+
+
+def window_type_for(win: dict[str, Any]) -> str:
+    """Catalog id carried on the basis window row (BOM mix)."""
+    return str(win.get("type_id") or "WIN-CASE-36x48")
 
 
 def door_type_for(d: dict[str, Any]) -> str:
@@ -255,6 +259,13 @@ def _build_shell(p: Project) -> dict[str, Any]:
                 and abs(wr["x2"] - s["rear_off_x"]) < 0.05
             ):
                 score -= 2.0
+            east_x = s["rear_off_x"] + s["rear_L"]
+            if (
+                wall_hint == "rear-east"
+                and abs(wr["x1"] - east_x) < 0.05
+                and abs(wr["x2"] - east_x) < 0.05
+            ):
+                score -= 2.0
             if "fire" in wall_hint and "fire" in kind:
                 score -= 2.0
             cand = (wr["id"], off, L, score)
@@ -322,7 +333,7 @@ def _build_shell(p: Project) -> dict[str, Any]:
             height_mm=h_mm,
             sill_mm=sill,
             name=win["mark"],
-            type_id=WINDOW_TYPE,
+            type_id=window_type_for(win),
         )
         header_jobs.append(
             {
@@ -634,13 +645,32 @@ def _build_roofs(p: Project, ctx: dict[str, Any]) -> None:
         value="Q-SHED open — verify 1.5:12 w/ truss fab against 75 psf snow",
     )
 
-    # Roofing assembly for the takeoff (roof area is priced on-slope in the
-    # BOQ). R-38 is the USER directive; the 75 psf snow load and 18" overhang
-    # are basis. The FINISH is NOT specified in the basis — asphalt shingle is
-    # assumed here so the takeoff has an assembly to price.
-    # OPEN: confirm asphalt vs standing-seam metal (R-METAL-R38) with owner.
-    for _rid in (main_id, bay_id, shed_id):
-        p.op("set_type", id=_rid, type_id="R-ASPHALT-R38")
+    # Open breezeway to the house [USER 2026-09-25]. Numbers from
+    # schad_house_basis.breezeway — 6:12, plate at the garage eave.
+    bz = house.breezeway()
+    bz_id = p.create_gable_roof(
+        level="L1",
+        footprint=[
+            (ft(bz["x"]), ft(bz["y"])),
+            (ft(bz["x"] + bz["w"]), ft(bz["y"])),
+            (ft(bz["x"] + bz["w"]), ft(bz["y"] + bz["d"])),
+            (ft(bz["x"]), ft(bz["y"] + bz["d"])),
+        ],
+        ridge_axis="x",
+        plate_mm=ft(bz["plate"]),
+        pitch=bz["pitch"],
+        overhang_mm=ov,
+        thickness_mm=thick,
+        name="Roof-Breezeway",
+    )
+    p.op(
+        "set_param", id=bz_id, key="status",
+        value="open breezeway — no walls, 6x6 posts, roof matches garage",
+    )
+
+    # Standing-seam charcoal is the resolved roof finish (Q-ROOFMAT).
+    for _rid in (main_id, bay_id, shed_id, bz_id):
+        p.op("set_type", id=_rid, type_id="R-METAL-R38")
 
 
 def _build_mep_content(p: Project, ctx: dict[str, Any]) -> None:
@@ -1141,8 +1171,8 @@ def schad_sheet_register(p: Project) -> list[dict[str, Any]]:
             hide_note_disciplines={"E", "P"},
             keynotes=True,
         ),
-        e("H1.1", "doc", text=_house_doc_text("Main")),
-        e("H1.2", "doc", text=_house_doc_text("Upper")),
+        e("H1.1", "custom_svg", view=svg_plans.house_existing_svg("Main")),
+        e("H1.2", "custom_svg", view=svg_plans.house_existing_svg("Upper")),
         e("H2.1", "doc", text=_remodel_doc_text()),
         e("H2.2", "custom_svg", view=svg_plans.house_concept_svg()),
     ]
@@ -1168,12 +1198,12 @@ def _basis_snapshot() -> dict[str, Any]:
         "known_gaps": [
             "SSW pad anchorage footings carried on detail D06 only (EOR scope)",
             "stem height / frost depth assumed from drawn D01 (flagged in model)",
-            "S7 imperial dims + door/window tags pending on plan sheets",
+            "House room sizes are the scaled sheet, nearest foot, not a tape measure",
+            "Owner finish list (Q-HANDOFF10) still open",
         ],
         "assumed_flags": [
             "stem_height_assumed (STEM_HEIGHT_FT_ASSUMED from D01 geometry)",
             "size_assumed on Mech/Bath equipment massing boxes",
-            "pos_assumed on SSW panels + basis door/window placements (Q-LOC)",
         ],
         "open_questions": basis.open_questions(),
     }

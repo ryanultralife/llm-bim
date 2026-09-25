@@ -105,8 +105,9 @@ def spec_doc() -> list[str]:
             '2x6 DF-L #2 studs @ 16" OC ext; 2x4 int; DBL top plates, PT '
             'sills [RB]',
             'Trusses 24" OC engineered [RB/BOM]; LVL 1.75x16 headers',
-            '5/8" DF structural siding = shear layer per engineering '
-            'memo (supersedes OSB note)',
+            '7/16" OSB shear sheathing, 8d at 6" edges / 12" field; '
+            '5/8" DF board-and-batten is finish over WRB '
+            '[USER 2026-09-25]',
             '18" overhangs, eaves + rakes; soffit 1x6 T&G pine, clear '
             'sealed, VENTED (maintain net free area per CRC R806) w/ '
             'recessed soffit lighting [USER 2026-07-12]']),
@@ -119,9 +120,10 @@ def spec_doc() -> list[str]:
         ('08 OPENINGS', [
             'Overhead doors: 2x 12x9 + 1x 12x12 glass-panel, insulated, '
             'WiFi operators [RB/BOM]',
-            'Man doors: 3-0x6-8 solid core (ADA at ADU); 2-6 HM [RB]',
-            'Windows: 4x 4-0x4-0 vinyl casement U<=0.30 [RB] (Q-WIN: '
-            'BOM lists different mix — resolve before order)']),
+            'Man doors: 3-0x6-8 solid core (ADA at ADU, plus Mech/Bath); '
+            '3-0x6-8 HM 45-min at the workshop [USER 2026-09-25]',
+            'Windows: BOM mix — 2x 3-0x4-0 casement, 1x 4-0x6-0 fixed, '
+            '1x 2-0x3-0 awning, U<=0.30']),
         ('09 FINISHES', [
             '5/8" Type X gyp at garage/ADU separation (1-hr) + ADU '
             'interior; polished concrete floors [RB/HANDOFF]']),

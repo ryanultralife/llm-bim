@@ -24,7 +24,8 @@ convention as the proven INTEC thread.
 COORDS: origin at the SW corner of the MAIN building; +x East, +y North,
 +z up. The Bay 2 projection extends to y = -2 (south of origin).
 
-Phase 2 (House Remodel) has no design record yet — see open_questions().
+Phase 2 (House Remodel) is in schad_house_basis.py — scaled existing
+plan, program, and the open breezeway. See open_questions() Q-HOUSE.
 """
 
 from __future__ import annotations
@@ -69,7 +70,9 @@ def build_scalars() -> dict:
                   '[USER 2026-07-12]',
 
         # wall assemblies [RB framing notes: 2x6 @ 16" OC ext; HANDOFF 2x4 int]
-        'wall_t_ext': 6.5 * IN,  # 2x6 stud + 5/8" structural DF siding
+        'wall_t_ext': 6.5 * IN,  # plan thickness to face of stud (2x6).
+                                 # Shear skin is 7/16" OSB outside the stud
+                                 # [USER 2026-09-25]; DF batten is finish.
         'wall_t_int': 4.5 * IN,  # 2x4 partition
         'stud_ext': '2x6 DF-L @ 16" OC',
         'stud_int': '2x4 DF-L @ 16" OC',
@@ -221,35 +224,62 @@ def build_doors() -> list[dict]:
         oh('D1', b / 2.0, 0.0, 12.0, 9.0),               # Bay 1 [RB]
         oh('D2', b * 1.5, -p, 12.0, 12.0),               # Bay 2 [RB]
         oh('D3', b * 2.5, 0.0, 12.0, 9.0),               # Bay 3 [RB]
+        # ADU entry at the enlarged-plan station (local x=7 on the north
+        # wall). 3'-0" x 6'-8", 18" strike side toward the kitchen.
         {'mark': 'D4', 'w': 3.0, 'h': 6.0 + 8 * IN, 'type': 'ENTRY',
-         'remarks': 'SOLID CORE, ADA COMPLIANT',          # ADU entry [RB]
-         'cx': s['rear_off_x'] + s['adu_L'] / 2.0, 'cy': W + rW,
-         'wall': 'rear-north', 'pos_assumed': True},
+         'remarks': 'SOLID CORE, ADA COMPLIANT',
+         'cx': s['rear_off_x'] + 7.0, 'cy': W + rW,
+         'wall': 'rear-north', 'pos_assumed': False},
+        # Workshop personnel door, centered on the north exterior wall.
         {'mark': 'D5', 'w': 3.0, 'h': 6.0 + 8 * IN, 'type': 'ENTRY',
-         'remarks': 'SOLID CORE',                         # workshop ext [RB]
+         'remarks': 'SOLID CORE',
          'cx': s['rear_off_x'] + s['adu_L'] + s['workshop_L'] / 2.0,
-         'cy': W + rW, 'wall': 'rear-north', 'pos_assumed': True},
-        {'mark': 'D6', 'w': 2.5, 'h': 6.0 + 8 * IN, 'type': 'ENTRY',
-         'remarks': 'HOLLOW METAL',       # garage->workshop [RB, loc Q-LOC]
+         'cy': W + rW, 'wall': 'rear-north', 'pos_assumed': False},
+        # Garage-to-workshop door in the 1-hr wall. 3'-0" x 6'-8" hollow
+        # metal, 45-minute (opening protective in a 1-hr wall). No door
+        # is cut through the ADU side of that wall.
+        {'mark': 'D6', 'w': 3.0, 'h': 6.0 + 8 * IN, 'type': 'ENTRY',
+         'remarks': 'HOLLOW METAL, 45-MIN',
          'cx': s['rear_off_x'] + s['adu_L'] + 4.0, 'cy': W,
-         'wall': 'fire-separation-1hr', 'pos_assumed': True},
+         'wall': 'fire-separation-1hr', 'pos_assumed': False},
+        # Mech/Bath entry off Bay 3, on the south partition, clear of the
+        # boilers. 3'-0" x 6'-8" solid core.
+        {'mark': 'D7', 'w': 3.0, 'h': 6.0 + 8 * IN, 'type': 'ENTRY',
+         'remarks': 'SOLID CORE',
+         'cx': 43.0, 'cy': 20.0, 'wall': 'interior-2x4',
+         'pos_assumed': False},
     ]
 
 
 def build_windows() -> list[dict]:
-    """[RB A4.1]: 4x vinyl casement 4'x4', U 0.30. Locations not drawn on
-    the plan (Q-LOC): assumed ADU north/west + workshop north, sill 3'."""
+    """BOM window mix [USER 2026-09-25, Q-WIN]: two 3'x4' casements, one
+    4'x6' fixed, one 2'x3' awning. U=0.30. Stations are the ordinary
+    residential places: egress at the ADU bed, light at the ADU kitchen,
+    a high awning at the ADU bath, work light on the workshop east wall.
+    No glazing in the 1-hr garage wall."""
     s = build_scalars()
     W, rW, rx = s['main_W'], s['rear_W'], s['rear_off_x']
-    base = {'w': 4.0, 'h': 4.0, 'type': 'VINYL CASEMENT, DOUBLE PANE',
-            'u_factor': 0.30, 'sill': 3.0, 'pos_assumed': True}
     return [
-        dict(base, mark='W1', cx=rx + 3.0, cy=W + rW, wall='rear-north'),
-        dict(base, mark='W2', cx=rx, cy=W + rW / 2.0, wall='rear-west'),
-        dict(base, mark='W3', cx=rx + s['adu_L'] + 4.0, cy=W + rW,
-             wall='rear-north'),
-        dict(base, mark='W4', cx=rx + s['adu_L'] + 13.0, cy=W + rW,
-             wall='rear-north'),
+        {'mark': 'W1', 'w': 3.0, 'h': 4.0,
+         'type': 'VINYL CASEMENT, DOUBLE PANE', 'type_id': 'WIN-CASE-36x48',
+         'u_factor': 0.30, 'sill': 3.0, 'pos_assumed': False,
+         'cx': rx, 'cy': W + 4.0, 'wall': 'rear-west',
+         'remarks': 'ADU sleeping egress'},
+        {'mark': 'W2', 'w': 3.0, 'h': 4.0,
+         'type': 'VINYL CASEMENT, DOUBLE PANE', 'type_id': 'WIN-CASE-36x48',
+         'u_factor': 0.30, 'sill': 3.0, 'pos_assumed': False,
+         'cx': rx + s['rear_L'], 'cy': W + 8.0, 'wall': 'rear-east',
+         'remarks': 'workshop east light'},
+        {'mark': 'W3', 'w': 4.0, 'h': 6.0,
+         'type': 'VINYL FIXED, DOUBLE PANE', 'type_id': 'WIN-FIX-48x72',
+         'u_factor': 0.30, 'sill': 2.5, 'pos_assumed': False,
+         'cx': rx + 2.5, 'cy': W + rW, 'wall': 'rear-north',
+         'remarks': 'ADU kitchen light, clear of entry D4'},
+        {'mark': 'W4', 'w': 2.0, 'h': 3.0,
+         'type': 'VINYL AWNING, DOUBLE PANE', 'type_id': 'WIN-AWN-24x36',
+         'u_factor': 0.30, 'sill': 5.0, 'pos_assumed': False,
+         'cx': rx + 12.0, 'cy': W + rW, 'wall': 'rear-north',
+         'remarks': 'ADU bath, high sill'},
     ]
 
 
@@ -264,8 +294,9 @@ def build_structure() -> dict:
         {'id': 'B2', 'section': s['beam'], 'x': 2 * b, 'y1': 0.0,
          'y2': W + rW},
     ]
-    # Strong-Walls flank each overhead door [BOM: 4x SSW24x9 + 2x SSW24x12;
-    # exact stations are the truss/foundation engineer's — pos_assumed]
+    # Strong-Walls flank each overhead door [BOM: 4x SSW24x9 + 2x SSW24x12].
+    # Confirmed [USER 2026-09-25]: shear at the large garage openings.
+    # SSW24x9 at the 9' doors, SSW24x12 at the 12' Bay 2 door.
     ssw = []
     for i, (x0, y, h, model) in enumerate((
             (0.0, 0.0, 9.0, 'SSW24x9'), (b - s['ssw_w'], 0.0, 9.0,
@@ -275,7 +306,7 @@ def build_structure() -> dict:
             (2 * b, 0.0, 9.0, 'SSW24x9'), (3 * b - s['ssw_w'], 0.0, 9.0,
                                            'SSW24x9'))):
         ssw.append({'id': 'SW%d' % (i + 1), 'model': model, 'x': x0,
-                    'y': y, 'h': h, 'pos_assumed': True})
+                    'y': y, 'h': h, 'pos_assumed': False})
     return {'beams': beams, 'strong_walls': ssw}
 
 
@@ -311,8 +342,9 @@ def build_notes() -> dict:
             'PLATES: DOUBLE TOP, PT SILL',
             'STEEL BEAMS: W16x40 (2 REQUIRED)',
             'STRONG-WALLS: SIMPSON SSW PER SCHEDULE',
-            'SHEATHING: 5/8" DF STRUCTURAL SIDING PER ENGINEERING MEMO '
-            '(supersedes RB 7/16" OSB note — Q-SHTG)',
+            'SHEATHING: 7/16" OSB APA RATED, 8d @ 6" EDGE / 12" FIELD; '
+            '5/8" DF BOARD-AND-BATTEN IS FINISH OVER WRB '
+            '[USER 2026-09-25]',
             'TRUSSES: 24" O.C., ENGINEERED',
             'SNOW LOAD: 75 PSF',
         ],
@@ -330,7 +362,8 @@ def build_notes() -> dict:
             'WATER SUPPLY: 3/4" MINIMUM',
             'HOT/COLD WATER: TYPE L COPPER',
             'DRAIN/WASTE: SCHEDULE 40 PVC',
-            'WATER HEATER: 50 GAL ELECTRIC (Q-WH)',
+            'WATER HEATER: TANKLESS PROPANE + ~10 GAL BUFFER '
+            '[USER 2026-07-13]',
             'LOW-FLOW FIXTURES: EPA WATERSENSE',
             'BACKFLOW PREVENTION: AT HOSE BIBS',
         ],
@@ -456,19 +489,19 @@ def open_questions() -> list[dict]:
               'exactly the main ridge height (ridge N-S at x=24, dies into '
               'the main roof). Geometry is in the massing; confirm before '
               'elevations print.'},
-        {'id': 'Q-WIN', 'status': 'open',
-         'q': 'Windows: RB schedule = 4x 4\'x4\' casement; BOM = 2x 3\'x4\' '
-              'casement + 1x 4\'x6\' fixed + 1x 2\'x3\' awning. Using RB.'},
+        {'id': 'Q-WIN', 'status': 'resolved',
+         'q': 'USER 2026-09-25: use the BOM mix. 2x 3\'x4\' casement, '
+              '1x 4\'x6\' fixed, 1x 2\'x3\' awning. RB 4x4 casements dropped.'},
         {'id': 'Q-WH', 'status': 'resolved',
          'q': 'USER 2026-07-12: HEAT PUMP. 2x 83-gal heat-pump water '
               'tanks per HANDOFF (garage utility + ADU mech); supersedes '
               'RB 50-gal electric.'},
         {'id': 'Q-INSUL', 'status': 'resolved',
          'q': 'USER 2026-07-12: R-21 walls / R-38 ceilings.'},
-        {'id': 'Q-SHTG', 'status': 'open',
-         'q': 'RB framing note says 7/16" OSB sheathing; the engineering '
-              'structural-change memo makes 5/8" DF siding the structural '
-              'layer. Memo governs; RB note superseded.'},
+        {'id': 'Q-SHTG', 'status': 'resolved',
+         'q': 'USER 2026-09-25: 7/16" OSB is the structural sheathing, '
+              'standard nailing. 5/8" DF board-and-batten is finish over '
+              'WRB. The memo that made the siding the shear layer is withdrawn.'},
         {'id': 'Q-MECH', 'status': 'superseded',
          'q': 'Prior rear-addition mech closet SUPERSEDED [USER '
               '2026-07-13] by the new 9\'x12\' MECH/BATH room in Bay 3 NE '
@@ -500,41 +533,41 @@ def open_questions() -> list[dict]:
               '2\' fall -> bears at 12\' on the main north wall (1.5:12), '
               '2\' above the main 10\' eave — bearing/curb detail needed; '
               'verify pitch with truss fab against 75 PSF snow.'},
-        {'id': 'Q-LOC', 'status': 'open',
-         'q': 'Personnel door + window locations are not dimensioned in the '
-              'record; placements flagged pos_assumed=True need owner/'
-              'designer confirmation.'},
+        {'id': 'Q-LOC', 'status': 'resolved',
+         'q': 'USER 2026-09-25: place doors and windows by ordinary '
+              'practice. Overhead doors stay centered on the bays. ADU '
+              'entry D4 at the enlarged-plan station. Workshop entry D5 '
+              'centered on the north wall. D6 is a 3\'-0" 45-min hollow-'
+              'metal door into the workshop. D7 is the Mech/Bath door. '
+              'Windows: egress casement on the ADU west wall, fixed light '
+              'at the ADU kitchen, high awning at the ADU bath, casement '
+              'on the workshop east wall. Strong-Walls stay at the '
+              'overhead-door jambs.'},
         {'id': 'Q-OVERHANG', 'status': 'resolved',
          'q': 'USER 2026-07-12: 18" overhang, eaves + rakes; soffit 1x6 '
               'T&G pine w/ soffit lighting (supersedes HANDOFF 24" '
               'suggestion). In the roof massing.'},
-        {'id': 'Q-HOUSE', 'status': 'scoped',
-         'q': 'Phase 2 SCOPED: remove roof, add beds/baths upstairs '
-              '[USER 2026-07-12]; dormers + open-to-below, plus NW '
-              'first-floor master suite addition (bed/bath/WIC, vaulted, '
-              'single story) [USER 2026-07-13]. Existing plans on H1.1/'
-              'H1.2; criteria on H2.1; concepts on H2.2. PROGRAM '
-              'CONFIRMED: 4BR/2BA upstairs + NW master suite downstairs '
-              '= 5 BR / 3 BA; old master wing -> DEN/OFFICE/WORKOUT '
-              '[USER 2026-07-13]. Remaining: NW suite dims + field '
-              'verify. Benchmark: Sierra Star standard.'},
-        {'id': 'Q-SETBACK', 'status': 'open',
-         'q': 'APN 000-000-000 is 0.63 ac, ~263\' x ~112\' (county GIS '
-              '2026-07-13) — 30/40\' setbacks cannot fit 112\' depth. '
-              'OWNERS ALSO OWN THE ADJACENT PARCEL [USER 2026-07-13] -> '
-              'options: (a) confirm actual zone setbacks and build '
-              'within -001, (b) lot-line adjustment, (c) merger. '
-              'Identify adjacent APN w/ assessor, talk to Sample County '
-              'planning, commission survey. Garage anchor (150\', 35\') '
-              'adjusts to the chosen path.'},
+        {'id': 'Q-HOUSE', 'status': 'resolved',
+         'q': 'USER 2026-09-25: the 1/4" scaled sheet is the existing-'
+              'house record (nearest foot, see schad_house_basis). '
+              'Existing stairs stay. House is vacant during construction. '
+              'New roof matches the garage (6:12 charcoal standing seam) '
+              'and connects through an open breezeway. Program unchanged: '
+              '4 BR / 2 BA upstairs + NW master suite = 5 BR / 3 BA; old '
+              'master wing becomes den/office/workout.'},
+        {'id': 'Q-SETBACK', 'status': 'resolved',
+         'q': 'USER 2026-09-25: setbacks and survey are accepted. Garage '
+              'anchor stays at parcel-local (150\' E, 35\' N). No hold '
+              'for a further survey or a lot-line change.'},
         {'id': 'Q-HANDOFF10', 'status': 'open',
          'q': 'The 10 owner-preference questions in HANDOFF (stain color, '
               'batten finish, gutters, fixtures...) remain unanswered.'},
         {'id': 'Q-ROOFMAT', 'status': 'resolved',
          'q': 'SKP (July 2024) carries Cambridge Weatherwood shingle + '
               'HardiPlank/cedar materials — an earlier finish scheme. The '
-              'later BOM/HANDOFF standing-seam 24ga charcoal + 5/8" DF '
-              'board-and-batten govern. SKP remains the framing reference '
+              'later BOM/HANDOFF standing-seam 24ga charcoal governs the roof. '
+              '5/8" DF board-and-batten is the finish over OSB. SKP remains '
+              'the framing reference '
               '(Medeek walls/trusses/electrical layers).'},
     ]
 

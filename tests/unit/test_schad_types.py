@@ -24,7 +24,7 @@ from examples.schad_build import build_schad_model
 FT_TO_MM = 304.8
 
 RESIDENTIAL_WALL_TYPES = {"W-EXT-2x6-BNB", "W-INT-2x4", "W-1HR-GAR-ADU"}
-RESIDENTIAL_DOOR_TYPES = {"D-OH-12x9", "D-OH-12x12", "D-SC-36-ADA", "D-HM-30"}
+RESIDENTIAL_DOOR_TYPES = {"D-OH-12x9", "D-OH-12x12", "D-SC-36-ADA", "D-HM-3068"}
 INDUSTRIAL_WALL_TYPES = {"W-EXT-CMU", "W-INT-GYP", "W-SHIELD-CONC", "W-GENERIC-200"}
 INDUSTRIAL_DOOR_TYPES = {"D-HM-36", "D-HM-72", "D-SHIELD-PLUG"}
 
@@ -41,10 +41,13 @@ def _by_category(project, category):
 def test_registry_ships_residential_types():
     assert RESIDENTIAL_WALL_TYPES <= set(DEFAULT_WALL_TYPES)
     assert RESIDENTIAL_DOOR_TYPES <= set(DEFAULT_DOOR_TYPES)
-    assert "WIN-CASE-48x48" in DEFAULT_WINDOW_TYPES
-    # window U-factor per the basis schedule [RB A4.1]
+    for win in basis.build_windows():
+        assert win["type_id"] in DEFAULT_WINDOW_TYPES
     u_factors = {w["u_factor"] for w in basis.build_windows()}
-    assert {DEFAULT_WINDOW_TYPES["WIN-CASE-48x48"].u_value} == u_factors
+    catalog_u = {
+        DEFAULT_WINDOW_TYPES[w["type_id"]].u_value for w in basis.build_windows()
+    }
+    assert catalog_u == u_factors
     # wall thickness comes from the layer stack, not a hardcoded scalar
     for tid in RESIDENTIAL_WALL_TYPES:
         wt = DEFAULT_WALL_TYPES[tid]
@@ -112,18 +115,18 @@ def test_doors_typed_per_basis(project):
             assert dt.width_mm == pytest.approx(rec["w"] * FT_TO_MM)
             assert dt.height_mm == pytest.approx(rec["h"] * FT_TO_MM)
         elif "HOLLOW METAL" in rec.get("remarks", "").upper():
-            assert d.type_id == "D-HM-30"
+            assert d.type_id == "D-HM-3068"
         else:
             assert d.type_id == "D-SC-36-ADA"
 
 
 def test_windows_typed_per_basis(project):
     windows = _by_category(project, "window")
-    schedule = basis.build_windows()
-    assert len(windows) == len(schedule)
+    schedule = {w["mark"]: w for w in basis.build_windows()}
+    assert {w.name for w in windows} == set(schedule)
     for w in windows:
-        assert w.type_id == "WIN-CASE-48x48"
-    # registered casement matches the basis 4'x4' schedule row
-    wt = DEFAULT_WINDOW_TYPES["WIN-CASE-48x48"]
-    assert wt.width_mm == pytest.approx(schedule[0]["w"] * FT_TO_MM)
-    assert wt.height_mm == pytest.approx(schedule[0]["h"] * FT_TO_MM)
+        rec = schedule[w.name]
+        assert w.type_id == rec["type_id"]
+        wt = DEFAULT_WINDOW_TYPES[w.type_id]
+        assert wt.width_mm == pytest.approx(rec["w"] * FT_TO_MM)
+        assert wt.height_mm == pytest.approx(rec["h"] * FT_TO_MM)

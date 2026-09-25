@@ -150,16 +150,18 @@ DEFAULT_WALL_TYPES: dict[str, WallType] = {
     # --- residential wood types (WP-SCHAD-S1, docs/SCHAD_REVIT_TO_LLMBIM_TRANSITION.md §7.1)
     "W-EXT-2x6-BNB": WallType(
         id="W-EXT-2x6-BNB",
-        name='Exterior 2x6 + 5/8" DF board-and-batten',
+        name='Exterior 2x6 + 7/16" OSB + DF board-and-batten',
         layers=[
-            # 5/8" DF board-and-batten siding IS the structural/shear layer
-            # (engineering memo governs over the OSB note — Schad Q-SHTG)
-            MaterialLayer(material="df_bnb_siding", thickness_mm=0.625 * _IN_MM, function="structure", density_kg_m3=550),
+            # Q-SHTG resolved [USER 2026-09-25]: 7/16" OSB is the shear
+            # sheathing. 5/8" DF board-and-batten is finish over a WRB.
+            MaterialLayer(material="df_bnb_siding", thickness_mm=0.625 * _IN_MM, function="finish", density_kg_m3=550),
+            MaterialLayer(material="wrb", thickness_mm=1.0, function="membrane", density_kg_m3=900),
+            MaterialLayer(material="osb_7_16", thickness_mm=0.4375 * _IN_MM, function="structure", density_kg_m3=650),
             # 2x6 DF-L studs @ 16" OC, R-21 batt in cavity
             MaterialLayer(material="wood_stud_2x6", thickness_mm=5.5 * _IN_MM, function="structure", density_kg_m3=150),
             MaterialLayer(material="gypsum", thickness_mm=0.625 * _IN_MM, function="finish", density_kg_m3=800, unit_cost_per_m3=120),
         ],
-        description='2x6 DF-L @ 16" OC; 5/8" DF board-and-batten structural siding; R-21 batt cavity; 5/8" gyp interior',
+        description='2x6 DF-L @ 16" OC; 7/16" OSB shear sheathing; WRB; 5/8" DF board-and-batten finish; R-21 batt; 5/8" gyp interior',
     ),
     "W-INT-2x4": WallType(
         id="W-INT-2x4",
@@ -217,6 +219,13 @@ DEFAULT_DOOR_TYPES: dict[str, DoorType] = {
         height_mm=(6 * 12 + 8) * _IN_MM,
         material="hollow_metal",
     ),
+    "D-HM-3068": DoorType(
+        id="D-HM-3068",
+        name="Hollow metal 3'-0\" x 6'-8\", 45-min",
+        width_mm=3 * _FT_MM,
+        height_mm=(6 * 12 + 8) * _IN_MM,
+        material="hollow_metal",
+    ),
 }
 
 DEFAULT_WINDOW_TYPES: dict[str, WindowType] = {
@@ -228,6 +237,28 @@ DEFAULT_WINDOW_TYPES: dict[str, WindowType] = {
         name="Vinyl casement 4'-0\" x 4'-0\", double pane, U-0.30",
         width_mm=4 * _FT_MM,
         height_mm=4 * _FT_MM,
+        u_value=0.30,
+    ),
+    # BOM mix [USER 2026-09-25] — Q-WIN. U-0.30 matches the record.
+    "WIN-CASE-36x48": WindowType(
+        id="WIN-CASE-36x48",
+        name="Vinyl casement 3'-0\" x 4'-0\", double pane, U-0.30",
+        width_mm=3 * _FT_MM,
+        height_mm=4 * _FT_MM,
+        u_value=0.30,
+    ),
+    "WIN-FIX-48x72": WindowType(
+        id="WIN-FIX-48x72",
+        name="Vinyl fixed 4'-0\" x 6'-0\", double pane, U-0.30",
+        width_mm=4 * _FT_MM,
+        height_mm=6 * _FT_MM,
+        u_value=0.30,
+    ),
+    "WIN-AWN-24x36": WindowType(
+        id="WIN-AWN-24x36",
+        name="Vinyl awning 2'-0\" x 3'-0\", double pane, U-0.30",
+        width_mm=2 * _FT_MM,
+        height_mm=3 * _FT_MM,
         u_value=0.30,
     ),
 }
