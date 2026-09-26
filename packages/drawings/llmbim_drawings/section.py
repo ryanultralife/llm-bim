@@ -1155,6 +1155,7 @@ def render_elevation_svg(
     units: str = "metric",
     weights: bool = False,
     exterior: bool = False,
+    level: str | None = None,
 ) -> str:
     """Orthographic elevation. N looks toward +Y (from south), etc.
 
@@ -1180,7 +1181,21 @@ def render_elevation_svg(
     opening_rects: list[tuple[float, float, float, float, str, str]] = []  # h0,h1,z0,z1,fill,label
     pipe_segs: list[tuple[float, float, float, str]] = []  # h0, h1, z, stroke (horizontal)
     riser_segs: list[tuple[float, float, float, str]] = []  # h, z0, z1, stroke (vertical)
-    wall_by_id = {el.id: el for el in model.elements if el.category == "wall"}
+    level_id = None
+    if level:
+        found = [lv.id for lv in model.levels if lv.name == level]
+        if not found:
+            raise ValidationError("elevation level is not in the model", level=level)
+        level_id = found[0]
+
+    def _on_level(el: Element) -> bool:
+        return level_id is None or el.level_id == level_id
+
+    wall_by_id = {
+        el.id: el
+        for el in model.elements
+        if el.category == "wall" and _on_level(el)
+    }
 
     # building extent along the view's DEPTH axis (Y for N/S, X for E/W) — used to
     # decide which face an opening is on so opposite elevations differ.
@@ -1254,6 +1269,8 @@ def render_elevation_svg(
     found_rects: list[tuple[float, float, float, float]] = []  # h0, h1, z0, z1
 
     for el in model.elements:
+        if not _on_level(el):
+            continue
         if el.category == "wall":
             if exterior and not _is_exterior_wall(el):
                 continue  # skip partitions — they X-ray the facade

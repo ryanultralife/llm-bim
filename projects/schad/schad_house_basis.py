@@ -355,6 +355,91 @@ def house_field_verify() -> list[str]:
     ]
 
 
+# Garage-frame location of house-local (0, 0). +x east, +y on the sheet is south.
+# East face at local x=90 meets the breezeway west end (garage x=-18).
+# Local y=9 (laundry) meets the breezeway center (garage y=16).
+HOUSE_ORIGIN_FT = (-108.0, 25.0)
+HOUSE_PLATE_FT = 8.0          # assumed; the sheet does not give a plate height
+HOUSE_FLOOR_TO_FLOOR_FT = 9.0  # assumed main-to-upper
+
+
+def to_site_ft(x: float, y: float) -> tuple[float, float]:
+    ox, oy = HOUSE_ORIGIN_FT
+    return ox + x, oy - y
+
+
+def wall_segments(rooms: list[dict], *, twox6: set[str] | None = None) -> list[dict]:
+    """Unique wall pieces from room boxes. Shared edges are interior."""
+    twox6 = twox6 or set()
+    horiz: dict[float, list[tuple[float, float, str]]] = {}
+    vert: dict[float, list[tuple[float, float, str]]] = {}
+    for r in rooms:
+        x, y, w, d = r["x"], r["y"], r["w"], r["d"]
+        name = r.get("id") or r["name"]
+        horiz.setdefault(round(y, 2), []).append((x, x + w, name))
+        horiz.setdefault(round(y + d, 2), []).append((x, x + w, name))
+        vert.setdefault(round(x, 2), []).append((y, y + d, name))
+        vert.setdefault(round(x + w, 2), []).append((y, y + d, name))
+
+    def emit(groups, horizontal: bool) -> list[dict]:
+        out = []
+        for fixed, spans in groups.items():
+            cuts = sorted({p for a, b, _n in spans for p in (min(a, b), max(a, b))})
+            for i in range(len(cuts) - 1):
+                a, b = cuts[i], cuts[i + 1]
+                if b - a < 0.4:
+                    continue
+                mid = (a + b) / 2
+                owners = [
+                    n for lo, hi, n in spans
+                    if min(lo, hi) - 0.05 <= mid <= max(lo, hi) + 0.05
+                ]
+                if not owners:
+                    continue
+                interior = len(owners) >= 2
+                if (not interior) and any(n in twox6 for n in owners):
+                    type_id, thick = "W-EXT-2x6-BNB", 6.5 / 12
+                elif not interior:
+                    type_id, thick = "W-EXT-2x6-BNB", 3.5 / 12
+                else:
+                    type_id, thick = "W-INT-2x4", 3.5 / 12
+                if horizontal:
+                    x1, y1, x2, y2 = a, fixed, b, fixed
+                else:
+                    x1, y1, x2, y2 = fixed, a, fixed, b
+                out.append({
+                    "x1": x1, "y1": y1, "x2": x2, "y2": y2,
+                    "kind": "interior" if interior else "exterior",
+                    "type_id": type_id, "thick": thick,
+                })
+        return out
+
+    return emit(horiz, True) + emit(vert, False)
+
+
+def _skip_outdoor(rooms: list[dict]) -> list[dict]:
+    skip = {"DECK", "PORCH", "STAIR-W"}
+    return [r for r in rooms if r.get("id") not in skip and "Deck" not in r["name"] and "Porch" not in r["name"]]
+
+
+def existing_main_walls() -> list[dict]:
+    rooms = _skip_outdoor([r for r in house_rooms() if r["level"] == "Main"])
+    return wall_segments(rooms, twox6={"MASTER"})
+
+
+def existing_upper_walls() -> list[dict]:
+    rooms = [r for r in house_rooms() if r["level"] == "Upper"]
+    return wall_segments(rooms)
+
+
+def proposed_upper_walls() -> list[dict]:
+    return wall_segments(concept_upper(), twox6=set())
+
+
+def suite_walls() -> list[dict]:
+    return wall_segments(concept_suite(), twox6={"MASTER BED"})
+
+
 if __name__ == '__main__':
     print('SCHAD house: %d rooms' % len(house_rooms()))
     print('breezeway', breezeway())

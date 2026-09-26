@@ -44,7 +44,7 @@ EXPECTED_SHEET_FILES = {
     "S3-1_details.svg", "S3-2_details.svg", "S3-3_details.svg",
     "A4-1_schedule.svg", "S4-1_custom.svg",
     "MEP-101_plan.svg", "MEP-201_plan.svg", "MEP-301_plan.svg",
-    "H1-1_custom.svg", "H1-2_custom.svg", "H2-1_doc.svg", "H2-2_custom.svg",
+    "H1-1_plan.svg", "H1-2_plan.svg", "H2-1_plan.svg", "H2-2_plan.svg",
 }
 
 
@@ -176,7 +176,7 @@ def test_roofs_placed_ridge_18ft(project):
     roofs = {el.name: el for el in _by_category(project, "roof")}
     assert set(roofs) == {
         "Roof-Main-Gable", "Roof-Bay2-CrossGable", "Roof-Rear-Shed",
-        "Roof-Breezeway",
+        "Roof-Breezeway", "Roof-House",
     }
     ridge_mm = s["ridge"] * FT_TO_MM
     # drift pin (WP-SCHAD-S8 CI guard): the PUBLISHED ridge is 18' = 5486.4 mm
@@ -263,11 +263,10 @@ def test_structural_schedule_sheet_has_ssw_and_rebar_rows(pack):
 
 def test_doc_sheet_carries_honesty_stamp(pack):
     _proj, out, _verify = pack
-    svg = (out / "construction" / "H2-1_doc.svg").read_text(encoding="utf-8")
-    assert "NOT FOR CONSTRUCTION" in svg
-    # cover carries the stamp too
     cover = (out / "construction" / "A0-1_cover.svg").read_text(encoding="utf-8")
     assert "NOT FOR CONSTRUCTION" in cover
+    note = (out / "schad_basis_snapshot.json").read_text(encoding="utf-8")
+    assert "NOT FOR CONSTRUCTION" in note
 
 
 def test_pack_verify_ok_with_calc_docs_and_history(pack):

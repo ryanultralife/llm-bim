@@ -198,12 +198,25 @@ def _multi_sheet(
 
 def _building_cuts(
     model: ProjectModel,
+    level: str | None = None,
 ) -> tuple[tuple[tuple[float, float], tuple[float, float]],
            tuple[tuple[float, float], tuple[float, float]]]:
-    """Two default section cuts from building extents: (A-A transverse, B-B longitudinal)."""
+    """Two default section cuts from building extents: (A-A transverse, B-B longitudinal).
+
+    ``level`` limits the extent to that level's walls, so a second building
+    in the same model does not pull the cut off the one the sheet is about.
+    """
+    level_id = None
+    if level:
+        found = [lv.id for lv in model.levels if lv.name == level]
+        if not found:
+            raise ValidationError("section level is not in the model", level=level)
+        level_id = found[0]
     xs: list[float] = []
     ys: list[float] = []
     for el in model.elements:
+        if level_id is not None and el.level_id != level_id:
+            continue
         if el.category == "wall" and "start_mm" in el.params:
             xs += [float(el.params["start_mm"][0]), float(el.params["end_mm"][0])]
             ys += [float(el.params["start_mm"][1]), float(el.params["end_mm"][1])]
@@ -2137,6 +2150,7 @@ def _export_custom_register(
                 raise ValidationError("elevations 'pair' must use N|S|E|W", no=no, pair=pair)
             sheet_lw = bool(spec.get("line_weights", line_weights))
             cells: list[tuple] = []
+            elev_level = spec.get("level")
             for direction in pair:
                 cell_title = _ELEV_NAMES[direction]
                 elev_svg = render_elevation_svg(
@@ -2146,6 +2160,7 @@ def _export_custom_register(
                     units=sheet_units,
                     weights=sheet_lw,
                     exterior=bool(spec.get("exterior", True)),
+                    level=str(elev_level) if elev_level else None,
                 )
                 cells.append((_view_from_full_svg(elev_svg, cell_title), cell_title,
                               str(spec.get("scale_note") or nominal), sc))
@@ -2160,7 +2175,7 @@ def _export_custom_register(
         elif kind == "sections":
             sheet_lw = bool(spec.get("line_weights", line_weights))
             sheet_hatch = bool(spec.get("hatches", hatches))
-            cut_a, cut_b = _building_cuts(model)
+            cut_a, cut_b = _building_cuts(model, level=spec.get("level"))
             sec_cells: list[tuple] = []
             for (p0, p1), lab in ((cut_a, "A"), (cut_b, "B")):
                 sec_svg = render_section_svg(

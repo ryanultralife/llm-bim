@@ -35,7 +35,9 @@ def room_areas_sf(project):
     out: dict[str, float] = {}
     for el in project.model.elements:
         if el.category == "room":
-            kind = kinds[el.name]
+            kind = kinds.get(el.name)
+            if not kind:
+                continue
             out[kind] = out.get(kind, 0.0) + el.params["area_mm2"] / MM2_PER_SF
     return out
 

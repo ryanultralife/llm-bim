@@ -56,15 +56,20 @@ def test_registry_ships_residential_types():
         assert wt.total_thickness_mm > 0
 
 
+def _garage_walls(project):
+    return [w for w in _by_category(project, "wall") if not str(w.name).startswith("H-")]
+
+
 def test_all_walls_wood_zero_industrial(project):
     walls = _by_category(project, "wall")
-    assert len(walls) == len(basis.build_walls())
+    garage = _garage_walls(project)
+    assert len(garage) == len(basis.build_walls())
     type_ids = {w.type_id for w in walls}
     assert type_ids <= RESIDENTIAL_WALL_TYPES, f"non-residential wall types: {type_ids}"
     # transition §8: do NOT map Schad walls to W-EXT-CMU after S1
     assert not (type_ids & INDUSTRIAL_WALL_TYPES)
     # every basis wall kind resolved to the intended type
-    for w, rec in zip(walls, basis.build_walls()):
+    for w, rec in zip(garage, basis.build_walls()):
         kind = rec["kind"].lower()
         if "fire" in kind:
             assert w.type_id == "W-1HR-GAR-ADU", w.name
@@ -102,9 +107,10 @@ def test_set_type_synced_thickness_and_layers(project):
 def test_doors_typed_per_basis(project):
     doors = _by_category(project, "door")
     schedule = {d["mark"]: d for d in basis.build_doors()}
-    # every scheduled door placed (no orphans dropped to notes)
-    assert {d.name for d in doors} == set(schedule)
-    for d in doors:
+    by_name = {d.name: d for d in doors}
+    # every scheduled door placed; house doors are extra and named H-*
+    assert set(schedule) <= set(by_name)
+    for d in (by_name[mark] for mark in schedule):
         rec = schedule[d.name]
         assert d.type_id in RESIDENTIAL_DOOR_TYPES, (d.name, d.type_id)
         assert d.type_id not in INDUSTRIAL_DOOR_TYPES
@@ -123,8 +129,9 @@ def test_doors_typed_per_basis(project):
 def test_windows_typed_per_basis(project):
     windows = _by_category(project, "window")
     schedule = {w["mark"]: w for w in basis.build_windows()}
-    assert {w.name for w in windows} == set(schedule)
-    for w in windows:
+    by_name = {w.name: w for w in windows}
+    assert set(schedule) <= set(by_name)
+    for w in (by_name[mark] for mark in schedule):
         rec = schedule[w.name]
         assert w.type_id == rec["type_id"]
         wt = DEFAULT_WINDOW_TYPES[w.type_id]

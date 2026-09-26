@@ -239,7 +239,14 @@ def test_schad_rules_no_wall_exceeds_story(project):
     # the tall Bay-2 / fire-separation walls surface as multi-plate info
     s = basis.build_scalars()
     tall = [w for w in basis.build_walls() if w["height"] > s["plate_main"]]
-    infos = [f for f in findings if f["rule"] == "WALL_MULTI_PLATE"]
+    garage_ids = {
+        w.id for w in _by_category(project, "wall")
+        if not str(w.name).startswith("H-")
+    }
+    infos = [
+        f for f in findings
+        if f["rule"] == "WALL_MULTI_PLATE" and f["element_id"] in garage_ids
+    ]
     assert len(infos) == len(tall)
 
 

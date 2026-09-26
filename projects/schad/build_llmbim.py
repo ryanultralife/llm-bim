@@ -803,7 +803,189 @@ def build_model(
             "S6 MEP/ADU content — Mech/Bath equipment at MEP-basis positions, "
             "plumbing fixture marks, panel/EV notes, ADU ADA note",
         )
+    _build_house(p)
+    if on_stage:
+        on_stage(
+            p,
+            "House BIM — existing main and upper, proposed upper, "
+            "northwest suite; sheets cut these levels",
+        )
     return p
+
+
+def _feet_token(text: str) -> float:
+    m = re.search(r"(\d+)'(?:-(\d+))?", text)
+    if not m:
+        return 4.0
+    return float(m.group(1)) + (float(m.group(2) or 0) / 12.0)
+
+
+def _opening_size_ft(op: dict) -> tuple[float, float, float]:
+    """Width along the wall, height, sill. Heights come from the label.
+
+    The head stays under the assumed 8 ft plate.
+    """
+    width = math.hypot(op["x2"] - op["x1"], op["y2"] - op["y1"])
+    label = op.get("label") or ""
+    if op["kind"] in {"door", "cased"}:
+        height = 6.0 + 8.0 / 12.0
+        return width, height, 0.0
+    parts = re.split(r"\s+x\s+", label, maxsplit=1)
+    height = _feet_token(parts[1]) if len(parts) == 2 else 4.0
+    sill = 5.0 if "AWN" in label else 3.0
+    limit = house.HOUSE_PLATE_FT - 0.25
+    if sill + height > limit:
+        sill = max(0.5, limit - height)
+    if sill + height > limit:
+        height = limit - 0.5
+        sill = 0.5
+    return width, height, sill
+
+
+def _place_on_walls(p: Project, level: str, walls: list[dict], openings: list[dict], phase: str) -> None:
+    """Create walls in the garage frame and host the openings that sit on them."""
+    built: list[dict] = []
+    for i, w in enumerate(walls):
+        sx, sy = house.to_site_ft(w["x1"], w["y1"])
+        ex, ey = house.to_site_ft(w["x2"], w["y2"])
+        eid = p.create_wall(
+            level=level,
+            start=(sx, sy),
+            end=(ex, ey),
+            unit="ft",
+            thickness=w["thick"],
+            height=house.HOUSE_PLATE_FT,
+            name=f"H-{level}-{i:02d}",
+            type_id=w["type_id"],
+        )
+        if level != "H-Main":
+            p.op("set_param", id=eid, key="multi_plate", value=True)
+            p.op("set_param", id=eid, key="plate_height_mm", value=ft(house.HOUSE_PLATE_FT))
+        p.op("set_phase", id=eid, phase=phase)
+        built.append({**w, "id": eid, "sx": sx, "sy": sy, "ex": ex, "ey": ey})
+
+    for op in openings:
+        mx = (op["x1"] + op["x2"]) / 2
+        my = (op["y1"] + op["y2"]) / 2
+        host = None
+        best = 1e9
+        for w in built:
+            # distance from the opening midpoint to the local wall segment
+            vx, vy = w["x2"] - w["x1"], w["y2"] - w["y1"]
+            L = math.hypot(vx, vy) or 1.0
+            t = ((mx - w["x1"]) * vx + (my - w["y1"]) * vy) / (L * L)
+            if t < -0.05 or t > 1.05:
+                continue
+            t = min(1.0, max(0.0, t))
+            px, py = w["x1"] + t * vx, w["y1"] + t * vy
+            dist = math.hypot(px - mx, py - my)
+            if dist < best:
+                best = dist
+                host = (w, t, L)
+        if host is None or best > 0.6:
+            continue
+        w, t, L = host
+        width, height, sill = _opening_size_ft(op)
+        off = t * L * FT_TO_MM - (width * FT_TO_MM) / 2
+        off = max(0.0, min(L * FT_TO_MM - width * FT_TO_MM, off))
+        if op["kind"] == "window":
+            eid = p.place_window(
+                host=w["id"],
+                offset_mm=off,
+                width_mm=width * FT_TO_MM,
+                height_mm=height * FT_TO_MM,
+                sill_mm=sill * FT_TO_MM,
+                name=f"H-{op['mark']}",
+                type_id="WIN-CASE-36x48",
+            )
+        else:
+            eid = p.place_door(
+                host=w["id"],
+                offset_mm=off,
+                width_mm=width * FT_TO_MM,
+                height_mm=height * FT_TO_MM,
+                name=f"H-{op['mark']}",
+                type_id="D-SC-36-ADA",
+            )
+        p.op("set_phase", id=eid, phase=phase)
+
+
+def _rooms_on(p: Project, level: str, rooms: list[dict], phase: str) -> None:
+    for r in rooms:
+        if r.get("id") in {"DECK", "PORCH", "STAIR-W"}:
+            continue
+        if "Deck" in r["name"] or "Porch" in r["name"]:
+            continue
+        x, y, w, d = r["x"], r["y"], r["w"], r["d"]
+        boundary = [
+            house.to_site_ft(x, y),
+            house.to_site_ft(x + w, y),
+            house.to_site_ft(x + w, y + d),
+            house.to_site_ft(x, y + d),
+        ]
+        eid = p.create_room(
+            level=level,
+            name=r["name"],
+            boundary=[(ft(a), ft(b)) for a, b in boundary],
+            height_mm=ft(house.HOUSE_PLATE_FT),
+        )
+        p.op("set_phase", id=eid, phase=phase)
+
+
+def _build_house(p: Project) -> None:
+    """Existing house and the new work, in the garage frame, on their own levels.
+
+    Sheets H1 and H2 cut these levels. Floor-to-floor is assumed: the scaled
+    sheet does not give a plate height.
+    """
+    p.add_level("H-Main", 0)
+    p.add_level("H-Upper", ft(house.HOUSE_FLOOR_TO_FLOOR_FT))
+    p.add_level("H-Proposed", ft(house.HOUSE_FLOOR_TO_FLOOR_FT))
+    p.add_level("H-Suite", 0)
+
+    _place_on_walls(p, "H-Main", house.existing_main_walls(), house.existing_openings(), "existing")
+    _rooms_on(p, "H-Main", [r for r in house.house_rooms() if r["level"] == "Main"], "existing")
+
+    _place_on_walls(p, "H-Upper", house.existing_upper_walls(), [], "demo")
+    _rooms_on(p, "H-Upper", [r for r in house.house_rooms() if r["level"] == "Upper"], "demo")
+
+    _place_on_walls(p, "H-Proposed", house.proposed_upper_walls(), house.proposed_openings(), "new")
+    _rooms_on(p, "H-Proposed", house.concept_upper(), "new")
+
+    suite_ops = [op for op in house.proposed_openings() if op["mark"] in {"NE", "NE2", "PB", "PW", "BD"}]
+    _place_on_walls(p, "H-Suite", house.suite_walls(), suite_ops, "new")
+    _rooms_on(p, "H-Suite", house.concept_suite(), "new")
+
+    # One roof over the existing main footprint so the model reads as a building.
+    # The new roof is 6:12 to match the garage. Plate is the assumed 8 ft.
+    xs = [0.0, 90.0]
+    ys = [-28.0, 23.0]
+    foot = [
+        (ft(house.to_site_ft(xs[0], ys[0])[0]), ft(house.to_site_ft(xs[0], ys[0])[1])),
+        (ft(house.to_site_ft(xs[1], ys[0])[0]), ft(house.to_site_ft(xs[1], ys[0])[1])),
+        (ft(house.to_site_ft(xs[1], ys[1])[0]), ft(house.to_site_ft(xs[1], ys[1])[1])),
+        (ft(house.to_site_ft(xs[0], ys[1])[0]), ft(house.to_site_ft(xs[0], ys[1])[1])),
+    ]
+    rid = p.create_gable_roof(
+        level="H-Main",
+        footprint=foot,
+        ridge_axis="x",
+        plate_mm=ft(house.HOUSE_PLATE_FT),
+        pitch=0.5,
+        overhang_mm=ft(1.5),
+        thickness_mm=ft(0.75),
+        name="Roof-House",
+    )
+    p.op("set_type", id=rid, type_id="R-METAL-R38")
+    p.op("set_phase", id=rid, phase="new")
+    p.create_note(
+        level="H-Main",
+        text=(
+            "HOUSE IN THE BIM. Plate 8 ft and floor-to-floor 9 ft are assumed. "
+            "Room sizes are the scaled sheet, nearest foot. " + HONESTY
+        ),
+        position=(ft(house.to_site_ft(40, 0)[0]), ft(house.to_site_ft(40, 0)[1])),
+    )
 
 
 def wall_type_counts(p: Project) -> dict[str, int]:
@@ -1115,9 +1297,9 @@ def schad_sheet_register(p: Project) -> list[dict[str, Any]]:
             room_tags=True,
         ),
         e("A1.2", "custom_svg", view=svg_plans.adu_plan_svg()),
-        e("A2.1", "elevations", pair=["S", "N"]),
-        e("A2.2", "elevations", pair=["E", "W"]),
-        e("A3.1", "sections"),
+        e("A2.1", "elevations", pair=["S", "N"], level="L1"),
+        e("A2.2", "elevations", pair=["E", "W"], level="L1"),
+        e("A3.1", "sections", level="L1"),
         e("S1.1", "custom_svg", provider=_foundation_plan_view),
         e("S2.1", "custom_svg", view=svg_plans.roof_framing_svg()),
         e("S3.1", "details", details=details[0:4]),
@@ -1171,10 +1353,35 @@ def schad_sheet_register(p: Project) -> list[dict[str, Any]]:
             hide_note_disciplines={"E", "P"},
             keynotes=True,
         ),
-        e("H1.1", "custom_svg", view=svg_plans.house_existing_svg("Main")),
-        e("H1.2", "custom_svg", view=svg_plans.house_existing_svg("Upper")),
-        e("H2.1", "doc", text=_remodel_doc_text()),
-        e("H2.2", "custom_svg", view=svg_plans.house_concept_svg()),
+        # Cut from the house levels. Not a hand-drawn SVG.
+        e(
+            "H1.1", "plan", level="H-Main",
+            include={"walls", "openings", "rooms"},
+            tags=True, room_tags=True, room_areas=True,
+            dimensions=True, grid_dims=False, dim_tiers=False,
+            key_plan=False, keynotes=False, scale=0.015,
+        ),
+        e(
+            "H1.2", "plan", level="H-Upper",
+            include={"walls", "openings", "rooms"},
+            tags=True, room_tags=True, room_areas=True,
+            dimensions=True, grid_dims=False, dim_tiers=False,
+            key_plan=False, keynotes=False, scale=0.015,
+        ),
+        e(
+            "H2.1", "plan", level="H-Suite",
+            include={"walls", "openings", "rooms"},
+            tags=True, room_tags=True, room_areas=True,
+            dimensions=True, grid_dims=False, dim_tiers=False,
+            key_plan=False, keynotes=False, scale=0.02,
+        ),
+        e(
+            "H2.2", "plan", level="H-Proposed",
+            include={"walls", "openings", "rooms"},
+            tags=True, room_tags=True, room_areas=True,
+            dimensions=True, grid_dims=False, dim_tiers=False,
+            key_plan=False, keynotes=False, scale=0.015,
+        ),
     ]
     return sheets
 
@@ -1263,6 +1470,10 @@ def build_pack(out_dir: Path) -> tuple[Project, dict[str, Any]]:
         stamp_block=True,
         sheets=schad_sheet_register(p),
     )
+    keep = {sh["file"] for sh in register["sheets"]} | {"SHEET_INDEX.json"}
+    for stale in cons.glob("*"):
+        if stale.is_file() and stale.name not in keep:
+            stale.unlink()
     export_pdf_binder(
         cons, out_dir / "PLOT_SET.pdf", title=p.model.name, units="imperial"
     )
